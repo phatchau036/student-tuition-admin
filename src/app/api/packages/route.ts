@@ -12,8 +12,12 @@ export async function GET() {
       school_id: String(row.school_id || "school-default"),
       name: String(row.name),
       amount: Number(row.amount),
+      original_amount: Number(row.original_amount || row.amount),
       cycle_unit: String(row.cycle_unit) as "month" | "week",
       cycle_value: Number(row.cycle_value),
+      discount_type: (row.discount_type as "none" | "percent" | "amount") || "none",
+      discount_value: Number(row.discount_value || 0),
+      benefits: String(row.benefits || ""),
       is_active: Number(row.is_active),
       created_at: String(row.created_at || ""),
     }));
@@ -34,7 +38,7 @@ export async function POST(req: Request) {
     await initDb();
     const db = getDb();
     const body = await req.json();
-    const { action, id, name, amount, cycle_unit, cycle_value, is_active } = body;
+    const { action, id, name, amount, original_amount, cycle_unit, cycle_value, discount_type, discount_value, benefits, is_active } = body;
 
     // 1. Thêm gói mới
     if (action === "create" || !action) {
@@ -43,14 +47,18 @@ export async function POST(req: Request) {
       }
       const newId = id || `pkg-${Date.now()}`;
       await db.execute({
-        sql: `INSERT INTO tuition_packages (id, name, amount, cycle_unit, cycle_value, is_active)
-              VALUES (?, ?, ?, ?, ?, ?)`,
+        sql: `INSERT INTO tuition_packages (id, name, amount, original_amount, cycle_unit, cycle_value, discount_type, discount_value, benefits, is_active)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         args: [
           newId,
           name.trim(),
           Number(amount) || 0,
+          Number(original_amount || amount) || 0,
           cycle_unit === "week" ? "week" : "month",
           Number(cycle_value) || 1,
+          discount_type || "none",
+          Number(discount_value) || 0,
+          benefits?.trim() || "",
           is_active !== undefined ? (Number(is_active) ? 1 : 0) : 1,
         ],
       });
@@ -65,13 +73,17 @@ export async function POST(req: Request) {
       }
       await db.execute({
         sql: `UPDATE tuition_packages 
-              SET name = ?, amount = ?, cycle_unit = ?, cycle_value = ?, is_active = ?
+              SET name = ?, amount = ?, original_amount = ?, cycle_unit = ?, cycle_value = ?, discount_type = ?, discount_value = ?, benefits = ?, is_active = ?
               WHERE id = ?`,
         args: [
           name.trim(),
           Number(amount) || 0,
+          Number(original_amount || amount) || 0,
           cycle_unit === "week" ? "week" : "month",
           Number(cycle_value) || 1,
+          discount_type || "none",
+          Number(discount_value) || 0,
+          benefits?.trim() || "",
           is_active !== undefined ? (Number(is_active) ? 1 : 0) : 1,
           id,
         ],

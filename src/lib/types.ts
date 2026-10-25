@@ -62,10 +62,14 @@ export interface DiscountOption {
 export interface TuitionPackage {
   id: string;
   school_id?: string;
-  name: string; // VD: "Theo tháng", "Theo quý - 3 tháng", "Khóa 6 tháng", "Gói 24 tuần"
-  amount: number; // VNĐ
+  name: string; // VD: "Theo tháng", "Theo quý - 3 tháng", "Khóa 6 tháng", "Khóa 1 năm"...
+  amount: number; // Số tiền thực thu (sau ưu đãi)
+  original_amount?: number; // Giá gốc ban đầu trước ưu đãi
   cycle_unit: "month" | "week"; // Đơn vị chu kỳ: Tháng hoặc Tuần
-  cycle_value: number; // Số lượng chu kỳ (VD: 1, 3, 6, 24...)
+  cycle_value: number; // Số lượng chu kỳ (VD: 1, 3, 6, 12...)
+  discount_type?: "none" | "percent" | "amount"; // Loại ưu đãi: không có, theo %, hoặc giảm số tiền trực tiếp
+  discount_value?: number; // Giá trị ưu đãi (VD: 10% hoặc 300.000đ)
+  benefits?: string; // Ưu đãi / Quyền lợi tặng kèm (VD: "Giảm 10% + Tặng 1 buổi bù + Giáo trình")
   is_active: number; // 1: Đang kích hoạt, 0: Tạm tắt
   created_at?: string;
 }

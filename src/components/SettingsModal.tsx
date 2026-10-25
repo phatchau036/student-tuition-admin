@@ -123,8 +123,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [packages, setPackages] = useState<TuitionPackage[]>(initialTuitionPackages);
   const [newPkgName, setNewPkgName] = useState("");
   const [newPkgAmount, setNewPkgAmount] = useState<number>(1000000);
+  const [newPkgOriginalAmount, setNewPkgOriginalAmount] = useState<number>(1000000);
   const [newPkgCycleUnit, setNewPkgCycleUnit] = useState<"month" | "week">("month");
   const [newPkgCycleValue, setNewPkgCycleValue] = useState<number>(1);
+  const [newPkgDiscountType, setNewPkgDiscountType] = useState<"none" | "percent" | "amount">("none");
+  const [newPkgDiscountValue, setNewPkgDiscountValue] = useState<number>(0);
+  const [newPkgBenefits, setNewPkgBenefits] = useState<string>("");
   const [isEditingPkgId, setIsEditingPkgId] = useState<string | null>(null);
 
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>(initialTimeSlots);
@@ -244,8 +248,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           id: isEditingPkgId,
           name: newPkgName.trim(),
           amount: Number(newPkgAmount) || 0,
+          original_amount: Number(newPkgOriginalAmount || newPkgAmount) || 0,
           cycle_unit: newPkgCycleUnit,
           cycle_value: Number(newPkgCycleValue) || 1,
+          discount_type: newPkgDiscountType,
+          discount_value: Number(newPkgDiscountValue) || 0,
+          benefits: newPkgBenefits.trim(),
           is_active: 1,
         }),
       });
@@ -260,8 +268,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         }
         setNewPkgName("");
         setNewPkgAmount(1000000);
+        setNewPkgOriginalAmount(1000000);
         setNewPkgCycleUnit("month");
         setNewPkgCycleValue(1);
+        setNewPkgDiscountType("none");
+        setNewPkgDiscountValue(0);
+        setNewPkgBenefits("");
         setIsEditingPkgId(null);
       } else {
         showToast(data.message || "Lỗi khi lưu gói học phí!", "error");
@@ -932,14 +944,148 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           required
                           value={newPkgName}
                           onChange={(e) => setNewPkgName(e.target.value)}
-                          placeholder="VD: Theo tháng, Theo quý - 3 tháng..."
+                          placeholder="VD: Theo quý - 3 tháng, Khóa 6 tháng..."
                           className="w-full px-3 py-2 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none"
                         />
                       </div>
 
+                      <div className="sm:col-span-1">
+                        <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">
+                          Đơn vị chu kỳ *
+                        </label>
+                        <select
+                          value={newPkgCycleUnit}
+                          onChange={(e) => setNewPkgCycleUnit(e.target.value as "month" | "week")}
+                          className="w-full px-3 py-2 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none"
+                        >
+                          <option value="month">Tháng (Khóa theo tháng/quý)</option>
+                          <option value="week">Tuần (Khóa theo tuần)</option>
+                        </select>
+                      </div>
+
+                      <div className="sm:col-span-1">
+                        <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">
+                          Số {newPkgCycleUnit === "month" ? "Tháng" : "Tuần"} *
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="200"
+                          required
+                          value={newPkgCycleValue}
+                          onChange={(e) => {
+                            const val = Number(e.target.value) || 1;
+                            setNewPkgCycleValue(val);
+                            // Auto estimate original amount based on base tuition
+                            if (baseTuition > 0 && newPkgCycleUnit === "month") {
+                              const autoOrig = baseTuition * val;
+                              setNewPkgOriginalAmount(autoOrig);
+                              if (newPkgDiscountType === "percent" && newPkgDiscountValue > 0) {
+                                setNewPkgAmount(Math.round(autoOrig * (1 - newPkgDiscountValue / 100)));
+                              } else if (newPkgDiscountType === "amount" && newPkgDiscountValue > 0) {
+                                setNewPkgAmount(Math.max(0, autoOrig - newPkgDiscountValue));
+                              } else {
+                                setNewPkgAmount(autoOrig);
+                              }
+                            }
+                          }}
+                          className="w-full px-3 py-2 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none"
+                        />
+                      </div>
+
+                      {/* Giá gốc ban đầu */}
                       <div className="sm:col-span-2">
                         <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">
-                          Số tiền (VNĐ) *
+                          Giá gốc ban đầu (VNĐ)
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            min="0"
+                            step="50000"
+                            value={newPkgOriginalAmount}
+                            onChange={(e) => {
+                              const val = Number(e.target.value) || 0;
+                              setNewPkgOriginalAmount(val);
+                              if (newPkgDiscountType === "percent" && newPkgDiscountValue > 0) {
+                                setNewPkgAmount(Math.round(val * (1 - newPkgDiscountValue / 100)));
+                              } else if (newPkgDiscountType === "amount" && newPkgDiscountValue > 0) {
+                                setNewPkgAmount(Math.max(0, val - newPkgDiscountValue));
+                              } else if (newPkgDiscountType === "none") {
+                                setNewPkgAmount(val);
+                              }
+                            }}
+                            className="w-full px-3 py-2 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none"
+                          />
+                          <span className="absolute right-3 top-2 text-[10px] font-bold text-slate-400">
+                            {formatVND(newPkgOriginalAmount)}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Loại ưu đãi */}
+                      <div className="sm:col-span-1">
+                        <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">
+                          Ưu đãi / Giảm giá
+                        </label>
+                        <select
+                          value={newPkgDiscountType}
+                          onChange={(e) => {
+                            const dt = e.target.value as "none" | "percent" | "amount";
+                            setNewPkgDiscountType(dt);
+                            if (dt === "none") {
+                              setNewPkgDiscountValue(0);
+                              setNewPkgAmount(newPkgOriginalAmount);
+                            } else if (dt === "percent") {
+                              const disc = 10;
+                              setNewPkgDiscountValue(disc);
+                              setNewPkgAmount(Math.round(newPkgOriginalAmount * (1 - disc / 100)));
+                            } else if (dt === "amount") {
+                              const disc = 200000;
+                              setNewPkgDiscountValue(disc);
+                              setNewPkgAmount(Math.max(0, newPkgOriginalAmount - disc));
+                            }
+                          }}
+                          className="w-full px-3 py-2 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none"
+                        >
+                          <option value="none">Không giảm</option>
+                          <option value="percent">Giảm theo %</option>
+                          <option value="amount">Giảm tiền mặt (VNĐ)</option>
+                        </select>
+                      </div>
+
+                      {/* Giá trị giảm */}
+                      <div className="sm:col-span-1">
+                        <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">
+                          Mức giảm {newPkgDiscountType === "percent" ? "(%)" : "(VNĐ)"}
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          disabled={newPkgDiscountType === "none"}
+                          value={newPkgDiscountValue}
+                          onChange={(e) => {
+                            const val = Number(e.target.value) || 0;
+                            setNewPkgDiscountValue(val);
+                            if (newPkgDiscountType === "percent") {
+                              setNewPkgAmount(Math.round(newPkgOriginalAmount * (1 - val / 100)));
+                            } else if (newPkgDiscountType === "amount") {
+                              setNewPkgAmount(Math.max(0, newPkgOriginalAmount - val));
+                            }
+                          }}
+                          className="w-full px-3 py-2 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none disabled:opacity-50"
+                        />
+                      </div>
+
+                      {/* Số tiền thực thu (Sau ưu đãi) */}
+                      <div className="sm:col-span-2">
+                        <label className="text-[10px] font-black uppercase tracking-wider text-emerald-600 block mb-1 flex items-center justify-between">
+                          <span>Số tiền thực thu (Sau ưu đãi) *</span>
+                          {newPkgOriginalAmount > newPkgAmount && (
+                            <span className="text-rose-500 font-bold">
+                              Tiết kiệm: {formatVND(newPkgOriginalAmount - newPkgAmount)}
+                            </span>
+                          )}
                         </label>
                         <div className="relative">
                           <input
@@ -949,7 +1095,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             required
                             value={newPkgAmount}
                             onChange={(e) => setNewPkgAmount(Number(e.target.value) || 0)}
-                            className="w-full px-3 py-2 text-xs font-black text-indigo-600 dark:text-indigo-400 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none"
+                            className="w-full px-3 py-2 text-xs font-black text-emerald-600 dark:text-emerald-400 rounded-xl border border-emerald-300 dark:border-emerald-800 bg-emerald-50/30 dark:bg-emerald-950/20 focus:ring-2 focus:ring-emerald-500 outline-none"
                           />
                           <span className="absolute right-3 top-2 text-[10px] font-bold text-slate-400">
                             {formatVND(newPkgAmount)}
@@ -957,32 +1103,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         </div>
                       </div>
 
+                      {/* Quyền lợi / Ưu đãi tặng kèm */}
                       <div className="sm:col-span-2">
                         <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">
-                          Đơn vị chu kỳ *
-                        </label>
-                        <select
-                          value={newPkgCycleUnit}
-                          onChange={(e) => setNewPkgCycleUnit(e.target.value as "month" | "week")}
-                          className="w-full px-3 py-2 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none"
-                        >
-                          <option value="month">Tháng (Học phí theo tháng/quý/khóa)</option>
-                          <option value="week">Tuần (Học phí theo số tuần/buổi)</option>
-                        </select>
-                      </div>
-
-                      <div className="sm:col-span-2">
-                        <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">
-                          Số lượng chu kỳ ({newPkgCycleUnit === "month" ? "Tháng" : "Tuần"}) *
+                          Ưu đãi & Quà tặng kèm (Tùy chọn)
                         </label>
                         <div className="flex items-center gap-2">
                           <input
-                            type="number"
-                            min="1"
-                            max="200"
-                            required
-                            value={newPkgCycleValue}
-                            onChange={(e) => setNewPkgCycleValue(Number(e.target.value) || 1)}
+                            type="text"
+                            value={newPkgBenefits}
+                            onChange={(e) => setNewPkgBenefits(e.target.value)}
+                            placeholder="VD: Tặng 1 buổi học bù + Bộ giáo trình chuyên sâu"
                             className="w-full px-3 py-2 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none"
                           />
                           <button
@@ -1023,12 +1154,38 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             </span>
                           </div>
 
-                          <div className="mt-2 text-lg font-black text-indigo-600 dark:text-indigo-400">
-                            {formatVND(pkg.amount)}
+                          <div className="mt-2 flex items-baseline gap-2 flex-wrap">
+                            <span className="text-lg font-black text-emerald-600 dark:text-emerald-400">
+                              {formatVND(pkg.amount)}
+                            </span>
+                            {pkg.original_amount && pkg.original_amount > pkg.amount && (
+                              <span className="text-xs font-semibold text-slate-400 line-through">
+                                {formatVND(pkg.original_amount)}
+                              </span>
+                            )}
                           </div>
-                          <span className="text-xs text-slate-500 font-medium block mt-0.5">
-                            Chu kỳ: {pkg.cycle_value} {pkg.cycle_unit === "month" ? "Tháng" : "Tuần"}
-                          </span>
+
+                          <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                            <span className="text-xs text-slate-500 font-medium">
+                              Chu kỳ: <strong>{pkg.cycle_value} {pkg.cycle_unit === "month" ? "Tháng" : "Tuần"}</strong>
+                            </span>
+                            {pkg.discount_type === "percent" && pkg.discount_value && pkg.discount_value > 0 ? (
+                              <span className="px-1.5 py-0.2 rounded text-[10px] font-black bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300">
+                                -{pkg.discount_value}%
+                              </span>
+                            ) : pkg.discount_type === "amount" && pkg.discount_value && pkg.discount_value > 0 ? (
+                              <span className="px-1.5 py-0.2 rounded text-[10px] font-black bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300">
+                                -{formatVND(pkg.discount_value)}
+                              </span>
+                            ) : null}
+                          </div>
+
+                          {pkg.benefits && (
+                            <div className="mt-2 p-2 rounded-xl bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/40 text-[11px] text-indigo-800 dark:text-indigo-300">
+                              <span className="font-bold block text-[10px] uppercase text-indigo-500">Ưu đãi tặng kèm:</span>
+                              <p className="mt-0.5 leading-relaxed">{pkg.benefits}</p>
+                            </div>
+                          )}
                         </div>
 
                         <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
@@ -1048,8 +1205,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                 setIsEditingPkgId(pkg.id);
                                 setNewPkgName(pkg.name);
                                 setNewPkgAmount(pkg.amount);
+                                setNewPkgOriginalAmount(pkg.original_amount || pkg.amount);
                                 setNewPkgCycleUnit(pkg.cycle_unit);
                                 setNewPkgCycleValue(pkg.cycle_value);
+                                setNewPkgDiscountType(pkg.discount_type || "none");
+                                setNewPkgDiscountValue(pkg.discount_value || 0);
+                                setNewPkgBenefits(pkg.benefits || "");
                               }}
                               className="p-1 text-slate-400 hover:text-indigo-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition"
                               title="Sửa thông tin gói"
