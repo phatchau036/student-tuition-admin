@@ -105,6 +105,8 @@ export interface Teacher {
   email?: string;
   color?: string; // Color badge
   specialty?: string; // Chuyên môn / Môn dạy
+  assigned_slot_ids?: string[]; // Danh sách ID các khung giờ / ca giáo viên được phân công dạy
+  assigned_slots_desc?: string; // Chuỗi mô tả các ca dạy (VD: "Thứ 2 – Thứ 7: 17:00 - 20:00")
   is_active: number; // 1 or 0
   student_count?: number;
   created_at?: string;

@@ -8,11 +8,12 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     const { id } = await params;
     const body = await req.json();
 
-    const { name, phone, email, specialty, color, is_active } = body;
+    const { name, phone, email, specialty, color, assigned_slot_ids, is_active } = body;
+    const slotJson = JSON.stringify(Array.isArray(assigned_slot_ids) ? assigned_slot_ids : []);
 
     await db.execute({
       sql: `UPDATE teachers 
-            SET name = ?, phone = ?, email = ?, specialty = ?, color = ?, is_active = ?
+            SET name = ?, phone = ?, email = ?, specialty = ?, color = ?, assigned_slot_ids = ?, is_active = ?
             WHERE id = ?`,
       args: [
         name.trim(),
@@ -20,6 +21,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         email?.trim() || "",
         specialty?.trim() || "",
         color || "indigo",
+        slotJson,
         is_active ? 1 : 0,
         id,
       ],

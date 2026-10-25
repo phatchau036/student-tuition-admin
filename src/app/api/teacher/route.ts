@@ -68,6 +68,9 @@ export async function GET(req: Request) {
     // 3. Get all Levels for Level upgrade dropdown
     const levelsRes = await db.execute("SELECT * FROM level_surcharges ORDER BY sort_order ASC");
 
+    // 4. Get all Time Slots for displaying teacher's assigned slots
+    const slotsRes = await db.execute("SELECT * FROM time_slots ORDER BY id ASC");
+
     return NextResponse.json({
       success: true,
       data: {
@@ -75,6 +78,7 @@ export async function GET(req: Request) {
         students: regularStudentsRes.rows,
         makeups: makeupsRes.rows,
         levels: levelsRes.rows,
+        time_slots: slotsRes.rows,
       },
     });
   } catch (error: unknown) {

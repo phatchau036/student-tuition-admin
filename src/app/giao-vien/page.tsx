@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { formatTimeSlotLabel } from "@/lib/tuition";
+import { TimeSlot } from "@/lib/types";
 import {
   GraduationCap,
   Calendar,
@@ -31,6 +33,7 @@ interface Teacher {
   email?: string;
   color?: string;
   specialty?: string;
+  assigned_slot_ids?: string[];
   school_id?: string;
   school_name?: string;
   school_code?: string;
@@ -84,6 +87,7 @@ export default function TeacherPortal() {
   const [students, setStudents] = useState<Student[]>([]);
   const [makeups, setMakeups] = useState<MakeupClass[]>([]);
   const [levels, setLevels] = useState<Level[]>([]);
+  const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<"all" | "makeups">("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -170,6 +174,7 @@ export default function TeacherPortal() {
         setStudents(json.data.students || []);
         setMakeups(json.data.makeups || []);
         setLevels(json.data.levels || []);
+        setTimeSlots(json.data.time_slots || []);
       } else {
         showToast(json.message || "Lỗi tải thông tin giáo viên", "error");
       }
@@ -386,6 +391,29 @@ export default function TeacherPortal() {
                     <span className="font-extrabold text-sm text-amber-300">{makeups.length} Buổi</span>
                   </div>
                 </div>
+
+                {/* Assigned Teaching Slots Badge */}
+                {activeTeacher.assigned_slot_ids && activeTeacher.assigned_slot_ids.length > 0 && (
+                  <div className="pt-2 border-t border-white/20 text-xs">
+                    <span className="text-blue-200 block text-[10px] uppercase font-bold flex items-center gap-1">
+                      <Clock className="w-3 h-3 text-blue-200" /> Ca dạy được phân công:
+                    </span>
+                    <div className="flex flex-wrap gap-1.5 mt-1">
+                      {activeTeacher.assigned_slot_ids.map((sId) => {
+                        const s = timeSlots.find((slot) => slot.id === sId);
+                        if (!s) return null;
+                        return (
+                          <span
+                            key={sId}
+                            className="px-2.5 py-0.5 rounded-lg text-[11px] font-black bg-white/20 backdrop-blur-md text-white border border-white/30"
+                          >
+                            {formatTimeSlotLabel(s)}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

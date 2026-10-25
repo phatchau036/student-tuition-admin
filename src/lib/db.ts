@@ -249,6 +249,7 @@ export async function initDb() {
   try { await db.execute("ALTER TABLE schools ADD COLUMN ip_restriction_enabled INTEGER DEFAULT 0"); } catch {}
   try { await db.execute("ALTER TABLE schools ADD COLUMN allowed_ips TEXT DEFAULT ''"); } catch {}
   try { await db.execute("ALTER TABLE teachers ADD COLUMN school_id TEXT DEFAULT 'school-default'"); } catch {}
+  try { await db.execute("ALTER TABLE teachers ADD COLUMN assigned_slot_ids TEXT DEFAULT '[]'"); } catch {}
   try { await db.execute("ALTER TABLE time_slots ADD COLUMN school_id TEXT DEFAULT 'school-default'"); } catch {}
   try { await db.execute("ALTER TABLE level_surcharges ADD COLUMN school_id TEXT DEFAULT 'school-default'"); } catch {}
   try { await db.execute("ALTER TABLE discount_presets ADD COLUMN school_id TEXT DEFAULT 'school-default'"); } catch {}

@@ -14,17 +14,28 @@ export async function GET() {
       ORDER BY t.created_at ASC
     `);
 
-    const teachers = teachersRes.rows.map((row) => ({
-      id: String(row.id),
-      name: String(row.name),
-      phone: String(row.phone),
-      email: row.email ? String(row.email) : "",
-      color: String(row.color || "indigo"),
-      specialty: row.specialty ? String(row.specialty) : "",
-      is_active: Number(row.is_active || 1),
-      student_count: Number(row.student_count || 0),
-      created_at: String(row.created_at || ""),
-    }));
+    const teachers = teachersRes.rows.map((row) => {
+      let assignedSlotIds: string[] = [];
+      try {
+        if (row.assigned_slot_ids) {
+          const parsed = JSON.parse(String(row.assigned_slot_ids));
+          if (Array.isArray(parsed)) assignedSlotIds = parsed;
+        }
+      } catch {}
+
+      return {
+        id: String(row.id),
+        name: String(row.name),
+        phone: String(row.phone),
+        email: row.email ? String(row.email) : "",
+        color: String(row.color || "indigo"),
+        specialty: row.specialty ? String(row.specialty) : "",
+        assigned_slot_ids: assignedSlotIds,
+        is_active: Number(row.is_active || 1),
+        student_count: Number(row.student_count || 0),
+        created_at: String(row.created_at || ""),
+      };
+    });
 
     return NextResponse.json({ success: true, data: teachers });
   } catch (error: unknown) {
@@ -42,7 +53,7 @@ export async function POST(req: Request) {
     const db = getDb();
     const body = await req.json();
 
-    const { name, phone, email, specialty, color } = body;
+    const { name, phone, email, specialty, color, assigned_slot_ids } = body;
 
     if (!name || !phone) {
       return NextResponse.json(
@@ -52,10 +63,12 @@ export async function POST(req: Request) {
     }
 
     const id = `tc-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+    const slotJson = JSON.stringify(Array.isArray(assigned_slot_ids) ? assigned_slot_ids : []);
+
     await db.execute({
-      sql: `INSERT INTO teachers (id, name, phone, email, specialty, color, is_active)
-            VALUES (?, ?, ?, ?, ?, ?, 1)`,
-      args: [id, name.trim(), phone.trim(), email?.trim() || "", specialty?.trim() || "", color || "indigo"],
+      sql: `INSERT INTO teachers (id, name, phone, email, specialty, color, assigned_slot_ids, is_active)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 1)`,
+      args: [id, name.trim(), phone.trim(), email?.trim() || "", specialty?.trim() || "", color || "indigo", slotJson],
     });
 
     return NextResponse.json({

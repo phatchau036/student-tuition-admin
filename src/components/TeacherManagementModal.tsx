@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
-import { Teacher } from "@/lib/types";
+import { Teacher, TimeSlot } from "@/lib/types";
+import { formatTimeSlotLabel } from "@/lib/tuition";
 import { useToast } from "@/components/Toast";
 import {
   GraduationCap,
@@ -16,12 +17,15 @@ import {
   X,
   User,
   Sparkles,
+  Clock,
+  Calendar,
 } from "lucide-react";
 
 interface TeacherManagementModalProps {
   isOpen: boolean;
   onClose: () => void;
   teachers: Teacher[];
+  timeSlots?: TimeSlot[];
   onRefresh: () => void;
 }
 
@@ -29,6 +33,7 @@ export const TeacherManagementModal: React.FC<TeacherManagementModalProps> = ({
   isOpen,
   onClose,
   teachers,
+  timeSlots = [],
   onRefresh,
 }) => {
   const { showToast } = useToast();
@@ -41,6 +46,7 @@ export const TeacherManagementModal: React.FC<TeacherManagementModalProps> = ({
   const [email, setEmail] = useState("");
   const [specialty, setSpecialty] = useState("");
   const [color, setColor] = useState("indigo");
+  const [assignedSlotIds, setAssignedSlotIds] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
 
   // Custom Delete Confirm state
@@ -55,6 +61,15 @@ export const TeacherManagementModal: React.FC<TeacherManagementModalProps> = ({
     setEmail("");
     setSpecialty("");
     setColor("indigo");
+    setAssignedSlotIds([]);
+  };
+
+  const toggleSlotAssignment = (slotId: string) => {
+    if (assignedSlotIds.includes(slotId)) {
+      setAssignedSlotIds(assignedSlotIds.filter((id) => id !== slotId));
+    } else {
+      setAssignedSlotIds([...assignedSlotIds, slotId]);
+    }
   };
 
   const handleEditClick = (teacher: Teacher) => {
@@ -65,6 +80,7 @@ export const TeacherManagementModal: React.FC<TeacherManagementModalProps> = ({
     setEmail(teacher.email || "");
     setSpecialty(teacher.specialty || "");
     setColor(teacher.color || "indigo");
+    setAssignedSlotIds(teacher.assigned_slot_ids || []);
   };
 
   const handleConfirmDeleteTeacher = async () => {
@@ -113,6 +129,7 @@ export const TeacherManagementModal: React.FC<TeacherManagementModalProps> = ({
           email: email.trim(),
           specialty: specialty.trim(),
           color,
+          assigned_slot_ids: assignedSlotIds,
           is_active: 1,
         }),
       });
@@ -235,6 +252,47 @@ export const TeacherManagementModal: React.FC<TeacherManagementModalProps> = ({
                 />
               </div>
 
+              {/* Phân công ca dạy / khung giờ phụ trách */}
+              <div>
+                <label className="text-[11px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 block mb-1.5 flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-indigo-600" />
+                  <span>Phân công ca dạy phụ trách:</span>
+                </label>
+                <div className="space-y-1.5 max-h-36 overflow-y-auto p-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900">
+                  {timeSlots.length === 0 ? (
+                    <span className="text-[11px] text-slate-400 italic block text-center py-2">
+                      Chưa cấu hình ca mở cửa nào trong hệ thống
+                    </span>
+                  ) : (
+                    timeSlots.map((slot) => {
+                      const isAssigned = assignedSlotIds.includes(slot.id);
+                      return (
+                        <div
+                          key={slot.id}
+                          onClick={() => toggleSlotAssignment(slot.id)}
+                          className={`p-2 rounded-lg border text-xs font-bold cursor-pointer transition flex items-center justify-between gap-2 ${
+                            isAssigned
+                              ? "bg-indigo-50 border-indigo-400 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300 dark:border-indigo-800 shadow-2xs"
+                              : "bg-white dark:bg-slate-800/80 border-slate-200 dark:border-slate-700/80 text-slate-700 dark:text-slate-300 hover:border-slate-300"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <div
+                              className={`w-3.5 h-3.5 rounded flex items-center justify-center border ${
+                                isAssigned ? "bg-indigo-600 border-indigo-600 text-white" : "border-slate-300 dark:border-slate-600"
+                              }`}
+                            >
+                              {isAssigned && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                            </div>
+                            <span>{formatTimeSlotLabel(slot)}</span>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+
               <div>
                 <label className="text-[11px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 block mb-1.5">
                   Màu đại diện
@@ -318,6 +376,27 @@ export const TeacherManagementModal: React.FC<TeacherManagementModalProps> = ({
                           <UserCheck className="w-3.5 h-3.5" /> {tc.student_count || 0} học sinh phụ trách
                         </span>
                       </div>
+
+                      {/* Display assigned time slots for this teacher */}
+                      {tc.assigned_slot_ids && tc.assigned_slot_ids.length > 0 && (
+                        <div className="flex items-center gap-1 flex-wrap mt-1.5">
+                          <span className="text-[10px] text-slate-400 font-bold flex items-center gap-1">
+                            <Clock className="w-3 h-3 text-indigo-500" /> Ca dạy:
+                          </span>
+                          {tc.assigned_slot_ids.map((sId) => {
+                            const matchedSlot = timeSlots.find((s) => s.id === sId);
+                            if (!matchedSlot) return null;
+                            return (
+                              <span
+                                key={sId}
+                                className="px-2 py-0.2 rounded-md text-[10px] font-black bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-900/40"
+                              >
+                                {formatTimeSlotLabel(matchedSlot)}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   </div>
 

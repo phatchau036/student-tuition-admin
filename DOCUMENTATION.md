@@ -143,26 +143,21 @@ Tại mỗi dòng học sinh hoặc trong màn hình chi tiết, Admin có thể
 
 ---
 
-### 3.4. Tích hợp nhắc học phí Zalo (Thủ công / Bot)
+### 3.4. Tích hợp nhắc học phí Zalo (Thủ công & Zalo Bot Platform)
 
 #### A. Cấu hình trong Cài đặt (`Settings > Nhắc Zalo`)
-- **Phương thức B - Nhắc học phí thủ công (Manual Assist):** Kích hoạt mặc định.
-- **Phương thức A - Tích hợp Bot Zalo OA (Tự động):** Hiển thị form mẫu bị khóa kèm tooltip *"Sẽ cập nhật ở phiên bản tiếp theo"*.
+- **Phương thức B - Nhắc học phí thủ công (Manual Assist):** Soạn sẵn nội dung tin nhắn và mở liên kết trực tiếp đến tài khoản chat của phụ huynh.
+- **Phương thức A - Tích hợp Zalo Bot Platform:**
+  - Nhập **Bot Token** được cấp từ nền tảng Zalo Bot Creator.
+  - Nút **"Kiểm tra kết nối Bot"** tự động gọi API `getMe` xác minh tên bot và tính hợp lệ của token.
+  - Khi lưu cấu hình, hệ thống sẽ kích hoạt tính năng gửi tin nhắn tự động.
 
-#### B. Hỗ trợ nhắc nợ thủ công 1-Click (`ZaloReminderModal`)
+#### B. Hỗ trợ nhắc nợ 1-Click (`ZaloReminderModal`)
 - Khi bấm icon Zalo trên dòng học sinh có công nợ `Cần đóng tiền`:
-  - Mở popup hiển thị **Mẫu tin nhắn nhắc học phí chuẩn mực, lịch sự**:
-    ```text
-    Kính gửi Quý phụ huynh học sinh Nguyễn Tuấn Lộc,
-    Trung tâm xin thông báo về kỳ đóng học phí Tháng 10/2026:
-    - Học sinh: Nguyễn Tuấn Lộc (Grade 1)
-    - Gói áp dụng: Theo quý - 3 tháng
-    - Học phí cần thanh toán: 2.700.000 đ
-
-    Quý phụ huynh vui lòng hoàn tất học phí để trung tâm duy trì lịch học ổn định cho bé...
-    ```
+  - Mở popup hiển thị **Mẫu tin nhắn nhắc học phí chuẩn mực, lịch sự**.
+  - **Nút "Gửi Tin Nhắn Qua Bot" (1-Click Automated):** Tự động gửi thông báo trực tiếp qua Zalo Bot Platform đến `chat_id` của phụ huynh mà không cần rời khỏi màn hình quản trị.
   - **Nút "Copy tin nhắn":** Sao chép tức thì toàn bộ nội dung vào bộ nhớ tạm.
-  - **Nút "Mở Zalo Ngay":** Kích hoạt deep-link `https://zalo.me/[SĐT]` chuyển thẳng Admin đến cửa sổ chat Zalo với phụ huynh để gửi tin nhắn ngay lập tức.
+  - **Nút "Mở Chat Zalo":** Kích hoạt deep-link `https://zalo.me/[SĐT]` chuyển thẳng Admin đến cửa sổ chat Zalo với phụ huynh.
 
 ---
 
@@ -178,8 +173,10 @@ Tại mỗi dòng học sinh hoặc trong màn hình chi tiết, Admin có thể
 
 ---
 
-### 3.6. Quản lý đội ngũ giáo viên
+### 3.6. Quản lý đội ngũ giáo viên & Phân công ca dạy
 - Quản lý danh sách giáo viên của cơ sở (Họ tên, SĐT, Email, Môn dạy/Chuyên môn, Màu huy hiệu nhận diện).
+- **Phân công ca dạy linh hoạt:** Tích chọn trực tiếp các ca mở cửa trong tuần của trung tâm mà giáo viên phụ trách.
+- Hiển thị huy hiệu ca dạy rõ ràng trên danh sách giáo viên của Admin và trên Cổng Giáo Viên (`/giao-vien`).
 - Thống kê số lượng học sinh đang được phân công dạy theo từng giáo viên.
 - Chức năng thêm mới, chỉnh sửa và xóa giáo viên an toàn.
 
