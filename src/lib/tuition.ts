@@ -1,3 +1,5 @@
+import { MonthFormat } from "./types";
+
 export function formatVND(amount: number | string | undefined | null): string {
   if (amount === undefined || amount === null) return "0 đ";
   const num = typeof amount === "string" ? parseFloat(amount) : amount;
@@ -32,9 +34,36 @@ export function getCurrentMonthStr(): string {
   return `${year}-${month}`;
 }
 
-export function formatMonthDisplay(monthStr: string): string {
+const ENGLISH_MONTHS = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
+
+export function formatMonthDisplay(monthStr: string, format: MonthFormat = "vietnamese"): string {
   if (!monthStr || !monthStr.includes("-")) return monthStr;
   const [year, month] = monthStr.split("-");
+  const monthNum = parseInt(month, 10);
+
+  if (format === "english") {
+    const monthName = !isNaN(monthNum) && monthNum >= 1 && monthNum <= 12 ? ENGLISH_MONTHS[monthNum - 1] : month;
+    return `${monthName} ${year}`;
+  }
+
+  if (format === "number") {
+    return `${month}/${year}`;
+  }
+
+  // Mặc định: vietnamese
   return `Tháng ${month}/${year}`;
 }
 

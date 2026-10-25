@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
-import { Student, TimeSlot, LevelSurcharge, DiscountOption, Teacher } from "@/lib/types";
+import { Student, TimeSlot, LevelSurcharge, DiscountOption, Teacher, MonthFormat } from "@/lib/types";
 import { formatVND, formatMonthDisplay, getCurrentMonthStr, formatTimeSlotLabel } from "@/lib/tuition";
 import { useToast } from "@/components/Toast";
 import { SettingsModal } from "@/components/SettingsModal";
@@ -106,6 +106,7 @@ export default function Dashboard() {
   // Settings
   const [baseTuition, setBaseTuition] = useState<number>(0);
   const [durationMode, setDurationMode] = useState<"by_hours" | "by_sessions">("by_hours");
+  const [monthFormat, setMonthFormat] = useState<MonthFormat>("vietnamese");
   const [defaultHours, setDefaultHours] = useState<number>(3);
   const [defaultSessions, setDefaultSessions] = useState<number>(3);
   const [defaultStudyTime, setDefaultStudyTime] = useState<string>("18:00 - 19:00");
@@ -225,6 +226,7 @@ export default function Dashboard() {
       if (json.success) {
         setBaseTuition(json.data.base_tuition);
         setDurationMode(json.data.duration_mode || "by_hours");
+        setMonthFormat(json.data.month_format || "vietnamese");
         setDefaultHours(json.data.default_hours_per_week || 3);
         setDefaultSessions(json.data.default_sessions_per_week || 3);
         setDefaultStudyTime(json.data.default_study_time || "18:00 - 19:00");
@@ -612,7 +614,7 @@ export default function Dashboard() {
             <div className="mt-3 flex items-center justify-between gap-3">
               <div>
                 <span className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-                  {formatMonthDisplay(selectedMonth)}
+                  {formatMonthDisplay(selectedMonth, monthFormat)}
                 </span>
                 <p className="text-[11px] text-slate-500 mt-0.5">Dữ liệu học phí áp dụng cho tháng này</p>
               </div>
@@ -631,7 +633,7 @@ export default function Dashboard() {
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-wider text-indigo-200 flex items-center gap-1.5">
                 <TrendingUp className="w-4 h-4 text-indigo-300" />
-                Dự Thu {formatMonthDisplay(selectedMonth)}
+                Dự Thu {formatMonthDisplay(selectedMonth, monthFormat)}
               </span>
               <div className="w-9 h-9 rounded-xl bg-white/20 backdrop-blur-xs flex items-center justify-center">
                 <DollarSign className="w-5 h-5 text-white" />
@@ -760,7 +762,7 @@ export default function Dashboard() {
                   <th className="py-4 px-4">Level & Phụ thu</th>
                   <th className="py-4 px-5">Hình thức & Lịch học</th>
                   <th className="py-4 px-4 text-center">Chiết khấu</th>
-                  <th className="py-4 px-5">Học phí {formatMonthDisplay(selectedMonth)}</th>
+                  <th className="py-4 px-5">Học phí {formatMonthDisplay(selectedMonth, monthFormat)}</th>
                   <th className="py-4 px-5 text-right">Thao tác</th>
                 </tr>
               </thead>
@@ -1038,6 +1040,7 @@ export default function Dashboard() {
         onSaved={handleRefresh}
         initialBaseTuition={baseTuition}
         initialDurationMode={durationMode}
+        initialMonthFormat={monthFormat}
         initialDefaultHours={defaultHours}
         initialDefaultSessions={defaultSessions}
         initialDefaultStudyTime={defaultStudyTime}
@@ -1090,6 +1093,7 @@ export default function Dashboard() {
         onSaved={handleRefresh}
         student={studentForMonthly}
         selectedMonth={selectedMonth}
+        monthFormat={monthFormat}
       />
     </div>
   );

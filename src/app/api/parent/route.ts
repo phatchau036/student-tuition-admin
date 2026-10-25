@@ -47,9 +47,14 @@ export async function POST(req: Request) {
         );
       }
 
-      // Get base tuition
-      const baseTuitionRes = await db.execute("SELECT value FROM settings WHERE key = 'base_tuition'");
-      const baseTuition = baseTuitionRes.rows.length > 0 ? Number(baseTuitionRes.rows[0].value) : 1000000;
+      // Get base tuition & month format
+      const settingsRes = await db.execute("SELECT key, value FROM settings WHERE key IN ('base_tuition', 'month_format')");
+      let baseTuition = 1000000;
+      let monthFormat = "vietnamese";
+      for (const row of settingsRes.rows) {
+        if (row.key === "base_tuition") baseTuition = Number(row.value) || 1000000;
+        if (row.key === "month_format") monthFormat = String(row.value) || "vietnamese";
+      }
 
       // Current month
       const now = new Date();
@@ -120,6 +125,7 @@ export async function POST(req: Request) {
         success: true,
         data: {
           students: studentsData,
+          month_format: monthFormat,
         },
       });
     }

@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { TimeSlot, LevelSurcharge, DiscountOption } from "@/lib/types";
-import { formatVND, formatTimeSlotLabel } from "@/lib/tuition";
+import { TimeSlot, LevelSurcharge, DiscountOption, MonthFormat } from "@/lib/types";
+import { formatVND, formatTimeSlotLabel, formatMonthDisplay, getCurrentMonthStr } from "@/lib/tuition";
 import { useToast } from "@/components/Toast";
 import {
   Clock,
@@ -32,6 +32,7 @@ interface SettingsModalProps {
   onSaved: () => void;
   initialBaseTuition: number;
   initialDurationMode?: "by_hours" | "by_sessions";
+  initialMonthFormat?: MonthFormat;
   initialDefaultHours?: number;
   initialDefaultSessions?: number;
   initialDefaultStudyTime?: string;
@@ -58,6 +59,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onSaved,
   initialBaseTuition,
   initialDurationMode = "by_hours",
+  initialMonthFormat = "vietnamese",
   initialDefaultHours = 3,
   initialDefaultSessions = 3,
   initialDefaultStudyTime = "18:00 - 19:00",
@@ -73,6 +75,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   // State
   const [baseTuition, setBaseTuition] = useState<number>(initialBaseTuition);
   const [durationMode, setDurationMode] = useState<"by_hours" | "by_sessions">(initialDurationMode);
+  const [monthFormat, setMonthFormat] = useState<MonthFormat>(initialMonthFormat);
   const [defaultHours, setDefaultHours] = useState<number>(initialDefaultHours);
   const [defaultSessions, setDefaultSessions] = useState<number>(initialDefaultSessions);
   const [defaultStudyTime, setDefaultStudyTime] = useState<string>(initialDefaultStudyTime);
@@ -142,6 +145,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   useEffect(() => {
     setBaseTuition(initialBaseTuition);
     setDurationMode(initialDurationMode);
+    setMonthFormat(initialMonthFormat);
     setDefaultHours(initialDefaultHours);
     setDefaultSessions(initialDefaultSessions);
     setDefaultStudyTime(initialDefaultStudyTime);
@@ -153,6 +157,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   }, [
     initialBaseTuition,
     initialDurationMode,
+    initialMonthFormat,
     initialDefaultHours,
     initialDefaultSessions,
     initialDefaultStudyTime,
@@ -271,6 +276,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         body: JSON.stringify({
           base_tuition: Number(baseTuition) || 0,
           duration_mode: durationMode,
+          month_format: monthFormat,
           default_hours_per_week: Number(defaultHours) || 3,
           default_sessions_per_week: Number(defaultSessions) || 3,
           default_study_time: defaultStudyTime.trim() || "18:00 - 19:00",
@@ -578,6 +584,113 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         className="w-full px-3 py-2 text-sm font-bold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 outline-none focus:ring-2 focus:ring-amber-500"
                       />
                       <span className="absolute right-3 top-2 text-xs text-slate-400 font-bold">%</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* MONTH FORMAT CONFIGURATION CARD */}
+              <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
+                      <Calendar className="w-4 h-4 text-indigo-600" />
+                      Định Dạng Hiển Thị Tháng Học Phí
+                    </h4>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      Chọn kiểu hiển thị tháng trên giao diện báo cáo, học phí phụ huynh và quản trị
+                    </p>
+                  </div>
+                  <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-900/50">
+                    Mẫu: {formatMonthDisplay(getCurrentMonthStr(), monthFormat)}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {/* Option 1: Tiếng Việt */}
+                  <div
+                    onClick={() => setMonthFormat("vietnamese")}
+                    className={`p-3.5 rounded-2xl border-2 transition cursor-pointer flex flex-col justify-between ${
+                      monthFormat === "vietnamese"
+                        ? "border-indigo-600 bg-indigo-50/40 dark:bg-indigo-950/30 shadow-xs"
+                        : "border-slate-200 dark:border-slate-700/80 bg-slate-50/50 dark:bg-slate-800/40 hover:border-slate-300"
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-[11px] font-black uppercase tracking-wider text-indigo-600">
+                          Tiếng Việt
+                        </span>
+                        {monthFormat === "vietnamese" && (
+                          <div className="w-4 h-4 rounded-full bg-indigo-600 text-white flex items-center justify-center">
+                            <CheckCircle2 className="w-3 h-3" />
+                          </div>
+                        )}
+                      </div>
+                      <p className="text-sm font-extrabold text-slate-900 dark:text-white">
+                        {formatMonthDisplay(getCurrentMonthStr(), "vietnamese")}
+                      </p>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                        Hiển thị chữ &quot;Tháng&quot; kèm tháng và năm
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Option 2: Tiếng Anh */}
+                  <div
+                    onClick={() => setMonthFormat("english")}
+                    className={`p-3.5 rounded-2xl border-2 transition cursor-pointer flex flex-col justify-between ${
+                      monthFormat === "english"
+                        ? "border-indigo-600 bg-indigo-50/40 dark:bg-indigo-950/30 shadow-xs"
+                        : "border-slate-200 dark:border-slate-700/80 bg-slate-50/50 dark:bg-slate-800/40 hover:border-slate-300"
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-[11px] font-black uppercase tracking-wider text-indigo-600">
+                          Tiếng Anh (English)
+                        </span>
+                        {monthFormat === "english" && (
+                          <div className="w-4 h-4 rounded-full bg-indigo-600 text-white flex items-center justify-center">
+                            <CheckCircle2 className="w-3 h-3" />
+                          </div>
+                        )}
+                      </div>
+                      <p className="text-sm font-extrabold text-slate-900 dark:text-white">
+                        {formatMonthDisplay(getCurrentMonthStr(), "english")}
+                      </p>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                        Tên tháng tiếng Anh chuẩn quốc tế (October 2026)
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Option 3: Số */}
+                  <div
+                    onClick={() => setMonthFormat("number")}
+                    className={`p-3.5 rounded-2xl border-2 transition cursor-pointer flex flex-col justify-between ${
+                      monthFormat === "number"
+                        ? "border-indigo-600 bg-indigo-50/40 dark:bg-indigo-950/30 shadow-xs"
+                        : "border-slate-200 dark:border-slate-700/80 bg-slate-50/50 dark:bg-slate-800/40 hover:border-slate-300"
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-[11px] font-black uppercase tracking-wider text-indigo-600">
+                          Dạng Số (MM/YYYY)
+                        </span>
+                        {monthFormat === "number" && (
+                          <div className="w-4 h-4 rounded-full bg-indigo-600 text-white flex items-center justify-center">
+                            <CheckCircle2 className="w-3 h-3" />
+                          </div>
+                        )}
+                      </div>
+                      <p className="text-sm font-extrabold text-slate-900 dark:text-white">
+                        {formatMonthDisplay(getCurrentMonthStr(), "number")}
+                      </p>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                        Hiển thị số gọn gàng dạng 10/2026
+                      </p>
                     </div>
                   </div>
                 </div>

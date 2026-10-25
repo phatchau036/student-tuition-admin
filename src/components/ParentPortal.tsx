@@ -22,7 +22,8 @@ import {
   ShieldAlert,
 } from "lucide-react";
 import Link from "next/link";
-import { formatVND } from "@/lib/tuition";
+import { formatVND, formatMonthDisplay } from "@/lib/tuition";
+import { MonthFormat } from "@/lib/types";
 
 interface MakeupItem {
   id: string;
@@ -76,6 +77,7 @@ export default function ParentPortal() {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [students, setStudents] = useState<StudentData[]>([]);
+  const [monthFormat, setMonthFormat] = useState<MonthFormat>("vietnamese");
   const [activeStudentIndex, setActiveStudentIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -129,6 +131,9 @@ export default function ParentPortal() {
       const data = await res.json();
       if (data.success) {
         setStudents(data.data.students || []);
+        if (data.data.month_format) {
+          setMonthFormat(data.data.month_format);
+        }
         setIsLoggedIn(true);
         localStorage.setItem("parent_phone", phoneToAuth.trim());
       } else {
@@ -419,7 +424,7 @@ export default function ParentPortal() {
                   </div>
 
                   <div className="text-right">
-                    <p className="text-[11px] text-emerald-100">Học phí tháng {activeStudent.current_month}</p>
+                    <p className="text-[11px] text-emerald-100">Học phí {formatMonthDisplay(activeStudent.current_month, monthFormat)}</p>
                     <p className="text-lg font-black text-white">{formatVND(activeStudent.current_tuition)}</p>
                     {activeStudent.is_override && (
                       <span className="text-[10px] text-amber-200 font-semibold block">

@@ -68,9 +68,12 @@ export interface Teacher {
   created_at?: string;
 }
 
+export type MonthFormat = "vietnamese" | "english" | "number";
+
 export interface SystemSettings {
   base_tuition: number; // Base price in VNĐ
   duration_mode: "by_hours" | "by_sessions"; // Chế độ: HOẶC theo tiếng HOẶC theo buổi
+  month_format?: MonthFormat; // Định dạng tháng: 'vietnamese' (Tháng 10/2026), 'english' (October 2026 / Oct 2026), 'number' (10/2026)
   default_hours_per_week: number; // Ví dụ: 3 tiếng/tuần
   default_sessions_per_week: number; // Ví dụ: 3 buổi/tuần
   default_study_time: string; // Ví dụ: "18:00 - 19:00"

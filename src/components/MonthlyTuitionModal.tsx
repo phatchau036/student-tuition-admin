@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Student } from "@/lib/types";
+import { Student, MonthFormat } from "@/lib/types";
 import { formatVND, formatMonthDisplay } from "@/lib/tuition";
 import { useToast } from "@/components/Toast";
 import { Calendar, DollarSign, FileText, RotateCcw, Save, X, Sparkles, CheckCircle2 } from "lucide-react";
@@ -12,6 +12,7 @@ interface MonthlyTuitionModalProps {
   onSaved: () => void;
   student: Student | null;
   selectedMonth: string; // YYYY-MM
+  monthFormat?: MonthFormat;
 }
 
 export const MonthlyTuitionModal: React.FC<MonthlyTuitionModalProps> = ({
@@ -20,6 +21,7 @@ export const MonthlyTuitionModal: React.FC<MonthlyTuitionModalProps> = ({
   onSaved,
   student,
   selectedMonth,
+  monthFormat = "vietnamese",
 }) => {
   const { showToast } = useToast();
 
@@ -211,7 +213,7 @@ export const MonthlyTuitionModal: React.FC<MonthlyTuitionModalProps> = ({
           </div>
 
           <p className="text-[11px] text-slate-400 italic">
-            * Lưu ý: Mức điều chỉnh này chỉ áp dụng riêng cho {formatMonthDisplay(month)}. Các tháng khác vẫn tính theo học phí chuẩn mặc định.
+            * Lưu ý: Mức điều chỉnh này chỉ áp dụng riêng cho {formatMonthDisplay(month, monthFormat)}. Các tháng khác vẫn tính theo học phí chuẩn mặc định.
           </p>
 
           {/* Actions */}
