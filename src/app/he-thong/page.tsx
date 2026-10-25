@@ -31,10 +31,8 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import {
-  generateAdminUsername,
+  generateAdminUsernameFromSchool,
   generateRandomPassword,
-  PROVINCES_VIETNAM,
-  getInitials,
 } from "@/lib/credentialGen";
 
 interface School {
@@ -98,13 +96,6 @@ export default function SystemAdminPage() {
   const [adminFullName, setAdminFullName] = useState("");
   const [adminUsername, setAdminUsername] = useState("");
   const [adminPassword, setAdminPassword] = useState("");
-
-  // Các trường để sinh tên tài khoản tự động
-  const [genOrgType, setGenOrgType] = useState<"TT" | "TH">("TT");
-  const [genOrgName, setGenOrgName] = useState("");
-  const [genStreetName, setGenStreetName] = useState("Hiền Vương");
-  const [genProvince, setGenProvince] = useState("TPHCM");
-  const [genBranch, setGenBranch] = useState("CN1");
 
   // Modal IP Whitelist for School
   const [isIpModalOpen, setIsIpModalOpen] = useState(false);
@@ -230,7 +221,6 @@ export default function SystemAdminPage() {
         setAdmins(json.data.admins);
         if (json.data.schools.length > 0 && !selectedSchoolId) {
           setSelectedSchoolId(json.data.schools[0].id);
-          setGenOrgName(json.data.schools[0].name);
         }
       }
     } catch {
@@ -323,20 +313,28 @@ export default function SystemAdminPage() {
     }
   };
 
-  // Auto-generate credentials for Admin
-  const handleGenerateCredentials = () => {
-    const generatedUser = generateAdminUsername({
-      orgType: genOrgType,
-      orgName: genOrgName || "TRUNGTAM",
-      streetName: genStreetName || "HV",
-      provinceCode: genProvince,
-      branch: genBranch,
-    });
-    const generatedPass = generateRandomPassword(10);
+  // Tự động sinh tài khoản & mật khẩu chuẩn khi chọn trường
+  const applyAutoCredentialsForSchool = (schoolId: string, schoolList = schools, adminList = admins) => {
+    setSelectedSchoolId(schoolId);
+    const school = schoolList.find((s) => s.id === schoolId);
+    if (school) {
+      // Đếm số admin hiện có của trường này
+      const existingCount = adminList.filter((a) => a.school_id === school.id).length;
+      const nextIndex = existingCount + 1;
+      const autoUser = generateAdminUsernameFromSchool(school, nextIndex);
+      const autoPass = generateRandomPassword(10);
 
-    setAdminUsername(generatedUser);
-    setAdminPassword(generatedPass);
-    showToast("Đã tạo tên tài khoản chuẩn và mật khẩu ngẫu nhiên 10 ký tự!", "success");
+      setAdminUsername(autoUser);
+      setAdminPassword(autoPass);
+      setAdminFullName(`Quản Trị Viên ${nextIndex} - ${school.name}`);
+    }
+  };
+
+  // Mở modal tạo admin: tự động điền sẵn mọi thứ, người dùng chỉ việc bấm Cấp Tài Khoản
+  const handleOpenCreateAdminModal = (schoolId?: string) => {
+    const targetSchoolId = schoolId || selectedSchoolId || (schools[0]?.id ?? "");
+    applyAutoCredentialsForSchool(targetSchoolId);
+    setIsAdminModalOpen(true);
   };
 
   const handleGenerateOnlyPassword = () => {
@@ -726,13 +724,7 @@ export default function SystemAdminPage() {
                 <span>Tạo Trường Mới</span>
               </button>
               <button
-                onClick={() => {
-                  if (schools.length > 0 && !selectedSchoolId) {
-                    setSelectedSchoolId(schools[0].id);
-                    setGenOrgName(schools[0].name);
-                  }
-                  setIsAdminModalOpen(true);
-                }}
+                onClick={() => handleOpenCreateAdminModal()}
                 className="flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200 transition"
               >
                 <KeyRound className="w-4 h-4 text-purple-400" />
@@ -818,6 +810,13 @@ export default function SystemAdminPage() {
 
                     <div className="flex items-center gap-2">
                       <button
+                        onClick={() => handleOpenCreateAdminModal(school.id)}
+                        className="text-purple-300 hover:text-white font-bold bg-purple-600/30 hover:bg-purple-600/60 px-2.5 py-1 rounded-lg border border-purple-500/30 transition text-[11px]"
+                        title="Tự động sinh tài khoản Admin cho trường này"
+                      >
+                        + Cấp Admin
+                      </button>
+                      <button
                         onClick={() => handleOpenEditSchool(school)}
                         className="text-slate-400 hover:text-white font-medium"
                       >
@@ -850,13 +849,7 @@ export default function SystemAdminPage() {
               </p>
             </div>
             <button
-              onClick={() => {
-                if (schools.length > 0 && !selectedSchoolId) {
-                  setSelectedSchoolId(schools[0].id);
-                  setGenOrgName(schools[0].name);
-                }
-                setIsAdminModalOpen(true);
-              }}
+              onClick={() => handleOpenCreateAdminModal()}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl bg-purple-600 hover:bg-purple-500 text-white"
             >
               <Plus className="w-3.5 h-3.5" />
@@ -1063,74 +1056,20 @@ export default function SystemAdminPage() {
               </button>
             </div>
 
-            {/* BỘ SINH TÀI KHOẢN THEO CÔNG THỨC */}
-            <div className="p-4 rounded-2xl bg-slate-800/90 border border-slate-700/80 space-y-3">
+            {/* Thông tin tự động sinh theo trường đã chọn */}
+            <div className="p-4 rounded-2xl bg-purple-950/40 border border-purple-800/60 space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold uppercase tracking-wider text-purple-300 flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-purple-400" />
-                  Công Thức Sinh Tự Động: TT-(Tên)-(Đường)-(Tỉnh)-(Chi Nhánh)
+                  <Sparkles className="w-4 h-4 text-purple-400" />
+                  Hệ Thống Đã Tự Động Thiết Lập Tài Khoản & Mật Khẩu
+                </span>
+                <span className="px-2 py-0.5 rounded text-[11px] font-black uppercase bg-purple-600 text-white">
+                  {`QTV${(admins.filter((a) => a.school_id === selectedSchoolId).length || 0) + 1}`}
                 </span>
               </div>
-
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <div>
-                  <label className="block text-[11px] text-slate-400 mb-1">Loại cơ sở:</label>
-                  <select
-                    value={genOrgType}
-                    onChange={(e) => setGenOrgType(e.target.value as "TT" | "TH")}
-                    className="w-full px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white"
-                  >
-                    <option value="TT">Trung Tâm (TT)</option>
-                    <option value="TH">Trường Học (TH)</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-[11px] text-slate-400 mb-1">Tên đường (VD: Hiền Vương):</label>
-                  <input
-                    type="text"
-                    placeholder="Hiền Vương"
-                    value={genStreetName}
-                    onChange={(e) => setGenStreetName(e.target.value)}
-                    className="w-full px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] text-slate-400 mb-1">Tỉnh / Thành phố:</label>
-                  <select
-                    value={genProvince}
-                    onChange={(e) => setGenProvince(e.target.value)}
-                    className="w-full px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white"
-                  >
-                    {PROVINCES_VIETNAM.map((p) => (
-                      <option key={p.code} value={p.code}>
-                        {p.name} ({p.code})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-[11px] text-slate-400 mb-1">Chi nhánh:</label>
-                  <input
-                    type="text"
-                    placeholder="CN1"
-                    value={genBranch}
-                    onChange={(e) => setGenBranch(e.target.value)}
-                    className="w-full px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white"
-                  />
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={handleGenerateCredentials}
-                className="w-full py-2 px-3 rounded-xl bg-purple-600/30 hover:bg-purple-600/50 text-purple-200 border border-purple-500/40 text-xs font-bold transition flex items-center justify-center gap-2"
-              >
-                <Sparkles className="w-3.5 h-3.5 text-purple-400" />
-                <span>Bấm Để Sinh Tài Khoản & Mật Khẩu Tự Động</span>
-              </button>
+              <p className="text-[11px] text-purple-200/80 leading-relaxed">
+                Tài khoản và mật khẩu 10 ký tự mạnh đã được sinh sẵn theo thông tin trường và vị trí chi nhánh. Bạn chỉ việc bấm <strong>"Cấp Tài Khoản Admin"</strong> bên dưới là hoàn tất!
+              </p>
             </div>
 
             <form onSubmit={handleCreateAdmin} className="space-y-4">
@@ -1139,12 +1078,7 @@ export default function SystemAdminPage() {
                 <select
                   required
                   value={selectedSchoolId}
-                  onChange={(e) => {
-                    const sid = e.target.value;
-                    setSelectedSchoolId(sid);
-                    const s = schools.find((sc) => sc.id === sid);
-                    if (s) setGenOrgName(s.name);
-                  }}
+                  onChange={(e) => applyAutoCredentialsForSchool(e.target.value)}
                   className="w-full px-3 py-2 text-sm rounded-xl bg-slate-800 border border-slate-700 text-white focus:outline-hidden focus:ring-2 focus:ring-purple-500"
                 >
                   {schools.map((s) => (

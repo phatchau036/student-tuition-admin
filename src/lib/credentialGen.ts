@@ -9,24 +9,61 @@ export function getInitials(text: string): string {
     .replace(/đ/g, "d")
     .replace(/Đ/g, "D");
 
-  const words = normalized.trim().split(/\s+/).filter(Boolean);
+  const clean = normalized.replace(/[^a-zA-Z0-9\s]/g, " ");
+  const words = clean.trim().split(/\s+/).filter(Boolean);
   return words.map((w) => w[0].toUpperCase()).join("");
 }
 
-export function generateAdminUsername(params: {
-  orgType: "TT" | "TH"; // Trung tâm hoặc Trường học
-  orgName: string; // Tên trung tâm / trường
-  streetName: string; // Tên đường (VD: Hiền Vương -> HV)
-  provinceCode: string; // Tỉnh thành (VD: TPHCM, HN, DN)
-  branch: string; // Chi nhánh (VD: CN1, CN2)
-}): string {
-  const type = params.orgType || "TT";
-  const orgInitials = getInitials(params.orgName) || "NAME";
-  const streetInitials = getInitials(params.streetName) || "LOC";
-  const province = (params.provinceCode || "TPHCM").toUpperCase();
-  const branch = (params.branch || "CN1").toUpperCase();
+export function generateAdminUsernameFromSchool(
+  school: {
+    name: string;
+    code?: string;
+    address?: string;
+  },
+  adminIndex: number = 1
+): string {
+  // 1. Loại cơ sở: "TT" (Trung tâm) hoặc "TH" (Trường học)
+  const isSchool = school.name.toLowerCase().includes("trường");
+  const type = isSchool ? "TH" : "TT";
 
-  return `${type}-${orgInitials}-${streetInitials}-${province}-${branch}`;
+  // 2. Tên trung tâm: lấy tên sau "Trung tâm" hoặc "Trường"
+  let cleanName = school.name.replace(/^(trung\s*tâm|trường|cơ\s*sở)\s*/i, "").trim();
+  const nameInitials = getInitials(cleanName) || getInitials(school.name) || "NAME";
+
+  // 3. Tên đường: tách từ địa chỉ (VD: "Hiền Vương" -> "HV", "123 Đường Sáng Tạo" -> "ST")
+  let streetInitials = "HV";
+  if (school.address && school.address.trim()) {
+    const addr = school.address.trim();
+    const streetMatch = addr.match(/đường\s+([^,]+)/i);
+    if (streetMatch && streetMatch[1]) {
+      streetInitials = getInitials(streetMatch[1]);
+    } else {
+      const firstPart = addr.split(",")[0].replace(/^[\d\s\/\-A-Za-z]+/, "").trim();
+      streetInitials = getInitials(firstPart) || getInitials(addr) || "LOC";
+    }
+  }
+
+  // 4. Tỉnh thành: phát hiện từ địa chỉ
+  let province = "TPHCM";
+  const addrLower = (school.address || "").toLowerCase();
+  if (addrLower.includes("hà nội") || addrLower.includes("hn")) province = "HN";
+  else if (addrLower.includes("đà nẵng") || addrLower.includes("dn")) province = "DN";
+  else if (addrLower.includes("bình dương") || addrLower.includes("bd")) province = "BD";
+  else if (addrLower.includes("đồng nai")) province = "DNAI";
+  else if (addrLower.includes("cần thơ")) province = "CT";
+  else if (addrLower.includes("hải phòng")) province = "HP";
+
+  // 5. Chi nhánh: phát hiện từ code hoặc name (VD: "TT-01" -> "CN1", "Chi nhánh 2" -> "CN2")
+  let branch = "CN1";
+  const branchMatch = (school.name + " " + (school.code || "")).match(/(?:cn|chi\s*nhánh|cơ\s*sở|\-)\s*(\d+)/i);
+  if (branchMatch && branchMatch[1]) {
+    branch = `CN${parseInt(branchMatch[1], 10)}`;
+  }
+
+  // 6. QTV: nếu là admin đầu tiên là QTV1, admin thứ 2 là QTV2...
+  const qtvSuffix = `QTV${adminIndex}`;
+
+  return `${type}-${nameInitials}-${streetInitials}-${province}-${branch}-${qtvSuffix}`;
 }
 
 export function generateRandomPassword(length: number = 10): string {
@@ -51,17 +88,3 @@ export function generateRandomPassword(length: number = 10): string {
   // Shuffle
   return password.sort(() => Math.random() - 0.5).join("");
 }
-
-export const PROVINCES_VIETNAM = [
-  { code: "TPHCM", name: "TP. Hồ Chí Minh" },
-  { code: "HN", name: "Hà Nội" },
-  { code: "DN", name: "Đà Nẵng" },
-  { code: "CT", name: "Cần Thơ" },
-  { code: "HP", name: "Hải Phòng" },
-  { code: "BD", name: "Bình Dương" },
-  { code: "DNAI", name: "Đồng Nai" },
-  { code: "VT", name: "Bà Rịa - Vũng Tàu" },
-  { code: "KHOA", name: "Khánh Hòa" },
-  { code: "LDO", name: "Lâm Đồng" },
-  { code: "KHAC", name: "Tỉnh / Thành khác" },
-];
