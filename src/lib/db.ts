@@ -245,6 +245,28 @@ export async function initDb() {
     );
   `);
 
+  // 12. SePay Transactions Table (Lưu vết giao dịch biến động số dư chuyển khoản tự động)
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS sepay_transactions (
+      id TEXT PRIMARY KEY,
+      gateway TEXT,
+      transaction_date TEXT,
+      account_number TEXT,
+      sub_account TEXT,
+      code TEXT,
+      content TEXT NOT NULL,
+      transfer_type TEXT NOT NULL DEFAULT 'in',
+      transfer_amount INTEGER NOT NULL DEFAULT 0,
+      reference_code TEXT,
+      student_id TEXT,
+      student_name TEXT,
+      matched_period TEXT,
+      status TEXT NOT NULL DEFAULT 'unmatched', -- 'matched' | 'unmatched' | 'ignored'
+      raw_payload TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+
   // Migrations for school_id & ip restriction
   try { await db.execute("ALTER TABLE schools ADD COLUMN ip_restriction_enabled INTEGER DEFAULT 0"); } catch {}
   try { await db.execute("ALTER TABLE schools ADD COLUMN allowed_ips TEXT DEFAULT ''"); } catch {}
@@ -254,6 +276,7 @@ export async function initDb() {
   try { await db.execute("ALTER TABLE level_surcharges ADD COLUMN school_id TEXT DEFAULT 'school-default'"); } catch {}
   try { await db.execute("ALTER TABLE discount_presets ADD COLUMN school_id TEXT DEFAULT 'school-default'"); } catch {}
   try { await db.execute("ALTER TABLE students ADD COLUMN school_id TEXT DEFAULT 'school-default'"); } catch {}
+  try { await db.execute("ALTER TABLE students ADD COLUMN student_code TEXT DEFAULT NULL"); } catch {}
   try { await db.execute("ALTER TABLE students ADD COLUMN tuition_package_id TEXT DEFAULT NULL"); } catch {}
   try { await db.execute("ALTER TABLE students ADD COLUMN status TEXT DEFAULT 'studying'"); } catch {}
   try { await db.execute("ALTER TABLE students ADD COLUMN status_date TEXT DEFAULT NULL"); } catch {}
@@ -272,6 +295,8 @@ export async function initDb() {
     ["default_study_time", "18:00 - 19:00"],
     ["max_students_per_slot", "10"],
     ["crowded_threshold_percent", "80"],
+    ["reconciliation_mode", "manual"],
+    ["sepay_prefix", "HP"],
   ];
 
   for (const [key, val] of defaults) {

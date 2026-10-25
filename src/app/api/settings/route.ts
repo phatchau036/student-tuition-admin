@@ -29,6 +29,12 @@ export async function GET() {
     const zaloAccessToken = settingsMap["zalo_access_token"] || "";
     const zaloTemplateId = settingsMap["zalo_template_id"] || "";
 
+    // SePay Webhook Settings
+    const sepayApiKey = settingsMap["sepay_api_key"] || "";
+    const sepayAccountNumber = settingsMap["sepay_account_number"] || "";
+    const sepayBankName = settingsMap["sepay_bank_name"] || "";
+    const sepayPrefix = settingsMap["sepay_prefix"] || "HP";
+
     // 2. Get Time Slots
     const timeSlotsRes = await db.execute("SELECT * FROM time_slots ORDER BY id ASC");
     const timeSlots = timeSlotsRes.rows.map((row) => ({
@@ -103,6 +109,10 @@ export async function GET() {
         zalo_oa_secret_key: zaloOaSecretKey,
         zalo_access_token: zaloAccessToken,
         zalo_template_id: zaloTemplateId,
+        sepay_api_key: sepayApiKey,
+        sepay_account_number: sepayAccountNumber,
+        sepay_bank_name: sepayBankName,
+        sepay_prefix: sepayPrefix,
         time_slots: timeSlots,
         level_surcharges: levelSurcharges,
         discount_presets: discountPresets,
@@ -140,6 +150,10 @@ export async function POST(req: Request) {
       zalo_oa_secret_key,
       zalo_access_token,
       zalo_template_id,
+      sepay_api_key,
+      sepay_account_number,
+      sepay_bank_name,
+      sepay_prefix,
       time_slots,
       level_surcharges,
       discount_presets,
@@ -156,6 +170,10 @@ export async function POST(req: Request) {
       max_students_per_slot: max_students_per_slot !== undefined ? String(max_students_per_slot) : undefined,
       crowded_threshold_percent: crowded_threshold_percent !== undefined ? String(crowded_threshold_percent) : undefined,
       reconciliation_mode: reconciliation_mode !== undefined ? String(reconciliation_mode) : undefined,
+      sepay_api_key: sepay_api_key !== undefined ? String(sepay_api_key).trim() : undefined,
+      sepay_account_number: sepay_account_number !== undefined ? String(sepay_account_number).trim() : undefined,
+      sepay_bank_name: sepay_bank_name !== undefined ? String(sepay_bank_name).trim() : undefined,
+      sepay_prefix: sepay_prefix !== undefined ? String(sepay_prefix).trim().toUpperCase() : undefined,
       zalo_reminder_mode: zalo_reminder_mode !== undefined ? String(zalo_reminder_mode) : undefined,
       zalo_bot_token: zalo_bot_token !== undefined ? String(zalo_bot_token) : undefined,
       zalo_bot_name: zalo_bot_name !== undefined ? String(zalo_bot_name) : undefined,

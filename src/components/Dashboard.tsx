@@ -56,8 +56,11 @@ import {
   UserX,
   CreditCard,
   Eye,
+  BarChart3,
+  QrCode,
 } from "lucide-react";
 import Link from "next/link";
+import { MonthlySummaryModal } from "./MonthlySummaryModal";
 
 export default function Dashboard() {
   const { showToast } = useToast();
@@ -114,6 +117,7 @@ export default function Dashboard() {
   const [studentForStatusChange, setStudentForStatusChange] = useState<Student | null>(null);
 
   const [isStatusLogModalOpen, setIsStatusLogModalOpen] = useState(false);
+  const [isMonthlySummaryModalOpen, setIsMonthlySummaryModalOpen] = useState(false);
 
   // Custom Delete Confirmation Modal state
   const [studentToDelete, setStudentToDelete] = useState<Student | null>(null);
@@ -141,6 +145,10 @@ export default function Dashboard() {
   const [zaloReminderMode, setZaloReminderMode] = useState<string>("manual");
   const [zaloBotToken, setZaloBotToken] = useState<string>("");
   const [zaloBotName, setZaloBotName] = useState<string>("");
+  const [sepayApiKey, setSepayApiKey] = useState<string>("");
+  const [sepayAccountNumber, setSepayAccountNumber] = useState<string>("");
+  const [sepayBankName, setSepayBankName] = useState<string>("");
+  const [sepayPrefix, setSepayPrefix] = useState<string>("HP");
 
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
@@ -271,6 +279,10 @@ export default function Dashboard() {
         setZaloReminderMode(json.data.zalo_reminder_mode || "manual");
         setZaloBotToken(json.data.zalo_bot_token || "");
         setZaloBotName(json.data.zalo_bot_name || "");
+        setSepayApiKey(json.data.sepay_api_key || "");
+        setSepayAccountNumber(json.data.sepay_account_number || "");
+        setSepayBankName(json.data.sepay_bank_name || "");
+        setSepayPrefix(json.data.sepay_prefix || "HP");
         if (json.data.current_school) {
           setCurrentSchool(json.data.current_school);
         }
@@ -607,6 +619,16 @@ export default function Dashboard() {
               </Link>
             </div>
 
+            {/* Tổng Kết Tháng & Báo Cáo Học Phí */}
+            <button
+              onClick={() => setIsMonthlySummaryModalOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl border border-emerald-200 dark:border-emerald-800/60 bg-emerald-50 hover:bg-emerald-100/80 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-300 transition shadow-2xs shrink-0"
+              title="Xem tổng kết thu chi, tình hình đóng học phí và giao dịch SePay tự động"
+            >
+              <BarChart3 className="w-4 h-4 text-emerald-600" />
+              <span>Tổng Kết Tháng</span>
+            </button>
+
             {/* Log tổng biến động học sinh (Bảo lưu, nghỉ, học tiếp) */}
             <button
               onClick={() => setIsStatusLogModalOpen(true)}
@@ -919,6 +941,9 @@ export default function Dashboard() {
                             </div>
                             <div className="min-w-0">
                               <div className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5 flex-wrap">
+                                <span className="font-mono text-[10px] px-1.5 py-0.2 rounded font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700" title="Mã học sinh đối soát SePay">
+                                  {student.student_code || `HS${student.id.slice(-4).toUpperCase()}`}
+                                </span>
                                 <button
                                   type="button"
                                   onClick={() => {
@@ -1298,6 +1323,10 @@ export default function Dashboard() {
         initialMaxStudents={maxStudents}
         initialCrowdedThreshold={crowdedThreshold}
         initialReconciliationMode={reconciliationMode as any}
+        initialSepayApiKey={sepayApiKey}
+        initialSepayAccountNumber={sepayAccountNumber}
+        initialSepayBankName={sepayBankName}
+        initialSepayPrefix={sepayPrefix}
         initialZaloReminderMode={zaloReminderMode as any}
         initialZaloBotToken={zaloBotToken}
         initialZaloBotName={zaloBotName}
@@ -1392,6 +1421,15 @@ export default function Dashboard() {
         isOpen={isStatusLogModalOpen}
         onClose={() => setIsStatusLogModalOpen(false)}
         selectedMonth={selectedMonth}
+      />
+
+      {/* Monthly Summary Modal (Tổng Kết Báo Cáo Học Phí & SePay) */}
+      <MonthlySummaryModal
+        isOpen={isMonthlySummaryModalOpen}
+        onClose={() => setIsMonthlySummaryModalOpen(false)}
+        initialMonth={selectedMonth}
+        monthFormat={monthFormat}
+        onRefreshData={() => loadStudents(selectedMonth)}
       />
     </div>
   );

@@ -112,6 +112,7 @@ export async function GET(req: Request) {
 
       return {
         id: String(row.id),
+        student_code: row.student_code ? String(row.student_code) : `HS${String(row.id).slice(-4).toUpperCase()}`,
         name: String(row.name),
         phone: String(row.phone),
         zalo_link: String(row.zalo_link || ""),
@@ -210,6 +211,7 @@ export async function POST(req: Request) {
     }
 
     const id = `stu-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+    const studentCode = `HS${Math.floor(1000 + Math.random() * 9000)}`;
     const formattedZalo =
       zalo_link && zalo_link.trim() !== ""
         ? zalo_link.startsWith("http")
@@ -219,13 +221,14 @@ export async function POST(req: Request) {
 
     await db.execute({
       sql: `INSERT INTO students (
-              id, name, phone, zalo_link, zalo_chat_id, level_id, time_slot_id, teacher_id, tuition_package_id,
+              id, student_code, name, phone, zalo_link, zalo_chat_id, level_id, time_slot_id, teacher_id, tuition_package_id,
               start_date, duration_mode, sessions_per_week, hours_per_week, registered_days, study_time_detail, schedule_details_json,
               is_discount_enabled, discount_percent, discount_reason
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       args: [
         id,
+        studentCode,
         name.trim(),
         phone.trim(),
         formattedZalo,

@@ -38,6 +38,10 @@ import {
   Bot,
   Edit2,
   Power,
+  RefreshCw,
+  QrCode,
+  Copy,
+  ExternalLink,
 } from "lucide-react";
 
 interface SettingsModalProps {
@@ -53,6 +57,10 @@ interface SettingsModalProps {
   initialMaxStudents?: number;
   initialCrowdedThreshold?: number;
   initialReconciliationMode?: ReconciliationMode;
+  initialSepayApiKey?: string;
+  initialSepayAccountNumber?: string;
+  initialSepayBankName?: string;
+  initialSepayPrefix?: string;
   initialZaloReminderMode?: ZaloReminderMode;
   initialZaloBotToken?: string;
   initialZaloBotName?: string;
@@ -88,6 +96,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   initialMaxStudents = 10,
   initialCrowdedThreshold = 80,
   initialReconciliationMode = "manual",
+  initialSepayApiKey = "",
+  initialSepayAccountNumber = "",
+  initialSepayBankName = "",
+  initialSepayPrefix = "HP",
   initialZaloReminderMode = "manual",
   initialZaloBotToken = "",
   initialZaloBotName = "",
@@ -116,6 +128,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   // Reconciliation settings
   const [reconciliationMode, setReconciliationMode] = useState<ReconciliationMode>(initialReconciliationMode);
+  const [sepayApiKey, setSepayApiKey] = useState<string>(initialSepayApiKey);
+  const [sepayAccountNumber, setSepayAccountNumber] = useState<string>(initialSepayAccountNumber);
+  const [sepayBankName, setSepayBankName] = useState<string>(initialSepayBankName);
+  const [sepayPrefix, setSepayPrefix] = useState<string>(initialSepayPrefix);
+  const [isSimulatingSepay, setIsSimulatingSepay] = useState(false);
+  const [testTransferAmount, setTestTransferAmount] = useState<number>(1000000);
+  const [testContent, setTestContent] = useState<string>("");
 
   // Zalo Reminder settings
   const [zaloReminderMode, setZaloReminderMode] = useState<ZaloReminderMode>(initialZaloReminderMode);
@@ -208,6 +227,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setMaxStudents(initialMaxStudents);
     setCrowdedThreshold(initialCrowdedThreshold);
     setReconciliationMode(initialReconciliationMode || "manual");
+    setSepayApiKey(initialSepayApiKey || "");
+    setSepayAccountNumber(initialSepayAccountNumber || "");
+    setSepayBankName(initialSepayBankName || "");
+    setSepayPrefix(initialSepayPrefix || "HP");
     setZaloReminderMode(initialZaloReminderMode || "manual");
     setZaloBotToken(initialZaloBotToken || "");
     setZaloBotName(initialZaloBotName || "");
@@ -486,6 +509,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           max_students_per_slot: Number(maxStudents) || 10,
           crowded_threshold_percent: Number(crowdedThreshold) || 80,
           reconciliation_mode: reconciliationMode,
+          sepay_api_key: sepayApiKey.trim(),
+          sepay_account_number: sepayAccountNumber.trim(),
+          sepay_bank_name: sepayBankName.trim(),
+          sepay_prefix: sepayPrefix.trim().toUpperCase() || "HP",
           zalo_reminder_mode: zaloReminderMode,
           zalo_bot_token: zaloBotToken.trim(),
           zalo_bot_name: zaloBotName.trim(),
@@ -1320,7 +1347,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       <div>
                         <div className="flex items-center justify-between mb-2">
                           <span className="text-[11px] font-black uppercase tracking-wider text-indigo-600">
-                            Chế Độ 1 (Hiện tại)
+                            Chế Độ 1
                           </span>
                           {reconciliationMode === "manual" && (
                             <div className="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center">
@@ -1336,35 +1363,208 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         </p>
                       </div>
                       <div className="mt-4 pt-3 border-t border-slate-200/60 dark:border-slate-700/60 flex items-center gap-2 text-xs font-bold text-indigo-600">
-                        <span>Đang được sử dụng</span>
+                        <span>{reconciliationMode === "manual" ? "Đang được chọn" : "Bấm để chọn"}</span>
                       </div>
                     </div>
 
-                    {/* Option 2: Tự động (Disabled) */}
+                    {/* Option 2: Tự động SePay Webhook */}
                     <div
-                      className="p-5 rounded-2xl border-2 border-slate-200 dark:border-slate-800 bg-slate-100/60 dark:bg-slate-900/40 opacity-60 cursor-not-allowed flex flex-col justify-between relative group"
-                      title="Sẽ cập nhật ở phiên bản tiếp theo"
+                      onClick={() => setReconciliationMode("auto")}
+                      className={`p-5 rounded-2xl border-2 transition cursor-pointer flex flex-col justify-between ${
+                        reconciliationMode === "auto"
+                          ? "border-emerald-600 bg-emerald-50/40 dark:bg-emerald-950/30 shadow-xs"
+                          : "border-slate-200 dark:border-slate-700/80 bg-slate-50/50 dark:bg-slate-800/40 hover:border-slate-300"
+                      }`}
                     >
                       <div>
                         <div className="flex items-center justify-between mb-2">
-                          <span className="text-[11px] font-black uppercase tracking-wider text-slate-400">
-                            Chế Độ 2 (Sắp ra mắt)
+                          <span className="text-[11px] font-black uppercase tracking-wider text-emerald-600">
+                            Chế Độ 2 (Tự Động)
                           </span>
-                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
-                            Khóa
-                          </span>
+                          {reconciliationMode === "auto" && (
+                            <div className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center">
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                            </div>
+                          )}
                         </div>
-                        <h4 className="text-sm font-extrabold text-slate-700 dark:text-slate-300">
-                          Đối Soát Tự Động (Auto Sync)
+                        <h4 className="text-sm font-extrabold text-slate-900 dark:text-white flex items-center gap-1.5">
+                          <span>Đối Soát Tự Động SePay</span>
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300">
+                            Khuyên dùng
+                          </span>
                         </h4>
                         <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-                          Tự động kết nối ngân hàng / cổng thanh toán (QR VietQR, MoMo, App Ngân hàng) để tự nhận diện biến động số dư và gạch nợ học phí tức thì.
+                          Tự động nhận thông báo biến động số dư ngân hàng (Vietcombank, MB, ACB, Techcombank...) qua <strong>SePay Webhook</strong>. Khớp mã học sinh hoặc SĐT để tự gạch nợ và đổi trạng thái Đã đóng ngay lập tức.
                         </p>
                       </div>
-                      <div className="mt-4 pt-3 border-t border-slate-200/60 dark:border-slate-800 flex items-center gap-1.5 text-xs font-semibold text-amber-600 dark:text-amber-400">
-                        <AlertCircle className="w-3.5 h-3.5" />
-                        <span>Sẽ cập nhật ở phiên bản tiếp theo</span>
+                      <div className="mt-4 pt-3 border-t border-slate-200/60 dark:border-slate-700/60 flex items-center gap-2 text-xs font-bold text-emerald-600">
+                        <span>{reconciliationMode === "auto" ? "Đang được chọn" : "Bấm để chọn"}</span>
                       </div>
+                    </div>
+                  </div>
+
+                  {/* CẤU HÌNH CHI TIẾT SEPAY */}
+                  <div className="p-5 rounded-2xl border border-emerald-200/80 dark:border-emerald-900/40 bg-emerald-50/30 dark:bg-emerald-950/20 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold">
+                          <QrCode className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-black text-slate-900 dark:text-white">
+                            Cấu Hình Tích Hợp SePay Webhook
+                          </h4>
+                          <p className="text-xs text-slate-500">
+                            Xem hướng dẫn tạo Webhook tại{" "}
+                            <a
+                              href="https://docs.sepay.vn/tich-hop-webhooks.html"
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-emerald-600 font-bold underline inline-flex items-center gap-0.5"
+                            >
+                              docs.sepay.vn <ExternalLink className="w-3 h-3" />
+                            </a>
+                          </p>
+                        </div>
+                      </div>
+
+                      <span className="text-[11px] font-mono px-2.5 py-1 rounded-lg bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300 font-bold">
+                        docs.sepay.vn
+                      </span>
+                    </div>
+
+                    {/* Webhook URL Display */}
+                    <div className="p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-1.5">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-bold text-slate-700 dark:text-slate-300">
+                          Webhook URL cần dán vào SePay Platform:
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const origin = typeof window !== "undefined" ? window.location.origin : "http://localhost:3000";
+                            const fullUrl = `${origin}/api/sepay/webhook`;
+                            navigator.clipboard.writeText(fullUrl);
+                            showToast("Đã copy Webhook URL vào bộ nhớ tạm!", "success");
+                          }}
+                          className="text-emerald-600 font-bold hover:underline flex items-center gap-1"
+                        >
+                          <Copy className="w-3.5 h-3.5" /> Copy URL
+                        </button>
+                      </div>
+                      <div className="p-2 rounded-lg bg-slate-50 dark:bg-slate-800 font-mono text-xs text-indigo-600 dark:text-indigo-400 break-all select-all">
+                        {typeof window !== "undefined" ? `${window.location.origin}/api/sepay/webhook` : "https://your-domain.com/api/sepay/webhook"}
+                      </div>
+                    </div>
+
+                    {/* Inputs Form */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 block mb-1">
+                          API Key SePay (Authentication Header)
+                        </label>
+                        <input
+                          type="password"
+                          value={sepayApiKey}
+                          onChange={(e) => setSepayApiKey(e.target.value)}
+                          placeholder="Ví dụ: SEPAY_API_KEY_abc123"
+                          className="w-full px-3 py-2 text-xs font-mono font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:ring-2 focus:ring-emerald-500 outline-none"
+                        />
+                        <span className="text-[10px] text-slate-400 mt-0.5 block">
+                          Nhập nếu bạn thiết lập kiểu xác thực API Key trên SePay
+                        </span>
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 block mb-1">
+                          Cú Pháp / Tiền Tố Nhận Diện (Prefix)
+                        </label>
+                        <input
+                          type="text"
+                          value={sepayPrefix}
+                          onChange={(e) => setSepayPrefix(e.target.value.toUpperCase())}
+                          placeholder="Mặc định: HP"
+                          className="w-full px-3 py-2 text-xs font-mono font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:ring-2 focus:ring-emerald-500 outline-none"
+                        />
+                        <span className="text-[10px] text-slate-400 mt-0.5 block">
+                          Cú pháp khuyên dùng khi phụ huynh chuyển: <strong>{sepayPrefix || "HP"} [MãHS hoặc SĐT]</strong>
+                        </span>
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 block mb-1">
+                          Số Tài Khoản Ngân Hàng Nhận Tiền
+                        </label>
+                        <input
+                          type="text"
+                          value={sepayAccountNumber}
+                          onChange={(e) => setSepayAccountNumber(e.target.value)}
+                          placeholder="Ví dụ: 09012345678"
+                          className="w-full px-3 py-2 text-xs font-mono font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:ring-2 focus:ring-emerald-500 outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 block mb-1">
+                          Tên Ngân Hàng
+                        </label>
+                        <input
+                          type="text"
+                          value={sepayBankName}
+                          onChange={(e) => setSepayBankName(e.target.value)}
+                          placeholder="Ví dụ: Vietcombank, MBBank, ACB, ..."
+                          className="w-full px-3 py-2 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:ring-2 focus:ring-emerald-500 outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Test Webhook Tool */}
+                    <div className="pt-3 border-t border-emerald-200/60 dark:border-emerald-900/60 flex flex-col sm:flex-row items-center justify-between gap-3">
+                      <div className="text-xs text-slate-600 dark:text-slate-400">
+                        <span className="font-bold text-slate-800 dark:text-slate-200">Công cụ kiểm thử đối soát:</span> Bấm giả lập một biến động số dư SePay gửi đến Webhook để xác minh quy trình tự động.
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            setIsSimulatingSepay(true);
+                            const res = await fetch("/api/sepay/webhook", {
+                              method: "POST",
+                              headers: {
+                                "Content-Type": "application/json",
+                                "Authorization": sepayApiKey ? `Apikey ${sepayApiKey}` : "",
+                              },
+                              body: JSON.stringify({
+                                id: Math.floor(100000 + Math.random() * 900000),
+                                gateway: sepayBankName || "Vietcombank",
+                                transactionDate: new Date().toISOString().slice(0, 19).replace("T", " "),
+                                accountNumber: sepayAccountNumber || "1017588888",
+                                code: "TESTSEPAY",
+                                content: `SEVN HP HS ${new Date().toISOString().slice(5, 7)} test chuyen hoc phi`,
+                                transferType: "in",
+                                transferAmount: 1000000,
+                                referenceCode: `REF${Date.now().toString().slice(-6)}`,
+                              }),
+                            });
+                            const data = await res.json();
+                            if (data.success) {
+                              showToast(`Kiểm thử Webhook SePay thành công: ${data.message}`, "success");
+                            } else {
+                              showToast(data.message || "Kiểm thử Webhook thất bại", "error");
+                            }
+                          } catch {
+                            showToast("Lỗi khi gửi yêu cầu kiểm thử webhook!", "error");
+                          } finally {
+                            setIsSimulatingSepay(false);
+                          }
+                        }}
+                        disabled={isSimulatingSepay}
+                        className="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition flex items-center gap-1.5 shrink-0"
+                      >
+                        <RefreshCw className={`w-3.5 h-3.5 ${isSimulatingSepay ? "animate-spin" : ""}`} />
+                        <span>{isSimulatingSepay ? "Đang gửi..." : "Thử Nghiệm Gửi Webhook"}</span>
+                      </button>
                     </div>
                   </div>
                 </div>

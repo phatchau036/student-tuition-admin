@@ -114,6 +114,39 @@ export interface Teacher {
 
 export type MonthFormat = "vietnamese" | "english" | "number";
 
+export interface SePayTransaction {
+  id: string; // ID giao dịch SePay
+  gateway?: string; // Vietcombank, MB, ACB...
+  transaction_date?: string; // YYYY-MM-DD HH:mm:ss
+  account_number?: string;
+  sub_account?: string;
+  code?: string;
+  content: string; // Nội dung chuyển khoản
+  transfer_type: "in" | "out";
+  transfer_amount: number; // Số tiền giao dịch
+  reference_code?: string;
+  student_id?: string;
+  student_name?: string;
+  matched_period?: string; // Tháng được đối soát YYYY-MM
+  status: "matched" | "unmatched" | "ignored";
+  created_at?: string;
+}
+
+export interface MonthlyReconciliationSummary {
+  month: string;
+  total_students: number;
+  studying_students: number;
+  reserved_students: number;
+  dropped_students: number;
+  paid_count: number;
+  unpaid_count: number;
+  total_expected_revenue: number; // Tổng dự thu
+  total_actual_revenue: number; // Tổng thực thu đã đóng
+  total_unpaid_revenue: number; // Công nợ còn lại
+  sepay_matched_count: number; // Số giao dịch tự động qua SePay
+  sepay_matched_revenue: number; // Tổng tiền SePay đối soát
+}
+
 export interface SystemSettings {
   base_tuition: number; // Base price in VNĐ
   duration_mode: "by_hours" | "by_sessions"; // Chế độ: HOẶC theo tiếng HOẶC theo buổi
@@ -124,6 +157,13 @@ export interface SystemSettings {
   max_students_per_slot: number; // Sĩ số tối đa mặc định cho 1 lớp/ca
   crowded_threshold_percent: number; // Ngưỡng cảnh báo lớp đông (Mặc định: 80%)
   reconciliation_mode?: ReconciliationMode; // 'manual' | 'auto'
+  
+  // Cấu hình SePay Webhook
+  sepay_api_key?: string; // API Key cấu hình tại SePay Webhook
+  sepay_account_number?: string; // Số tài khoản ngân hàng nhận tiền
+  sepay_bank_name?: string; // Tên ngân hàng (Vietcombank, MBBank, Techcombank, ...)
+  sepay_prefix?: string; // Tiền tố chuyển khoản (Mặc định: HP, ví dụ: HP HS01 T10)
+
   zalo_reminder_mode?: ZaloReminderMode; // 'manual' | 'bot'
   zalo_bot_token?: string; // Token từ Zalo Bot Creator (@Zalo Bot Manager)
   zalo_bot_name?: string; // Tên bot Zalo
@@ -180,6 +220,7 @@ export interface StudentStatusLog {
 
 export interface Student {
   id: string;
+  student_code?: string; // Mã học sinh duy nhất (VD: HS01, HS02...) dùng để đối soát SePay
   school_id?: string;
   school_name?: string;
   name: string;
