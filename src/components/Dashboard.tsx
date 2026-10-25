@@ -9,6 +9,7 @@ import { StudentFormModal } from "@/components/StudentFormModal";
 import { MonthlyTuitionModal } from "@/components/MonthlyTuitionModal";
 import { TeacherManagementModal } from "@/components/TeacherManagementModal";
 import { MakeUpClassesModal } from "@/components/MakeUpClassesModal";
+import { MonthPicker } from "@/components/MonthPicker";
 import {
   Users,
   Search,
@@ -618,11 +619,10 @@ export default function Dashboard() {
                 </span>
                 <p className="text-[11px] text-slate-500 mt-0.5">Dữ liệu học phí áp dụng cho tháng này</p>
               </div>
-              <input
-                type="month"
+              <MonthPicker
                 value={selectedMonth}
-                onChange={(e) => setSelectedMonth(e.target.value)}
-                className="px-3 py-2 text-xs font-bold rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-100 outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+                onChange={(newM) => setSelectedMonth(newM)}
+                monthFormat={monthFormat}
               />
             </div>
           </div>

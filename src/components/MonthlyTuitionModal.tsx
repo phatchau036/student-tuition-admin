@@ -5,6 +5,7 @@ import { Student, MonthFormat } from "@/lib/types";
 import { formatVND, formatMonthDisplay } from "@/lib/tuition";
 import { useToast } from "@/components/Toast";
 import { Calendar, DollarSign, FileText, RotateCcw, Save, X, Sparkles, CheckCircle2 } from "lucide-react";
+import { MonthPicker } from "@/components/MonthPicker";
 
 interface MonthlyTuitionModalProps {
   isOpen: boolean;
@@ -137,14 +138,12 @@ export const MonthlyTuitionModal: React.FC<MonthlyTuitionModalProps> = ({
             <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
               Tháng áp dụng điều chỉnh <span className="text-rose-500">*</span>
             </label>
-            <div className="relative">
-              <Calendar className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
-              <input
-                type="month"
-                required
+            <div>
+              <MonthPicker
                 value={month}
-                onChange={(e) => setMonth(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 text-sm font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition"
+                onChange={(newM) => setMonth(newM)}
+                monthFormat={monthFormat}
+                className="w-full"
               />
             </div>
           </div>
