@@ -1,0 +1,1547 @@
+"use client";
+
+import React, { useState, useEffect } from "react";
+import {
+  ShieldCheck,
+  Building2,
+  Users,
+  Plus,
+  Trash2,
+  KeyRound,
+  GraduationCap,
+  CalendarCheck,
+  ChevronRight,
+  ExternalLink,
+  CheckCircle2,
+  AlertCircle,
+  Copy,
+  Lock,
+  LogOut,
+  User,
+  ArrowRight,
+  Globe,
+  ShieldAlert,
+  Settings,
+  Edit2,
+  Eye,
+  EyeOff,
+  Sparkles,
+  RefreshCw,
+  Check,
+} from "lucide-react";
+import Link from "next/link";
+import {
+  generateAdminUsername,
+  generateRandomPassword,
+  PROVINCES_VIETNAM,
+  getInitials,
+} from "@/lib/credentialGen";
+
+interface School {
+  id: string;
+  name: string;
+  code: string;
+  address: string;
+  phone: string;
+  ip_restriction_enabled?: number;
+  allowed_ips?: string;
+  created_at: string;
+  admin_count: number;
+  student_count: number;
+  teacher_count: number;
+}
+
+interface SchoolAdmin {
+  id: string;
+  school_id: string;
+  username: string;
+  password?: string;
+  full_name: string;
+  school_name: string;
+  school_code: string;
+  created_at: string;
+}
+
+export default function SystemAdminPage() {
+  const [isLocalhostAccess, setIsLocalhostAccess] = useState<boolean | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const [authUsername, setAuthUsername] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
+  const [isSubmittingAuth, setIsSubmittingAuth] = useState(false);
+
+  const [schools, setSchools] = useState<School[]>([]);
+  const [admins, setAdmins] = useState<SchoolAdmin[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Password visibility map for admins
+  const [revealedPasswords, setRevealedPasswords] = useState<Record<string, boolean>>({});
+
+  // Modal create school
+  const [isSchoolModalOpen, setIsSchoolModalOpen] = useState(false);
+  const [newSchoolName, setNewSchoolName] = useState("");
+  const [newSchoolCode, setNewSchoolCode] = useState("");
+  const [newSchoolAddress, setNewSchoolAddress] = useState("");
+  const [newSchoolPhone, setNewSchoolPhone] = useState("");
+
+  // Modal edit school (Đổi tên & thông tin trung tâm)
+  const [isEditSchoolModalOpen, setIsEditSchoolModalOpen] = useState(false);
+  const [editingSchoolId, setEditingSchoolId] = useState("");
+  const [editSchoolName, setEditSchoolName] = useState("");
+  const [editSchoolCode, setEditSchoolCode] = useState("");
+  const [editSchoolAddress, setEditSchoolAddress] = useState("");
+  const [editSchoolPhone, setEditSchoolPhone] = useState("");
+  const [isSavingSchoolEdit, setIsSavingSchoolEdit] = useState(false);
+
+  // Modal create admin với bộ sinh thông minh
+  const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
+  const [selectedSchoolId, setSelectedSchoolId] = useState("");
+  const [adminFullName, setAdminFullName] = useState("");
+  const [adminUsername, setAdminUsername] = useState("");
+  const [adminPassword, setAdminPassword] = useState("");
+
+  // Các trường để sinh tên tài khoản tự động
+  const [genOrgType, setGenOrgType] = useState<"TT" | "TH">("TT");
+  const [genOrgName, setGenOrgName] = useState("");
+  const [genStreetName, setGenStreetName] = useState("Hiền Vương");
+  const [genProvince, setGenProvince] = useState("TPHCM");
+  const [genBranch, setGenBranch] = useState("CN1");
+
+  // Modal IP Whitelist for School
+  const [isIpModalOpen, setIsIpModalOpen] = useState(false);
+  const [editingSchoolForIp, setEditingSchoolForIp] = useState<School | null>(null);
+  const [ipEnabled, setIpEnabled] = useState(false);
+  const [allowedIpsText, setAllowedIpsText] = useState("");
+  const [isSavingIp, setIsSavingIp] = useState(false);
+
+  // Custom Delete Confirmations
+  const [schoolToDelete, setSchoolToDelete] = useState<School | null>(null);
+  const [isDeletingSchool, setIsDeletingSchool] = useState(false);
+  const [adminToDelete, setAdminToDelete] = useState<SchoolAdmin | null>(null);
+  const [isDeletingAdmin, setIsDeletingAdmin] = useState(false);
+
+  const [toastMessage, setToastMessage] = useState<{ text: string; type: "success" | "error" } | null>(null);
+
+  const showToast = (text: string, type: "success" | "error" = "success") => {
+    setToastMessage({ text, type });
+    setTimeout(() => setToastMessage(null), 3500);
+  };
+
+  // Copy to clipboard helper
+  const copyToClipboard = (text: string, label: string = "mật khẩu") => {
+    navigator.clipboard.writeText(text);
+    showToast(`Đã sao chép ${label} vào clipboard!`, "success");
+  };
+
+  // 1. Check if user is accessing through localhost (127.0.0.1 or localhost)
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const hostname = window.location.hostname;
+      const isLocal = hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]";
+      setIsLocalhostAccess(isLocal);
+
+      if (isLocal) {
+        checkAuth();
+      }
+    }
+  }, []);
+
+  const checkAuth = async () => {
+    try {
+      const token = localStorage.getItem("system_token");
+      const headers: Record<string, string> = {};
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
+      const res = await fetch("/api/system/auth", { headers });
+      if (res.status === 404) {
+        setIsLocalhostAccess(false);
+        return;
+      }
+      const json = await res.json();
+      if (json.authenticated) {
+        setIsAuthenticated(true);
+        loadData();
+      } else {
+        setIsAuthenticated(false);
+      }
+    } catch {
+      setIsAuthenticated(false);
+    }
+  };
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!authUsername || !authPassword) {
+      showToast("Vui lòng nhập tài khoản và mật khẩu hệ thống!", "error");
+      return;
+    }
+
+    try {
+      setIsSubmittingAuth(true);
+      const res = await fetch("/api/system/auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: authUsername.trim(),
+          password: authPassword.trim(),
+        }),
+      });
+
+      if (res.status === 404) {
+        setIsLocalhostAccess(false);
+        return;
+      }
+
+      const data = await res.json();
+      if (data.success) {
+        showToast(data.message, "success");
+        if (data.token) {
+          localStorage.setItem("system_token", data.token);
+        }
+        setIsAuthenticated(true);
+        loadData();
+      } else {
+        showToast(data.message || "Đăng nhập thất bại!", "error");
+      }
+    } catch {
+      showToast("Lỗi kết nối máy chủ!", "error");
+    } finally {
+      setIsSubmittingAuth(false);
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("system_token");
+    setIsAuthenticated(false);
+    setAuthPassword("");
+    showToast("Đã đăng xuất khỏi cổng Quản Trị Hệ Thống", "success");
+  };
+
+  const loadData = async () => {
+    try {
+      setIsLoading(true);
+      const res = await fetch("/api/system");
+      if (res.status === 404) {
+        setIsLocalhostAccess(false);
+        return;
+      }
+      const json = await res.json();
+      if (json.success) {
+        setSchools(json.data.schools);
+        setAdmins(json.data.admins);
+        if (json.data.schools.length > 0 && !selectedSchoolId) {
+          setSelectedSchoolId(json.data.schools[0].id);
+          setGenOrgName(json.data.schools[0].name);
+        }
+      }
+    } catch {
+      showToast("Lỗi kết nối khi tải dữ liệu hệ thống!", "error");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Open Edit School Modal (Đổi tên trung tâm)
+  const handleOpenEditSchool = (school: School) => {
+    setEditingSchoolId(school.id);
+    setEditSchoolName(school.name);
+    setEditSchoolCode(school.code);
+    setEditSchoolAddress(school.address || "");
+    setEditSchoolPhone(school.phone || "");
+    setIsEditSchoolModalOpen(true);
+  };
+
+  // Save Edit School
+  const handleSaveEditSchool = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editSchoolName.trim() || !editSchoolCode.trim()) {
+      showToast("Vui lòng nhập tên và mã trường!", "error");
+      return;
+    }
+
+    try {
+      setIsSavingSchoolEdit(true);
+      const res = await fetch("/api/system", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "edit_school",
+          school_id: editingSchoolId,
+          name: editSchoolName.trim(),
+          code: editSchoolCode.trim().toUpperCase(),
+          address: editSchoolAddress.trim(),
+          phone: editSchoolPhone.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(data.message, "success");
+        setIsEditSchoolModalOpen(false);
+        loadData();
+      } else {
+        showToast(data.message || "Cập nhật thất bại", "error");
+      }
+    } catch {
+      showToast("Lỗi kết nối máy chủ", "error");
+    } finally {
+      setIsSavingSchoolEdit(false);
+    }
+  };
+
+  const handleCreateSchool = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newSchoolName.trim() || !newSchoolCode.trim()) {
+      showToast("Vui lòng điền tên và mã trường!", "error");
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/system", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "create_school",
+          name: newSchoolName.trim(),
+          code: newSchoolCode.trim().toUpperCase(),
+          address: newSchoolAddress.trim(),
+          phone: newSchoolPhone.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast("Thêm trường mới thành công!", "success");
+        setIsSchoolModalOpen(false);
+        setNewSchoolName("");
+        setNewSchoolCode("");
+        setNewSchoolAddress("");
+        setNewSchoolPhone("");
+        loadData();
+      } else {
+        showToast(data.message || "Tạo trường thất bại", "error");
+      }
+    } catch {
+      showToast("Lỗi kết nối máy chủ", "error");
+    }
+  };
+
+  // Auto-generate credentials for Admin
+  const handleGenerateCredentials = () => {
+    const generatedUser = generateAdminUsername({
+      orgType: genOrgType,
+      orgName: genOrgName || "TRUNGTAM",
+      streetName: genStreetName || "HV",
+      provinceCode: genProvince,
+      branch: genBranch,
+    });
+    const generatedPass = generateRandomPassword(10);
+
+    setAdminUsername(generatedUser);
+    setAdminPassword(generatedPass);
+    showToast("Đã tạo tên tài khoản chuẩn và mật khẩu ngẫu nhiên 10 ký tự!", "success");
+  };
+
+  const handleGenerateOnlyPassword = () => {
+    const pass = generateRandomPassword(10);
+    setAdminPassword(pass);
+    showToast("Đã sinh mật khẩu 10 ký tự mới!", "success");
+  };
+
+  const handleCreateAdmin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedSchoolId || !adminUsername.trim() || !adminPassword.trim() || !adminFullName.trim()) {
+      showToast("Vui lòng điền đầy đủ thông tin admin!", "error");
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/system", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "create_admin",
+          school_id: selectedSchoolId,
+          full_name: adminFullName.trim(),
+          username: adminUsername.trim(),
+          password: adminPassword.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast("Tạo tài khoản quản trị viên cho trường thành công!", "success");
+        setIsAdminModalOpen(false);
+        setAdminFullName("");
+        setAdminUsername("");
+        setAdminPassword("");
+        loadData();
+      } else {
+        showToast(data.message || "Tạo tài khoản thất bại", "error");
+      }
+    } catch {
+      showToast("Lỗi kết nối máy chủ", "error");
+    }
+  };
+
+  // Open IP Config Modal
+  const handleOpenIpModal = (school: School) => {
+    setEditingSchoolForIp(school);
+    setIpEnabled(Number(school.ip_restriction_enabled || 0) === 1);
+    setAllowedIpsText(school.allowed_ips || "");
+    setIsIpModalOpen(true);
+  };
+
+  // Save IP Config
+  const handleSaveIpConfig = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingSchoolForIp) return;
+
+    try {
+      setIsSavingIp(true);
+      const res = await fetch("/api/system", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "update_school_ip",
+          school_id: editingSchoolForIp.id,
+          ip_restriction_enabled: ipEnabled ? 1 : 0,
+          allowed_ips: allowedIpsText.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(data.message, "success");
+        setIsIpModalOpen(false);
+        loadData();
+      } else {
+        showToast(data.message || "Cập nhật IP thất bại", "error");
+      }
+    } catch {
+      showToast("Lỗi kết nối máy chủ", "error");
+    } finally {
+      setIsSavingIp(false);
+    }
+  };
+
+  const confirmDeleteSchool = async () => {
+    if (!schoolToDelete) return;
+    try {
+      setIsDeletingSchool(true);
+      const res = await fetch("/api/system", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "delete_school", school_id: schoolToDelete.id }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(data.message, "success");
+        setSchoolToDelete(null);
+        loadData();
+      } else {
+        showToast(data.message || "Xóa thất bại", "error");
+      }
+    } catch {
+      showToast("Lỗi kết nối máy chủ", "error");
+    } finally {
+      setIsDeletingSchool(false);
+    }
+  };
+
+  const confirmDeleteAdmin = async () => {
+    if (!adminToDelete) return;
+    try {
+      setIsDeletingAdmin(true);
+      const res = await fetch("/api/system", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "delete_admin", admin_id: adminToDelete.id }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(data.message, "success");
+        setAdminToDelete(null);
+        loadData();
+      } else {
+        showToast(data.message || "Xóa thất bại", "error");
+      }
+    } catch {
+      showToast("Lỗi kết nối máy chủ", "error");
+    } finally {
+      setIsDeletingAdmin(false);
+    }
+  };
+
+  // Toggle reveal password for admin
+  const togglePasswordVisibility = (adminId: string) => {
+    setRevealedPasswords((prev) => ({
+      ...prev,
+      [adminId]: !prev[adminId],
+    }));
+  };
+
+  // CASE 1: Accessed from outside IP (not localhost) -> Show 404 Not Found Page!
+  if (isLocalhostAccess === false) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-center p-4 font-sans text-center">
+        <div className="space-y-4 max-w-md">
+          <div className="w-16 h-16 rounded-3xl bg-rose-500/10 border border-rose-500/20 text-rose-500 flex items-center justify-center mx-auto">
+            <ShieldAlert className="w-8 h-8" />
+          </div>
+          <h1 className="text-4xl font-black text-white">404</h1>
+          <h2 className="text-lg font-bold text-slate-200">Trang Web Không Tồn Tại</h2>
+          <p className="text-xs text-slate-400">
+            Địa chỉ truy cập này không tồn tại hoặc đã bị khóa quyền truy cập ngoài mạng cục bộ.
+          </p>
+          <div className="pt-2">
+            <Link
+              href="/"
+              className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 transition"
+            >
+              Về Trang Chủ
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // CASE 2: Loading screen while checking auth
+  if (isAuthenticated === null) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-400">
+        <div className="flex items-center gap-2">
+          <div className="w-5 h-5 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+          <span className="text-sm font-semibold">Đang kiểm tra quyền truy cập hệ thống...</span>
+        </div>
+      </div>
+    );
+  }
+
+  // CASE 3: Unauthenticated: Super Admin Login Screen (Localhost only)
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-center items-center p-4 font-sans relative">
+        {toastMessage && (
+          <div className="fixed top-5 right-5 z-50 flex items-center gap-2 px-4 py-3 rounded-xl bg-white text-slate-900 shadow-2xl border border-slate-200 animate-in fade-in slide-in-from-top-4">
+            {toastMessage.type === "success" ? (
+              <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+            ) : (
+              <AlertCircle className="w-5 h-5 text-rose-600" />
+            )}
+            <span className="text-sm font-semibold">{toastMessage.text}</span>
+          </div>
+        )}
+
+        <div className="w-full max-w-md p-8 rounded-3xl bg-slate-900/90 border border-slate-800 shadow-2xl space-y-6 backdrop-blur-md">
+          <div className="text-center space-y-2">
+            <div className="w-16 h-16 rounded-2xl bg-purple-600/20 border border-purple-500/30 text-purple-400 mx-auto flex items-center justify-center shadow-lg shadow-purple-600/10">
+              <ShieldCheck className="w-8 h-8" />
+            </div>
+            <h1 className="text-xl font-extrabold text-white">Cổng Quản Trị Hệ Thống</h1>
+            <p className="text-xs text-slate-400">
+              Khu vực dành riêng cho Chủ Hệ Thống. Chỉ khả dụng khi truy cập từ <code className="text-purple-400">localhost</code>.
+            </p>
+          </div>
+
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                Tài khoản Chủ Hệ Thống (.env):
+              </label>
+              <div className="relative">
+                <User className="w-4 h-4 absolute left-3.5 top-3 text-slate-500" />
+                <input
+                  type="text"
+                  required
+                  placeholder="Tên đăng nhập hệ thống"
+                  value={authUsername}
+                  onChange={(e) => setAuthUsername(e.target.value)}
+                  className="w-full pl-10 pr-3 py-2.5 text-sm rounded-xl bg-slate-800/80 border border-slate-700 text-white placeholder:text-slate-500 focus:outline-hidden focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1.5">Mật khẩu:</label>
+              <div className="relative">
+                <Lock className="w-4 h-4 absolute left-3.5 top-3 text-slate-500" />
+                <input
+                  type="password"
+                  required
+                  placeholder="Mật khẩu bảo mật"
+                  value={authPassword}
+                  onChange={(e) => setAuthPassword(e.target.value)}
+                  className="w-full pl-10 pr-3 py-2.5 text-sm rounded-xl bg-slate-800/80 border border-slate-700 text-white placeholder:text-slate-500 focus:outline-hidden focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={isSubmittingAuth}
+              className="w-full py-3 px-4 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-sm shadow-lg shadow-purple-600/30 transition flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              {isSubmittingAuth ? "Đang xác thực..." : "Đăng Nhập Hệ Thống"}
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          </form>
+
+          <div className="pt-2 border-t border-slate-800/80 text-center">
+            <p className="text-[11px] text-slate-500">
+              Thông tin đăng nhập được lưu trữ an toàn trong biến môi trường file <code className="text-purple-400 font-mono">.env</code> của máy chủ.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // CASE 4: Authenticated: Full System Dashboard
+  return (
+    <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col font-sans">
+      {/* Toast Alert */}
+      {toastMessage && (
+        <div className="fixed top-5 right-5 z-50 flex items-center gap-2 px-4 py-3 rounded-xl bg-white text-slate-900 shadow-2xl border border-slate-200 animate-in fade-in slide-in-from-top-4">
+          {toastMessage.type === "success" ? (
+            <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+          ) : (
+            <AlertCircle className="w-5 h-5 text-rose-600" />
+          )}
+          <span className="text-sm font-semibold">{toastMessage.text}</span>
+        </div>
+      )}
+
+      {/* Header */}
+      <header className="border-b border-slate-800 bg-slate-950/70 backdrop-blur-md sticky top-0 z-30">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-purple-600 flex items-center justify-center text-white shadow-lg shadow-purple-600/30">
+              <ShieldCheck className="w-6 h-6" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-base sm:text-lg font-bold tracking-tight text-white">
+                  Quản Trị Hệ Thống Toàn Cục
+                </h1>
+                <span className="px-2 py-0.5 text-[11px] font-bold uppercase rounded-md bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                  Chủ Hệ Thống (Localhost)
+                </span>
+              </div>
+              <p className="text-xs text-slate-400">
+                Khởi tạo trường, đổi tên trung tâm, cấp tài khoản thông minh và xem mật khẩu
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 sm:gap-3">
+            <Link
+              href="/admin"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200 transition"
+              title="Truy cập Cổng Quản trị Cơ sở"
+            >
+              <span>Cổng Admin</span>
+              <ExternalLink className="w-3.5 h-3.5" />
+            </Link>
+            <Link
+              href="/giao-vien"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200 transition"
+              title="Truy cập Cổng Giáo viên"
+            >
+              <span>Cổng Giáo Viên</span>
+              <ExternalLink className="w-3.5 h-3.5" />
+            </Link>
+            <Link
+              href="/"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg bg-purple-600 hover:bg-purple-500 text-white transition shadow-sm"
+              title="Truy cập Cổng Phụ huynh"
+            >
+              <span>Cổng Phụ Huynh</span>
+              <ExternalLink className="w-3.5 h-3.5" />
+            </Link>
+
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 border border-rose-500/20 transition"
+              title="Đăng xuất khỏi Cổng Hệ Thống"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span>Đăng Xuất</span>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Container */}
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+        {/* Quick summary stats */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="p-5 rounded-2xl bg-slate-800/60 border border-slate-700/60 flex items-center justify-between">
+            <div>
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Tổng số trường / trung tâm</p>
+              <h3 className="text-3xl font-extrabold text-white mt-1">{schools.length}</h3>
+            </div>
+            <div className="w-12 h-12 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
+              <Building2 className="w-6 h-6" />
+            </div>
+          </div>
+
+          <div className="p-5 rounded-2xl bg-slate-800/60 border border-slate-700/60 flex items-center justify-between">
+            <div>
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Tài khoản Quản trị cơ sở</p>
+              <h3 className="text-3xl font-extrabold text-purple-400 mt-1">{admins.length}</h3>
+            </div>
+            <div className="w-12 h-12 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
+              <KeyRound className="w-6 h-6" />
+            </div>
+          </div>
+
+          <div className="p-5 rounded-2xl bg-slate-800/60 border border-slate-700/60 flex items-center justify-between">
+            <div>
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Học sinh toàn hệ thống</p>
+              <h3 className="text-3xl font-extrabold text-emerald-400 mt-1">
+                {schools.reduce((acc, s) => acc + (s.student_count || 0), 0)}
+              </h3>
+            </div>
+            <div className="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+              <Users className="w-6 h-6" />
+            </div>
+          </div>
+        </div>
+
+        {/* Schools Section */}
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                <Building2 className="w-5 h-5 text-purple-400" />
+                <span>Danh Sách Trường & Trung Tâm</span>
+              </h2>
+              <p className="text-xs text-slate-400">
+                Chủ Hệ Thống có thể đổi tên trung tâm, điều chỉnh mã cơ sở và thiết lập giới hạn IP bảo vệ
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setIsSchoolModalOpen(true)}
+                className="flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl bg-purple-600 hover:bg-purple-500 text-white transition shadow-sm shadow-purple-600/30"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Tạo Trường Mới</span>
+              </button>
+              <button
+                onClick={() => {
+                  if (schools.length > 0 && !selectedSchoolId) {
+                    setSelectedSchoolId(schools[0].id);
+                    setGenOrgName(schools[0].name);
+                  }
+                  setIsAdminModalOpen(true);
+                }}
+                className="flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200 transition"
+              >
+                <KeyRound className="w-4 h-4 text-purple-400" />
+                <span>Cấp Tài Khoản Admin</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {schools.map((school) => {
+              const hasIpRestriction = Number(school.ip_restriction_enabled || 0) === 1;
+              return (
+                <div
+                  key={school.id}
+                  className="p-5 rounded-2xl bg-slate-800/80 border border-slate-700/80 hover:border-slate-600 transition flex flex-col justify-between space-y-4"
+                >
+                  <div>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="px-2 py-0.5 text-xs font-black uppercase rounded-md bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                          {school.code}
+                        </span>
+                        {hasIpRestriction ? (
+                          <span className="px-2 py-0.5 text-[11px] font-bold rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
+                            <ShieldCheck className="w-3 h-3 text-emerald-400" />
+                            Khóa IP
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 text-[11px] font-medium rounded-md bg-slate-700/50 text-slate-400 border border-slate-700">
+                            Không Khóa IP
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => handleOpenEditSchool(school)}
+                          className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition"
+                          title="Đổi tên và sửa thông tin trường này"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleOpenIpModal(school)}
+                          className="p-1.5 text-slate-400 hover:text-purple-300 hover:bg-purple-500/10 rounded-lg transition"
+                          title="Cấu hình IP Whitelist cho trường này"
+                        >
+                          <Globe className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => setSchoolToDelete(school)}
+                          className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition"
+                          title="Xóa trường này"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+
+                    <h3 className="text-base font-bold text-white mt-2 leading-snug">{school.name}</h3>
+                    <p className="text-xs text-slate-400 mt-1 line-clamp-1">{school.address || "Chưa có địa chỉ"}</p>
+                    <p className="text-xs text-slate-400 mt-0.5">Hotline: {school.phone || "Chưa cập nhật"}</p>
+
+                    {hasIpRestriction && school.allowed_ips && (
+                      <div className="mt-2 p-2 rounded-lg bg-slate-900/60 border border-slate-700/50 text-[11px] text-slate-400">
+                        <span className="text-slate-300 font-semibold block">IP cho phép:</span>
+                        <span className="font-mono text-purple-300 line-clamp-1">{school.allowed_ips}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="pt-3 border-t border-slate-700/60 flex items-center justify-between text-xs text-slate-300">
+                    <div className="flex items-center gap-3">
+                      <span title="Số học sinh" className="flex items-center gap-1 font-semibold text-emerald-400">
+                        <Users className="w-3.5 h-3.5" />
+                        {school.student_count || 0} HS
+                      </span>
+                      <span title="Số giáo viên" className="flex items-center gap-1 font-semibold text-blue-400">
+                        <GraduationCap className="w-3.5 h-3.5" />
+                        {school.teacher_count || 0} GV
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleOpenEditSchool(school)}
+                        className="text-slate-400 hover:text-white font-medium"
+                      >
+                        Đổi Tên
+                      </button>
+                      <button
+                        onClick={() => handleOpenIpModal(school)}
+                        className="text-purple-400 hover:text-purple-300 font-semibold"
+                      >
+                        Khóa IP
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Admins Table Section với tính năng xem mật khẩu & copy */}
+        <div className="space-y-4 pt-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                <KeyRound className="w-5 h-5 text-purple-400" />
+                <span>Danh Sách Tài Khoản Quản Trị Viên (Admin)</span>
+              </h2>
+              <p className="text-xs text-slate-400">
+                Chủ Hệ Thống có thể bấm xem mật khẩu gốc của từng Admin và sao chép để gửi cho quản trị cơ sở
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                if (schools.length > 0 && !selectedSchoolId) {
+                  setSelectedSchoolId(schools[0].id);
+                  setGenOrgName(schools[0].name);
+                }
+                setIsAdminModalOpen(true);
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl bg-purple-600 hover:bg-purple-500 text-white"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Tạo Admin Mới</span>
+            </button>
+          </div>
+
+          <div className="bg-slate-800/80 border border-slate-700 rounded-2xl overflow-hidden shadow-xl">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-sm">
+                <thead>
+                  <tr className="border-b border-slate-700 bg-slate-900/50 text-slate-400 text-xs uppercase font-semibold">
+                    <th className="py-3 px-4">Họ và tên</th>
+                    <th className="py-3 px-4">Tên đăng nhập (Username)</th>
+                    <th className="py-3 px-4">Mật khẩu (Có nút xem & copy)</th>
+                    <th className="py-3 px-4">Trường quản lý</th>
+                    <th className="py-3 px-4">Mã trường</th>
+                    <th className="py-3 px-4 text-right">Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-700/60 text-slate-200">
+                  {admins.map((adm) => {
+                    const isRevealed = Boolean(revealedPasswords[adm.id]);
+                    return (
+                      <tr key={adm.id} className="hover:bg-slate-700/30 transition">
+                        <td className="py-3.5 px-4 font-semibold text-white">{adm.full_name}</td>
+                        <td className="py-3.5 px-4 font-mono text-purple-300 font-bold flex items-center gap-2">
+                          <span>{adm.username}</span>
+                          <button
+                            onClick={() => copyToClipboard(adm.username, "tài khoản")}
+                            className="p-1 text-slate-500 hover:text-purple-300 transition"
+                            title="Sao chép tên tài khoản"
+                          >
+                            <Copy className="w-3 h-3" />
+                          </button>
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono text-sm">
+                              {isRevealed ? (
+                                <span className="text-amber-300 font-bold bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                                  {adm.password}
+                                </span>
+                              ) : (
+                                <span className="text-slate-500 tracking-widest">••••••••••</span>
+                              )}
+                            </span>
+
+                            {/* View / Hide button */}
+                            <button
+                              onClick={() => togglePasswordVisibility(adm.id)}
+                              className="p-1 rounded text-slate-400 hover:text-white hover:bg-slate-700 transition"
+                              title={isRevealed ? "Ẩn mật khẩu" : "Xem mật khẩu của admin này"}
+                            >
+                              {isRevealed ? <EyeOff className="w-4 h-4 text-amber-400" /> : <Eye className="w-4 h-4" />}
+                            </button>
+
+                            {/* Copy password button */}
+                            <button
+                              onClick={() => copyToClipboard(String(adm.password), "mật khẩu")}
+                              className="p-1 rounded text-slate-400 hover:text-purple-300 hover:bg-slate-700 transition"
+                              title="Sao chép mật khẩu"
+                            >
+                              <Copy className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                        <td className="py-3.5 px-4 font-medium text-slate-300">{adm.school_name}</td>
+                        <td className="py-3.5 px-4">
+                          <span className="px-2 py-0.5 text-xs font-black rounded bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                            {adm.school_code}
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4 text-right">
+                          <button
+                            onClick={() => setAdminToDelete(adm)}
+                            className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition"
+                            title="Xóa tài khoản admin này"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {admins.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="py-8 text-center text-slate-500">
+                        Chưa có tài khoản admin nào. Hãy bấm "Cấp Tài Khoản Admin" ở trên!
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      {/* Modal: Đổi Tên Trung Tâm / Chỉnh Sửa Trường */}
+      {isEditSchoolModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-slate-900 border border-slate-700 rounded-3xl w-full max-w-md p-6 space-y-5 shadow-2xl">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                <Edit2 className="w-5 h-5 text-purple-400" />
+                <span>Đổi Tên & Cập Nhật Thông Tin Trường</span>
+              </h3>
+              <button
+                onClick={() => setIsEditSchoolModalOpen(false)}
+                className="text-slate-400 hover:text-white text-lg font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditSchool} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Tên Trường / Trung Tâm *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="VD: Trung Tâm Âm Nhạc & Nghệ Thuật Sáng Tạo"
+                  value={editSchoolName}
+                  onChange={(e) => setEditSchoolName(e.target.value)}
+                  className="w-full px-3 py-2 text-sm rounded-xl bg-slate-800 border border-slate-700 text-white focus:outline-hidden focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Mã Trường (Viết tắt) *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="VD: TT-01"
+                  value={editSchoolCode}
+                  onChange={(e) => setEditSchoolCode(e.target.value)}
+                  className="w-full px-3 py-2 text-sm uppercase rounded-xl bg-slate-800 border border-slate-700 text-white focus:outline-hidden focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Địa chỉ</label>
+                <input
+                  type="text"
+                  placeholder="VD: 123 Đường Sáng Tạo, Q.1"
+                  value={editSchoolAddress}
+                  onChange={(e) => setEditSchoolAddress(e.target.value)}
+                  className="w-full px-3 py-2 text-sm rounded-xl bg-slate-800 border border-slate-700 text-white focus:outline-hidden focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Số điện thoại hotline</label>
+                <input
+                  type="text"
+                  placeholder="VD: 0909123456"
+                  value={editSchoolPhone}
+                  onChange={(e) => setEditSchoolPhone(e.target.value)}
+                  className="w-full px-3 py-2 text-sm rounded-xl bg-slate-800 border border-slate-700 text-white focus:outline-hidden focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3">
+                <button
+                  type="button"
+                  onClick={() => setIsEditSchoolModalOpen(false)}
+                  className="px-4 py-2 text-xs font-semibold rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingSchoolEdit}
+                  className="px-4 py-2 text-xs font-bold rounded-xl bg-purple-600 hover:bg-purple-500 text-white shadow-md shadow-purple-600/30 disabled:opacity-50"
+                >
+                  {isSavingSchoolEdit ? "Đang lưu..." : "Lưu Thay Đổi"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Cấp Tài Khoản Admin Với Bộ Sinh Thông Minh */}
+      {isAdminModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-slate-900 border border-slate-700 rounded-3xl w-full max-w-lg p-6 space-y-5 shadow-2xl max-h-[92vh] overflow-y-auto">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-9 h-9 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400 flex items-center justify-center">
+                  <KeyRound className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">Cấp Tài Khoản Quản Trị Viên (Admin)</h3>
+                  <p className="text-xs text-slate-400">Tự động sinh tài khoản & mật khẩu 10 ký tự mạnh</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsAdminModalOpen(false)}
+                className="text-slate-400 hover:text-white text-lg font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* BỘ SINH TÀI KHOẢN THEO CÔNG THỨC */}
+            <div className="p-4 rounded-2xl bg-slate-800/90 border border-slate-700/80 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-purple-300 flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+                  Công Thức Sinh Tự Động: TT-(Tên)-(Đường)-(Tỉnh)-(Chi Nhánh)
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div>
+                  <label className="block text-[11px] text-slate-400 mb-1">Loại cơ sở:</label>
+                  <select
+                    value={genOrgType}
+                    onChange={(e) => setGenOrgType(e.target.value as "TT" | "TH")}
+                    className="w-full px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white"
+                  >
+                    <option value="TT">Trung Tâm (TT)</option>
+                    <option value="TH">Trường Học (TH)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] text-slate-400 mb-1">Tên đường (VD: Hiền Vương):</label>
+                  <input
+                    type="text"
+                    placeholder="Hiền Vương"
+                    value={genStreetName}
+                    onChange={(e) => setGenStreetName(e.target.value)}
+                    className="w-full px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] text-slate-400 mb-1">Tỉnh / Thành phố:</label>
+                  <select
+                    value={genProvince}
+                    onChange={(e) => setGenProvince(e.target.value)}
+                    className="w-full px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white"
+                  >
+                    {PROVINCES_VIETNAM.map((p) => (
+                      <option key={p.code} value={p.code}>
+                        {p.name} ({p.code})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] text-slate-400 mb-1">Chi nhánh:</label>
+                  <input
+                    type="text"
+                    placeholder="CN1"
+                    value={genBranch}
+                    onChange={(e) => setGenBranch(e.target.value)}
+                    className="w-full px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleGenerateCredentials}
+                className="w-full py-2 px-3 rounded-xl bg-purple-600/30 hover:bg-purple-600/50 text-purple-200 border border-purple-500/40 text-xs font-bold transition flex items-center justify-center gap-2"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+                <span>Bấm Để Sinh Tài Khoản & Mật Khẩu Tự Động</span>
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateAdmin} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Trường phân công *</label>
+                <select
+                  required
+                  value={selectedSchoolId}
+                  onChange={(e) => {
+                    const sid = e.target.value;
+                    setSelectedSchoolId(sid);
+                    const s = schools.find((sc) => sc.id === sid);
+                    if (s) setGenOrgName(s.name);
+                  }}
+                  className="w-full px-3 py-2 text-sm rounded-xl bg-slate-800 border border-slate-700 text-white focus:outline-hidden focus:ring-2 focus:ring-purple-500"
+                >
+                  {schools.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      [{s.code}] {s.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Họ tên quản trị viên *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="VD: Quản Lý Cơ Sở Hiền Vương"
+                  value={adminFullName}
+                  onChange={(e) => setAdminFullName(e.target.value)}
+                  className="w-full px-3 py-2 text-sm rounded-xl bg-slate-800 border border-slate-700 text-white focus:outline-hidden focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+
+              {/* Tên đăng nhập */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-semibold text-slate-300">
+                    Tên đăng nhập (Username) *
+                  </label>
+                  {adminUsername && (
+                    <button
+                      type="button"
+                      onClick={() => copyToClipboard(adminUsername, "tên đăng nhập")}
+                      className="text-[11px] text-purple-400 hover:text-purple-300 flex items-center gap-1"
+                    >
+                      <Copy className="w-3 h-3" />
+                      <span>Copy username</span>
+                    </button>
+                  )}
+                </div>
+                <input
+                  type="text"
+                  required
+                  placeholder="VD: TT-ANST-HV-TPHCM-CN1"
+                  value={adminUsername}
+                  onChange={(e) => setAdminUsername(e.target.value)}
+                  className="w-full px-3 py-2 text-sm font-mono uppercase rounded-xl bg-slate-800 border border-slate-700 text-purple-300 font-bold focus:outline-hidden focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+
+              {/* Mật khẩu 10 ký tự */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-semibold text-slate-300">
+                    Mật khẩu khởi tạo (10 ký tự mạnh) *
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleGenerateOnlyPassword}
+                      className="text-[11px] text-purple-400 hover:text-purple-300 flex items-center gap-1"
+                    >
+                      <RefreshCw className="w-3 h-3" />
+                      <span>Đổi mật khẩu khác</span>
+                    </button>
+                    {adminPassword && (
+                      <button
+                        type="button"
+                        onClick={() => copyToClipboard(adminPassword, "mật khẩu")}
+                        className="text-[11px] text-amber-400 hover:text-amber-300 flex items-center gap-1 font-bold"
+                      >
+                        <Copy className="w-3 h-3" />
+                        <span>Copy mật khẩu</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <div className="relative">
+                  <input
+                    type="text"
+                    required
+                    placeholder="VD: aB9@kL7#mP"
+                    value={adminPassword}
+                    onChange={(e) => setAdminPassword(e.target.value)}
+                    className="w-full pl-3 pr-20 py-2 text-sm font-mono rounded-xl bg-slate-800 border border-slate-700 text-amber-300 font-bold focus:outline-hidden focus:ring-2 focus:ring-purple-500"
+                  />
+                  {adminPassword && (
+                    <button
+                      type="button"
+                      onClick={() => copyToClipboard(adminPassword, "mật khẩu")}
+                      className="absolute right-2 top-1.5 px-2 py-1 rounded bg-amber-500/20 text-amber-300 text-xs font-bold hover:bg-amber-500/30 transition flex items-center gap-1"
+                    >
+                      <Copy className="w-3 h-3" />
+                      <span>Copy</span>
+                    </button>
+                  )}
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1">
+                  Mật khẩu gồm 10 ký tự ngẫu nhiên (chữ hoa, chữ thường, số, ký tự đặc biệt). Bạn chỉ việc bấm Copy để gửi cho quản trị cơ sở!
+                </p>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3">
+                <button
+                  type="button"
+                  onClick={() => setIsAdminModalOpen(false)}
+                  className="px-4 py-2 text-xs font-semibold rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 text-xs font-bold rounded-xl bg-purple-600 hover:bg-purple-500 text-white shadow-md shadow-purple-600/30"
+                >
+                  Cấp Tài Khoản Admin
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Cấu hình Giới Hạn IP Cho Trường (IP Whitelist) */}
+      {isIpModalOpen && editingSchoolForIp && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-slate-900 border border-slate-700 rounded-3xl w-full max-w-md p-6 space-y-5 shadow-2xl">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-9 h-9 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400 flex items-center justify-center">
+                  <Globe className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">Cấu Hình Bảo Vệ IP Cho Trường</h3>
+                  <p className="text-xs text-slate-400">{editingSchoolForIp.name}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsIpModalOpen(false)}
+                className="text-slate-400 hover:text-white text-lg font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveIpConfig} className="space-y-4">
+              <div className="p-3.5 rounded-2xl bg-slate-800/80 border border-slate-700 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-white flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={ipEnabled}
+                      onChange={(e) => setIpEnabled(e.target.checked)}
+                      className="w-4 h-4 rounded text-purple-600 focus:ring-purple-500"
+                    />
+                    <span>Kích hoạt giới hạn IP truy cập Admin</span>
+                  </label>
+                  <span
+                    className={`px-2 py-0.5 rounded text-[11px] font-bold ${
+                      ipEnabled ? "bg-emerald-500/20 text-emerald-300" : "bg-slate-700 text-slate-400"
+                    }`}
+                  >
+                    {ipEnabled ? "Đang Bật" : "Đang Tắt"}
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-400 leading-relaxed">
+                  Khi bật tính năng này, người dùng khi vào trang <code className="text-purple-300">/admin</code> sẽ được kiểm tra IP. Nếu không thuộc danh sách bên dưới, hệ thống sẽ báo <strong>Web Error</strong> ngay lập tức.
+                </p>
+              </div>
+
+              {ipEnabled && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-semibold text-slate-300">
+                      Danh sách IP được phép truy cập (IP Whitelist):
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const current = allowedIpsText ? `${allowedIpsText}, 192.168.1.235, 127.0.0.1` : "192.168.1.235, 127.0.0.1";
+                        setAllowedIpsText(current);
+                      }}
+                      className="text-[11px] text-purple-400 hover:text-purple-300 underline"
+                    >
+                      + Thêm IP 192.168.1.235 & Localhost
+                    </button>
+                  </div>
+                  <textarea
+                    rows={4}
+                    required={ipEnabled}
+                    placeholder="VD: 192.168.1.235, 127.0.0.1, 14.161.20.15"
+                    value={allowedIpsText}
+                    onChange={(e) => setAllowedIpsText(e.target.value)}
+                    className="w-full px-3.5 py-2.5 text-xs font-mono rounded-xl bg-slate-800 border border-slate-700 text-white placeholder:text-slate-500 focus:outline-hidden focus:ring-2 focus:ring-purple-500"
+                  />
+                  <p className="text-[10px] text-slate-500">
+                    Phân tách nhiều địa chỉ IP bằng dấu phẩy (,) hoặc xuống dòng.
+                  </p>
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsIpModalOpen(false)}
+                  className="px-4 py-2 text-xs font-semibold rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingIp}
+                  className="px-4 py-2 text-xs font-bold rounded-xl bg-purple-600 hover:bg-purple-500 text-white shadow-md shadow-purple-600/30 disabled:opacity-50"
+                >
+                  {isSavingIp ? "Đang lưu..." : "Lưu Cấu Hình IP"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Tạo trường mới */}
+      {isSchoolModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md p-6 space-y-5 shadow-2xl">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                <Building2 className="w-5 h-5 text-purple-400" />
+                <span>Thêm Trường / Trung Tâm Mới</span>
+              </h3>
+              <button
+                onClick={() => setIsSchoolModalOpen(false)}
+                className="text-slate-400 hover:text-white text-lg font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateSchool} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Tên Trường / Trung Tâm *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="VD: Chi Nhánh Quận 7 - SoundMusic"
+                  value={newSchoolName}
+                  onChange={(e) => setNewSchoolName(e.target.value)}
+                  className="w-full px-3 py-2 text-sm rounded-xl bg-slate-800 border border-slate-700 text-white focus:outline-hidden focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Mã Trường (Viết tắt) *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="VD: TT-Q7"
+                  value={newSchoolCode}
+                  onChange={(e) => setNewSchoolCode(e.target.value)}
+                  className="w-full px-3 py-2 text-sm uppercase rounded-xl bg-slate-800 border border-slate-700 text-white focus:outline-hidden focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Địa chỉ</label>
+                <input
+                  type="text"
+                  placeholder="VD: 456 Nguyễn Thị Thập, P. Tân Quy, Q.7"
+                  value={newSchoolAddress}
+                  onChange={(e) => setNewSchoolAddress(e.target.value)}
+                  className="w-full px-3 py-2 text-sm rounded-xl bg-slate-800 border border-slate-700 text-white focus:outline-hidden focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Số điện thoại hotline</label>
+                <input
+                  type="text"
+                  placeholder="VD: 0912345678"
+                  value={newSchoolPhone}
+                  onChange={(e) => setNewSchoolPhone(e.target.value)}
+                  className="w-full px-3 py-2 text-sm rounded-xl bg-slate-800 border border-slate-700 text-white focus:outline-hidden focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3">
+                <button
+                  type="button"
+                  onClick={() => setIsSchoolModalOpen(false)}
+                  className="px-4 py-2 text-xs font-semibold rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 text-xs font-bold rounded-xl bg-purple-600 hover:bg-purple-500 text-white"
+                >
+                  Khởi Tạo Trường
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {/* Modal: Xác Nhận Xóa Trường Học (Custom Modal - không bao giờ bị trình duyệt chặn) */}
+      {schoolToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-slate-900 border border-rose-500/40 rounded-3xl w-full max-w-md p-6 space-y-5 shadow-2xl">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-500 flex items-center justify-center shrink-0">
+                <Trash2 className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white leading-snug">Xác Nhận Xóa Trường Học</h3>
+                <p className="text-xs text-rose-400 font-semibold">Hành động này không thể hoàn tác!</p>
+              </div>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-slate-800/80 border border-slate-700 space-y-1.5 text-xs text-slate-300">
+              <p>
+                Trường học: <span className="font-bold text-white">{schoolToDelete.name}</span> ({schoolToDelete.code})
+              </p>
+              <p className="text-slate-400 text-[11px] pt-1 border-t border-slate-700/60 leading-relaxed">
+                Khi xóa trường, tất cả các tài khoản Quản trị viên, danh sách học sinh, giáo viên và ca học thuộc trường này cũng sẽ được xóa sạch hoàn toàn khỏi hệ thống.
+              </p>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                disabled={isDeletingSchool}
+                onClick={() => setSchoolToDelete(null)}
+                className="px-4 py-2.5 text-xs font-semibold rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition"
+              >
+                Hủy Bỏ
+              </button>
+              <button
+                type="button"
+                disabled={isDeletingSchool}
+                onClick={confirmDeleteSchool}
+                className="px-5 py-2.5 text-xs font-bold rounded-xl bg-rose-600 hover:bg-rose-700 text-white shadow-lg shadow-rose-600/30 transition flex items-center gap-1.5 disabled:opacity-50"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>{isDeletingSchool ? "Đang xóa..." : "Xác Nhận Xóa Ngay"}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Xác Nhận Xóa Admin (Custom Modal) */}
+      {adminToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-slate-900 border border-rose-500/40 rounded-3xl w-full max-w-md p-6 space-y-5 shadow-2xl">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-500 flex items-center justify-center shrink-0">
+                <Trash2 className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white leading-snug">Xóa Tài Khoản Quản Trị Viên</h3>
+                <p className="text-xs text-rose-400 font-semibold">Tài khoản sẽ bị vô hiệu hóa vĩnh viễn</p>
+              </div>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-slate-800/80 border border-slate-700 space-y-1.5 text-xs text-slate-300">
+              <p>
+                Quản trị viên: <span className="font-bold text-white">{adminToDelete.full_name}</span>
+              </p>
+              <p>
+                Tên đăng nhập: <span className="font-mono text-purple-300 font-bold">{adminToDelete.username}</span>
+              </p>
+              <p className="text-slate-400 text-[11px] pt-1 border-t border-slate-700/60">
+                Trường: {adminToDelete.school_name} ({adminToDelete.school_code})
+              </p>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                disabled={isDeletingAdmin}
+                onClick={() => setAdminToDelete(null)}
+                className="px-4 py-2.5 text-xs font-semibold rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition"
+              >
+                Hủy Bỏ
+              </button>
+              <button
+                type="button"
+                disabled={isDeletingAdmin}
+                onClick={confirmDeleteAdmin}
+                className="px-5 py-2.5 text-xs font-bold rounded-xl bg-rose-600 hover:bg-rose-700 text-white shadow-lg shadow-rose-600/30 transition flex items-center gap-1.5 disabled:opacity-50"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>{isDeletingAdmin ? "Đang xóa..." : "Xác Nhận Xóa Admin"}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
