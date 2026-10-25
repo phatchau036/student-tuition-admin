@@ -398,7 +398,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         <div className="p-6 overflow-y-auto flex-1 space-y-6">
           {/* TAB 1: Base Tuition, Capacity & Weekly Duration Mode */}
           {activeTab === "general" && (
-            <div className="space-y-6 max-w-3xl">
+            <div className="space-y-6 w-full">
               {/* Base Price Card */}
               <div className="bg-gradient-to-tr from-indigo-50/70 to-purple-50/50 dark:from-indigo-950/30 dark:to-purple-950/20 p-5 rounded-2xl border border-indigo-100/80 dark:border-indigo-900/40 space-y-3">
                 <div className="flex items-center justify-between">
