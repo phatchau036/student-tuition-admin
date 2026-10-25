@@ -1,0 +1,435 @@
+"use client";
+
+import React, { useState, useEffect } from "react";
+import { Student, StudentStatusLog, StudentPayment } from "@/lib/types";
+import { formatVND, formatMonthDisplay } from "@/lib/tuition";
+import {
+  User,
+  Phone,
+  Calendar,
+  Clock,
+  Layers,
+  GraduationCap,
+  MessageSquare,
+  History,
+  CheckCircle2,
+  AlertCircle,
+  PauseCircle,
+  UserX,
+  UserCheck,
+  X,
+  CreditCard,
+  Tag,
+  ArrowRight,
+  ExternalLink,
+} from "lucide-react";
+
+interface StudentDetailModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  student: Student | null;
+  selectedMonth: string;
+  onOpenStatusChange: (student: Student) => void;
+  onOpenZaloReminder: (student: Student) => void;
+  onReconciliationToggle: (student: Student) => void;
+}
+
+export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
+  isOpen,
+  onClose,
+  student,
+  selectedMonth,
+  onOpenStatusChange,
+  onOpenZaloReminder,
+  onReconciliationToggle,
+}) => {
+  const [statusLogs, setStatusLogs] = useState<StudentStatusLog[]>([]);
+  const [isLoadingLogs, setIsLoadingLogs] = useState(false);
+  const [activeTab, setActiveTab] = useState<"info" | "status_history" | "schedule">("info");
+
+  useEffect(() => {
+    if (isOpen && student) {
+      loadStudentStatusLogs(student.id);
+    }
+  }, [isOpen, student]);
+
+  const loadStudentStatusLogs = async (studentId: string) => {
+    try {
+      setIsLoadingLogs(true);
+      const res = await fetch(`/api/status-logs?student_id=${studentId}`);
+      const json = await res.json();
+      if (json.success) {
+        setStatusLogs(json.data || []);
+      }
+    } catch (err) {
+      console.error("Failed to load status logs:", err);
+    } finally {
+      setIsLoadingLogs(false);
+    }
+  };
+
+  if (!isOpen || !student) return null;
+
+  const status = student.status || "studying";
+  const isPaid = student.payment_status === "paid";
+  const zaloPhone = student.phone ? student.phone.replace(/\D/g, "") : "";
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5 overflow-y-auto font-sans">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl w-full max-w-2xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+        {/* Header */}
+        <div className="px-6 py-4.5 border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between bg-slate-50/70 dark:bg-slate-950/40">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-indigo-600 to-indigo-500 text-white flex items-center justify-center font-black text-lg shadow-md shadow-indigo-600/25 shrink-0">
+              {student.name ? student.name.trim().charAt(0).toUpperCase() : "H"}
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight">
+                  {student.name}
+                </h3>
+                {status === "studying" ? (
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200">
+                    Đang học
+                  </span>
+                ) : status === "reserved" ? (
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-200">
+                    Bảo lưu
+                  </span>
+                ) : (
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border border-rose-200">
+                    Nghỉ học
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-2">
+                <span>SĐT: {student.phone}</span>
+                <span>•</span>
+                <span>Level: {student.level_name || "Chưa phân loại"}</span>
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Navigation Tabs */}
+        <div className="flex border-b border-slate-200/80 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/20 px-6 py-2 gap-2 text-xs font-bold">
+          <button
+            onClick={() => setActiveTab("info")}
+            className={`px-3 py-1.5 rounded-xl transition ${
+              activeTab === "info"
+                ? "bg-indigo-600 text-white shadow-2xs"
+                : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+            }`}
+          >
+            Thông Tin & Học Phí
+          </button>
+          <button
+            onClick={() => setActiveTab("status_history")}
+            className={`px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 ${
+              activeTab === "status_history"
+                ? "bg-indigo-600 text-white shadow-2xs"
+                : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+            }`}
+          >
+            <History className="w-3.5 h-3.5" />
+            <span>Lịch Sử Nghỉ / Bảo Lưu ({statusLogs.length})</span>
+          </button>
+          <button
+            onClick={() => setActiveTab("schedule")}
+            className={`px-3 py-1.5 rounded-xl transition ${
+              activeTab === "schedule"
+                ? "bg-indigo-600 text-white shadow-2xs"
+                : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+            }`}
+          >
+            Lịch Học Chi Tiết
+          </button>
+        </div>
+
+        {/* Body content */}
+        <div className="p-6 overflow-y-auto flex-1 space-y-5">
+          {activeTab === "info" && (
+            <div className="space-y-4">
+              {/* Status Alert Banner */}
+              {status === "reserved" && (
+                <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 flex items-start justify-between gap-3 text-xs">
+                  <div className="space-y-1">
+                    <span className="font-bold text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
+                      <PauseCircle className="w-4 h-4 text-amber-600" />
+                      Học sinh đang trong thời gian BẢO LƯU
+                    </span>
+                    <p className="text-slate-600 dark:text-slate-400">
+                      Ngày bắt đầu bảo lưu: <strong>{student.status_date || "Chưa ghi nhận"}</strong>
+                    </p>
+                    <p className="text-amber-900 dark:text-amber-200 font-extrabold">
+                      Dự kiến học lại vào: {student.expected_return_date || "Chưa xác định"}
+                    </p>
+                    {student.status_note && (
+                      <p className="text-slate-500 italic mt-0.5">&ldquo;{student.status_note}&rdquo;</p>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => {
+                      onClose();
+                      onOpenStatusChange(student);
+                    }}
+                    className="px-3 py-1.5 text-xs font-bold rounded-xl bg-amber-600 hover:bg-amber-700 text-white shrink-0 shadow-xs"
+                  >
+                    Đổi trạng thái
+                  </button>
+                </div>
+              )}
+
+              {status === "dropped" && (
+                <div className="p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/50 flex items-start justify-between gap-3 text-xs">
+                  <div className="space-y-1">
+                    <span className="font-bold text-rose-800 dark:text-rose-300 flex items-center gap-1.5">
+                      <UserX className="w-4 h-4 text-rose-600" />
+                      Học sinh đã NGHỈ HỌC
+                    </span>
+                    <p className="text-slate-600 dark:text-slate-400">
+                      Ngày nghỉ học: <strong>{student.status_date || "Chưa ghi nhận"}</strong>
+                    </p>
+                    {student.status_note && (
+                      <p className="text-slate-500 italic mt-0.5">&ldquo;{student.status_note}&rdquo;</p>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => {
+                      onClose();
+                      onOpenStatusChange(student);
+                    }}
+                    className="px-3 py-1.5 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shrink-0 shadow-xs"
+                  >
+                    Cho học lại tiếp
+                  </button>
+                </div>
+              )}
+
+              {/* Tuition & Billing Box */}
+              <div className="p-4.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-850 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                    <CreditCard className="w-4 h-4 text-indigo-600" />
+                    Học Phí & Đối Soát ({formatMonthDisplay(selectedMonth)})
+                  </span>
+                  <span className="text-xs font-extrabold text-indigo-600">
+                    {student.tuition_package_name ? `Gói: ${student.tuition_package_name}` : "Gói chuẩn"}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 pt-1">
+                  <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block">Số tiền cần đóng</span>
+                    <span className="text-lg font-black text-slate-900 dark:text-white mt-0.5 block">
+                      {formatVND(student.current_tuition)}
+                    </span>
+                    {student.monthly_override && (
+                      <span className="text-[10px] text-amber-600 font-bold block mt-0.5">
+                        * Đã điều chỉnh riêng tháng này
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 flex flex-col justify-between">
+                    <div>
+                      <span className="text-[10px] uppercase font-bold text-slate-400 block">Trạng thái công nợ</span>
+                      {isPaid ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-black bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 mt-1">
+                          <CheckCircle2 className="w-3.5 h-3.5" /> Đã đóng học phí
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-black bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 mt-1">
+                          <AlertCircle className="w-3.5 h-3.5" /> Cần đóng tiền
+                        </span>
+                      )}
+                    </div>
+                    {student.payment_period_desc && (
+                      <span className="text-[10px] text-slate-400 font-mono mt-1">
+                        {student.payment_period_desc}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Quick actions for billing */}
+                <div className="pt-2 flex items-center justify-between gap-2 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => onReconciliationToggle(student)}
+                    className={`px-3.5 py-1.5 text-xs font-bold rounded-xl border transition flex items-center gap-1.5 ${
+                      isPaid
+                        ? "bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-700 border-slate-300 dark:bg-slate-800 dark:text-slate-300"
+                        : "bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600 shadow-2xs"
+                    }`}
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>{isPaid ? "Hủy đánh dấu đã đóng" : "Đánh dấu ĐÃ ĐÓNG"}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      onOpenZaloReminder(student);
+                    }}
+                    className="px-3.5 py-1.5 text-xs font-bold rounded-xl bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200 dark:border-blue-800 flex items-center gap-1.5 transition"
+                  >
+                    <MessageSquare className="w-3.5 h-3.5 text-blue-600" />
+                    <span>Nhắc học phí Zalo</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* General info list */}
+              <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 space-y-2.5 text-xs">
+                <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
+                  <span className="text-slate-400 font-medium">Giáo viên phụ trách:</span>
+                  <span className="font-bold text-slate-800 dark:text-slate-200">
+                    {student.teacher_name || "Chưa gán giáo viên"}
+                  </span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
+                  <span className="text-slate-400 font-medium">Hình thức học:</span>
+                  <span className="font-bold text-slate-800 dark:text-slate-200">
+                    {student.duration_mode === "by_hours"
+                      ? `${student.hours_per_week || 3} tiếng / tuần`
+                      : `${student.sessions_per_week || 3} buổi / tuần`}
+                  </span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
+                  <span className="text-slate-400 font-medium">Lịch học hàng tuần:</span>
+                  <span className="font-bold text-slate-800 dark:text-slate-200 text-right">
+                    {student.registered_days || "Chưa chọn ngày"}
+                  </span>
+                </div>
+                <div className="flex justify-between py-1">
+                  <span className="text-slate-400 font-medium">Chi tiết ca học:</span>
+                  <span className="font-mono text-slate-700 dark:text-slate-300 text-right max-w-xs">
+                    {student.study_time_detail || "Linh hoạt"}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === "status_history" && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between pb-1">
+                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                  Lịch sử thay đổi trạng thái học tập
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    onOpenStatusChange(student);
+                  }}
+                  className="px-3 py-1 text-xs font-bold rounded-xl bg-indigo-50 text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-950 dark:text-indigo-300 transition"
+                >
+                  + Chuyển trạng thái mới
+                </button>
+              </div>
+
+              {isLoadingLogs ? (
+                <div className="py-12 text-center text-xs text-slate-400">Đang tải lịch sử...</div>
+              ) : statusLogs.length === 0 ? (
+                <div className="py-12 text-center text-xs text-slate-400 border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl">
+                  Chưa có lịch sử bảo lưu hay nghỉ học nào cho học sinh này.
+                </div>
+              ) : (
+                <div className="space-y-2.5">
+                  {statusLogs.map((log) => {
+                    let badge = "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300";
+                    let label = "Bảo Lưu";
+                    if (log.action_type === "drop") {
+                      badge = "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300";
+                      label = "Nghỉ Học";
+                    } else if (log.action_type === "resume") {
+                      badge = "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300";
+                      label = "Học Tiếp";
+                    }
+
+                    return (
+                      <div
+                        key={log.id}
+                        className="p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-850 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+                      >
+                        <div className="flex items-start gap-2.5">
+                          <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black uppercase shrink-0 ${badge}`}>
+                            {label}
+                          </span>
+                          <div>
+                            <p className="font-semibold text-slate-800 dark:text-slate-200">
+                              Ngày áp dụng: <strong>{log.effective_date}</strong>
+                              {log.return_date && (
+                                <span className="text-amber-600 dark:text-amber-400 ml-2 font-bold">
+                                  (Dự kiến học lại: {log.return_date})
+                                </span>
+                              )}
+                            </p>
+                            {log.reason && (
+                              <p className="text-slate-500 italic mt-0.5">&ldquo;{log.reason}&rdquo;</p>
+                            )}
+                          </div>
+                        </div>
+
+                        <span className="font-mono text-[11px] text-slate-400 shrink-0">
+                          {log.logged_at}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === "schedule" && (
+            <div className="space-y-3">
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
+                Chi tiết các buổi học trong tuần:
+              </span>
+              <div className="p-4 rounded-2xl bg-slate-50/60 dark:bg-slate-850 border border-slate-200/80 dark:border-slate-800 space-y-2 text-xs">
+                <p className="text-slate-700 dark:text-slate-300 font-semibold">
+                  {student.study_time_detail || "Linh hoạt trong ca mở cửa"}
+                </p>
+                <div className="pt-2 border-t border-slate-200/60 dark:border-slate-700/60 text-[11px] text-slate-500">
+                  Khung giờ tham chiếu: <strong>{student.time_slot_name || "Linh hoạt"}</strong>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/70 dark:bg-slate-950/40">
+          <button
+            type="button"
+            onClick={() => {
+              onClose();
+              onOpenStatusChange(student);
+            }}
+            className="px-3.5 py-2 text-xs font-bold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 text-slate-700 dark:text-slate-200 transition"
+          >
+            Đổi trạng thái học (Bảo lưu / Nghỉ / Học tiếp)
+          </button>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-5 py-2 text-xs font-bold text-slate-700 dark:text-slate-300 rounded-xl hover:bg-slate-200/60 dark:hover:bg-slate-800 transition"
+          >
+            Đóng
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};

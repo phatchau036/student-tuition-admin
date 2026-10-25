@@ -1,7 +1,15 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { TimeSlot, LevelSurcharge, DiscountOption, MonthFormat } from "@/lib/types";
+import {
+  TimeSlot,
+  LevelSurcharge,
+  DiscountOption,
+  MonthFormat,
+  TuitionPackage,
+  ReconciliationMode,
+  ZaloReminderMode,
+} from "@/lib/types";
 import { formatVND, formatTimeSlotLabel, formatMonthDisplay, getCurrentMonthStr } from "@/lib/tuition";
 import { useToast } from "@/components/Toast";
 import {
@@ -24,6 +32,12 @@ import {
   X,
   Sliders,
   Sparkles,
+  Package,
+  CreditCard,
+  MessageSquare,
+  Bot,
+  Edit2,
+  Power,
 } from "lucide-react";
 
 interface SettingsModalProps {
@@ -38,9 +52,15 @@ interface SettingsModalProps {
   initialDefaultStudyTime?: string;
   initialMaxStudents?: number;
   initialCrowdedThreshold?: number;
+  initialReconciliationMode?: ReconciliationMode;
+  initialZaloReminderMode?: ZaloReminderMode;
+  initialZaloOaSecretKey?: string;
+  initialZaloAccessToken?: string;
+  initialZaloTemplateId?: string;
   initialTimeSlots: TimeSlot[];
   initialLevelSurcharges: LevelSurcharge[];
   initialDiscountPresets: DiscountOption[];
+  initialTuitionPackages?: TuitionPackage[];
 }
 
 const WEEKDAYS = [
@@ -65,12 +85,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   initialDefaultStudyTime = "18:00 - 19:00",
   initialMaxStudents = 10,
   initialCrowdedThreshold = 80,
+  initialReconciliationMode = "manual",
+  initialZaloReminderMode = "manual",
+  initialZaloOaSecretKey = "",
+  initialZaloAccessToken = "",
+  initialZaloTemplateId = "",
   initialTimeSlots,
   initialLevelSurcharges,
   initialDiscountPresets,
+  initialTuitionPackages = [],
 }) => {
   const { showToast } = useToast();
-  const [activeTab, setActiveTab] = useState<"general" | "slots" | "levels" | "discounts" | "password">("general");
+  const [activeTab, setActiveTab] = useState<
+    "general" | "packages" | "reconciliation" | "zalo" | "slots" | "levels" | "discounts" | "password"
+  >("general");
 
   // State
   const [baseTuition, setBaseTuition] = useState<number>(initialBaseTuition);
@@ -81,6 +109,23 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [defaultStudyTime, setDefaultStudyTime] = useState<string>(initialDefaultStudyTime);
   const [maxStudents, setMaxStudents] = useState<number>(initialMaxStudents);
   const [crowdedThreshold, setCrowdedThreshold] = useState<number>(initialCrowdedThreshold);
+
+  // Reconciliation settings
+  const [reconciliationMode, setReconciliationMode] = useState<ReconciliationMode>(initialReconciliationMode);
+
+  // Zalo Reminder settings
+  const [zaloReminderMode, setZaloReminderMode] = useState<ZaloReminderMode>(initialZaloReminderMode);
+  const [zaloOaSecretKey, setZaloOaSecretKey] = useState<string>(initialZaloOaSecretKey);
+  const [zaloAccessToken, setZaloAccessToken] = useState<string>(initialZaloAccessToken);
+  const [zaloTemplateId, setZaloTemplateId] = useState<string>(initialZaloTemplateId);
+
+  // Tuition Packages state
+  const [packages, setPackages] = useState<TuitionPackage[]>(initialTuitionPackages);
+  const [newPkgName, setNewPkgName] = useState("");
+  const [newPkgAmount, setNewPkgAmount] = useState<number>(1000000);
+  const [newPkgCycleUnit, setNewPkgCycleUnit] = useState<"month" | "week">("month");
+  const [newPkgCycleValue, setNewPkgCycleValue] = useState<number>(1);
+  const [isEditingPkgId, setIsEditingPkgId] = useState<string | null>(null);
 
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>(initialTimeSlots);
   const [levels, setLevels] = useState<LevelSurcharge[]>(initialLevelSurcharges);
@@ -151,9 +196,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setDefaultStudyTime(initialDefaultStudyTime);
     setMaxStudents(initialMaxStudents);
     setCrowdedThreshold(initialCrowdedThreshold);
+    setReconciliationMode(initialReconciliationMode || "manual");
+    setZaloReminderMode(initialZaloReminderMode || "manual");
+    setZaloOaSecretKey(initialZaloOaSecretKey || "");
+    setZaloAccessToken(initialZaloAccessToken || "");
+    setZaloTemplateId(initialZaloTemplateId || "");
     setTimeSlots(initialTimeSlots);
     setLevels(initialLevelSurcharges);
     setDiscounts(initialDiscountPresets);
+    setPackages(initialTuitionPackages);
   }, [
     initialBaseTuition,
     initialDurationMode,
@@ -163,11 +214,98 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     initialDefaultStudyTime,
     initialMaxStudents,
     initialCrowdedThreshold,
+    initialReconciliationMode,
+    initialZaloReminderMode,
+    initialZaloOaSecretKey,
+    initialZaloAccessToken,
+    initialZaloTemplateId,
     initialTimeSlots,
     initialLevelSurcharges,
     initialDiscountPresets,
+    initialTuitionPackages,
     isOpen,
   ]);
+
+  // Tuition Packages helpers
+  const handleCreateOrUpdatePackage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPkgName.trim()) {
+      showToast("Vui lòng nhập tên gói học phí!", "error");
+      return;
+    }
+
+    try {
+      const isEdit = Boolean(isEditingPkgId);
+      const res = await fetch("/api/packages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: isEdit ? "update" : "create",
+          id: isEditingPkgId,
+          name: newPkgName.trim(),
+          amount: Number(newPkgAmount) || 0,
+          cycle_unit: newPkgCycleUnit,
+          cycle_value: Number(newPkgCycleValue) || 1,
+          is_active: 1,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(data.message, "success");
+        // Reload packages list
+        const pkgRes = await fetch("/api/packages");
+        const pkgData = await pkgRes.json();
+        if (pkgData.success) {
+          setPackages(pkgData.data);
+        }
+        setNewPkgName("");
+        setNewPkgAmount(1000000);
+        setNewPkgCycleUnit("month");
+        setNewPkgCycleValue(1);
+        setIsEditingPkgId(null);
+      } else {
+        showToast(data.message || "Lỗi khi lưu gói học phí!", "error");
+      }
+    } catch {
+      showToast("Lỗi kết nối máy chủ!", "error");
+    }
+  };
+
+  const handleTogglePackageActive = async (pkgId: string) => {
+    try {
+      const res = await fetch("/api/packages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "toggle_active", id: pkgId }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setPackages((prev) =>
+          prev.map((p) => (p.id === pkgId ? { ...p, is_active: p.is_active === 1 ? 0 : 1 } : p))
+        );
+        showToast(data.message, "success");
+      }
+    } catch {
+      showToast("Lỗi kết nối máy chủ!", "error");
+    }
+  };
+
+  const handleDeletePackage = async (pkgId: string) => {
+    try {
+      const res = await fetch("/api/packages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "delete", id: pkgId }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setPackages((prev) => prev.filter((p) => p.id !== pkgId));
+        showToast(data.message, "success");
+      }
+    } catch {
+      showToast("Lỗi kết nối máy chủ!", "error");
+    }
+  };
 
   // Time slot form helpers
   const handleAddTimeSlot = () => {
@@ -282,6 +420,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           default_study_time: defaultStudyTime.trim() || "18:00 - 19:00",
           max_students_per_slot: Number(maxStudents) || 10,
           crowded_threshold_percent: Number(crowdedThreshold) || 80,
+          reconciliation_mode: reconciliationMode,
+          zalo_reminder_mode: zaloReminderMode,
+          zalo_oa_secret_key: zaloOaSecretKey,
+          zalo_access_token: zaloAccessToken,
+          zalo_template_id: zaloTemplateId,
           time_slots: timeSlots,
           level_surcharges: levels,
           discount_presets: discounts,
@@ -343,6 +486,45 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           >
             <Coins className="w-4 h-4" />
             <span>Học phí & Thời lượng</span>
+          </button>
+
+          {/* TAB MỚI 1: GÓI HỌC PHÍ */}
+          <button
+            onClick={() => setActiveTab("packages")}
+            className={`flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl transition shrink-0 ${
+              activeTab === "packages"
+                ? "bg-indigo-600 text-white shadow-sm shadow-indigo-600/25"
+                : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+            }`}
+          >
+            <Package className="w-4 h-4" />
+            <span>Gói Học Phí ({packages.length})</span>
+          </button>
+
+          {/* TAB MỚI 2: ĐỐI SOÁT HỌC PHÍ */}
+          <button
+            onClick={() => setActiveTab("reconciliation")}
+            className={`flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl transition shrink-0 ${
+              activeTab === "reconciliation"
+                ? "bg-indigo-600 text-white shadow-sm shadow-indigo-600/25"
+                : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+            }`}
+          >
+            <CreditCard className="w-4 h-4" />
+            <span>Đối Soát Thanh Toán</span>
+          </button>
+
+          {/* TAB MỚI 3: NHẮC HỌC PHÍ QUA ZALO */}
+          <button
+            onClick={() => setActiveTab("zalo")}
+            className={`flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl transition shrink-0 ${
+              activeTab === "zalo"
+                ? "bg-indigo-600 text-white shadow-sm shadow-indigo-600/25"
+                : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+            }`}
+          >
+            <MessageSquare className="w-4 h-4" />
+            <span>Nhắc Zalo</span>
           </button>
 
           <button
@@ -698,7 +880,372 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
           )}
 
-          {/* TAB 2: Time Slots WITH DROPDOWN FROM DAY TO DAY */}
+              {/* TAB 1.1: GÓI HỌC PHÍ (TUITION PACKAGES) */}
+              {activeTab === "packages" && (
+                <div className="space-y-6 w-full">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                        <Package className="w-5 h-5 text-indigo-600" />
+                        <span>Danh Mục Gói Học Phí Cơ Sở</span>
+                      </h3>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                        Tạo gói theo tháng (1 tháng, 3 tháng...) hoặc theo tuần (24 tuần...) để gán cho học sinh
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Form Tạo / Sửa gói */}
+                  <form
+                    onSubmit={handleCreateOrUpdatePackage}
+                    className="p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 space-y-4 shadow-xs"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-black uppercase tracking-wider text-indigo-600 flex items-center gap-1.5">
+                        {isEditingPkgId ? <Edit2 className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                        {isEditingPkgId ? "Chỉnh Sửa Gói Học Phí" : "Thêm Gói Học Phí Mới"}
+                      </span>
+                      {isEditingPkgId && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsEditingPkgId(null);
+                            setNewPkgName("");
+                            setNewPkgAmount(1000000);
+                            setNewPkgCycleUnit("month");
+                            setNewPkgCycleValue(1);
+                          }}
+                          className="text-xs font-bold text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                        >
+                          Hủy sửa
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                      <div className="sm:col-span-2">
+                        <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">
+                          Tên gói học phí *
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={newPkgName}
+                          onChange={(e) => setNewPkgName(e.target.value)}
+                          placeholder="VD: Theo tháng, Theo quý - 3 tháng..."
+                          className="w-full px-3 py-2 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none"
+                        />
+                      </div>
+
+                      <div className="sm:col-span-2">
+                        <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">
+                          Số tiền (VNĐ) *
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            min="0"
+                            step="50000"
+                            required
+                            value={newPkgAmount}
+                            onChange={(e) => setNewPkgAmount(Number(e.target.value) || 0)}
+                            className="w-full px-3 py-2 text-xs font-black text-indigo-600 dark:text-indigo-400 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none"
+                          />
+                          <span className="absolute right-3 top-2 text-[10px] font-bold text-slate-400">
+                            {formatVND(newPkgAmount)}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="sm:col-span-2">
+                        <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">
+                          Đơn vị chu kỳ *
+                        </label>
+                        <select
+                          value={newPkgCycleUnit}
+                          onChange={(e) => setNewPkgCycleUnit(e.target.value as "month" | "week")}
+                          className="w-full px-3 py-2 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none"
+                        >
+                          <option value="month">Tháng (Học phí theo tháng/quý/khóa)</option>
+                          <option value="week">Tuần (Học phí theo số tuần/buổi)</option>
+                        </select>
+                      </div>
+
+                      <div className="sm:col-span-2">
+                        <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">
+                          Số lượng chu kỳ ({newPkgCycleUnit === "month" ? "Tháng" : "Tuần"}) *
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="number"
+                            min="1"
+                            max="200"
+                            required
+                            value={newPkgCycleValue}
+                            onChange={(e) => setNewPkgCycleValue(Number(e.target.value) || 1)}
+                            className="w-full px-3 py-2 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none"
+                          />
+                          <button
+                            type="submit"
+                            className="px-4 py-2 text-xs font-black uppercase tracking-wider text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-sm shadow-indigo-600/25 transition shrink-0"
+                          >
+                            {isEditingPkgId ? "Cập Nhật" : "Thêm Gói"}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </form>
+
+                  {/* Danh sách các gói hiện có */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                    {packages.map((pkg) => (
+                      <div
+                        key={pkg.id}
+                        className={`p-4 rounded-2xl border transition flex flex-col justify-between space-y-3 ${
+                          pkg.is_active === 1
+                            ? "bg-white dark:bg-slate-900 border-slate-200/80 dark:border-slate-800 shadow-xs"
+                            : "bg-slate-100/60 dark:bg-slate-850/40 border-slate-200 dark:border-slate-800 opacity-60"
+                        }`}
+                      >
+                        <div>
+                          <div className="flex items-start justify-between gap-2">
+                            <span className="font-extrabold text-sm text-slate-900 dark:text-white leading-snug">
+                              {pkg.name}
+                            </span>
+                            <span
+                              className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase shrink-0 ${
+                                pkg.is_active === 1
+                                  ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
+                                  : "bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
+                              }`}
+                            >
+                              {pkg.is_active === 1 ? "Hoạt động" : "Tạm tắt"}
+                            </span>
+                          </div>
+
+                          <div className="mt-2 text-lg font-black text-indigo-600 dark:text-indigo-400">
+                            {formatVND(pkg.amount)}
+                          </div>
+                          <span className="text-xs text-slate-500 font-medium block mt-0.5">
+                            Chu kỳ: {pkg.cycle_value} {pkg.cycle_unit === "month" ? "Tháng" : "Tuần"}
+                          </span>
+                        </div>
+
+                        <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
+                          <button
+                            type="button"
+                            onClick={() => handleTogglePackageActive(pkg.id)}
+                            className="text-[11px] font-bold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 flex items-center gap-1"
+                          >
+                            <Power className="w-3.5 h-3.5" />
+                            <span>{pkg.is_active === 1 ? "Tắt gói" : "Bật lại"}</span>
+                          </button>
+
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setIsEditingPkgId(pkg.id);
+                                setNewPkgName(pkg.name);
+                                setNewPkgAmount(pkg.amount);
+                                setNewPkgCycleUnit(pkg.cycle_unit);
+                                setNewPkgCycleValue(pkg.cycle_value);
+                              }}
+                              className="p-1 text-slate-400 hover:text-indigo-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition"
+                              title="Sửa thông tin gói"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeletePackage(pkg.id)}
+                              className="p-1 text-rose-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition"
+                              title="Xóa gói này"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+
+                    {packages.length === 0 && (
+                      <div className="col-span-full py-12 text-center text-xs text-slate-400 border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl">
+                        Chưa có gói học phí nào. Vui lòng thêm gói học phí ở form trên.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 1.2: CÀI ĐẶT ĐỐI SOÁT (RECONCILIATION SETTINGS) */}
+              {activeTab === "reconciliation" && (
+                <div className="space-y-6 w-full">
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                      <CreditCard className="w-5 h-5 text-indigo-600" />
+                      <span>Cài Đặt Chế Độ Đối Soát Học Phí</span>
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      Chọn phương thức đối soát học phí đã đóng hoặc cần đóng tiền
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Option 1: Thủ công */}
+                    <div
+                      onClick={() => setReconciliationMode("manual")}
+                      className={`p-5 rounded-2xl border-2 transition cursor-pointer flex flex-col justify-between ${
+                        reconciliationMode === "manual"
+                          ? "border-indigo-600 bg-indigo-50/40 dark:bg-indigo-950/30 shadow-xs"
+                          : "border-slate-200 dark:border-slate-700/80 bg-slate-50/50 dark:bg-slate-800/40 hover:border-slate-300"
+                      }`}
+                    >
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-[11px] font-black uppercase tracking-wider text-indigo-600">
+                            Chế Độ 1 (Hiện tại)
+                          </span>
+                          {reconciliationMode === "manual" && (
+                            <div className="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center">
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                            </div>
+                          )}
+                        </div>
+                        <h4 className="text-sm font-extrabold text-slate-900 dark:text-white">
+                          Đối Soát Thủ Công (Manual)
+                        </h4>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                          Admin tự bấm tích chọn học sinh đã đóng theo gói 1 tháng hoặc gói khóa nhiều tháng. Hệ thống tự động duy trì trạng thái &quot;Đã đóng&quot; suốt thời hạn gói và chỉ chuyển sang &quot;Cần đóng tiền&quot; khi hết chu kỳ.
+                        </p>
+                      </div>
+                      <div className="mt-4 pt-3 border-t border-slate-200/60 dark:border-slate-700/60 flex items-center gap-2 text-xs font-bold text-indigo-600">
+                        <span>Đang được sử dụng</span>
+                      </div>
+                    </div>
+
+                    {/* Option 2: Tự động (Disabled) */}
+                    <div
+                      className="p-5 rounded-2xl border-2 border-slate-200 dark:border-slate-800 bg-slate-100/60 dark:bg-slate-900/40 opacity-60 cursor-not-allowed flex flex-col justify-between relative group"
+                      title="Sẽ cập nhật ở phiên bản tiếp theo"
+                    >
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-[11px] font-black uppercase tracking-wider text-slate-400">
+                            Chế Độ 2 (Sắp ra mắt)
+                          </span>
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                            Khóa
+                          </span>
+                        </div>
+                        <h4 className="text-sm font-extrabold text-slate-700 dark:text-slate-300">
+                          Đối Soát Tự Động (Auto Sync)
+                        </h4>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                          Tự động kết nối ngân hàng / cổng thanh toán (QR VietQR, MoMo, App Ngân hàng) để tự nhận diện biến động số dư và gạch nợ học phí tức thì.
+                        </p>
+                      </div>
+                      <div className="mt-4 pt-3 border-t border-slate-200/60 dark:border-slate-800 flex items-center gap-1.5 text-xs font-semibold text-amber-600 dark:text-amber-400">
+                        <AlertCircle className="w-3.5 h-3.5" />
+                        <span>Sẽ cập nhật ở phiên bản tiếp theo</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 1.3: NHẮC HỌC PHÍ QUA ZALO */}
+              {activeTab === "zalo" && (
+                <div className="space-y-6 w-full">
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                      <MessageSquare className="w-5 h-5 text-blue-600" />
+                      <span>Cấu Hình Phương Thức Nhắc Học Phí Qua Zalo</span>
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      Lựa chọn hình thức gửi thông báo học phí đến phụ huynh và học sinh
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Option B: Nhắc học phí thủ công (Active) */}
+                    <div
+                      onClick={() => setZaloReminderMode("manual")}
+                      className={`p-5 rounded-2xl border-2 transition cursor-pointer flex flex-col justify-between ${
+                        zaloReminderMode === "manual"
+                          ? "border-blue-600 bg-blue-50/40 dark:bg-blue-950/30 shadow-xs"
+                          : "border-slate-200 dark:border-slate-700/80 bg-slate-50/50 dark:bg-slate-800/40 hover:border-slate-300"
+                      }`}
+                    >
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-[11px] font-black uppercase tracking-wider text-blue-600">
+                            Phương Thức B (Khuyên dùng)
+                          </span>
+                          {zaloReminderMode === "manual" && (
+                            <div className="w-5 h-5 rounded-full bg-blue-600 text-white flex items-center justify-center">
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                            </div>
+                          )}
+                        </div>
+                        <h4 className="text-sm font-extrabold text-slate-900 dark:text-white">
+                          Nhắc Học Phí Thủ Công (Manual Assist)
+                        </h4>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                          Khi bấm vào học sinh, hệ thống mở cửa sổ mẫu tin nhắn nhắc học phí chuẩn soạn sẵn. Có sẵn <strong>Nút Copy</strong> và <strong>Nút Mở Zalo</strong> chuyển thẳng vào phòng chat với phụ huynh.
+                        </p>
+                      </div>
+                      <div className="mt-4 pt-3 border-t border-slate-200/60 dark:border-slate-700/60 flex items-center gap-2 text-xs font-bold text-blue-600">
+                        <span>Đang kích hoạt</span>
+                      </div>
+                    </div>
+
+                    {/* Option A: Tích hợp Bot Zalo OA (Disabled) */}
+                    <div
+                      className="p-5 rounded-2xl border-2 border-slate-200 dark:border-slate-800 bg-slate-100/60 dark:bg-slate-900/40 opacity-60 cursor-not-allowed flex flex-col justify-between relative group"
+                      title="Sẽ cập nhật ở phiên bản tiếp theo"
+                    >
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-[11px] font-black uppercase tracking-wider text-slate-400">
+                            Phương Thức A (Tự động Bot)
+                          </span>
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                            Khóa
+                          </span>
+                        </div>
+                        <h4 className="text-sm font-extrabold text-slate-700 dark:text-slate-300">
+                          Tích Hợp Bot Zalo OA (Tự Động)
+                        </h4>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                          Tự động kết nối Zalo Official Account qua Webhook / Access Token để bot tự động gửi thông báo học phí hàng tháng cho phụ huynh.
+                        </p>
+                      </div>
+
+                      {/* Mock Form disabled */}
+                      <div className="space-y-2 mt-3 pt-2 border-t border-slate-200/60 dark:border-slate-800 text-left pointer-events-none">
+                        <input
+                          type="text"
+                          disabled
+                          placeholder="Zalo OA Secret Key"
+                          className="w-full px-2.5 py-1 text-xs rounded bg-slate-200 dark:bg-slate-800"
+                        />
+                        <input
+                          type="text"
+                          disabled
+                          placeholder="Zalo Access Token"
+                          className="w-full px-2.5 py-1 text-xs rounded bg-slate-200 dark:bg-slate-800"
+                        />
+                      </div>
+
+                      <div className="mt-3 flex items-center gap-1.5 text-xs font-semibold text-amber-600 dark:text-amber-400">
+                        <AlertCircle className="w-3.5 h-3.5" />
+                        <span>Sẽ cập nhật ở phiên bản tiếp theo</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
           {activeTab === "slots" && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">

@@ -59,6 +59,40 @@ export interface DiscountOption {
   label: string;
 }
 
+export interface TuitionPackage {
+  id: string;
+  school_id?: string;
+  name: string; // VD: "Theo tháng", "Theo quý - 3 tháng", "Khóa 6 tháng", "Gói 24 tuần"
+  amount: number; // VNĐ
+  cycle_unit: "month" | "week"; // Đơn vị chu kỳ: Tháng hoặc Tuần
+  cycle_value: number; // Số lượng chu kỳ (VD: 1, 3, 6, 24...)
+  is_active: number; // 1: Đang kích hoạt, 0: Tạm tắt
+  created_at?: string;
+}
+
+export interface StudentPayment {
+  id: string;
+  student_id: string;
+  package_id?: string;
+  package_name?: string;
+  amount: number;
+  paid_date: string; // YYYY-MM-DD
+  start_period: string; // YYYY-MM hoặc YYYY-MM-DD
+  end_period: string; // YYYY-MM hoặc YYYY-MM-DD
+  status: "paid" | "unpaid";
+  note?: string;
+  created_at?: string;
+}
+
+export type ReconciliationMode = "manual" | "auto";
+export type ZaloReminderMode = "manual" | "bot";
+
+export interface ZaloBotConfig {
+  oa_secret_key?: string;
+  access_token?: string;
+  template_id?: string;
+}
+
 export interface Teacher {
   id: string;
   school_id?: string;
@@ -83,6 +117,11 @@ export interface SystemSettings {
   default_study_time: string; // Ví dụ: "18:00 - 19:00"
   max_students_per_slot: number; // Sĩ số tối đa mặc định cho 1 lớp/ca
   crowded_threshold_percent: number; // Ngưỡng cảnh báo lớp đông (Mặc định: 80%)
+  reconciliation_mode?: ReconciliationMode; // 'manual' | 'auto'
+  zalo_reminder_mode?: ZaloReminderMode; // 'manual' | 'bot'
+  zalo_oa_secret_key?: string;
+  zalo_access_token?: string;
+  zalo_template_id?: string;
 }
 
 export interface StudentMonthlyTuition {
@@ -113,6 +152,24 @@ export interface MakeUpClass {
   created_at?: string;
 }
 
+export type StudentStatus = "studying" | "reserved" | "dropped"; // studying = Đang học, reserved = Bảo lưu, dropped = Nghỉ học
+
+export interface StudentStatusLog {
+  id: string;
+  student_id: string;
+  student_name?: string;
+  student_phone?: string;
+  action_type: "reserve" | "drop" | "resume"; // reserve = Bảo lưu, drop = Nghỉ học, resume = Trở lại học tiếp
+  from_status: StudentStatus;
+  to_status: StudentStatus;
+  effective_date: string; // YYYY-MM-DD
+  return_date?: string; // Dự kiến khi nào học lại (dành cho bảo lưu)
+  reason?: string;
+  logged_at: string; // YYYY-MM-DD HH:mm:ss
+  month: string; // YYYY-MM
+  created_at?: string;
+}
+
 export interface Student {
   id: string;
   school_id?: string;
@@ -126,6 +183,12 @@ export interface Student {
   time_slot_id: string;
   time_slot_name?: string;
   time_slot_desc?: string;
+  
+  // Trạng thái học: đang học, bảo lưu, nghỉ học
+  status?: StudentStatus; // 'studying' | 'reserved' | 'dropped'
+  status_date?: string; // Ngày bắt đầu bảo lưu / nghỉ / học tiếp
+  expected_return_date?: string; // Ngày dự kiến học lại (nếu bảo lưu)
+  status_note?: string; // Lý do
   
   // Giáo viên phụ trách
   teacher_id?: string;
@@ -147,6 +210,15 @@ export interface Student {
 
   // Thông tin học bù
   pending_makeups_count?: number; // Số buổi cần bù còn tồn
+
+  // Gói học phí áp dụng
+  tuition_package_id?: string;
+  tuition_package_name?: string;
+
+  // Trạng thái công nợ đối soát của tháng đang chọn
+  payment_status?: "paid" | "unpaid"; // 'paid' = Đã đóng, 'unpaid' = Cần đóng tiền
+  payment_period_desc?: string; // Ví dụ: "Đã đóng tới tháng 12/2026" hoặc "Đã đóng tháng 10/2026"
+  payment_id?: string; // ID của bản ghi payment nếu đã đóng
 
   // Computed fields for a given month:
   monthly_override?: StudentMonthlyTuition | null;

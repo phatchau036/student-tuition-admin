@@ -197,6 +197,54 @@ export async function initDb() {
     );
   `);
 
+  // 9. Tuition Packages Table (Danh mục Gói học phí: Theo tháng, Theo quý 3 tháng, Khóa 6 tháng, 24 tuần...)
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS tuition_packages (
+      id TEXT PRIMARY KEY,
+      school_id TEXT DEFAULT 'school-default',
+      name TEXT NOT NULL,
+      amount INTEGER NOT NULL DEFAULT 1000000,
+      cycle_unit TEXT NOT NULL DEFAULT 'month', -- 'month' | 'week'
+      cycle_value INTEGER NOT NULL DEFAULT 1, -- 1, 3, 6, 24...
+      is_active INTEGER NOT NULL DEFAULT 1,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+
+  // 10. Student Payments Table (Lịch sử thanh toán & chu kỳ hiệu lực công nợ)
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS student_payments (
+      id TEXT PRIMARY KEY,
+      student_id TEXT NOT NULL,
+      package_id TEXT,
+      package_name TEXT,
+      amount INTEGER NOT NULL,
+      paid_date TEXT NOT NULL, -- YYYY-MM-DD
+      start_period TEXT NOT NULL, -- YYYY-MM
+      end_period TEXT NOT NULL, -- YYYY-MM
+      status TEXT NOT NULL DEFAULT 'paid', -- 'paid' | 'unpaid'
+      note TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+
+  // 11. Student Status Logs Table (Ghi nhận lịch sử bảo lưu, nghỉ học và trở lại học tiếp)
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS student_status_logs (
+      id TEXT PRIMARY KEY,
+      student_id TEXT NOT NULL,
+      action_type TEXT NOT NULL, -- 'reserve' | 'drop' | 'resume'
+      from_status TEXT NOT NULL, -- 'studying' | 'reserved' | 'dropped'
+      to_status TEXT NOT NULL,   -- 'studying' | 'reserved' | 'dropped'
+      effective_date TEXT NOT NULL, -- YYYY-MM-DD
+      return_date TEXT, -- YYYY-MM-DD
+      reason TEXT,
+      logged_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      month TEXT NOT NULL, -- YYYY-MM
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+
   // Migrations for school_id & ip restriction
   try { await db.execute("ALTER TABLE schools ADD COLUMN ip_restriction_enabled INTEGER DEFAULT 0"); } catch {}
   try { await db.execute("ALTER TABLE schools ADD COLUMN allowed_ips TEXT DEFAULT ''"); } catch {}
@@ -205,6 +253,11 @@ export async function initDb() {
   try { await db.execute("ALTER TABLE level_surcharges ADD COLUMN school_id TEXT DEFAULT 'school-default'"); } catch {}
   try { await db.execute("ALTER TABLE discount_presets ADD COLUMN school_id TEXT DEFAULT 'school-default'"); } catch {}
   try { await db.execute("ALTER TABLE students ADD COLUMN school_id TEXT DEFAULT 'school-default'"); } catch {}
+  try { await db.execute("ALTER TABLE students ADD COLUMN tuition_package_id TEXT DEFAULT NULL"); } catch {}
+  try { await db.execute("ALTER TABLE students ADD COLUMN status TEXT DEFAULT 'studying'"); } catch {}
+  try { await db.execute("ALTER TABLE students ADD COLUMN status_date TEXT DEFAULT NULL"); } catch {}
+  try { await db.execute("ALTER TABLE students ADD COLUMN expected_return_date TEXT DEFAULT NULL"); } catch {}
+  try { await db.execute("ALTER TABLE students ADD COLUMN status_note TEXT DEFAULT ''"); } catch {}
 
   // Defaults for settings
   const defaults: [string, string][] = [

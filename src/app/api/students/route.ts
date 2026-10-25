@@ -16,7 +16,7 @@ export async function GET(req: Request) {
     });
     const baseTuition = baseTuitionRes.rows.length > 0 ? Number(baseTuitionRes.rows[0].value) : 0;
 
-    // Get All Students with level, time slot, and teacher details
+    // Get All Students with level, time slot, teacher and package details
     const studentsRes = await db.execute(`
       SELECT 
         s.*,
@@ -25,11 +25,16 @@ export async function GET(req: Request) {
         t.name as time_slot_name,
         (t.days || ': ' || t.start_time || ' - ' || t.end_time) as time_slot_desc,
         tc.name as teacher_name,
-        tc.color as teacher_color
+        tc.color as teacher_color,
+        pkg.name as tuition_package_name,
+        pkg.amount as tuition_package_amount,
+        pkg.cycle_unit as tuition_package_cycle_unit,
+        pkg.cycle_value as tuition_package_cycle_value
       FROM students s
       LEFT JOIN level_surcharges l ON s.level_id = l.id
       LEFT JOIN time_slots t ON s.time_slot_id = t.id
       LEFT JOIN teachers tc ON s.teacher_id = tc.id
+      LEFT JOIN tuition_packages pkg ON s.tuition_package_id = pkg.id
       ORDER BY s.created_at DESC
     `);
 
@@ -46,6 +51,26 @@ export async function GET(req: Request) {
           amount: Number(row.amount),
           note: String(row.note || ""),
           month: String(row.month),
+        };
+      }
+    }
+
+    // Fetch payments covering this month for reconciliation check
+    // Logic: Nếu có bản ghi payment mà month nằm trong [start_period, end_period] và status = 'paid' => ĐÃ ĐÓNG
+    const paymentsMap: Record<string, { id: string; package_name: string; start_period: string; end_period: string; amount: number }> = {};
+    if (month) {
+      const paymentsRes = await db.execute({
+        sql: `SELECT * FROM student_payments 
+              WHERE ? >= start_period AND ? <= end_period AND status = 'paid'`,
+        args: [month, month],
+      });
+      for (const row of paymentsRes.rows) {
+        paymentsMap[String(row.student_id)] = {
+          id: String(row.id),
+          package_name: String(row.package_name || ""),
+          start_period: String(row.start_period),
+          end_period: String(row.end_period),
+          amount: Number(row.amount),
         };
       }
     }
@@ -73,6 +98,18 @@ export async function GET(req: Request) {
       const override = overridesMap[String(row.id)] || null;
       const currentTuition = override ? override.amount : stdTuition;
 
+      // Check payment status for this month
+      const paymentInfo = paymentsMap[String(row.id)];
+      const paymentStatus = paymentInfo ? "paid" : "unpaid";
+      let paymentPeriodDesc = "";
+      if (paymentInfo) {
+        if (paymentInfo.start_period === paymentInfo.end_period) {
+          paymentPeriodDesc = `Đã đóng ${paymentInfo.start_period}`;
+        } else {
+          paymentPeriodDesc = `Đã đóng (${paymentInfo.start_period} - ${paymentInfo.end_period})`;
+        }
+      }
+
       return {
         id: String(row.id),
         name: String(row.name),
@@ -87,6 +124,22 @@ export async function GET(req: Request) {
         teacher_id: row.teacher_id ? String(row.teacher_id) : undefined,
         teacher_name: row.teacher_name ? String(row.teacher_name) : "Chưa gán GV",
         teacher_color: row.teacher_color ? String(row.teacher_color) : "indigo",
+        
+        // Trạng thái học sinh: đang học, bảo lưu, nghỉ học
+        status: (row.status as "studying" | "reserved" | "dropped") || "studying",
+        status_date: row.status_date ? String(row.status_date) : undefined,
+        expected_return_date: row.expected_return_date ? String(row.expected_return_date) : undefined,
+        status_note: String(row.status_note || ""),
+
+        // Gói học phí
+        tuition_package_id: row.tuition_package_id ? String(row.tuition_package_id) : undefined,
+        tuition_package_name: row.tuition_package_name ? String(row.tuition_package_name) : undefined,
+
+        // Công nợ đối soát tháng này
+        payment_status: paymentStatus,
+        payment_period_desc: paymentPeriodDesc,
+        payment_id: paymentInfo ? paymentInfo.id : undefined,
+
         duration_mode: (row.duration_mode as "by_hours" | "by_sessions") || "by_hours",
         sessions_per_week: Number(row.sessions_per_week || 3),
         hours_per_week: Number(row.hours_per_week || 3),
@@ -132,6 +185,7 @@ export async function POST(req: Request) {
       level_id,
       time_slot_id,
       teacher_id,
+      tuition_package_id,
       duration_mode,
       sessions_per_week,
       hours_per_week,
@@ -159,11 +213,11 @@ export async function POST(req: Request) {
 
     await db.execute({
       sql: `INSERT INTO students (
-              id, name, phone, zalo_link, level_id, time_slot_id, teacher_id,
+              id, name, phone, zalo_link, level_id, time_slot_id, teacher_id, tuition_package_id,
               duration_mode, sessions_per_week, hours_per_week, registered_days, study_time_detail, schedule_details_json,
               is_discount_enabled, discount_percent
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       args: [
         id,
         name.trim(),
@@ -172,6 +226,7 @@ export async function POST(req: Request) {
         level_id,
         time_slot_id || "",
         teacher_id || null,
+        tuition_package_id || null,
         duration_mode || "by_hours",
         Number(sessions_per_week) || 3,
         Number(hours_per_week) || 3,

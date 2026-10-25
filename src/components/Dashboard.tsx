@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
-import { Student, TimeSlot, LevelSurcharge, DiscountOption, Teacher, MonthFormat } from "@/lib/types";
+import { Student, TimeSlot, LevelSurcharge, DiscountOption, Teacher, MonthFormat, TuitionPackage, StudentStatus } from "@/lib/types";
 import { formatVND, formatMonthDisplay, getCurrentMonthStr, formatTimeSlotLabel } from "@/lib/tuition";
 import { useToast } from "@/components/Toast";
 import { SettingsModal } from "@/components/SettingsModal";
@@ -10,6 +10,10 @@ import { MonthlyTuitionModal } from "@/components/MonthlyTuitionModal";
 import { TeacherManagementModal } from "@/components/TeacherManagementModal";
 import { MakeUpClassesModal } from "@/components/MakeUpClassesModal";
 import { MonthPicker } from "@/components/MonthPicker";
+import { ZaloReminderModal } from "@/components/ZaloReminderModal";
+import { StudentDetailModal } from "@/components/StudentDetailModal";
+import { ChangeStatusModal } from "@/components/ChangeStatusModal";
+import { StatusLogModal } from "@/components/StatusLogModal";
 import {
   Users,
   Search,
@@ -45,6 +49,13 @@ import {
   RefreshCw,
   Phone,
   Tag,
+  Package,
+  History,
+  MessageSquare,
+  PauseCircle,
+  UserX,
+  CreditCard,
+  Eye,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -92,6 +103,18 @@ export default function Dashboard() {
   const [isMonthlyModalOpen, setIsMonthlyModalOpen] = useState(false);
   const [studentForMonthly, setStudentForMonthly] = useState<Student | null>(null);
 
+  // New Modals: Zalo reminder, Student detail, Change status, Status log
+  const [isZaloModalOpen, setIsZaloModalOpen] = useState(false);
+  const [studentForZalo, setStudentForZalo] = useState<Student | null>(null);
+
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [studentForDetail, setStudentForDetail] = useState<Student | null>(null);
+
+  const [isChangeStatusModalOpen, setIsChangeStatusModalOpen] = useState(false);
+  const [studentForStatusChange, setStudentForStatusChange] = useState<Student | null>(null);
+
+  const [isStatusLogModalOpen, setIsStatusLogModalOpen] = useState(false);
+
   // Custom Delete Confirmation Modal state
   const [studentToDelete, setStudentToDelete] = useState<Student | null>(null);
   const [isDeletingStudent, setIsDeletingStudent] = useState(false);
@@ -102,6 +125,7 @@ export default function Dashboard() {
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
   const [levels, setLevels] = useState<LevelSurcharge[]>([]);
   const [discountPresets, setDiscountPresets] = useState<DiscountOption[]>([]);
+  const [tuitionPackages, setTuitionPackages] = useState<TuitionPackage[]>([]);
   const [currentSchool, setCurrentSchool] = useState<{ id: string; name: string; code: string } | null>(null);
 
   // Settings
@@ -113,6 +137,8 @@ export default function Dashboard() {
   const [defaultStudyTime, setDefaultStudyTime] = useState<string>("18:00 - 19:00");
   const [maxStudents, setMaxStudents] = useState<number>(10);
   const [crowdedThreshold, setCrowdedThreshold] = useState<number>(80);
+  const [reconciliationMode, setReconciliationMode] = useState<string>("manual");
+  const [zaloReminderMode, setZaloReminderMode] = useState<string>("manual");
 
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
@@ -121,6 +147,8 @@ export default function Dashboard() {
   const [selectedLevelFilter, setSelectedLevelFilter] = useState("all");
   const [selectedSlotFilter, setSelectedSlotFilter] = useState("all");
   const [selectedTeacherFilter, setSelectedTeacherFilter] = useState("all");
+  const [selectedStatusFilter, setSelectedStatusFilter] = useState<"all" | "studying" | "reserved" | "dropped">("all");
+  const [selectedPaymentFilter, setSelectedPaymentFilter] = useState<"all" | "paid" | "unpaid">("all");
 
   // Check IP restriction & Admin Auth on mount
   useEffect(() => {
@@ -236,6 +264,9 @@ export default function Dashboard() {
         setTimeSlots(json.data.time_slots);
         setLevels(json.data.level_surcharges);
         setDiscountPresets(json.data.discount_presets);
+        setTuitionPackages(json.data.tuition_packages || []);
+        setReconciliationMode(json.data.reconciliation_mode || "manual");
+        setZaloReminderMode(json.data.zalo_reminder_mode || "manual");
         if (json.data.current_school) {
           setCurrentSchool(json.data.current_school);
         }
@@ -314,6 +345,33 @@ export default function Dashboard() {
     }
   };
 
+  // Quick toggle reconciliation for a student in this month
+  const handleToggleStudentReconciliation = async (student: Student) => {
+    const isCurrentlyPaid = student.payment_status === "paid";
+    try {
+      const res = await fetch("/api/payments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: isCurrentlyPaid ? "mark_unpaid" : "mark_paid",
+          student_id: student.id,
+          month: selectedMonth,
+          package_id: student.tuition_package_id,
+          amount: student.current_tuition,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(data.message, "success");
+        loadStudents(selectedMonth);
+      } else {
+        showToast(data.message || "Không thể cập nhật đối soát!", "error");
+      }
+    } catch {
+      showToast("Lỗi kết nối máy chủ!", "error");
+    }
+  };
+
   // Filtered Students
   const filteredStudents = useMemo(() => {
     return students.filter((s) => {
@@ -323,9 +381,22 @@ export default function Dashboard() {
       const matchLevel = selectedLevelFilter === "all" || s.level_id === selectedLevelFilter;
       const matchSlot = selectedSlotFilter === "all" || s.time_slot_id === selectedSlotFilter;
       const matchTeacher = selectedTeacherFilter === "all" || s.teacher_id === selectedTeacherFilter;
-      return matchSearch && matchLevel && matchSlot && matchTeacher;
+      const matchStatus =
+        selectedStatusFilter === "all" || (s.status || "studying") === selectedStatusFilter;
+      const matchPayment =
+        selectedPaymentFilter === "all" || (s.payment_status || "unpaid") === selectedPaymentFilter;
+
+      return matchSearch && matchLevel && matchSlot && matchTeacher && matchStatus && matchPayment;
     });
-  }, [students, searchQuery, selectedLevelFilter, selectedSlotFilter, selectedTeacherFilter]);
+  }, [
+    students,
+    searchQuery,
+    selectedLevelFilter,
+    selectedSlotFilter,
+    selectedTeacherFilter,
+    selectedStatusFilter,
+    selectedPaymentFilter,
+  ]);
 
   // Statistics
   const totalRevenueThisMonth = useMemo(() => {
@@ -532,6 +603,16 @@ export default function Dashboard() {
               </Link>
             </div>
 
+            {/* Log tổng biến động học sinh (Bảo lưu, nghỉ, học tiếp) */}
+            <button
+              onClick={() => setIsStatusLogModalOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl border border-indigo-200 dark:border-indigo-800/60 bg-indigo-50 hover:bg-indigo-100/80 dark:bg-indigo-950/40 text-indigo-900 dark:text-indigo-300 transition shadow-2xs shrink-0"
+              title="Xem nhật ký tổng học sinh nghỉ, bảo lưu và trở lại học"
+            >
+              <History className="w-4 h-4 text-indigo-600" />
+              <span>Log Biến Động</span>
+            </button>
+
             {/* Make up classes button */}
             <button
               onClick={() => {
@@ -693,6 +774,29 @@ export default function Dashboard() {
               <Filter className="w-3.5 h-3.5" /> Lọc:
             </div>
 
+            {/* Filter by Status: Đang học / Bảo lưu / Nghỉ học */}
+            <select
+              value={selectedStatusFilter}
+              onChange={(e) => setSelectedStatusFilter(e.target.value as any)}
+              className="px-3 py-2 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 outline-none hover:border-slate-300 transition"
+            >
+              <option value="all">Tất cả Trạng thái</option>
+              <option value="studying">🟢 Đang học</option>
+              <option value="reserved">🟡 Bảo lưu</option>
+              <option value="dropped">🔴 Nghỉ học</option>
+            </select>
+
+            {/* Filter by Payment: Đã đóng / Cần đóng tiền */}
+            <select
+              value={selectedPaymentFilter}
+              onChange={(e) => setSelectedPaymentFilter(e.target.value as any)}
+              className="px-3 py-2 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 outline-none hover:border-slate-300 transition"
+            >
+              <option value="all">Tất cả Đối soát</option>
+              <option value="paid">✅ Đã đóng học phí</option>
+              <option value="unpaid">⚠️ Cần đóng tiền</option>
+            </select>
+
             {/* Filter by Teacher */}
             <select
               value={selectedTeacherFilter}
@@ -758,11 +862,13 @@ export default function Dashboard() {
               <thead>
                 <tr className="bg-slate-50/80 dark:bg-slate-800/60 border-b border-slate-200/80 dark:border-slate-800 text-[11px] font-black uppercase tracking-wider text-slate-400 whitespace-nowrap">
                   <th className="py-3 px-3 sm:px-4">Học sinh</th>
+                  <th className="py-3 px-2.5">Trạng thái</th>
                   <th className="py-3 px-2.5">Giáo viên</th>
                   <th className="py-3 px-2.5">Level & Phụ thu</th>
-                  <th className="py-3 px-3">Hình thức & Lịch học</th>
+                  <th className="py-3 px-3">Gói & Lịch học</th>
                   <th className="py-3 px-2 text-center">Chiết khấu</th>
                   <th className="py-3 px-3">Học phí {formatMonthDisplay(selectedMonth, monthFormat)}</th>
+                  <th className="py-3 px-3 text-center">Đối soát phí</th>
                   <th className="py-3 px-3 text-right">Thao tác</th>
                 </tr>
               </thead>
@@ -809,7 +915,17 @@ export default function Dashboard() {
                             </div>
                             <div className="min-w-0">
                               <div className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5 flex-wrap">
-                                <span className="hover:text-indigo-600 transition truncate">{student.name}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setStudentForDetail(student);
+                                    setIsDetailModalOpen(true);
+                                  }}
+                                  className="hover:text-indigo-600 transition truncate text-left"
+                                  title="Bấm để xem hồ sơ chi tiết học sinh"
+                                >
+                                  {student.name}
+                                </button>
                                 {(student.pending_makeups_count || 0) > 0 && (
                                   <button
                                     onClick={() => {
@@ -844,6 +960,50 @@ export default function Dashboard() {
                           </div>
                         </td>
 
+                        {/* Status (Đang học / Bảo lưu / Nghỉ học) */}
+                        <td className="py-3 px-2.5 whitespace-nowrap">
+                          {student.status === "reserved" ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setStudentForStatusChange(student);
+                                setIsChangeStatusModalOpen(true);
+                              }}
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-800 hover:bg-amber-200 dark:bg-amber-950 dark:text-amber-300 transition"
+                              title={`Bảo lưu từ: ${student.status_date || ""}. Bấm để đổi trạng thái`}
+                            >
+                              <PauseCircle className="w-3 h-3" />
+                              <span>Bảo lưu</span>
+                            </button>
+                          ) : student.status === "dropped" ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setStudentForStatusChange(student);
+                                setIsChangeStatusModalOpen(true);
+                              }}
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-100 text-rose-800 hover:bg-rose-200 dark:bg-rose-950 dark:text-rose-300 transition"
+                              title={`Nghỉ học từ: ${student.status_date || ""}. Bấm để đổi trạng thái`}
+                            >
+                              <UserX className="w-3 h-3" />
+                              <span>Nghỉ học</span>
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setStudentForStatusChange(student);
+                                setIsChangeStatusModalOpen(true);
+                              }}
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 hover:bg-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 transition"
+                              title="Đang học. Bấm để bảo lưu hoặc nghỉ học"
+                            >
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                              <span>Đang học</span>
+                            </button>
+                          )}
+                        </td>
+
                         {/* Teacher */}
                         <td className="py-3 px-2.5 whitespace-nowrap">
                           {student.teacher_name && student.teacher_name !== "Chưa gán GV" ? (
@@ -868,13 +1028,25 @@ export default function Dashboard() {
                           ) : null}
                         </td>
 
-                        {/* Weekly Schedule */}
+                        {/* Package & Weekly Schedule */}
                         <td className="py-3 px-3">
                           <div className="flex items-center gap-1.5 flex-wrap">
+                            {/* Package badge */}
+                            {student.tuition_package_name ? (
+                              <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300 flex items-center gap-1 whitespace-nowrap border border-purple-200 dark:border-purple-800">
+                                <Package className="w-2.5 h-2.5 text-purple-600" />
+                                {student.tuition_package_name}
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 whitespace-nowrap">
+                                Gói Tháng
+                              </span>
+                            )}
+
                             {isByHours ? (
                               <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300 flex items-center gap-1 whitespace-nowrap">
                                 <Hourglass className="w-2.5 h-2.5" />
-                                {student.hours_per_week || 3} tiếng/tuần
+                                {student.hours_per_week || 3}h/tuần
                               </span>
                             ) : (
                               <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 flex items-center gap-1 whitespace-nowrap">
@@ -882,9 +1054,6 @@ export default function Dashboard() {
                                 {student.sessions_per_week || 3} buổi/tuần
                               </span>
                             )}
-                            <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300">
-                              ({student.registered_days || "Chưa chọn ngày"})
-                            </span>
                           </div>
 
                           <div className="text-[10px] text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-0.5 font-medium">
@@ -937,9 +1106,72 @@ export default function Dashboard() {
                           </div>
                         </td>
 
+                        {/* Đối Soát Phí: Checkbox / Toggle Đã đóng hoặc Cần đóng tiền */}
+                        <td className="py-3 px-3 text-center whitespace-nowrap">
+                          <div className="inline-flex flex-col items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => handleToggleStudentReconciliation(student)}
+                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-extrabold border transition shadow-2xs ${
+                                student.payment_status === "paid"
+                                  ? "bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800"
+                                  : "bg-rose-50 text-rose-700 border-rose-300 hover:bg-rose-100 dark:bg-rose-950/50 dark:text-rose-300 dark:border-rose-800"
+                              }`}
+                              title={
+                                student.payment_status === "paid"
+                                  ? "Bấm để chuyển về Chưa đóng"
+                                  : "Bấm để xác nhận Đã đóng học phí"
+                              }
+                            >
+                              {student.payment_status === "paid" ? (
+                                <>
+                                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                  <span>Đã đóng</span>
+                                </>
+                              ) : (
+                                <>
+                                  <AlertCircle className="w-3.5 h-3.5 text-rose-600" />
+                                  <span>Cần đóng tiền</span>
+                                </>
+                              )}
+                            </button>
+                            {student.payment_period_desc && (
+                              <span className="text-[9px] text-slate-400 font-mono">
+                                {student.payment_period_desc}
+                              </span>
+                            )}
+                          </div>
+                        </td>
+
                         {/* Action Buttons */}
                         <td className="py-3 px-3 text-right whitespace-nowrap">
                           <div className="inline-flex items-center gap-1">
+                            {/* Nhắc học phí Zalo */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setStudentForZalo(student);
+                                setIsZaloModalOpen(true);
+                              }}
+                              className="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/50 rounded-lg transition shrink-0"
+                              title="Soạn tin nhắn nhắc học phí Zalo"
+                            >
+                              <MessageSquare className="w-3.5 h-3.5" />
+                            </button>
+
+                            {/* Chi tiết học sinh */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setStudentForDetail(student);
+                                setIsDetailModalOpen(true);
+                              }}
+                              className="p-1.5 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 rounded-lg transition shrink-0"
+                              title="Xem chi tiết & lịch sử bảo lưu/nghỉ"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                            </button>
+
                             {/* Make up button */}
                             <button
                               onClick={() => {
@@ -1046,9 +1278,12 @@ export default function Dashboard() {
         initialDefaultStudyTime={defaultStudyTime}
         initialMaxStudents={maxStudents}
         initialCrowdedThreshold={crowdedThreshold}
+        initialReconciliationMode={reconciliationMode as any}
+        initialZaloReminderMode={zaloReminderMode as any}
         initialTimeSlots={timeSlots}
         initialLevelSurcharges={levels}
         initialDiscountPresets={discountPresets}
+        initialTuitionPackages={tuitionPackages}
       />
 
       {/* Teachers Management Modal */}
@@ -1080,6 +1315,7 @@ export default function Dashboard() {
         timeSlots={timeSlots}
         teachers={teachers}
         discountPresets={discountPresets}
+        tuitionPackages={tuitionPackages}
         defaultDurationMode={durationMode}
         defaultSessions={defaultSessions}
         defaultHours={defaultHours}
@@ -1094,6 +1330,46 @@ export default function Dashboard() {
         student={studentForMonthly}
         selectedMonth={selectedMonth}
         monthFormat={monthFormat}
+      />
+
+      {/* Zalo Reminder Modal */}
+      <ZaloReminderModal
+        isOpen={isZaloModalOpen}
+        onClose={() => setIsZaloModalOpen(false)}
+        student={studentForZalo}
+        selectedMonth={selectedMonth}
+      />
+
+      {/* Student Detail Modal */}
+      <StudentDetailModal
+        isOpen={isDetailModalOpen}
+        onClose={() => setIsDetailModalOpen(false)}
+        student={studentForDetail}
+        selectedMonth={selectedMonth}
+        onOpenStatusChange={(st) => {
+          setStudentForStatusChange(st);
+          setIsChangeStatusModalOpen(true);
+        }}
+        onOpenZaloReminder={(st) => {
+          setStudentForZalo(st);
+          setIsZaloModalOpen(true);
+        }}
+        onReconciliationToggle={handleToggleStudentReconciliation}
+      />
+
+      {/* Change Status Modal (Bảo lưu / Nghỉ học / Học tiếp) */}
+      <ChangeStatusModal
+        isOpen={isChangeStatusModalOpen}
+        onClose={() => setIsChangeStatusModalOpen(false)}
+        student={studentForStatusChange}
+        onSaved={() => loadStudents(selectedMonth)}
+      />
+
+      {/* Status Log Modal (Nhật ký tổng biến động học sinh) */}
+      <StatusLogModal
+        isOpen={isStatusLogModalOpen}
+        onClose={() => setIsStatusLogModalOpen(false)}
+        selectedMonth={selectedMonth}
       />
     </div>
   );

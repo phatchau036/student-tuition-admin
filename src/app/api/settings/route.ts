@@ -21,6 +21,11 @@ export async function GET() {
     const defaultStudyTime = settingsMap["default_study_time"] || "18:00 - 19:00";
     const maxStudentsPerSlot = Number(settingsMap["max_students_per_slot"] || 10);
     const crowdedThresholdPercent = Number(settingsMap["crowded_threshold_percent"] || 80);
+    const reconciliationMode = (settingsMap["reconciliation_mode"] as "manual" | "auto") || "manual";
+    const zaloReminderMode = (settingsMap["zalo_reminder_mode"] as "manual" | "bot") || "manual";
+    const zaloOaSecretKey = settingsMap["zalo_oa_secret_key"] || "";
+    const zaloAccessToken = settingsMap["zalo_access_token"] || "";
+    const zaloTemplateId = settingsMap["zalo_template_id"] || "";
 
     // 2. Get Time Slots
     const timeSlotsRes = await db.execute("SELECT * FROM time_slots ORDER BY id ASC");
@@ -53,6 +58,19 @@ export async function GET() {
       label: String(row.label),
     }));
 
+    // 4.1 Get Tuition Packages
+    const packagesRes = await db.execute("SELECT * FROM tuition_packages ORDER BY cycle_value ASC, amount ASC");
+    const tuitionPackages = packagesRes.rows.map((row) => ({
+      id: String(row.id),
+      school_id: String(row.school_id || "school-default"),
+      name: String(row.name),
+      amount: Number(row.amount),
+      cycle_unit: String(row.cycle_unit) as "month" | "week",
+      cycle_value: Number(row.cycle_value),
+      is_active: Number(row.is_active),
+      created_at: String(row.created_at || ""),
+    }));
+
     // 5. Get Schools
     const schoolsRes = await db.execute("SELECT * FROM schools ORDER BY created_at ASC");
     const schools = schoolsRes.rows.map((s) => ({
@@ -76,9 +94,15 @@ export async function GET() {
         default_study_time: defaultStudyTime,
         max_students_per_slot: maxStudentsPerSlot,
         crowded_threshold_percent: crowdedThresholdPercent,
+        reconciliation_mode: reconciliationMode,
+        zalo_reminder_mode: zaloReminderMode,
+        zalo_oa_secret_key: zaloOaSecretKey,
+        zalo_access_token: zaloAccessToken,
+        zalo_template_id: zaloTemplateId,
         time_slots: timeSlots,
         level_surcharges: levelSurcharges,
         discount_presets: discountPresets,
+        tuition_packages: tuitionPackages,
       },
     });
   } catch (error: unknown) {
@@ -105,6 +129,11 @@ export async function POST(req: Request) {
       default_study_time,
       max_students_per_slot,
       crowded_threshold_percent,
+      reconciliation_mode,
+      zalo_reminder_mode,
+      zalo_oa_secret_key,
+      zalo_access_token,
+      zalo_template_id,
       time_slots,
       level_surcharges,
       discount_presets,
@@ -120,6 +149,11 @@ export async function POST(req: Request) {
       default_study_time: default_study_time !== undefined ? String(default_study_time) : undefined,
       max_students_per_slot: max_students_per_slot !== undefined ? String(max_students_per_slot) : undefined,
       crowded_threshold_percent: crowded_threshold_percent !== undefined ? String(crowded_threshold_percent) : undefined,
+      reconciliation_mode: reconciliation_mode !== undefined ? String(reconciliation_mode) : undefined,
+      zalo_reminder_mode: zalo_reminder_mode !== undefined ? String(zalo_reminder_mode) : undefined,
+      zalo_oa_secret_key: zalo_oa_secret_key !== undefined ? String(zalo_oa_secret_key) : undefined,
+      zalo_access_token: zalo_access_token !== undefined ? String(zalo_access_token) : undefined,
+      zalo_template_id: zalo_template_id !== undefined ? String(zalo_template_id) : undefined,
     };
 
     for (const [key, val] of Object.entries(keysToUpdate)) {

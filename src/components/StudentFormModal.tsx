@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Student, LevelSurcharge, TimeSlot, DiscountOption, Teacher, ScheduleItem } from "@/lib/types";
+import { Student, LevelSurcharge, TimeSlot, DiscountOption, Teacher, ScheduleItem, TuitionPackage } from "@/lib/types";
 import {
   calculateStandardTuition,
   formatVND,
@@ -34,6 +34,7 @@ import {
   DollarSign,
   AlertTriangle,
   ChevronDown,
+  Package,
 } from "lucide-react";
 
 interface StudentFormModalProps {
@@ -46,6 +47,7 @@ interface StudentFormModalProps {
   timeSlots: TimeSlot[];
   teachers: Teacher[];
   discountPresets: DiscountOption[];
+  tuitionPackages?: TuitionPackage[];
   defaultDurationMode?: "by_hours" | "by_sessions";
   defaultSessions?: number;
   defaultHours?: number;
@@ -81,6 +83,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
   timeSlots,
   teachers,
   discountPresets,
+  tuitionPackages = [],
   defaultDurationMode = "by_hours",
   defaultSessions = 3,
   defaultHours = 3,
@@ -94,6 +97,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
   const [levelId, setLevelId] = useState("");
   const [timeSlotId, setTimeSlotId] = useState("");
   const [teacherId, setTeacherId] = useState("");
+  const [tuitionPackageId, setTuitionPackageId] = useState("");
 
   // Mode: "by_hours" (Theo tổng số tiếng / tuần) HOẶC "by_sessions" (Theo số buổi cố định / tuần)
   const [durationMode, setDurationMode] = useState<"by_hours" | "by_sessions">(defaultDurationMode);
@@ -123,6 +127,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
       setLevelId(studentToEdit.level_id || (levels[0]?.id ?? ""));
       setTimeSlotId(studentToEdit.time_slot_id || (timeSlots[0]?.id ?? ""));
       setTeacherId(studentToEdit.teacher_id || (teachers[0]?.id ?? ""));
+      setTuitionPackageId(studentToEdit.tuition_package_id || "");
 
       const mode = (studentToEdit.duration_mode as "by_hours" | "by_sessions") || "by_hours";
       setDurationMode(mode);
@@ -163,6 +168,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
       setLevelId(levels[0]?.id || "");
       setTimeSlotId(timeSlots[0]?.id || "");
       setTeacherId(teachers[0]?.id || "");
+      setTuitionPackageId(tuitionPackages[0]?.id || "");
       setDurationMode(defaultDurationMode);
       setSessionsPerWeek(defaultSessions);
       setTargetHours(defaultHours);
@@ -339,6 +345,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
           level_id: levelId,
           time_slot_id: timeSlotId || "",
           teacher_id: teacherId || null,
+          tuition_package_id: tuitionPackageId || null,
           duration_mode: durationMode,
           sessions_per_week: finalSessions,
           hours_per_week: finalHours,
@@ -496,6 +503,28 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                   )}
                 </select>
               </div>
+            </div>
+          </div>
+
+          {/* Gói học phí áp dụng */}
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+              Gói Học Phí Áp Dụng
+            </label>
+            <div className="relative">
+              <Package className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
+              <select
+                value={tuitionPackageId}
+                onChange={(e) => setTuitionPackageId(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 outline-none hover:border-slate-300 transition"
+              >
+                <option value="">-- Mặc định (Tính theo giá chuẩn cơ sở) --</option>
+                {tuitionPackages.map((pkg) => (
+                  <option key={pkg.id} value={pkg.id}>
+                    {pkg.name} ({formatVND(pkg.amount)} • {pkg.cycle_value} {pkg.cycle_unit === "month" ? "tháng" : "tuần"})
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 
