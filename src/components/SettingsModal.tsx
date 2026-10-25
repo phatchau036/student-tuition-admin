@@ -446,13 +446,23 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setDiscounts([...discounts, newDisc]);
   };
 
-  const handleUpdateDiscount = (index: number, val: number) => {
+  const handleUpdateDiscount = (index: number, field: "percentage" | "label", val: any) => {
     const updated = [...discounts];
-    updated[index] = {
-      ...updated[index],
-      percentage: val,
-      label: `Giảm ${val}%`,
-    };
+    if (field === "percentage") {
+      const numVal = Number(val) || 0;
+      const prevLabel = updated[index].label;
+      const isAutoLabel = !prevLabel || prevLabel.startsWith("Giảm ");
+      updated[index] = {
+        ...updated[index],
+        percentage: numVal,
+        label: isAutoLabel ? `Giảm ${numVal}%` : prevLabel,
+      };
+    } else {
+      updated[index] = {
+        ...updated[index],
+        label: String(val),
+      };
+    }
     setDiscounts(updated);
   };
 
@@ -1738,34 +1748,51 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {discounts.map((disc, index) => (
                   <div
                     key={disc.id || index}
-                    className="p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-800/40 flex items-center justify-between gap-3 shadow-xs hover:border-slate-300 transition"
+                    className="p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-800/40 space-y-2.5 shadow-xs hover:border-slate-300 transition"
                   >
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-xl bg-amber-50 dark:bg-amber-950/50 text-amber-600 flex items-center justify-center shrink-0">
-                        <Percent className="w-4 h-4" />
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-xl bg-amber-50 dark:bg-amber-950/50 text-amber-600 flex items-center justify-center shrink-0">
+                          <Percent className="w-4 h-4" />
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="number"
+                            min="0"
+                            max="100"
+                            value={disc.percentage}
+                            onChange={(e) => handleUpdateDiscount(index, "percentage", e.target.value)}
+                            className="w-16 px-2 py-1 text-sm font-black text-slate-900 dark:text-white rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-center focus:ring-2 focus:ring-indigo-500 outline-none"
+                          />
+                          <span className="text-xs font-black text-slate-500">%</span>
+                        </div>
                       </div>
-                      <input
-                        type="number"
-                        min="0"
-                        max="100"
-                        value={disc.percentage}
-                        onChange={(e) => handleUpdateDiscount(index, Number(e.target.value) || 0)}
-                        className="w-16 px-2 py-1 text-sm font-black text-slate-900 dark:text-white rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-center focus:ring-2 focus:ring-indigo-500 outline-none"
-                      />
-                      <span className="text-xs font-bold text-slate-500">%</span>
+
+                      <button
+                        onClick={() => handleRemoveDiscount(index)}
+                        className="p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl transition"
+                        title="Xóa mức chiết khấu"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
 
-                    <button
-                      onClick={() => handleRemoveDiscount(index)}
-                      className="p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl transition"
-                      title="Xóa mức chiết khấu"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    <div>
+                      <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">
+                        Lý do được giảm / Tên mức giảm
+                      </label>
+                      <input
+                        type="text"
+                        value={disc.label || ""}
+                        onChange={(e) => handleUpdateDiscount(index, "label", e.target.value)}
+                        placeholder="VD: Anh em ruột, Đăng ký sớm, Hộ nghèo..."
+                        className="w-full px-2.5 py-1.5 text-xs font-semibold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition"
+                      />
+                    </div>
                   </div>
                 ))}
 

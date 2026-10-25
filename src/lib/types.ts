@@ -206,6 +206,7 @@ export interface Student {
   teacher_color?: string;
 
   // Lịch học & thời lượng hàng tuần:
+  start_date?: string;       // Ngày bắt đầu đăng ký học (YYYY-MM-DD)
   duration_mode: "by_hours" | "by_sessions"; // "by_hours": Miễn đủ X tiếng/tuần | "by_sessions": Cố định X buổi/tuần
   sessions_per_week: number; // e.g. 1 buổi, 2 buổi, 3 buổi
   hours_per_week: number;    // e.g. 3 tiếng / tuần
@@ -215,6 +216,7 @@ export interface Student {
 
   is_discount_enabled: number; // 1 or 0
   discount_percent: number;    // e.g. 10
+  discount_reason?: string;    // Lý do được giảm giá (ví dụ: Anh em ruột, Học sinh nghèo hiếu học, Đăng ký sớm...)
   created_at?: string;
 
   // Thông tin học bù

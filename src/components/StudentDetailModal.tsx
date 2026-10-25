@@ -290,9 +290,23 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
               {/* General info list */}
               <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 space-y-2.5 text-xs">
                 <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
+                  <span className="text-slate-400 font-medium">Ngày đăng ký học:</span>
+                  <span className="font-bold text-slate-800 dark:text-slate-200">
+                    {student.start_date || "Chưa ghi nhận"}
+                  </span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
                   <span className="text-slate-400 font-medium">Giáo viên phụ trách:</span>
                   <span className="font-bold text-slate-800 dark:text-slate-200">
                     {student.teacher_name || "Chưa gán giáo viên"}
+                  </span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
+                  <span className="text-slate-400 font-medium">Chiết khấu / Giảm giá:</span>
+                  <span className="font-bold text-slate-800 dark:text-slate-200">
+                    {student.is_discount_enabled && student.discount_percent > 0
+                      ? `Giảm ${student.discount_percent}% ${student.discount_reason ? `(${student.discount_reason})` : ""}`
+                      : "Không áp dụng"}
                   </span>
                 </div>
                 <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">

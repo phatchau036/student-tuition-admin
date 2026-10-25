@@ -260,6 +260,8 @@ export async function initDb() {
   try { await db.execute("ALTER TABLE students ADD COLUMN expected_return_date TEXT DEFAULT NULL"); } catch {}
   try { await db.execute("ALTER TABLE students ADD COLUMN status_note TEXT DEFAULT ''"); } catch {}
   try { await db.execute("ALTER TABLE students ADD COLUMN zalo_chat_id TEXT DEFAULT NULL"); } catch {}
+  try { await db.execute("ALTER TABLE students ADD COLUMN start_date TEXT DEFAULT NULL"); } catch {}
+  try { await db.execute("ALTER TABLE students ADD COLUMN discount_reason TEXT DEFAULT ''"); } catch {}
 
   // Defaults for settings
   const defaults: [string, string][] = [

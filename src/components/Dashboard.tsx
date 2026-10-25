@@ -943,11 +943,16 @@ export default function Dashboard() {
                                   </button>
                                 )}
                               </div>
-                              <div className="flex items-center gap-1.5 mt-0.5">
+                              <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                                 <span className="font-mono text-[11px] font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1 whitespace-nowrap">
                                   <Phone className="w-3 h-3 text-slate-400" />
                                   {student.phone}
                                 </span>
+                                {student.start_date && (
+                                  <span className="text-[10px] font-medium text-slate-400 dark:text-slate-500 whitespace-nowrap flex items-center gap-0.5" title="Ngày bắt đầu nhập học">
+                                    • Bắt đầu: {student.start_date}
+                                  </span>
+                                )}
                                 {student.zalo_link && (
                                   <a
                                     href={student.zalo_link}
@@ -1071,9 +1076,19 @@ export default function Dashboard() {
                         {/* Discount */}
                         <td className="py-3 px-2 text-center whitespace-nowrap">
                           {student.is_discount_enabled && student.discount_percent > 0 ? (
-                            <span className="inline-block px-2 py-0.5 text-[11px] font-black rounded bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60">
-                              -{student.discount_percent}%
-                            </span>
+                            <div className="flex flex-col items-center">
+                              <span
+                                className="inline-block px-2 py-0.5 text-[11px] font-black rounded bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60"
+                                title={student.discount_reason ? `Lý do giảm: ${student.discount_reason}` : undefined}
+                              >
+                                -{student.discount_percent}%
+                              </span>
+                              {student.discount_reason && (
+                                <span className="text-[9px] text-slate-400 dark:text-slate-500 font-medium truncate max-w-[90px] mt-0.5" title={student.discount_reason}>
+                                  {student.discount_reason}
+                                </span>
+                              )}
+                            </div>
                           ) : (
                             <span className="text-xs font-medium text-slate-400">0%</span>
                           )}

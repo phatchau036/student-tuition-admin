@@ -35,6 +35,8 @@ import {
   AlertTriangle,
   ChevronDown,
   Package,
+  CalendarDays,
+  Sparkles,
 } from "lucide-react";
 
 interface StudentFormModalProps {
@@ -99,6 +101,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
   const [timeSlotId, setTimeSlotId] = useState("");
   const [teacherId, setTeacherId] = useState("");
   const [tuitionPackageId, setTuitionPackageId] = useState("");
+  const [startDate, setStartDate] = useState("");
 
   // Mode: "by_hours" (Theo tổng số tiếng / tuần) HOẶC "by_sessions" (Theo số buổi cố định / tuần)
   const [durationMode, setDurationMode] = useState<"by_hours" | "by_sessions">(defaultDurationMode);
@@ -118,6 +121,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
   // Discount
   const [isDiscountEnabled, setIsDiscountEnabled] = useState(false);
   const [discountPercent, setDiscountPercent] = useState<number>(0);
+  const [discountReason, setDiscountReason] = useState<string>("");
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -130,6 +134,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
       setTimeSlotId(studentToEdit.time_slot_id || (timeSlots[0]?.id ?? ""));
       setTeacherId(studentToEdit.teacher_id || (teachers[0]?.id ?? ""));
       setTuitionPackageId(studentToEdit.tuition_package_id || "");
+      setStartDate(studentToEdit.start_date || "");
 
       const mode = (studentToEdit.duration_mode as "by_hours" | "by_sessions") || "by_hours";
       setDurationMode(mode);
@@ -163,6 +168,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
       setFixedSessionTime(studentToEdit.study_time_detail || "18:00 - 19:00");
       setIsDiscountEnabled(Boolean(studentToEdit.is_discount_enabled));
       setDiscountPercent(studentToEdit.discount_percent || 0);
+      setDiscountReason(studentToEdit.discount_reason || "");
     } else {
       setName("");
       setPhone("");
@@ -172,6 +178,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
       setTimeSlotId(timeSlots[0]?.id || "");
       setTeacherId(teachers[0]?.id || "");
       setTuitionPackageId(tuitionPackages[0]?.id || "");
+      setStartDate(new Date().toISOString().slice(0, 10)); // Mặc định vào ngày hiện tại
       setDurationMode(defaultDurationMode);
       setSessionsPerWeek(defaultSessions);
       setTargetHours(defaultHours);
@@ -183,6 +190,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
       ]);
       setIsDiscountEnabled(false);
       setDiscountPercent(0);
+      setDiscountReason("");
     }
   }, [
     studentToEdit,
@@ -350,6 +358,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
           time_slot_id: timeSlotId || "",
           teacher_id: teacherId || null,
           tuition_package_id: tuitionPackageId || null,
+          start_date: startDate.trim() || null,
           duration_mode: durationMode,
           sessions_per_week: finalSessions,
           hours_per_week: finalHours,
@@ -358,6 +367,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
           schedule_details_json: JSON.stringify(scheduleItems),
           is_discount_enabled: isDiscountEnabled ? 1 : 0,
           discount_percent: isDiscountEnabled ? Number(discountPercent) || 0 : 0,
+          discount_reason: isDiscountEnabled ? discountReason.trim() : "",
         }),
       });
 
@@ -426,7 +436,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
             </div>
           </div>
 
-          {/* Phone & Zalo */}
+          {/* Phone, Zalo & Start Date */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
@@ -473,6 +483,42 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                   placeholder="ID chat từ Zalo Bot"
                   className="w-full px-3.5 py-2.5 text-sm font-mono font-semibold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition"
                 />
+              </div>
+            </div>
+          </div>
+
+          {/* Ngày đăng ký học (Start Date) với nút Vào hiện tại ngay */}
+          <div className="p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                  Ngày bắt đầu đăng ký học
+                </label>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  Thời điểm học sinh chính thức bắt đầu theo học tại trung tâm
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1 sm:w-44">
+                  <CalendarDays className="w-4 h-4 text-indigo-500 absolute left-3 top-2.5" />
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="w-full pl-9 pr-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none transition"
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setStartDate(new Date().toISOString().slice(0, 10))}
+                  className="px-3 py-1.5 text-xs font-black rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white shadow-xs transition flex items-center gap-1 shrink-0"
+                  title="Chọn ngay ngày hôm nay"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Hôm nay (Hiện tại ngay)</span>
+                </button>
               </div>
             </div>
           </div>
@@ -872,7 +918,12 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                     <button
                       type="button"
                       key={preset.id}
-                      onClick={() => setDiscountPercent(preset.percentage)}
+                      onClick={() => {
+                        setDiscountPercent(preset.percentage);
+                        if (preset.label && !preset.label.startsWith("Giảm ") && !discountReason) {
+                          setDiscountReason(preset.label);
+                        }
+                      }}
                       className={`px-3 py-1 text-xs font-bold rounded-xl border transition ${
                         discountPercent === preset.percentage
                           ? "bg-indigo-600 text-white border-indigo-600 shadow-2xs"
@@ -895,6 +946,20 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                     className="w-20 px-2 py-1 text-xs font-black text-slate-900 dark:text-white rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-center outline-none focus:ring-2 focus:ring-indigo-500"
                   />
                   <span className="text-xs font-bold text-slate-500">%</span>
+                </div>
+
+                {/* Nhập Lý do được giảm học phí */}
+                <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
+                  <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">
+                    Lý do được giảm học phí:
+                  </label>
+                  <input
+                    type="text"
+                    value={discountReason}
+                    onChange={(e) => setDiscountReason(e.target.value)}
+                    placeholder="VD: Anh em ruột cùng học, Học sinh có hoàn cảnh khó khăn, Đăng ký sớm..."
+                    className="w-full px-3 py-1.5 text-xs font-semibold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition"
+                  />
                 </div>
               </div>
             )}

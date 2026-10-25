@@ -131,6 +131,7 @@ export async function GET(req: Request) {
         status_date: row.status_date ? String(row.status_date) : undefined,
         expected_return_date: row.expected_return_date ? String(row.expected_return_date) : undefined,
         status_note: String(row.status_note || ""),
+        start_date: row.start_date ? String(row.start_date) : undefined,
 
         // Gói học phí
         tuition_package_id: row.tuition_package_id ? String(row.tuition_package_id) : undefined,
@@ -150,6 +151,7 @@ export async function GET(req: Request) {
         pending_makeups_count: pendingMakeupsMap[String(row.id)] || 0,
         is_discount_enabled: Number(row.is_discount_enabled || 0),
         discount_percent: Number(row.discount_percent || 0),
+        discount_reason: String(row.discount_reason || ""),
         created_at: String(row.created_at || ""),
         standard_tuition: stdTuition,
         current_tuition: currentTuition,
@@ -188,6 +190,7 @@ export async function POST(req: Request) {
       time_slot_id,
       teacher_id,
       tuition_package_id,
+      start_date,
       duration_mode,
       sessions_per_week,
       hours_per_week,
@@ -196,6 +199,7 @@ export async function POST(req: Request) {
       schedule_details_json,
       is_discount_enabled,
       discount_percent,
+      discount_reason,
     } = body;
 
     if (!name || !phone || !level_id) {
@@ -216,10 +220,10 @@ export async function POST(req: Request) {
     await db.execute({
       sql: `INSERT INTO students (
               id, name, phone, zalo_link, zalo_chat_id, level_id, time_slot_id, teacher_id, tuition_package_id,
-              duration_mode, sessions_per_week, hours_per_week, registered_days, study_time_detail, schedule_details_json,
-              is_discount_enabled, discount_percent
+              start_date, duration_mode, sessions_per_week, hours_per_week, registered_days, study_time_detail, schedule_details_json,
+              is_discount_enabled, discount_percent, discount_reason
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       args: [
         id,
         name.trim(),
@@ -230,6 +234,7 @@ export async function POST(req: Request) {
         time_slot_id || "",
         teacher_id || null,
         tuition_package_id || null,
+        start_date ? String(start_date).trim() : null,
         duration_mode || "by_hours",
         Number(sessions_per_week) || 3,
         Number(hours_per_week) || 3,
@@ -238,6 +243,7 @@ export async function POST(req: Request) {
         schedule_details_json || "[]",
         is_discount_enabled ? 1 : 0,
         Number(discount_percent) || 0,
+        discount_reason ? String(discount_reason).trim() : "",
       ],
     });
 

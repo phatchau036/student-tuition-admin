@@ -76,7 +76,8 @@ Giao diện Quản trị cơ sở được thiết kế theo chuẩn **SaaS hi�
 
 ### 3.1. Quản lý học sinh & Hồ sơ học tập
 - **Thêm mới / Chỉnh sửa học sinh:**
-  - Nhập họ tên, số điện thoại, link Zalo (hệ thống tự tạo link `https://zalo.me/[SĐT]` nếu để trống).
+  - Nhập họ tên, số điện thoại, link Zalo (hệ thống tự tạo link `https://zalo.me/[SĐT]` nếu để trống), Zalo Chat ID cho bot.
+  - **Ngày bắt đầu đăng ký học (`start_date`):** Ô chọn ngày vào học kèm nút **"Hôm nay (Hiện tại ngay)"** 1-click gán nhanh ngày hôm nay.
   - Chọn Giáo viên phụ trách, chọn Level / Trình độ (tự động cộng phụ thu).
   - Chọn **Gói học phí áp dụng** (*Gói Tháng*, *Gói Quý 3 Tháng*, *Khóa 6 Tháng*...).
 - **2 Chế độ thời lượng học tập:**
@@ -86,9 +87,10 @@ Giao diện Quản trị cơ sở được thiết kế theo chuẩn **SaaS hi�
      - **Bộ chọn giờ 24h thông minh:** Chỉ hiển thị các ca mở cửa có sẵn của thứ đã chọn, có nút chọn nhanh 1-click ca mở cửa và tự động kiểm tra chặn không cho xếp giờ ngoài ca mở cửa của trung tâm.
   2. **Hình thức 2 - Cố định số buổi / tuần (`by_sessions`):**
      - Đặt số buổi/tuần (VD: 3 buổi/tuần), giờ học mỗi buổi (VD: `18:00 - 19:00`) và tích chọn các ngày học cố định (Thứ 2, Thứ 4, Thứ 6).
-- **Chiết khấu / Giảm giá:** Tích chọn áp dụng giảm giá % theo các mốc cài sẵn (5%, 10%, 15%, 20%...).
+- **Chiết khấu / Giảm giá:** Tích chọn áp dụng giảm giá % theo các mốc cài sẵn (5%, 10%, 15%, 20%...), nhập % tùy chỉnh và **nhập Lý do được giảm học phí** (VD: Anh em ruột, Đăng ký sớm, Hoàn cảnh khó khăn...).
 - **Xem hồ sơ chi tiết học sinh (`StudentDetailModal`):**
-  - Xem thông tin liên lạc, lịch học chi tiết hàng tuần.
+  - Xem thông tin liên lạc, ngày đăng ký học, lịch học chi tiết hàng tuần.
+  - Xem mức chiết khấu và lý do giảm giá áp dụng.
   - Xem gói học phí đang áp dụng và tình trạng đối soát công nợ.
   - Xem toàn bộ lịch sử khi nào nghỉ, khi nào bảo lưu, dự kiến ngày nào học lại và lý do.
 - **Xóa học sinh:** Modal xác nhận tùy chỉnh an toàn, không lo bị chặn popup.
@@ -195,10 +197,10 @@ Cửa sổ **Cài Đặt Hệ Thống Cơ Sở** bao gồm 8 phân hệ chuyên 
      - **Dạng số (MM/YYYY):** VD: `10/2026`.
 2. **Gói học phí:** Quản lý danh mục gói tháng/quý/khóa/tuần.
 3. **Đối soát thanh toán:** Cài đặt phương thức đối soát công nợ.
-4. **Nhắc Zalo:** Cài đặt thông báo học phí.
+4. **Nhắc Zalo:** Cài đặt thông báo học phí (Thủ công / Zalo Bot Platform).
 5. **Khung giờ:** Quản lý các ca mở cửa của cơ sở theo từng thứ (từ thứ mấy đến thứ mấy, giờ bắt đầu và kết thúc).
 6. **Phụ thu Level:** Danh mục các Level/Grade và mức phí cộng thêm (+VNĐ).
-7. **Chiết khấu:** Các mốc giảm giá phần trăm (% discount).
+7. **Chiết khấu:** Cấu hình các mốc giảm giá phần trăm (% discount) kèm **Lý do được giảm / Tên mức giảm** (VD: Anh em ruột, Đăng ký sớm, Hộ nghèo...).
 8. **Đổi mật khẩu:** Form đổi mật khẩu cho Quản trị viên cơ sở (yêu cầu mật khẩu hiện tại + mật khẩu mới tối thiểu 6 ký tự).
 
 ---
