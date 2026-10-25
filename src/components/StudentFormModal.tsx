@@ -2,7 +2,18 @@
 
 import React, { useState, useEffect } from "react";
 import { Student, LevelSurcharge, TimeSlot, DiscountOption, Teacher, ScheduleItem } from "@/lib/types";
-import { calculateStandardTuition, formatVND, formatTimeSlotLabel } from "@/lib/tuition";
+import {
+  calculateStandardTuition,
+  formatVND,
+  formatTimeSlotLabel,
+  isDayInSlot,
+  timeToMinutes,
+  minutesToTime,
+  getSlotsForDay,
+  isTimeRangeWithinSlot,
+  getDayStartTimes,
+  getDayEndTimes,
+} from "@/lib/tuition";
 import { useToast } from "@/components/Toast";
 import {
   User,
@@ -21,6 +32,8 @@ import {
   Hourglass,
   Tag,
   DollarSign,
+  AlertTriangle,
+  ChevronDown,
 } from "lucide-react";
 
 interface StudentFormModalProps {
@@ -189,12 +202,19 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
 
   // Helpers for schedule items in by_hours mode
   const handleAddScheduleItem = () => {
+    // Pick the first day that has open slots, or default to Thứ 2
+    const firstOpenDay = ALL_DAYS.find((d) => getSlotsForDay(d, timeSlots).length > 0) || "Thứ 2";
+    const availableStartTimes = getDayStartTimes(firstOpenDay, timeSlots);
+    const defaultStart = availableStartTimes[0] || "17:00";
+    const availableEndTimes = getDayEndTimes(firstOpenDay, defaultStart, timeSlots);
+    const defaultEnd = availableEndTimes[1] || availableEndTimes[0] || "18:30";
+
     const newItem: ScheduleItem = {
       id: `${Date.now()}`,
-      day: "Thứ 7",
-      start_time: "09:00",
-      end_time: "10:30",
-      hours: 1.5,
+      day: firstOpenDay,
+      start_time: defaultStart,
+      end_time: defaultEnd,
+      hours: calculateDurationHours(defaultStart, defaultEnd),
     };
     setScheduleItems([...scheduleItems, newItem]);
   };
@@ -204,12 +224,39 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
       prev.map((item) => {
         if (item.id !== id) return item;
         const updated = { ...item, [field]: val };
-        if (field === "start_time" || field === "end_time") {
-          updated.hours = calculateDurationHours(
-            field === "start_time" ? val : updated.start_time,
-            field === "end_time" ? val : updated.end_time
-          );
+
+        // When day changes, auto update start and end times to match the operating hours of that new day
+        if (field === "day") {
+          const newDayStarts = getDayStartTimes(val, timeSlots);
+          const newStart = newDayStarts.includes(updated.start_time)
+            ? updated.start_time
+            : newDayStarts[0] || "17:00";
+          const newDayEnds = getDayEndTimes(val, newStart, timeSlots);
+          const newEnd = newDayEnds.includes(updated.end_time)
+            ? updated.end_time
+            : newDayEnds[1] || newDayEnds[0] || "18:30";
+
+          updated.start_time = newStart;
+          updated.end_time = newEnd;
+          updated.hours = calculateDurationHours(newStart, newEnd);
+          return updated;
         }
+
+        // When start_time changes, ensure end_time is valid within the day
+        if (field === "start_time") {
+          const validEnds = getDayEndTimes(updated.day, val, timeSlots);
+          if (!validEnds.includes(updated.end_time)) {
+            updated.end_time = validEnds[1] || validEnds[0] || "18:30";
+          }
+          updated.hours = calculateDurationHours(val, updated.end_time);
+          return updated;
+        }
+
+        if (field === "end_time") {
+          updated.hours = calculateDurationHours(updated.start_time, val);
+          return updated;
+        }
+
         return updated;
       })
     );
@@ -248,6 +295,21 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
     let finalHours = targetHours;
 
     if (durationMode === "by_hours") {
+      // Validate that all scheduled items fall within the operating slots of their respective days
+      for (const item of scheduleItems) {
+        const slotsForDay = getSlotsForDay(item.day, timeSlots);
+        if (slotsForDay.length > 0) {
+          const isValid = slotsForDay.some((s) => isTimeRangeWithinSlot(item.start_time, item.end_time, s));
+          if (!isValid) {
+            showToast(
+              `Giờ học ${item.day} (${item.start_time} - ${item.end_time}) không nằm trong khung giờ mở cửa của cơ sở!`,
+              "error"
+            );
+            return;
+          }
+        }
+      }
+
       finalHours = targetHours;
       finalSessions = scheduleItems.length;
       finalRegisteredDays = scheduleItems.map((i) => i.day).join(", ");
@@ -537,59 +599,134 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                     Chi tiết các buổi học trong tuần để đủ {targetHours} tiếng:
                   </span>
 
-                  {scheduleItems.map((item) => (
-                    <div
-                      key={item.id}
-                      className="p-3 rounded-xl border border-slate-200/80 dark:border-slate-700 bg-white dark:bg-slate-900 flex flex-wrap items-center gap-2 shadow-2xs"
-                    >
-                      {/* Day select */}
-                      <select
-                        value={item.day}
-                        onChange={(e) => handleUpdateScheduleItem(item.id, "day", e.target.value)}
-                        className="px-2.5 py-1 text-xs font-bold rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800"
+                  {scheduleItems.map((item) => {
+                    const dayOperatingSlots = getSlotsForDay(item.day, timeSlots);
+                    const availableStarts = getDayStartTimes(item.day, timeSlots);
+                    const availableEnds = getDayEndTimes(item.day, item.start_time, timeSlots);
+                    const isWithinOperating =
+                      dayOperatingSlots.length === 0 ||
+                      dayOperatingSlots.some((s) => isTimeRangeWithinSlot(item.start_time, item.end_time, s));
+
+                    return (
+                      <div
+                        key={item.id}
+                        className={`p-3.5 rounded-2xl border transition space-y-2.5 ${
+                          !isWithinOperating
+                            ? "border-rose-300 bg-rose-50/40 dark:border-rose-900/50 dark:bg-rose-950/20"
+                            : "border-slate-200/80 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-2xs"
+                        }`}
                       >
-                        {ALL_DAYS.map((d) => (
-                          <option key={d} value={d}>
-                            {d}
-                          </option>
-                        ))}
-                      </select>
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div className="flex items-center gap-2 flex-wrap flex-1">
+                            {/* Day select */}
+                            <select
+                              value={item.day}
+                              onChange={(e) => handleUpdateScheduleItem(item.id, "day", e.target.value)}
+                              className="px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-100 outline-none focus:ring-2 focus:ring-indigo-500"
+                            >
+                              {ALL_DAYS.map((d) => {
+                                const countForD = getSlotsForDay(d, timeSlots).length;
+                                return (
+                                  <option key={d} value={d}>
+                                    {d} {countForD > 0 ? `(${countForD} ca mở)` : "(Không có ca mở)"}
+                                  </option>
+                                );
+                              })}
+                            </select>
 
-                      {/* Time from - to */}
-                      <div className="flex items-center gap-1.5">
-                        <input
-                          type="time"
-                          value={item.start_time}
-                          onChange={(e) => handleUpdateScheduleItem(item.id, "start_time", e.target.value)}
-                          className="px-2 py-1 text-xs font-bold rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800"
-                        />
-                        <span className="text-xs text-slate-400 font-medium">đến</span>
-                        <input
-                          type="time"
-                          value={item.end_time}
-                          onChange={(e) => handleUpdateScheduleItem(item.id, "end_time", e.target.value)}
-                          className="px-2 py-1 text-xs font-bold rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800"
-                        />
+                            {/* 24h Start Time Select */}
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[11px] font-bold text-slate-500">Từ</span>
+                              <select
+                                value={item.start_time}
+                                onChange={(e) => handleUpdateScheduleItem(item.id, "start_time", e.target.value)}
+                                className="px-2.5 py-1.5 text-xs font-black font-mono rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+                              >
+                                {availableStarts.map((t) => (
+                                  <option key={t} value={t}>
+                                    {t}
+                                  </option>
+                                ))}
+                              </select>
+
+                              <span className="text-[11px] font-bold text-slate-500">đến</span>
+
+                              {/* 24h End Time Select */}
+                              <select
+                                value={item.end_time}
+                                onChange={(e) => handleUpdateScheduleItem(item.id, "end_time", e.target.value)}
+                                className="px-2.5 py-1.5 text-xs font-black font-mono rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+                              >
+                                {availableEnds.map((t) => (
+                                  <option key={t} value={t}>
+                                    {t}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+
+                            {/* Duration pill */}
+                            <span className="px-2.5 py-1 rounded-full text-[11px] font-black bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
+                              {item.hours} tiếng
+                            </span>
+                          </div>
+
+                          {/* Remove button */}
+                          {scheduleItems.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveScheduleItem(item.id)}
+                              className="p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl transition shrink-0"
+                              title="Xóa buổi này"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Ca mở cửa có sẵn của thứ này để chọn nhanh 1 cú click */}
+                        {dayOperatingSlots.length > 0 && (
+                          <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center gap-1.5 flex-wrap text-[11px]">
+                            <span className="text-slate-400 font-semibold text-[10px] uppercase tracking-wider mr-1">
+                              Chọn nhanh ca mở cửa {item.day}:
+                            </span>
+                            {dayOperatingSlots.map((slot) => {
+                              const isSlotSelected =
+                                item.start_time === slot.start_time && item.end_time === slot.end_time;
+                              return (
+                                <button
+                                  key={slot.id}
+                                  type="button"
+                                  onClick={() => {
+                                    handleUpdateScheduleItem(item.id, "start_time", slot.start_time);
+                                    handleUpdateScheduleItem(item.id, "end_time", slot.end_time);
+                                  }}
+                                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition ${
+                                    isSlotSelected
+                                      ? "bg-indigo-600 border-indigo-600 text-white shadow-2xs"
+                                      : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-indigo-400 hover:text-indigo-600"
+                                  }`}
+                                >
+                                  {slot.name} ({slot.start_time} - {slot.end_time})
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+
+                        {/* Cảnh báo nếu chọn giờ ngoài khung mở cửa của thứ đó */}
+                        {dayOperatingSlots.length > 0 && !isWithinOperating && (
+                          <div className="flex items-center gap-1.5 text-[11px] font-bold text-rose-600 dark:text-rose-400 pt-1">
+                            <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                            <span>
+                              Giờ học ({item.start_time} - {item.end_time}) không nằm trong bất kỳ ca mở cửa nào của{" "}
+                              {item.day}!
+                            </span>
+                          </div>
+                        )}
                       </div>
-
-                      {/* Duration pill */}
-                      <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
-                        {item.hours} tiếng
-                      </span>
-
-                      {/* Remove button */}
-                      {scheduleItems.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveScheduleItem(item.id)}
-                          className="p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg ml-auto transition"
-                          title="Xóa buổi này"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
-                  ))}
+                    );
+                  })}
 
                   <button
                     type="button"
