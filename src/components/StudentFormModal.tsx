@@ -336,7 +336,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                 required
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Ví dụ: Nguyễn Văn A"
+                placeholder="Nhập họ và tên học sinh"
                 className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 focus:ring-2 focus:ring-indigo-500 outline-none"
               />
             </div>
@@ -456,7 +456,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                 Cấu Hình Lịch Học & Thời Lượng (Chọn 1 trong 2 hình thức)
               </span>
               <p className="text-[11px] text-slate-500 mt-0.5">
-                Bạn có thể chọn tính <strong>Theo tổng số tiếng/tuần</strong> (miễn đủ tiếng, ví dụ 1 buổi 3h hoặc 2 buổi 1.5h) <strong>HOẶC</strong> <strong>Theo số buổi/tuần</strong>.
+                Bạn có thể chọn tính <strong>Theo tổng số tiếng/tuần</strong> (miễn đủ tiếng trong tuần) <strong>HOẶC</strong> <strong>Theo số buổi/tuần</strong>.
               </p>
             </div>
 
@@ -617,7 +617,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                       type="text"
                       value={fixedSessionTime}
                       onChange={(e) => setFixedSessionTime(e.target.value)}
-                      placeholder="Ví dụ: 18:00 - 19:00"
+                      placeholder="18:00 - 19:00"
                       className="w-full px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900"
                     />
                   </div>

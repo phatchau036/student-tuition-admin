@@ -352,7 +352,7 @@ export default function ParentPortal() {
                 <input
                   type="tel"
                   required
-                  placeholder="VD: 0823419882"
+                  placeholder="Nhập số điện thoại đã đăng ký"
                   value={phoneNumber}
                   onChange={(e) => setPhoneNumber(e.target.value)}
                   className="w-full px-4 py-3 text-base font-semibold tracking-wider rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500 text-center"
@@ -627,7 +627,7 @@ export default function ParentPortal() {
                 </label>
                 <input
                   type="text"
-                  placeholder="VD: Bé bị ốm, bận việc gia đình..."
+                  placeholder="Nhập lý do xin nghỉ học..."
                   value={absenceReason}
                   onChange={(e) => setAbsenceReason(e.target.value)}
                   className="w-full px-3 py-2 text-sm rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500"
@@ -774,7 +774,7 @@ export default function ParentPortal() {
                 </label>
                 <input
                   type="text"
-                  placeholder="VD: Bé muốn ôn lại bài tuần trước..."
+                  placeholder="Ghi chú nội dung muốn học bù..."
                   value={makeupNote}
                   onChange={(e) => setMakeupNote(e.target.value)}
                   className="w-full px-3 py-2 text-sm rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500"

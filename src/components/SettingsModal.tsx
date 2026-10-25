@@ -421,7 +421,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         Theo Tổng Số Tiếng / Tuần
                       </div>
                       <p className="text-xs text-slate-500 mt-1">
-                        Miễn tuần đó học đủ số tiếng. Ví dụ: Đăng ký 3 tiếng/tuần $\rightarrow$ có thể học dồn 1 buổi Thứ 7 (3 tiếng) HOẶC học 2 buổi T7 (1.5h) & CN (1.5h).
+                        Học viên có thể học 1 hoặc nhiều ca, miễn tổng thời gian trong tuần đạt chỉ tiêu.
                       </p>
                     </div>
 
@@ -465,7 +465,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         Theo Số Buổi Cố Định / Tuần
                       </div>
                       <p className="text-xs text-slate-500 mt-1">
-                        Cố định số ca học trong tuần. Ví dụ: 3 buổi/tuần (Thứ 2, Thứ 4, Thứ 6 từ 18:00 - 19:00).
+                        Cố định các ca học trong tuần (Thứ 2, Thứ 4, Thứ 6 từ 18:00 - 19:00).
                       </p>
                     </div>
 
@@ -572,7 +572,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           type="text"
                           value={slot.name}
                           onChange={(e) => handleUpdateTimeSlot(index, "name", e.target.value)}
-                          placeholder="Ví dụ: Ca Sáng T7"
+                          placeholder="Ca Sáng T7"
                           className="w-full mt-1 px-2.5 py-1.5 text-xs font-bold rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 focus:ring-1 focus:ring-indigo-500 outline-none"
                         />
                       </div>
@@ -725,7 +725,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           type="text"
                           value={lvl.level_name}
                           onChange={(e) => handleUpdateLevel(index, "level_name", e.target.value)}
-                          placeholder="Ví dụ: Grade 1"
+                          placeholder="Tên Level (Grade 1, Cơ Bản...)"
                           className="w-full mt-1 px-3 py-1.5 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 focus:ring-1 focus:ring-indigo-500 outline-none"
                         />
                       </div>

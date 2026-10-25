@@ -321,7 +321,7 @@ export default function TeacherPortal() {
                   <input
                     type="tel"
                     required
-                    placeholder="VD: 0903648788"
+                    placeholder="Nhập số điện thoại giáo viên"
                     value={inputPhone}
                     onChange={(e) => setInputPhone(e.target.value)}
                     className="w-full pl-10 pr-4 py-3 text-base font-semibold tracking-wider rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-blue-500 text-center"

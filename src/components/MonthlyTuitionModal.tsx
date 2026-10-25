@@ -198,7 +198,7 @@ export const MonthlyTuitionModal: React.FC<MonthlyTuitionModalProps> = ({
                 type="text"
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
-                placeholder="Ví dụ: Nghỉ 2 buổi có phép, Đóng bù tháng trước..."
+                placeholder="Ghi chú lý do điều chỉnh học phí..."
                 className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 focus:ring-2 focus:ring-indigo-500 outline-none"
               />
             </div>

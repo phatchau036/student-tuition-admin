@@ -972,7 +972,7 @@ export default function SystemAdminPage() {
                 <input
                   type="text"
                   required
-                  placeholder="VD: Trung Tâm Âm Nhạc & Nghệ Thuật Sáng Tạo"
+                  placeholder="Tên trường / trung tâm đào tạo"
                   value={editSchoolName}
                   onChange={(e) => setEditSchoolName(e.target.value)}
                   className="w-full px-3 py-2 text-sm rounded-xl bg-slate-800 border border-slate-700 text-white focus:outline-hidden focus:ring-2 focus:ring-purple-500"
@@ -984,7 +984,7 @@ export default function SystemAdminPage() {
                 <input
                   type="text"
                   required
-                  placeholder="VD: TT-01"
+                  placeholder="Mã trường (TT-01, TT-HA...)"
                   value={editSchoolCode}
                   onChange={(e) => setEditSchoolCode(e.target.value)}
                   className="w-full px-3 py-2 text-sm uppercase rounded-xl bg-slate-800 border border-slate-700 text-white focus:outline-hidden focus:ring-2 focus:ring-purple-500"
@@ -995,7 +995,7 @@ export default function SystemAdminPage() {
                 <label className="block text-xs font-semibold text-slate-300 mb-1">Địa chỉ</label>
                 <input
                   type="text"
-                  placeholder="VD: 123 Đường Sáng Tạo, Q.1"
+                  placeholder="Địa chỉ chi nhánh cơ sở"
                   value={editSchoolAddress}
                   onChange={(e) => setEditSchoolAddress(e.target.value)}
                   className="w-full px-3 py-2 text-sm rounded-xl bg-slate-800 border border-slate-700 text-white focus:outline-hidden focus:ring-2 focus:ring-purple-500"
@@ -1006,7 +1006,7 @@ export default function SystemAdminPage() {
                 <label className="block text-xs font-semibold text-slate-300 mb-1">Số điện thoại hotline</label>
                 <input
                   type="text"
-                  placeholder="VD: 0909123456"
+                  placeholder="Hotline liên hệ"
                   value={editSchoolPhone}
                   onChange={(e) => setEditSchoolPhone(e.target.value)}
                   className="w-full px-3 py-2 text-sm rounded-xl bg-slate-800 border border-slate-700 text-white focus:outline-hidden focus:ring-2 focus:ring-purple-500"
@@ -1094,7 +1094,7 @@ export default function SystemAdminPage() {
                 <input
                   type="text"
                   required
-                  placeholder="VD: Quản Lý Cơ Sở Hiền Vương"
+                  placeholder="Họ và tên người quản lý"
                   value={adminFullName}
                   onChange={(e) => setAdminFullName(e.target.value)}
                   className="w-full px-3 py-2 text-sm rounded-xl bg-slate-800 border border-slate-700 text-white focus:outline-hidden focus:ring-2 focus:ring-purple-500"
@@ -1121,7 +1121,7 @@ export default function SystemAdminPage() {
                 <input
                   type="text"
                   required
-                  placeholder="VD: TT-ANST-HV-TPHCM-CN1"
+                  placeholder="Tên tài khoản quản trị"
                   value={adminUsername}
                   onChange={(e) => setAdminUsername(e.target.value)}
                   className="w-full px-3 py-2 text-sm font-mono uppercase rounded-xl bg-slate-800 border border-slate-700 text-purple-300 font-bold focus:outline-hidden focus:ring-2 focus:ring-purple-500"
@@ -1159,7 +1159,7 @@ export default function SystemAdminPage() {
                   <input
                     type="text"
                     required
-                    placeholder="VD: aB9@kL7#mP"
+                    placeholder="Mật khẩu bảo mật"
                     value={adminPassword}
                     onChange={(e) => setAdminPassword(e.target.value)}
                     className="w-full pl-3 pr-20 py-2 text-sm font-mono rounded-xl bg-slate-800 border border-slate-700 text-amber-300 font-bold focus:outline-hidden focus:ring-2 focus:ring-purple-500"
@@ -1267,7 +1267,7 @@ export default function SystemAdminPage() {
                   <textarea
                     rows={4}
                     required={ipEnabled}
-                    placeholder="VD: 192.168.1.235, 127.0.0.1, 14.161.20.15"
+                    placeholder="192.168.1.235, 127.0.0.1, 14.161.20.15"
                     value={allowedIpsText}
                     onChange={(e) => setAllowedIpsText(e.target.value)}
                     className="w-full px-3.5 py-2.5 text-xs font-mono rounded-xl bg-slate-800 border border-slate-700 text-white placeholder:text-slate-500 focus:outline-hidden focus:ring-2 focus:ring-purple-500"
@@ -1322,7 +1322,7 @@ export default function SystemAdminPage() {
                 <input
                   type="text"
                   required
-                  placeholder="VD: Chi Nhánh Quận 7 - SoundMusic"
+                  placeholder="Tên trường / trung tâm mới"
                   value={newSchoolName}
                   onChange={(e) => setNewSchoolName(e.target.value)}
                   className="w-full px-3 py-2 text-sm rounded-xl bg-slate-800 border border-slate-700 text-white focus:outline-hidden focus:ring-2 focus:ring-purple-500"
@@ -1334,7 +1334,7 @@ export default function SystemAdminPage() {
                 <input
                   type="text"
                   required
-                  placeholder="VD: TT-Q7"
+                  placeholder="Mã cơ sở (TT-01, TT-Q7...)"
                   value={newSchoolCode}
                   onChange={(e) => setNewSchoolCode(e.target.value)}
                   className="w-full px-3 py-2 text-sm uppercase rounded-xl bg-slate-800 border border-slate-700 text-white focus:outline-hidden focus:ring-2 focus:ring-purple-500"
@@ -1345,7 +1345,7 @@ export default function SystemAdminPage() {
                 <label className="block text-xs font-semibold text-slate-300 mb-1">Địa chỉ</label>
                 <input
                   type="text"
-                  placeholder="VD: 456 Nguyễn Thị Thập, P. Tân Quy, Q.7"
+                  placeholder="Địa chỉ trụ sở"
                   value={newSchoolAddress}
                   onChange={(e) => setNewSchoolAddress(e.target.value)}
                   className="w-full px-3 py-2 text-sm rounded-xl bg-slate-800 border border-slate-700 text-white focus:outline-hidden focus:ring-2 focus:ring-purple-500"
@@ -1356,7 +1356,7 @@ export default function SystemAdminPage() {
                 <label className="block text-xs font-semibold text-slate-300 mb-1">Số điện thoại hotline</label>
                 <input
                   type="text"
-                  placeholder="VD: 0912345678"
+                  placeholder="Hotline liên hệ"
                   value={newSchoolPhone}
                   onChange={(e) => setNewSchoolPhone(e.target.value)}
                   className="w-full px-3 py-2 text-sm rounded-xl bg-slate-800 border border-slate-700 text-white focus:outline-hidden focus:ring-2 focus:ring-purple-500"

@@ -409,7 +409,7 @@ export default function Dashboard() {
                 <input
                   type="text"
                   required
-                  placeholder="VD: admin"
+                  placeholder="Tên tài khoản quản trị"
                   value={loginUsername}
                   onChange={(e) => setLoginUsername(e.target.value)}
                   className="w-full pl-10 pr-4 py-3 text-sm font-semibold rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500"

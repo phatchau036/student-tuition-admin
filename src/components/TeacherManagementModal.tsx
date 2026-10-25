@@ -216,7 +216,7 @@ export const TeacherManagementModal: React.FC<TeacherManagementModalProps> = ({
                   type="text"
                   value={specialty}
                   onChange={(e) => setSpecialty(e.target.value)}
-                  placeholder="Ví dụ: Piano, Guitar, Thanh nhạc..."
+                  placeholder="Bộ môn giảng dạy (Piano, Guitar, Thanh nhạc...)"
                   className="w-full px-3 py-1.5 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 outline-none focus:ring-1 focus:ring-indigo-500"
                 />
               </div>
