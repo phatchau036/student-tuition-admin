@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import { Student, TimeSlot, LevelSurcharge, DiscountOption, Teacher } from "@/lib/types";
-import { formatVND, formatMonthDisplay, getCurrentMonthStr } from "@/lib/tuition";
+import { formatVND, formatMonthDisplay, getCurrentMonthStr, formatTimeSlotLabel } from "@/lib/tuition";
 import { useToast } from "@/components/Toast";
 import { SettingsModal } from "@/components/SettingsModal";
 import { StudentFormModal } from "@/components/StudentFormModal";
@@ -37,6 +37,13 @@ import {
   ArrowRight,
   User,
   ShieldAlert,
+  ChevronRight,
+  TrendingUp,
+  AlertCircle,
+  HelpCircle,
+  RefreshCw,
+  Phone,
+  Tag,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -72,11 +79,51 @@ export default function Dashboard() {
   const [loginPassword, setLoginPassword] = useState("");
   const [isSubmittingLogin, setIsSubmittingLogin] = useState(false);
 
+  // Modals state
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isTeacherModalOpen, setIsTeacherModalOpen] = useState(false);
+  const [isMakeupModalOpen, setIsMakeupModalOpen] = useState(false);
+  const [selectedStudentForMakeup, setSelectedStudentForMakeup] = useState<string | undefined>(undefined);
+
+  const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
+  const [studentToEdit, setStudentToEdit] = useState<Student | null>(null);
+
+  const [isMonthlyModalOpen, setIsMonthlyModalOpen] = useState(false);
+  const [studentForMonthly, setStudentForMonthly] = useState<Student | null>(null);
+
+  // Custom Delete Confirmation Modal state
+  const [studentToDelete, setStudentToDelete] = useState<Student | null>(null);
+  const [isDeletingStudent, setIsDeletingStudent] = useState(false);
+
+  // Data states
+  const [students, setStudents] = useState<Student[]>([]);
+  const [teachers, setTeachers] = useState<Teacher[]>([]);
+  const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
+  const [levels, setLevels] = useState<LevelSurcharge[]>([]);
+  const [discountPresets, setDiscountPresets] = useState<DiscountOption[]>([]);
+  const [currentSchool, setCurrentSchool] = useState<{ id: string; name: string; code: string } | null>(null);
+
+  // Settings
+  const [baseTuition, setBaseTuition] = useState<number>(0);
+  const [durationMode, setDurationMode] = useState<"by_hours" | "by_sessions">("by_hours");
+  const [defaultHours, setDefaultHours] = useState<number>(3);
+  const [defaultSessions, setDefaultSessions] = useState<number>(3);
+  const [defaultStudyTime, setDefaultStudyTime] = useState<string>("18:00 - 19:00");
+  const [maxStudents, setMaxStudents] = useState<number>(10);
+  const [crowdedThreshold, setCrowdedThreshold] = useState<number>(80);
+
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+
+  // Filters & Search
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedLevelFilter, setSelectedLevelFilter] = useState("all");
+  const [selectedSlotFilter, setSelectedSlotFilter] = useState("all");
+  const [selectedTeacherFilter, setSelectedTeacherFilter] = useState("all");
+
   // Check IP restriction & Admin Auth on mount
   useEffect(() => {
     const initializePortal = async () => {
       try {
-        // 1. Check IP restriction first
         const ipRes = await fetch("/api/admin/check-ip");
         const ipJson = await ipRes.json();
         if (ipJson.allowed === false) {
@@ -93,7 +140,6 @@ export default function Dashboard() {
 
         setIpStatus({ checked: true, allowed: true, client_ip: ipJson.client_ip });
 
-        // 2. Check Admin Auth
         const token = localStorage.getItem("admin_token");
         const headers: Record<string, string> = {};
         if (token) headers["Authorization"] = `Bearer ${token}`;
@@ -171,43 +217,6 @@ export default function Dashboard() {
     showToast("Đã đăng xuất khỏi cổng Quản trị cơ sở", "success");
   };
 
-  // Data states
-  const [students, setStudents] = useState<Student[]>([]);
-  const [teachers, setTeachers] = useState<Teacher[]>([]);
-  const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
-  const [levels, setLevels] = useState<LevelSurcharge[]>([]);
-  const [discountPresets, setDiscountPresets] = useState<DiscountOption[]>([]);
-  const [currentSchool, setCurrentSchool] = useState<{ id: string; name: string; code: string } | null>(null);
-
-  // Settings
-  const [baseTuition, setBaseTuition] = useState<number>(0);
-  const [durationMode, setDurationMode] = useState<"by_hours" | "by_sessions">("by_hours");
-  const [defaultHours, setDefaultHours] = useState<number>(3);
-  const [defaultSessions, setDefaultSessions] = useState<number>(3);
-  const [defaultStudyTime, setDefaultStudyTime] = useState<string>("18:00 - 19:00");
-  const [maxStudents, setMaxStudents] = useState<number>(10);
-  const [crowdedThreshold, setCrowdedThreshold] = useState<number>(80);
-
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-
-  // Filters & Search
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedLevelFilter, setSelectedLevelFilter] = useState("all");
-  const [selectedSlotFilter, setSelectedSlotFilter] = useState("all");
-  const [selectedTeacherFilter, setSelectedTeacherFilter] = useState("all");
-
-  // Modals state
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isTeacherModalOpen, setIsTeacherModalOpen] = useState(false);
-  const [isMakeupModalOpen, setIsMakeupModalOpen] = useState(false);
-  const [selectedStudentForMakeup, setSelectedStudentForMakeup] = useState<string | undefined>(undefined);
-
-  const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
-  const [studentToEdit, setStudentToEdit] = useState<Student | null>(null);
-
-  const [isMonthlyModalOpen, setIsMonthlyModalOpen] = useState(false);
-  const [studentForMonthly, setStudentForMonthly] = useState<Student | null>(null);
-
   // Load Settings
   const loadSettings = async () => {
     try {
@@ -281,21 +290,24 @@ export default function Dashboard() {
     loadStudents(selectedMonth);
   };
 
-  // Delete student
-  const handleDeleteStudent = async (student: Student) => {
-    if (confirm(`Bạn có chắc chắn muốn xóa học sinh "${student.name}"?`)) {
-      try {
-        const res = await fetch(`/api/students/${student.id}`, { method: "DELETE" });
-        const data = await res.json();
-        if (data.success) {
-          showToast(data.message, "success");
-          loadStudents(selectedMonth);
-        } else {
-          showToast(data.message || "Xóa thất bại", "error");
-        }
-      } catch {
-        showToast("Lỗi kết nối máy chủ", "error");
+  // Confirm delete student
+  const confirmDeleteStudent = async () => {
+    if (!studentToDelete) return;
+    try {
+      setIsDeletingStudent(true);
+      const res = await fetch(`/api/students/${studentToDelete.id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (data.success) {
+        showToast(data.message, "success");
+        setStudentToDelete(null);
+        loadStudents(selectedMonth);
+      } else {
+        showToast(data.message || "Xóa thất bại", "error");
       }
+    } catch {
+      showToast("Lỗi kết nối máy chủ", "error");
+    } finally {
+      setIsDeletingStudent(false);
     }
   };
 
@@ -375,10 +387,10 @@ export default function Dashboard() {
   // 1. Loading screen while verifying admin auth
   if (isAuthenticated === null) {
     return (
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center text-slate-500">
-        <div className="flex items-center gap-2">
+      <div className="min-h-screen bg-slate-900/5 dark:bg-slate-950 flex items-center justify-center text-slate-500">
+        <div className="flex items-center gap-2.5 bg-white dark:bg-slate-900 px-5 py-3 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-800">
           <div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
-          <span className="text-sm font-semibold">Đang kiểm tra quyền quản trị cơ sở...</span>
+          <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">Đang kiểm tra quyền quản trị cơ sở...</span>
         </div>
       </div>
     );
@@ -387,22 +399,26 @@ export default function Dashboard() {
   // 2. Unauthenticated: School Admin Login Screen
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 flex flex-col justify-center items-center p-4 font-sans">
-        <div className="w-full max-w-md p-6 sm:p-8 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-2xl space-y-6">
-          <div className="text-center space-y-2">
-            <div className="w-16 h-16 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 mx-auto flex items-center justify-center shadow-lg shadow-indigo-600/10">
+      <div className="min-h-screen bg-slate-900/5 dark:bg-slate-950 text-slate-800 dark:text-slate-100 flex flex-col justify-center items-center p-4 font-sans relative overflow-hidden">
+        {/* Subtle background glow */}
+        <div className="absolute top-1/4 -left-20 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-1/4 -right-20 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="w-full max-w-md p-8 sm:p-10 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-2xl space-y-6 relative z-10">
+          <div className="text-center space-y-2.5">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-indigo-600 to-indigo-500 text-white mx-auto flex items-center justify-center shadow-lg shadow-indigo-600/30">
               <BookOpen className="w-8 h-8" />
             </div>
-            <h1 className="text-xl font-bold text-slate-900 dark:text-white">Đăng Nhập Quản Trị Cơ Sở</h1>
-            <p className="text-xs text-slate-500">
-              Nhập tài khoản quản trị viên và mật khẩu do Chủ Hệ Thống cấp để quản lý học sinh và giáo viên của trường.
+            <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Đăng Nhập Quản Trị Cơ Sở</h1>
+            <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xs mx-auto leading-relaxed">
+              Nhập tài khoản quản trị viên và mật khẩu do Chủ Hệ Thống cấp để quản lý học sinh và giáo viên cơ sở.
             </p>
           </div>
 
           <form onSubmit={handleAdminLogin} className="space-y-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                Tài khoản Admin (Username):
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+                Tài khoản Admin
               </label>
               <div className="relative">
                 <User className="w-4 h-4 absolute left-3.5 top-3.5 text-slate-400" />
@@ -412,14 +428,14 @@ export default function Dashboard() {
                   placeholder="Tên tài khoản quản trị"
                   value={loginUsername}
                   onChange={(e) => setLoginUsername(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 text-sm font-semibold rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+                  className="w-full pl-10 pr-4 py-3 text-sm font-semibold rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500 transition"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                Mật khẩu:
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+                Mật khẩu
               </label>
               <div className="relative">
                 <Lock className="w-4 h-4 absolute left-3.5 top-3.5 text-slate-400" />
@@ -429,7 +445,7 @@ export default function Dashboard() {
                   placeholder="Mật khẩu của bạn"
                   value={loginPassword}
                   onChange={(e) => setLoginPassword(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 text-sm font-semibold rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+                  className="w-full pl-10 pr-4 py-3 text-sm font-semibold rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500 transition"
                 />
               </div>
             </div>
@@ -437,7 +453,7 @@ export default function Dashboard() {
             <button
               type="submit"
               disabled={isSubmittingLogin}
-              className="w-full py-3.5 px-4 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm shadow-lg shadow-indigo-600/30 transition flex items-center justify-center gap-2 disabled:opacity-50"
+              className="w-full py-3.5 px-4 rounded-2xl bg-indigo-600 hover:bg-indigo-700 active:scale-[0.99] text-white font-bold text-sm shadow-lg shadow-indigo-600/30 transition flex items-center justify-center gap-2 disabled:opacity-50"
             >
               {isSubmittingLogin ? (
                 <span>Đang xác thực...</span>
@@ -461,65 +477,70 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50/70 dark:bg-slate-950 text-slate-800 dark:text-slate-100 flex flex-col">
-      {/* Top Professional Header */}
-      <header className="sticky top-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 shadow-xs">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-sm shadow-indigo-600/30 shrink-0">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 flex flex-col font-sans">
+      {/* Top SaaS Header */}
+      <header className="sticky top-0 z-40 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800 shadow-xs">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap items-center justify-between gap-3">
+          {/* Logo & School Badge */}
+          <div className="flex items-center gap-3.5">
+            <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-indigo-600 to-indigo-500 flex items-center justify-center text-white shadow-md shadow-indigo-600/25 shrink-0">
               <BookOpen className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white leading-tight tracking-tight">
+                <h1 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight">
                   Quản Trị Cơ Sở
                 </h1>
                 {currentSchool && (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
-                    <Building2 className="w-3.5 h-3.5" />
+                  <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-xs font-extrabold bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300 border border-indigo-200/80 dark:border-indigo-800/80">
+                    <Building2 className="w-3.5 h-3.5 text-indigo-500" />
                     <span>{currentSchool.name}</span>
-                    <span className="opacity-70">({currentSchool.code})</span>
+                    <span className="font-mono text-[10px] bg-indigo-200/60 dark:bg-indigo-900 px-1.5 py-0.2 rounded-md">
+                      {currentSchool.code}
+                    </span>
                   </span>
                 )}
               </div>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                 Hệ thống quản lý học sinh, phân công giáo viên, theo dõi học phí & lịch học bù
               </p>
             </div>
           </div>
 
+          {/* Action Bar */}
           <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap">
-            {/* Quick Switch to relevant portals */}
-            <div className="hidden lg:flex items-center border-r border-slate-200 dark:border-slate-700 pr-2.5 mr-0.5 gap-1.5 text-xs">
+            {/* Quick Portals Links */}
+            <div className="hidden lg:flex items-center bg-slate-100 dark:bg-slate-800/80 p-1 rounded-xl border border-slate-200/80 dark:border-slate-700/80 mr-1 gap-1 text-xs font-semibold">
               <Link
                 href="/giao-vien"
-                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition font-medium"
+                className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 hover:text-indigo-600 transition shadow-2xs"
                 title="Cổng dành cho giáo viên"
               >
-                <GraduationCap className="w-3.5 h-3.5 text-blue-600" />
+                <GraduationCap className="w-3.5 h-3.5 text-indigo-600" />
                 <span>Cổng GV</span>
               </Link>
               <Link
                 href="/"
-                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition font-medium"
+                className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 hover:text-emerald-600 transition shadow-2xs"
                 title="Cổng dành cho phụ huynh"
               >
                 <Users className="w-3.5 h-3.5 text-emerald-600" />
                 <span>Cổng PH</span>
               </Link>
             </div>
+
             {/* Make up classes button */}
             <button
               onClick={() => {
                 setSelectedStudentForMakeup(undefined);
                 setIsMakeupModalOpen(true);
               }}
-              className="flex items-center gap-1.5 px-3 py-2 text-xs sm:text-sm font-semibold rounded-xl border border-amber-200 dark:border-amber-800/60 bg-amber-50 hover:bg-amber-100/70 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 transition shadow-xs"
+              className="flex items-center gap-1.5 px-3 py-2 text-xs sm:text-sm font-bold rounded-xl border border-amber-200 dark:border-amber-800/60 bg-amber-50 hover:bg-amber-100/80 dark:bg-amber-950/40 text-amber-900 dark:text-amber-300 transition shadow-2xs"
             >
               <CalendarCheck className="w-4 h-4 text-amber-600" />
               <span>Báo Nghỉ & Học Bù</span>
               {totalPendingMakeups > 0 && (
-                <span className="w-5 h-5 rounded-full bg-amber-500 text-white text-[11px] font-bold flex items-center justify-center">
+                <span className="w-5 h-5 rounded-full bg-amber-500 text-white text-[11px] font-black flex items-center justify-center animate-pulse">
                   {totalPendingMakeups}
                 </span>
               )}
@@ -528,7 +549,7 @@ export default function Dashboard() {
             {/* Teachers Management Button */}
             <button
               onClick={() => setIsTeacherModalOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-2 text-xs sm:text-sm font-semibold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 text-slate-700 dark:text-slate-200 transition shadow-xs"
+              className="flex items-center gap-1.5 px-3 py-2 text-xs sm:text-sm font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 text-slate-700 dark:text-slate-200 transition shadow-2xs"
             >
               <GraduationCap className="w-4 h-4 text-indigo-600" />
               <span>Đội Ngũ Giáo Viên ({teachers.length})</span>
@@ -537,7 +558,7 @@ export default function Dashboard() {
             {/* System Settings Button */}
             <button
               onClick={() => setIsSettingsOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-2 text-xs sm:text-sm font-semibold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 text-slate-700 dark:text-slate-200 transition shadow-xs"
+              className="flex items-center gap-1.5 px-3 py-2 text-xs sm:text-sm font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 text-slate-700 dark:text-slate-200 transition shadow-2xs"
             >
               <Settings className="w-4 h-4 text-slate-500" />
               <span>Cài Đặt</span>
@@ -549,16 +570,16 @@ export default function Dashboard() {
                 setStudentToEdit(null);
                 setIsStudentModalOpen(true);
               }}
-              className="flex items-center gap-1.5 px-3.5 py-2 text-xs sm:text-sm font-bold rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm transition"
+              className="flex items-center gap-1.5 px-3.5 py-2 text-xs sm:text-sm font-black rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] text-white shadow-md shadow-indigo-600/25 transition"
             >
-              <Plus className="w-4 h-4" />
+              <Plus className="w-4 h-4 stroke-[3]" />
               <span>Thêm Học Sinh</span>
             </button>
 
             {/* Logout Button */}
             <button
               onClick={handleAdminLogout}
-              className="flex items-center gap-1 px-3 py-2 text-xs sm:text-sm font-semibold rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 text-slate-600 dark:text-slate-300 transition"
+              className="flex items-center gap-1.5 px-3 py-2 text-xs sm:text-sm font-bold rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 text-slate-600 dark:text-slate-300 transition"
               title="Đăng xuất khỏi cổng quản trị cơ sở"
             >
               <LogOut className="w-4 h-4" />
@@ -570,92 +591,103 @@ export default function Dashboard() {
 
       {/* Main Workspace Container */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-        {/* Top Control Bar: Month Selector & Quick Stats */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          {/* Month Selector Box */}
-          <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3">
-            <div>
-              <label className="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+        {/* Top Control Bar: Month Selector & KPI Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Month Selector Card */}
+          <div className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col justify-between">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
                 <Calendar className="w-4 h-4 text-indigo-500" />
                 Kỳ Báo Cáo Học Phí
-              </label>
-              <span className="text-sm font-bold text-slate-800 dark:text-slate-200">
-                {formatMonthDisplay(selectedMonth)}
               </span>
-            </div>
-
-            <div className="flex items-center gap-2 w-full sm:w-auto">
-              <input
-                type="month"
-                value={selectedMonth}
-                onChange={(e) => setSelectedMonth(e.target.value)}
-                className="px-3 py-1.5 text-sm font-semibold rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-100 outline-none focus:ring-2 focus:ring-indigo-500"
-              />
               <button
                 onClick={() => setSelectedMonth(getCurrentMonthStr())}
                 title="Về tháng hiện tại"
-                className="px-2.5 py-1.5 text-xs font-medium rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 text-slate-600 dark:text-slate-300"
+                className="px-2.5 py-1 text-xs font-bold rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-indigo-50 hover:text-indigo-600 dark:hover:bg-indigo-950/50 dark:hover:text-indigo-300 text-slate-600 dark:text-slate-300 transition"
               >
                 Hiện tại
               </button>
             </div>
+
+            <div className="mt-3 flex items-center justify-between gap-3">
+              <div>
+                <span className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+                  {formatMonthDisplay(selectedMonth)}
+                </span>
+                <p className="text-[11px] text-slate-500 mt-0.5">Dữ liệu học phí áp dụng cho tháng này</p>
+              </div>
+              <input
+                type="month"
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                className="px-3 py-2 text-xs font-bold rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-100 outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+              />
+            </div>
           </div>
 
-          {/* Quick Stat 1: Total Revenue for Month */}
-          <div className="bg-indigo-600 text-white p-4 rounded-2xl shadow-sm flex items-center justify-between">
-            <div>
-              <span className="text-xs font-medium text-indigo-100 uppercase tracking-wide">
+          {/* KPI Stat 1: Total Revenue for Month */}
+          <div className="bg-gradient-to-tr from-indigo-600 to-indigo-700 text-white p-5 rounded-3xl shadow-md shadow-indigo-600/20 flex flex-col justify-between relative overflow-hidden">
+            <div className="absolute right-0 top-0 translate-x-4 -translate-y-4 w-32 h-32 bg-white/10 rounded-full blur-xl pointer-events-none" />
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider text-indigo-200 flex items-center gap-1.5">
+                <TrendingUp className="w-4 h-4 text-indigo-300" />
                 Dự Thu {formatMonthDisplay(selectedMonth)}
               </span>
-              <div className="text-2xl font-black tracking-tight mt-0.5">
+              <div className="w-9 h-9 rounded-xl bg-white/20 backdrop-blur-xs flex items-center justify-center">
+                <DollarSign className="w-5 h-5 text-white" />
+              </div>
+            </div>
+            <div className="mt-2">
+              <div className="text-3xl font-black tracking-tight">
                 {formatVND(totalRevenueThisMonth)}
               </div>
-              <span className="text-[11px] text-indigo-200 mt-1 block">
-                Tổng cộng {filteredStudents.length} học sinh đang theo học
+              <span className="text-xs text-indigo-100 font-medium mt-1 flex items-center gap-1">
+                <Users className="w-3.5 h-3.5 opacity-80" />
+                Tổng cộng <strong>{filteredStudents.length}</strong> học sinh đang theo học
               </span>
-            </div>
-            <div className="w-12 h-12 rounded-xl bg-white/15 backdrop-blur-xs flex items-center justify-center">
-              <DollarSign className="w-6 h-6 text-white" />
             </div>
           </div>
 
-          {/* Quick Stat 2: System Base Info & Overrides */}
-          <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex items-center justify-between">
-            <div>
-              <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">
-                Học phí cơ bản (Base)
+          {/* KPI Stat 2: Base Tuition & Overrides */}
+          <div className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col justify-between">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                <Tag className="w-4 h-4 text-emerald-500" />
+                Học Phí Cơ Bản (Base)
               </span>
-              <div className="text-xl font-bold text-slate-800 dark:text-slate-100 mt-0.5">
-                {formatVND(baseTuition)} / tháng
+              <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 flex items-center justify-center">
+                <Sparkles className="w-5 h-5" />
               </div>
-              <span className="text-xs text-amber-600 dark:text-amber-400 font-semibold mt-1 inline-flex items-center gap-1">
+            </div>
+            <div className="mt-2">
+              <div className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+                {formatVND(baseTuition)} <span className="text-sm font-semibold text-slate-400">/ tháng</span>
+              </div>
+              <span className="text-xs text-amber-600 dark:text-amber-400 font-bold mt-1 inline-flex items-center gap-1">
                 <Sparkles className="w-3.5 h-3.5" />
                 {overriddenCount} học sinh có học phí tùy chỉnh tháng này
               </span>
-            </div>
-            <div className="w-12 h-12 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500">
-              <Users className="w-6 h-6" />
             </div>
           </div>
         </div>
 
         {/* Filter and Search Bar */}
-        <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col md:flex-row items-center justify-between gap-3">
+        <div className="bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col md:flex-row items-center justify-between gap-3">
           {/* Search Input */}
           <div className="relative w-full md:w-80">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
             <input
               type="text"
               placeholder="Tìm theo tên học sinh, số điện thoại..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 text-sm rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 focus:ring-2 focus:ring-indigo-500 outline-none"
+              className="w-full pl-10 pr-4 py-2 text-sm font-medium rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition"
             />
           </div>
 
           {/* Select Filters */}
           <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
-            <div className="flex items-center gap-1 text-xs text-slate-400 mr-1">
+            <div className="flex items-center gap-1 text-xs font-bold text-slate-400 uppercase tracking-wider mr-1">
               <Filter className="w-3.5 h-3.5" /> Lọc:
             </div>
 
@@ -663,7 +695,7 @@ export default function Dashboard() {
             <select
               value={selectedTeacherFilter}
               onChange={(e) => setSelectedTeacherFilter(e.target.value)}
-              className="px-3 py-2 text-xs font-semibold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 outline-none"
+              className="px-3 py-2 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 outline-none hover:border-slate-300 transition"
             >
               <option value="all">Tất cả Giáo viên</option>
               {teachers.map((tc) => (
@@ -677,7 +709,7 @@ export default function Dashboard() {
             <select
               value={selectedLevelFilter}
               onChange={(e) => setSelectedLevelFilter(e.target.value)}
-              className="px-3 py-2 text-xs font-semibold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 outline-none"
+              className="px-3 py-2 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 outline-none hover:border-slate-300 transition"
             >
               <option value="all">Tất cả Level</option>
               {levels.map((lvl) => (
@@ -691,12 +723,12 @@ export default function Dashboard() {
             <select
               value={selectedSlotFilter}
               onChange={(e) => setSelectedSlotFilter(e.target.value)}
-              className="px-3 py-2 text-xs font-semibold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 outline-none"
+              className="px-3 py-2 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 outline-none hover:border-slate-300 transition"
             >
               <option value="all">Tất cả Khung giờ</option>
               {timeSlots.map((slot) => (
                 <option key={slot.id} value={slot.id}>
-                  {slot.name}
+                  {formatTimeSlotLabel(slot)}
                 </option>
               ))}
             </select>
@@ -709,7 +741,7 @@ export default function Dashboard() {
                   setSelectedSlotFilter("all");
                   setSelectedTeacherFilter("all");
                 }}
-                className="text-xs text-rose-500 hover:text-rose-600 font-semibold px-2 py-1"
+                className="text-xs text-rose-500 hover:text-rose-600 font-bold px-2 py-1 transition"
               >
                 Đặt lại
               </button>
@@ -718,36 +750,41 @@ export default function Dashboard() {
         </div>
 
         {/* Student Table Listing */}
-        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs overflow-hidden">
+        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                  <th className="py-3.5 px-4">Học sinh</th>
-                  <th className="py-3.5 px-4">Giáo viên</th>
-                  <th className="py-3.5 px-4">Level</th>
-                  <th className="py-3.5 px-4">Hình thức & Lịch học</th>
-                  <th className="py-3.5 px-4">Chiết khấu</th>
-                  <th className="py-3.5 px-4">Học phí {formatMonthDisplay(selectedMonth)}</th>
-                  <th className="py-3.5 px-4 text-right">Thao tác</th>
+                <tr className="bg-slate-50/80 dark:bg-slate-800/60 border-b border-slate-200/80 dark:border-slate-800 text-[11px] font-black uppercase tracking-wider text-slate-400">
+                  <th className="py-4 px-5">Học sinh</th>
+                  <th className="py-4 px-4">Giáo viên phụ trách</th>
+                  <th className="py-4 px-4">Level & Phụ thu</th>
+                  <th className="py-4 px-5">Hình thức & Lịch học</th>
+                  <th className="py-4 px-4 text-center">Chiết khấu</th>
+                  <th className="py-4 px-5">Học phí {formatMonthDisplay(selectedMonth)}</th>
+                  <th className="py-4 px-5 text-right">Thao tác</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80 text-sm">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 text-sm">
                 {isLoading ? (
                   <tr>
-                    <td colSpan={7} className="text-center py-12 text-slate-400">
-                      Đang tải danh sách học sinh...
+                    <td colSpan={7} className="text-center py-16 text-slate-400">
+                      <div className="flex flex-col items-center justify-center gap-2">
+                        <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+                        <span className="font-semibold text-xs">Đang tải danh sách học sinh...</span>
+                      </div>
                     </td>
                   </tr>
                 ) : filteredStudents.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="text-center py-16 text-slate-400">
-                      <div className="flex flex-col items-center justify-center gap-2">
-                        <Users className="w-8 h-8 text-slate-300 dark:text-slate-700" />
-                        <span className="font-medium text-sm">Chưa có học sinh nào.</span>
-                        <span className="text-xs text-slate-400 max-w-sm">
-                          Vào mục <strong>Cài Đặt</strong> để thiết lập Khung giờ & Level trước, sau đó bấm <strong>Thêm Học Sinh</strong> để bắt đầu quản lý.
-                        </span>
+                      <div className="flex flex-col items-center justify-center gap-2 max-w-sm mx-auto">
+                        <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 mb-1">
+                          <Users className="w-6 h-6" />
+                        </div>
+                        <span className="font-bold text-sm text-slate-700 dark:text-slate-300">Không tìm thấy học sinh nào</span>
+                        <p className="text-xs text-slate-400 leading-relaxed">
+                          Bấm nút <strong>&quot;+ Thêm Học Sinh&quot;</strong> ở góc trên bên phải để ghi danh học sinh mới vào hệ thống.
+                        </p>
                       </div>
                     </td>
                   </tr>
@@ -755,82 +792,92 @@ export default function Dashboard() {
                   filteredStudents.map((student) => {
                     const isCustom = Boolean(student.monthly_override);
                     const isByHours = student.duration_mode === "by_hours";
+                    const initialChar = student.name ? student.name.trim().charAt(0).toUpperCase() : "H";
+
                     return (
                       <tr
                         key={student.id}
-                        className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition group"
+                        className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition group"
                       >
-                        {/* Name & Phone & Zalo */}
-                        <td className="py-3.5 px-4">
-                          <div className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                            <span>{student.name}</span>
-                            {(student.pending_makeups_count || 0) > 0 && (
-                              <button
-                                onClick={() => {
-                                  setSelectedStudentForMakeup(student.id);
-                                  setIsMakeupModalOpen(true);
-                                }}
-                                className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 hover:bg-amber-200 transition"
-                                title="Bấm để xếp lịch học bù"
-                              >
-                                Nợ {student.pending_makeups_count} buổi bù
-                              </button>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2 mt-0.5">
-                            <span className="font-mono text-xs text-slate-500 dark:text-slate-400">
-                              {student.phone}
-                            </span>
-                            {student.zalo_link && (
-                              <a
-                                href={student.zalo_link}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-full bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-950/60 dark:text-blue-400 transition"
-                                title="Nhắn tin nhanh qua Zalo"
-                              >
-                                <Send className="w-2.5 h-2.5" /> Zalo
-                              </a>
-                            )}
+                        {/* Student Name, Avatar & Phone */}
+                        <td className="py-4 px-5">
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-500 to-indigo-600 text-white font-black text-sm flex items-center justify-center shrink-0 shadow-xs">
+                              {initialChar}
+                            </div>
+                            <div>
+                              <div className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                                <span className="hover:text-indigo-600 transition">{student.name}</span>
+                                {(student.pending_makeups_count || 0) > 0 && (
+                                  <button
+                                    onClick={() => {
+                                      setSelectedStudentForMakeup(student.id);
+                                      setIsMakeupModalOpen(true);
+                                    }}
+                                    className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-800 hover:bg-amber-200 transition shadow-2xs"
+                                    title="Bấm để xếp lịch học bù"
+                                  >
+                                    Nợ {student.pending_makeups_count} buổi bù
+                                  </button>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2 mt-1">
+                                <span className="font-mono text-xs font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                                  <Phone className="w-3 h-3 text-slate-400" />
+                                  {student.phone}
+                                </span>
+                                {student.zalo_link && (
+                                  <a
+                                    href={student.zalo_link}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-md bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-950/60 dark:text-blue-400 transition"
+                                    title="Nhắn tin nhanh qua Zalo"
+                                  >
+                                    <Send className="w-2.5 h-2.5" /> Zalo
+                                  </a>
+                                )}
+                              </div>
+                            </div>
                           </div>
                         </td>
 
                         {/* Teacher */}
-                        <td className="py-3.5 px-4">
+                        <td className="py-4 px-4">
                           {student.teacher_name && student.teacher_name !== "Chưa gán GV" ? (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300">
-                              <GraduationCap className="w-3.5 h-3.5" />
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold rounded-xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-900/50">
+                              <GraduationCap className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
                               {student.teacher_name}
                             </span>
                           ) : (
-                            <span className="text-xs text-slate-400 italic">Chưa gán GV</span>
+                            <span className="text-xs text-slate-400 font-medium italic">Chưa gán GV</span>
                           )}
                         </td>
 
-                        {/* Level */}
-                        <td className="py-3.5 px-4">
-                          <span className="inline-block px-2.5 py-1 text-xs font-semibold rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                        {/* Level & Surcharge */}
+                        <td className="py-4 px-4">
+                          <span className="inline-block px-2.5 py-1 text-xs font-bold rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
                             {student.level_name}
                           </span>
                           {student.level_surcharge && student.level_surcharge > 0 ? (
-                            <span className="block text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
+                            <span className="block text-[11px] text-emerald-600 dark:text-emerald-400 font-bold mt-1">
                               +{formatVND(student.level_surcharge)}
                             </span>
                           ) : null}
                         </td>
 
-                        {/* Weekly Schedule: Phân biệt rõ Theo Tiếng vs Theo Buổi */}
-                        <td className="py-3.5 px-4">
-                          <div className="flex items-center gap-1.5">
+                        {/* Weekly Schedule */}
+                        <td className="py-4 px-5">
+                          <div className="flex items-center gap-1.5 flex-wrap">
                             {isByHours ? (
-                              <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300 flex items-center gap-1">
+                              <span className="px-2.5 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-wider bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300 flex items-center gap-1">
                                 <Hourglass className="w-3 h-3" />
-                                {student.hours_per_week || 3} tiếng / tuần
+                                {student.hours_per_week || 3} tiếng/tuần
                               </span>
                             ) : (
-                              <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 flex items-center gap-1">
+                              <span className="px-2.5 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 flex items-center gap-1">
                                 <Calendar className="w-3 h-3" />
-                                {student.sessions_per_week || 3} buổi / tuần
+                                {student.sessions_per_week || 3} buổi/tuần
                               </span>
                             )}
                             <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
@@ -838,30 +885,30 @@ export default function Dashboard() {
                             </span>
                           </div>
 
-                          <div className="text-[11px] text-slate-500 flex items-center gap-1 mt-1 font-medium">
-                            <Clock className="w-3 h-3 text-indigo-500 shrink-0" />
-                            <span className="truncate max-w-xs" title={student.study_time_detail}>
+                          <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5 mt-1 font-medium">
+                            <Clock className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                            <span className="truncate max-w-xs font-mono text-[11px]" title={student.study_time_detail}>
                               {student.study_time_detail || "Linh hoạt trong ca mở cửa"}
                             </span>
                           </div>
                         </td>
 
                         {/* Discount */}
-                        <td className="py-3.5 px-4">
+                        <td className="py-4 px-4 text-center">
                           {student.is_discount_enabled && student.discount_percent > 0 ? (
-                            <span className="inline-block px-2 py-0.5 text-xs font-bold rounded bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60">
+                            <span className="inline-block px-2.5 py-0.5 text-xs font-black rounded-lg bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60">
                               -{student.discount_percent}%
                             </span>
                           ) : (
-                            <span className="text-xs text-slate-400">0%</span>
+                            <span className="text-xs font-medium text-slate-400">0%</span>
                           )}
                         </td>
 
-                        {/* Tuition For Selected Month */}
-                        <td className="py-3.5 px-4">
+                        {/* Monthly Tuition */}
+                        <td className="py-4 px-5">
                           <div className="flex flex-col">
                             <span
-                              className={`text-sm font-extrabold ${
+                              className={`text-sm font-black ${
                                 isCustom
                                   ? "text-amber-600 dark:text-amber-400"
                                   : "text-slate-900 dark:text-slate-100"
@@ -872,32 +919,32 @@ export default function Dashboard() {
 
                             {isCustom ? (
                               <div className="mt-1 flex flex-col items-start gap-0.5">
-                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300">
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300">
                                   <Sparkles className="w-2.5 h-2.5" />
-                                  Đã chỉnh sửa riêng - {formatMonthDisplay(selectedMonth)}
+                                  Đã sửa riêng
                                 </span>
                                 {student.monthly_override?.note && (
-                                  <span className="text-[11px] text-slate-500 italic">
+                                  <span className="text-[10px] text-slate-500 italic truncate max-w-[140px]">
                                     &ldquo;{student.monthly_override.note}&rdquo;
                                   </span>
                                 )}
                               </div>
                             ) : (
-                              <span className="text-[11px] text-slate-400">Chuẩn mặc định</span>
+                              <span className="text-[10px] font-medium text-slate-400">Chuẩn mặc định</span>
                             )}
                           </div>
                         </td>
 
-                        {/* Actions */}
-                        <td className="py-3.5 px-4 text-right">
-                          <div className="inline-flex items-center gap-1">
+                        {/* Action Buttons */}
+                        <td className="py-4 px-5 text-right">
+                          <div className="inline-flex items-center gap-1.5">
                             {/* Make up button */}
                             <button
                               onClick={() => {
                                 setSelectedStudentForMakeup(student.id);
                                 setIsMakeupModalOpen(true);
                               }}
-                              className="px-2 py-1 text-xs font-semibold rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300 transition"
+                              className="px-2.5 py-1.5 text-xs font-bold rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300 transition"
                               title="Báo nghỉ hoặc xếp lịch học bù"
                             >
                               Học bù
@@ -909,7 +956,7 @@ export default function Dashboard() {
                                 setStudentForMonthly(student);
                                 setIsMonthlyModalOpen(true);
                               }}
-                              className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60 transition flex items-center gap-1"
+                              className="px-2.5 py-1.5 text-xs font-bold rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60 transition flex items-center gap-1"
                               title="Chỉnh sửa học phí riêng tháng này"
                             >
                               <DollarSign className="w-3.5 h-3.5" />
@@ -922,7 +969,7 @@ export default function Dashboard() {
                                 setStudentToEdit(student);
                                 setIsStudentModalOpen(true);
                               }}
-                              className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition"
+                              className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition"
                               title="Sửa thông tin học sinh"
                             >
                               <Edit2 className="w-4 h-4" />
@@ -930,8 +977,8 @@ export default function Dashboard() {
 
                             {/* Delete Student Button */}
                             <button
-                              onClick={() => handleDeleteStudent(student)}
-                              className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition"
+                              onClick={() => setStudentToDelete(student)}
+                              className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl transition"
                               title="Xóa học sinh"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -947,6 +994,42 @@ export default function Dashboard() {
           </div>
         </div>
       </main>
+
+      {/* Custom Delete Confirmation Modal */}
+      {studentToDelete && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4 animate-in fade-in zoom-in-95">
+            <div className="w-12 h-12 rounded-2xl bg-rose-50 dark:bg-rose-950/50 text-rose-600 flex items-center justify-center mx-auto">
+              <Trash2 className="w-6 h-6" />
+            </div>
+            <div className="text-center space-y-1">
+              <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                Xác nhận xóa học sinh?
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Bạn có chắc chắn muốn xóa học sinh <strong className="text-slate-800 dark:text-slate-200">{studentToDelete.name}</strong> ({studentToDelete.phone})? Hành động này không thể hoàn tác.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setStudentToDelete(null)}
+                className="flex-1 py-2.5 text-xs font-bold rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                disabled={isDeletingStudent}
+                onClick={confirmDeleteStudent}
+                className="flex-1 py-2.5 text-xs font-bold rounded-xl bg-rose-600 hover:bg-rose-700 text-white shadow-md shadow-rose-600/30 transition disabled:opacity-50"
+              >
+                {isDeletingStudent ? "Đang xóa..." : "Xác nhận xóa"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Settings Modal */}
       <SettingsModal

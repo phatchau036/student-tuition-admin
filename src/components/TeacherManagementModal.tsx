@@ -13,6 +13,9 @@ import {
   BookOpen,
   Check,
   UserCheck,
+  X,
+  User,
+  Sparkles,
 } from "lucide-react";
 
 interface TeacherManagementModalProps {
@@ -40,6 +43,10 @@ export const TeacherManagementModal: React.FC<TeacherManagementModalProps> = ({
   const [color, setColor] = useState("indigo");
   const [isSaving, setIsSaving] = useState(false);
 
+  // Custom Delete Confirm state
+  const [teacherToDelete, setTeacherToDelete] = useState<Teacher | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
   const resetForm = () => {
     setIsEditing(false);
     setEditingTeacherId(null);
@@ -60,21 +67,24 @@ export const TeacherManagementModal: React.FC<TeacherManagementModalProps> = ({
     setColor(teacher.color || "indigo");
   };
 
-  const handleDeleteTeacher = async (teacher: Teacher) => {
-    if (confirm(`Bạn có chắc chắn muốn xóa giáo viên "${teacher.name}"?`)) {
-      try {
-        const res = await fetch(`/api/teachers/${teacher.id}`, { method: "DELETE" });
-        const json = await res.json();
-        if (json.success) {
-          showToast(json.message, "success");
-          onRefresh();
-          if (editingTeacherId === teacher.id) resetForm();
-        } else {
-          showToast(json.message || "Xóa thất bại!", "error");
-        }
-      } catch {
-        showToast("Lỗi kết nối máy chủ!", "error");
+  const handleConfirmDeleteTeacher = async () => {
+    if (!teacherToDelete) return;
+    try {
+      setIsDeleting(true);
+      const res = await fetch(`/api/teachers/${teacherToDelete.id}`, { method: "DELETE" });
+      const json = await res.json();
+      if (json.success) {
+        showToast(json.message, "success");
+        onRefresh();
+        if (editingTeacherId === teacherToDelete.id) resetForm();
+        setTeacherToDelete(null);
+      } else {
+        showToast(json.message || "Xóa thất bại!", "error");
       }
+    } catch {
+      showToast("Lỗi kết nối máy chủ!", "error");
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -125,34 +135,38 @@ export const TeacherManagementModal: React.FC<TeacherManagementModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-3xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5 overflow-y-auto font-sans">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl w-full max-w-4xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50/70 dark:bg-slate-950/40">
-          <div>
-            <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-              <GraduationCap className="w-6 h-6 text-indigo-600" />
-              Quản Lý Đội Ngũ Giáo Viên
-            </h2>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Thêm mới, quản lý thông tin và phân công phụ trách học sinh
-            </p>
+        <div className="px-6 py-4.5 border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between bg-slate-50/70 dark:bg-slate-950/40">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 flex items-center justify-center shadow-xs">
+              <GraduationCap className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-lg font-black text-slate-900 dark:text-white tracking-tight">
+                Quản Lý Đội Ngũ Giáo Viên
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                Thêm mới, quản lý thông tin và phân công phụ trách học sinh
+              </p>
+            </div>
           </div>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition"
           >
-            ✕
+            <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Content Body: Split Left (List) & Right (Form) */}
+        {/* Content Body: Split Left (Form) & Right (List) */}
         <div className="p-6 overflow-y-auto flex-1 grid grid-cols-1 md:grid-cols-5 gap-6">
           {/* Teacher Form (2 Cols on desktop) */}
-          <div className="md:col-span-2 bg-slate-50/80 dark:bg-slate-800/40 p-4 rounded-xl border border-slate-200 dark:border-slate-700/60 flex flex-col justify-between">
-            <form onSubmit={handleSubmit} className="space-y-3">
-              <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
+          <div className="md:col-span-2 bg-slate-50/70 dark:bg-slate-800/40 p-5 rounded-3xl border border-slate-200/80 dark:border-slate-700/60 flex flex-col justify-between">
+            <form onSubmit={handleSubmit} className="space-y-3.5">
+              <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-2.5">
+                <span className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
                   {isEditing ? <Edit2 className="w-3.5 h-3.5 text-indigo-600" /> : <Plus className="w-3.5 h-3.5 text-indigo-600" />}
                   {isEditing ? "Sửa Giáo Viên" : "Thêm Giáo Viên Mới"}
                 </span>
@@ -160,7 +174,7 @@ export const TeacherManagementModal: React.FC<TeacherManagementModalProps> = ({
                   <button
                     type="button"
                     onClick={resetForm}
-                    className="text-[11px] text-indigo-600 hover:underline"
+                    className="text-xs font-bold text-indigo-600 hover:underline"
                   >
                     Hủy sửa
                   </button>
@@ -168,7 +182,7 @@ export const TeacherManagementModal: React.FC<TeacherManagementModalProps> = ({
               </div>
 
               <div>
-                <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide block mb-1">
+                <label className="text-[11px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 block mb-1">
                   Họ và tên <span className="text-rose-500">*</span>
                 </label>
                 <input
@@ -177,12 +191,12 @@ export const TeacherManagementModal: React.FC<TeacherManagementModalProps> = ({
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="Thầy/Cô Nguyễn Văn B"
-                  className="w-full px-3 py-1.5 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 outline-none focus:ring-1 focus:ring-indigo-500"
+                  className="w-full px-3.5 py-2 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
 
               <div>
-                <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide block mb-1">
+                <label className="text-[11px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 block mb-1">
                   Số điện thoại <span className="text-rose-500">*</span>
                 </label>
                 <input
@@ -191,12 +205,12 @@ export const TeacherManagementModal: React.FC<TeacherManagementModalProps> = ({
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="0912345678"
-                  className="w-full px-3 py-1.5 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 outline-none focus:ring-1 focus:ring-indigo-500"
+                  className="w-full px-3.5 py-2 text-xs font-mono font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
 
               <div>
-                <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide block mb-1">
+                <label className="text-[11px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 block mb-1">
                   Email (Tùy chọn)
                 </label>
                 <input
@@ -204,26 +218,26 @@ export const TeacherManagementModal: React.FC<TeacherManagementModalProps> = ({
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="giaovien@email.com"
-                  className="w-full px-3 py-1.5 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 outline-none focus:ring-1 focus:ring-indigo-500"
+                  className="w-full px-3.5 py-2 text-xs font-semibold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
 
               <div>
-                <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide block mb-1">
+                <label className="text-[11px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 block mb-1">
                   Chuyên môn / Bộ môn
                 </label>
                 <input
                   type="text"
                   value={specialty}
                   onChange={(e) => setSpecialty(e.target.value)}
-                  placeholder="Bộ môn giảng dạy (Piano, Guitar, Thanh nhạc...)"
-                  className="w-full px-3 py-1.5 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 outline-none focus:ring-1 focus:ring-indigo-500"
+                  placeholder="Piano, Guitar, Thanh nhạc..."
+                  className="w-full px-3.5 py-2 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
 
               <div>
-                <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide block mb-1">
-                  Màu sắc thẻ đại diện
+                <label className="text-[11px] font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 block mb-1.5">
+                  Màu đại diện
                 </label>
                 <div className="flex gap-2">
                   {[
@@ -237,11 +251,11 @@ export const TeacherManagementModal: React.FC<TeacherManagementModalProps> = ({
                       key={c.val}
                       type="button"
                       onClick={() => setColor(c.val)}
-                      className={`w-7 h-7 rounded-full ${c.bg} flex items-center justify-center text-white transition ring-offset-2 ${
-                        color === c.val ? "ring-2 ring-slate-900 dark:ring-white scale-110" : "opacity-70 hover:opacity-100"
+                      className={`w-7 h-7 rounded-xl ${c.bg} flex items-center justify-center text-white transition ${
+                        color === c.val ? "ring-2 ring-indigo-600 scale-110 shadow-sm" : "opacity-70 hover:opacity-100"
                       }`}
                     >
-                      {color === c.val && <Check className="w-3.5 h-3.5" />}
+                      {color === c.val && <Check className="w-3.5 h-3.5 stroke-[3]" />}
                     </button>
                   ))}
                 </div>
@@ -250,7 +264,7 @@ export const TeacherManagementModal: React.FC<TeacherManagementModalProps> = ({
               <button
                 type="submit"
                 disabled={isSaving}
-                className="w-full mt-2 py-2 px-4 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 transition shadow-md disabled:opacity-50"
+                className="w-full mt-2 py-2.5 px-4 rounded-xl text-xs font-black uppercase tracking-wider text-white bg-indigo-600 hover:bg-indigo-700 transition shadow-md shadow-indigo-600/25 disabled:opacity-50"
               >
                 {isSaving ? "Đang lưu..." : isEditing ? "Cập Nhật Giáo Viên" : "Thêm Giáo Viên"}
               </button>
@@ -259,7 +273,7 @@ export const TeacherManagementModal: React.FC<TeacherManagementModalProps> = ({
 
           {/* Teacher List (3 Cols on desktop) */}
           <div className="md:col-span-3 space-y-3">
-            <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-slate-500">
+            <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-slate-400">
               <span>Danh Sách Giáo Viên ({teachers.length})</span>
             </div>
 
@@ -267,11 +281,11 @@ export const TeacherManagementModal: React.FC<TeacherManagementModalProps> = ({
               {teachers.map((tc) => (
                 <div
                   key={tc.id}
-                  className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-850 hover:bg-slate-50/60 dark:hover:bg-slate-800/60 transition flex items-center justify-between gap-3 shadow-sm"
+                  className="p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-800/40 hover:border-slate-300 transition flex items-center justify-between gap-3 shadow-xs"
                 >
                   <div className="flex items-center gap-3">
                     <div
-                      className={`w-10 h-10 rounded-xl text-white font-bold text-sm flex items-center justify-center shadow-sm shrink-0 ${
+                      className={`w-10 h-10 rounded-2xl text-white font-black text-sm flex items-center justify-center shadow-xs shrink-0 ${
                         tc.color === "emerald"
                           ? "bg-emerald-600"
                           : tc.color === "amber"
@@ -287,21 +301,21 @@ export const TeacherManagementModal: React.FC<TeacherManagementModalProps> = ({
                     </div>
 
                     <div>
-                      <div className="font-bold text-slate-800 dark:text-slate-100 text-sm flex items-center gap-2">
+                      <div className="font-bold text-slate-900 dark:text-white text-sm flex items-center gap-2">
                         <span>{tc.name}</span>
                         {tc.specialty && (
-                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
                             {tc.specialty}
                           </span>
                         )}
                       </div>
 
-                      <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 mt-0.5">
+                      <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 mt-1">
                         <span className="flex items-center gap-1 font-mono">
-                          <Phone className="w-3 h-3" /> {tc.phone}
+                          <Phone className="w-3 h-3 text-slate-400" /> {tc.phone}
                         </span>
-                        <span className="text-indigo-600 dark:text-indigo-400 font-semibold flex items-center gap-1">
-                          <UserCheck className="w-3 h-3" /> {tc.student_count || 0} học sinh phụ trách
+                        <span className="text-indigo-600 dark:text-indigo-400 font-bold flex items-center gap-1">
+                          <UserCheck className="w-3.5 h-3.5" /> {tc.student_count || 0} học sinh phụ trách
                         </span>
                       </div>
                     </div>
@@ -310,14 +324,14 @@ export const TeacherManagementModal: React.FC<TeacherManagementModalProps> = ({
                   <div className="flex items-center gap-1 shrink-0">
                     <button
                       onClick={() => handleEditClick(tc)}
-                      className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition"
+                      className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition"
                       title="Sửa thông tin"
                     >
                       <Edit2 className="w-4 h-4" />
                     </button>
                     <button
-                      onClick={() => handleDeleteTeacher(tc)}
-                      className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition"
+                      onClick={() => setTeacherToDelete(tc)}
+                      className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl transition"
                       title="Xóa giáo viên"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -327,7 +341,7 @@ export const TeacherManagementModal: React.FC<TeacherManagementModalProps> = ({
               ))}
 
               {teachers.length === 0 && (
-                <div className="text-center py-12 text-slate-400 text-sm">
+                <div className="text-center py-16 text-slate-400 text-xs">
                   Chưa có giáo viên nào trong danh sách. Hãy thêm giáo viên ở khung bên trái.
                 </div>
               )}
@@ -336,14 +350,50 @@ export const TeacherManagementModal: React.FC<TeacherManagementModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-800 flex justify-end bg-slate-50/70 dark:bg-slate-950/40">
+        <div className="px-6 py-4 border-t border-slate-200/80 dark:border-slate-800 flex justify-end bg-slate-50/70 dark:bg-slate-950/40">
           <button
             onClick={onClose}
-            className="px-5 py-2 text-sm font-semibold rounded-xl bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition"
+            className="px-5 py-2 text-xs font-bold rounded-xl bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition"
           >
             Đóng
           </button>
         </div>
+
+        {/* Custom Delete Teacher Modal */}
+        {teacherToDelete && (
+          <div className="fixed inset-0 z-60 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4 animate-in fade-in zoom-in-95">
+              <div className="w-12 h-12 rounded-2xl bg-rose-50 dark:bg-rose-950/50 text-rose-600 flex items-center justify-center mx-auto">
+                <Trash2 className="w-6 h-6" />
+              </div>
+              <div className="text-center space-y-1">
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                  Xác nhận xóa giáo viên?
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Bạn có chắc chắn muốn xóa giáo viên <strong className="text-slate-800 dark:text-slate-200">{teacherToDelete.name}</strong> ({teacherToDelete.phone})?
+                </p>
+              </div>
+              <div className="flex items-center gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setTeacherToDelete(null)}
+                  className="flex-1 py-2.5 text-xs font-bold rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 transition"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="button"
+                  disabled={isDeleting}
+                  onClick={handleConfirmDeleteTeacher}
+                  className="flex-1 py-2.5 text-xs font-bold rounded-xl bg-rose-600 hover:bg-rose-700 text-white shadow-md shadow-rose-600/30 transition disabled:opacity-50"
+                >
+                  {isDeleting ? "Đang xóa..." : "Xác nhận xóa"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

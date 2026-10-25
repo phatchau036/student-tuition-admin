@@ -37,3 +37,44 @@ export function formatMonthDisplay(monthStr: string): string {
   const [year, month] = monthStr.split("-");
   return `Tháng ${month}/${year}`;
 }
+
+export function formatTimeSlotLabel(slot: {
+  name?: string;
+  from_day?: string;
+  to_day?: string;
+  days?: string;
+  start_time?: string;
+  end_time?: string;
+}): string {
+  const time =
+    slot.start_time && slot.end_time ? `${slot.start_time} - ${slot.end_time}` : (slot.start_time || slot.end_time || "");
+  const days =
+    slot.days ||
+    (slot.from_day && slot.to_day
+      ? slot.from_day === slot.to_day
+        ? slot.from_day
+        : `${slot.from_day} – ${slot.to_day}`
+      : "");
+
+  const rawName = (slot.name || "").trim();
+  const isGeneric =
+    !rawName ||
+    rawName.toLowerCase().includes("khung giờ") ||
+    rawName.toLowerCase() === "mở cửa" ||
+    (rawName.toLowerCase().startsWith("ca ") && rawName.includes(time));
+
+  if (time && days) {
+    if (isGeneric) {
+      return `${time} (${days})`;
+    }
+    return `${time} • ${rawName} (${days})`;
+  }
+  if (time) {
+    return isGeneric ? time : `${time} • ${rawName}`;
+  }
+  if (days) {
+    return isGeneric ? days : `${rawName} (${days})`;
+  }
+  return rawName || "Khung giờ";
+}
+

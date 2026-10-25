@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { Student, LevelSurcharge, TimeSlot, DiscountOption, Teacher, ScheduleItem } from "@/lib/types";
-import { calculateStandardTuition, formatVND } from "@/lib/tuition";
+import { calculateStandardTuition, formatVND, formatTimeSlotLabel } from "@/lib/tuition";
 import { useToast } from "@/components/Toast";
 import {
   User,
@@ -17,6 +17,10 @@ import {
   Plus,
   Trash2,
   CheckCircle2,
+  X,
+  Hourglass,
+  Tag,
+  DollarSign,
 } from "lucide-react";
 
 interface StudentFormModalProps {
@@ -112,7 +116,6 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
       setSessionsPerWeek(studentToEdit.sessions_per_week || 3);
       setTargetHours(studentToEdit.hours_per_week || 3);
 
-      // Parse schedule details
       try {
         if (studentToEdit.schedule_details_json && studentToEdit.schedule_details_json !== "[]") {
           const parsed = JSON.parse(studentToEdit.schedule_details_json);
@@ -120,7 +123,6 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
             setScheduleItems(parsed);
           }
         } else {
-          // Fallback generate from registered_days
           const days = studentToEdit.registered_days
             ? studentToEdit.registered_days.split(",").map((d) => d.trim()).filter(Boolean)
             : ["Thứ 7", "Chủ Nhật"];
@@ -240,7 +242,6 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
       return;
     }
 
-    // Build representation
     let finalRegisteredDays = "";
     let finalStudyTimeDetail = "";
     let finalSessions = sessionsPerWeek;
@@ -255,7 +256,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
         .join(" | ");
     } else {
       finalSessions = sessionsPerWeek;
-      finalHours = sessionsPerWeek * 1; // estimate
+      finalHours = sessionsPerWeek * 1;
       finalRegisteredDays = selectedDays.join(", ");
       finalStudyTimeDetail = fixedSessionTime.trim() || "18:00 - 19:00";
     }
@@ -308,88 +309,98 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-2xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-        <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50/70 dark:bg-slate-950/40">
-          <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-            <User className="w-5 h-5 text-indigo-600" />
-            {studentToEdit ? "Chỉnh Sửa Thông Tin Học Sinh" : "Thêm Học Sinh Mới"}
-          </h2>
+    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5 overflow-y-auto font-sans">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl w-full max-w-2xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+        {/* Header */}
+        <div className="px-6 py-4.5 border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between bg-slate-50/70 dark:bg-slate-950/40">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 flex items-center justify-center shadow-xs">
+              <User className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-lg font-black text-slate-900 dark:text-white tracking-tight">
+                {studentToEdit ? "Chỉnh Sửa Thông Tin Học Sinh" : "Thêm Học Sinh Mới"}
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                Điền thông tin liên lạc, xếp lớp, phân công giáo viên và thời lượng học
+              </p>
+            </div>
+          </div>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition"
           >
-            ✕
+            <X className="w-5 h-5" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-4">
+        <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-4.5">
           {/* Full Name */}
           <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
               Họ và tên học sinh <span className="text-rose-500">*</span>
             </label>
             <div className="relative">
-              <User className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+              <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
               <input
                 type="text"
                 required
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Nhập họ và tên học sinh"
-                className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 focus:ring-2 focus:ring-indigo-500 outline-none"
+                className="w-full pl-10 pr-4 py-2.5 text-sm font-semibold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition"
               />
             </div>
           </div>
 
           {/* Phone & Zalo */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
-                Số điện thoại <span className="text-rose-500">*</span>
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+                Số điện thoại liên hệ <span className="text-rose-500">*</span>
               </label>
               <div className="relative">
-                <Phone className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                <Phone className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
                 <input
                   type="text"
                   required
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="0901234567"
-                  className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 focus:ring-2 focus:ring-indigo-500 outline-none"
+                  className="w-full pl-10 pr-4 py-2.5 text-sm font-mono font-semibold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
                 Link Zalo (Tùy chọn)
               </label>
               <div className="relative">
-                <MessageSquare className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                <MessageSquare className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
                 <input
                   type="text"
                   value={zaloLink}
                   onChange={(e) => setZaloLink(e.target.value)}
                   placeholder="https://zalo.me/..."
-                  className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 focus:ring-2 focus:ring-indigo-500 outline-none"
+                  className="w-full pl-10 pr-4 py-2.5 text-sm font-mono font-semibold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition"
                 />
               </div>
             </div>
           </div>
 
           {/* Teacher & Level */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
                 Giáo viên phụ trách
               </label>
               <div className="relative">
-                <GraduationCap className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                <GraduationCap className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
                 <select
                   value={teacherId}
                   onChange={(e) => setTeacherId(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 focus:ring-2 focus:ring-indigo-500 outline-none appearance-none"
+                  className="w-full pl-10 pr-4 py-2.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 outline-none hover:border-slate-300 transition"
                 >
                   <option value="">-- Chưa gán giáo viên --</option>
                   {teachers.map((tc) => (
@@ -402,15 +413,15 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
                 Level / Trình độ <span className="text-rose-500">*</span>
               </label>
               <div className="relative">
-                <Layers className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                <Layers className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
                 <select
                   value={levelId}
                   onChange={(e) => setLevelId(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 focus:ring-2 focus:ring-indigo-500 outline-none appearance-none"
+                  className="w-full pl-10 pr-4 py-2.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 outline-none hover:border-slate-300 transition"
                 >
                   {levels.length === 0 ? (
                     <option value="">-- Chưa có Level nào (Vào Cài đặt để thêm) --</option>
@@ -426,66 +437,66 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
             </div>
           </div>
 
-          {/* Time Slot Selection (Tham chiếu khung giờ trung tâm) */}
+          {/* Time Slot Selection */}
           <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
               Khung giờ mở cửa tham chiếu
             </label>
             <div className="relative">
-              <Clock className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+              <Clock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
               <select
                 value={timeSlotId}
                 onChange={(e) => setTimeSlotId(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 focus:ring-2 focus:ring-indigo-500 outline-none appearance-none"
+                className="w-full pl-10 pr-4 py-2.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 outline-none hover:border-slate-300 transition"
               >
                 <option value="">-- Linh hoạt theo lịch học bên dưới --</option>
                 {timeSlots.map((slot) => (
                   <option key={slot.id} value={slot.id}>
-                    {slot.name} ({slot.days}: {slot.start_time} - {slot.end_time})
+                    {formatTimeSlotLabel(slot)}
                   </option>
                 ))}
               </select>
             </div>
           </div>
 
-          {/* HÌNH THỨC CẤU HÌNH THỜI LƯỢNG: HOẶC THEO TIẾNG HOẶC THEO BUỔI */}
-          <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-800/40 space-y-4">
+          {/* DURATION CONFIGURATION */}
+          <div className="p-4.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 space-y-4">
             <div>
-              <span className="text-xs font-bold text-slate-800 dark:text-slate-100 uppercase tracking-wide flex items-center gap-1.5">
+              <span className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
                 <Calendar className="w-4 h-4 text-indigo-600" />
                 Cấu Hình Lịch Học & Thời Lượng (Chọn 1 trong 2 hình thức)
               </span>
-              <p className="text-[11px] text-slate-500 mt-0.5">
-                Bạn có thể chọn tính <strong>Theo tổng số tiếng/tuần</strong> (miễn đủ tiếng trong tuần) <strong>HOẶC</strong> <strong>Theo số buổi/tuần</strong>.
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                Linh hoạt theo <strong>Tổng số tiếng/tuần</strong> (chia nhiều ca) hoặc <strong>Số buổi cố định/tuần</strong>.
               </p>
             </div>
 
             {/* Switch Mode Tabs */}
-            <div className="grid grid-cols-2 gap-2 p-1 bg-slate-200/60 dark:bg-slate-900 rounded-xl">
+            <div className="grid grid-cols-2 gap-2 p-1.5 bg-slate-200/70 dark:bg-slate-900 rounded-2xl">
               <button
                 type="button"
                 onClick={() => setDurationMode("by_hours")}
-                className={`py-2 px-3 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 ${
+                className={`py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ${
                   durationMode === "by_hours"
-                    ? "bg-white dark:bg-slate-800 text-indigo-600 shadow-xs"
-                    : "text-slate-600 hover:text-slate-900"
+                    ? "bg-white dark:bg-slate-800 text-indigo-600 shadow-sm"
+                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
                 }`}
               >
                 <span>Học Đủ Số Tiếng / Tuần</span>
-                {durationMode === "by_hours" && <CheckCircle2 className="w-3.5 h-3.5" />}
+                {durationMode === "by_hours" && <CheckCircle2 className="w-3.5 h-3.5 text-indigo-600" />}
               </button>
 
               <button
                 type="button"
                 onClick={() => setDurationMode("by_sessions")}
-                className={`py-2 px-3 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 ${
+                className={`py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ${
                   durationMode === "by_sessions"
-                    ? "bg-white dark:bg-slate-800 text-indigo-600 shadow-xs"
-                    : "text-slate-600 hover:text-slate-900"
+                    ? "bg-white dark:bg-slate-800 text-indigo-600 shadow-sm"
+                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
                 }`}
               >
                 <span>Cố Định Số Buổi / Tuần</span>
-                {durationMode === "by_sessions" && <CheckCircle2 className="w-3.5 h-3.5" />}
+                {durationMode === "by_sessions" && <CheckCircle2 className="w-3.5 h-3.5 text-indigo-600" />}
               </button>
             </div>
 
@@ -503,7 +514,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                       step="0.5"
                       value={targetHours}
                       onChange={(e) => setTargetHours(Number(e.target.value) || 1)}
-                      className="w-16 px-2 py-1 text-xs font-bold text-center rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900"
+                      className="w-16 px-2 py-1 text-xs font-black text-center rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900"
                     />
                     <span className="text-xs font-semibold text-slate-500">tiếng / tuần</span>
                   </div>
@@ -511,7 +522,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                   <div className="text-xs">
                     Đã xếp:{" "}
                     <span
-                      className={`font-bold ${
+                      className={`font-black ${
                         totalAllocatedHours >= targetHours ? "text-emerald-600" : "text-amber-600"
                       }`}
                     >
@@ -522,20 +533,20 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
 
                 {/* Schedule Items List */}
                 <div className="space-y-2">
-                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
                     Chi tiết các buổi học trong tuần để đủ {targetHours} tiếng:
                   </span>
 
-                  {scheduleItems.map((item, idx) => (
+                  {scheduleItems.map((item) => (
                     <div
                       key={item.id}
-                      className="p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 flex flex-wrap items-center gap-2"
+                      className="p-3 rounded-xl border border-slate-200/80 dark:border-slate-700 bg-white dark:bg-slate-900 flex flex-wrap items-center gap-2 shadow-2xs"
                     >
                       {/* Day select */}
                       <select
                         value={item.day}
                         onChange={(e) => handleUpdateScheduleItem(item.id, "day", e.target.value)}
-                        className="px-2 py-1 text-xs font-bold rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800"
+                        className="px-2.5 py-1 text-xs font-bold rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800"
                       >
                         {ALL_DAYS.map((d) => (
                           <option key={d} value={d}>
@@ -545,24 +556,24 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                       </select>
 
                       {/* Time from - to */}
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1.5">
                         <input
                           type="time"
                           value={item.start_time}
                           onChange={(e) => handleUpdateScheduleItem(item.id, "start_time", e.target.value)}
-                          className="px-2 py-1 text-xs font-semibold rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800"
+                          className="px-2 py-1 text-xs font-bold rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800"
                         />
-                        <span className="text-xs text-slate-400">đến</span>
+                        <span className="text-xs text-slate-400 font-medium">đến</span>
                         <input
                           type="time"
                           value={item.end_time}
                           onChange={(e) => handleUpdateScheduleItem(item.id, "end_time", e.target.value)}
-                          className="px-2 py-1 text-xs font-semibold rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800"
+                          className="px-2 py-1 text-xs font-bold rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800"
                         />
                       </div>
 
                       {/* Duration pill */}
-                      <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
+                      <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
                         {item.hours} tiếng
                       </span>
 
@@ -571,7 +582,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                         <button
                           type="button"
                           onClick={() => handleRemoveScheduleItem(item.id)}
-                          className="p-1 text-rose-500 hover:bg-rose-50 rounded-lg ml-auto"
+                          className="p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg ml-auto transition"
                           title="Xóa buổi này"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -583,9 +594,9 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                   <button
                     type="button"
                     onClick={handleAddScheduleItem}
-                    className="w-full py-2 border border-dashed border-indigo-300 dark:border-indigo-800/80 rounded-xl text-xs font-bold text-indigo-600 hover:bg-indigo-50/50 dark:hover:bg-indigo-950/20 transition flex items-center justify-center gap-1.5"
+                    className="w-full py-2.5 border border-dashed border-indigo-300 dark:border-indigo-800/80 rounded-xl text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50/50 dark:hover:bg-indigo-950/20 transition flex items-center justify-center gap-1.5"
                   >
-                    <Plus className="w-3.5 h-3.5" /> Thêm buổi học trong tuần
+                    <Plus className="w-4 h-4 stroke-[2.5]" /> Thêm buổi học trong tuần
                   </button>
                 </div>
               </div>
@@ -596,7 +607,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
               <div className="space-y-3 pt-1">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-[11px] font-bold text-slate-600 block mb-1">
+                    <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
                       Số buổi / tuần:
                     </label>
                     <input
@@ -605,12 +616,12 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                       max="7"
                       value={sessionsPerWeek}
                       onChange={(e) => setSessionsPerWeek(Number(e.target.value) || 1)}
-                      className="w-full px-3 py-1.5 text-xs font-bold rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900"
+                      className="w-full px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900"
                     />
                   </div>
 
                   <div>
-                    <label className="text-[11px] font-bold text-slate-600 block mb-1">
+                    <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
                       Giờ học mỗi buổi:
                     </label>
                     <input
@@ -618,13 +629,13 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                       value={fixedSessionTime}
                       onChange={(e) => setFixedSessionTime(e.target.value)}
                       placeholder="18:00 - 19:00"
-                      className="w-full px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900"
+                      className="w-full px-3 py-1.5 text-xs font-semibold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5">
+                  <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1.5">
                     Chọn các ngày học cố định trong tuần:
                   </label>
                   <div className="flex flex-wrap gap-1.5">
@@ -635,10 +646,10 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                           type="button"
                           key={day}
                           onClick={() => toggleDayFixed(day)}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
                             isChecked
                               ? "bg-indigo-600 text-white shadow-xs"
-                              : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-300 dark:border-slate-700 hover:bg-slate-100"
+                              : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100"
                           }`}
                         >
                           {day}
@@ -652,11 +663,11 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
           </div>
 
           {/* Discount Section */}
-          <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 space-y-3">
+          <div className="p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-800/40 space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5 uppercase tracking-wide">
+              <span className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5 uppercase tracking-wider">
                 <Percent className="w-4 h-4 text-indigo-500" />
-                Áp dụng Giảm Giá (Discount)
+                Áp Dụng Chiết Khấu / Giảm Giá
               </span>
               <label className="relative inline-flex items-center cursor-pointer">
                 <input
@@ -665,22 +676,22 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                   onChange={(e) => setIsDiscountEnabled(e.target.checked)}
                   className="sr-only peer"
                 />
-                <div className="w-9 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
+                <div className="w-10 h-5.5 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[3px] after:left-[3px] after:bg-white after:rounded-full after:h-4.5 after:w-4.5 after:transition-all peer-checked:bg-indigo-600"></div>
               </label>
             </div>
 
             {isDiscountEnabled && (
-              <div className="space-y-2 pt-1 animate-in fade-in duration-150">
+              <div className="space-y-2.5 pt-1 animate-in fade-in duration-150">
                 <div className="flex flex-wrap gap-1.5">
                   {discountPresets.map((preset) => (
                     <button
                       type="button"
                       key={preset.id}
                       onClick={() => setDiscountPercent(preset.percentage)}
-                      className={`px-2.5 py-1 text-xs font-semibold rounded-lg border transition ${
+                      className={`px-3 py-1 text-xs font-bold rounded-xl border transition ${
                         discountPercent === preset.percentage
-                          ? "bg-indigo-600 text-white border-indigo-600"
-                          : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-300 dark:border-slate-700 hover:bg-slate-100"
+                          ? "bg-indigo-600 text-white border-indigo-600 shadow-2xs"
+                          : "bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100"
                       }`}
                     >
                       {preset.label}
@@ -689,33 +700,33 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                 </div>
 
                 <div className="flex items-center gap-2 pt-1">
-                  <span className="text-xs text-slate-500">Hoặc tự nhập:</span>
+                  <span className="text-xs font-semibold text-slate-500">Hoặc tự nhập:</span>
                   <input
                     type="number"
                     min="0"
                     max="100"
                     value={discountPercent}
                     onChange={(e) => setDiscountPercent(Number(e.target.value) || 0)}
-                    className="w-20 px-2 py-1 text-xs font-bold text-slate-800 dark:text-slate-100 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-center outline-none focus:ring-1 focus:ring-indigo-500"
+                    className="w-20 px-2 py-1 text-xs font-black text-slate-900 dark:text-white rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-center outline-none focus:ring-2 focus:ring-indigo-500"
                   />
-                  <span className="text-xs font-semibold text-slate-500">%</span>
+                  <span className="text-xs font-bold text-slate-500">%</span>
                 </div>
               </div>
             )}
           </div>
 
           {/* Standard Tuition Live Preview */}
-          <div className="p-3.5 rounded-xl bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-900/60 flex items-center justify-between">
+          <div className="p-4 rounded-2xl bg-gradient-to-tr from-indigo-50 to-purple-50 dark:from-indigo-950/40 dark:to-purple-950/30 border border-indigo-100 dark:border-indigo-900/60 flex items-center justify-between">
             <div>
-              <span className="text-xs text-slate-500 dark:text-slate-400 block font-medium">
+              <span className="text-xs font-bold text-slate-700 dark:text-slate-300 block">
                 Học phí chuẩn tự tính (Mặc định):
               </span>
-              <span className="text-[11px] text-slate-400">
-                ({formatVND(baseTuition)} + {formatVND(selectedLevelSurcharge)})
+              <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                ({formatVND(baseTuition)} base + {formatVND(selectedLevelSurcharge)} surcharge)
                 {isDiscountEnabled && discountPercent > 0 ? ` - ${discountPercent}%` : ""}
               </span>
             </div>
-            <span className="text-base font-extrabold text-indigo-700 dark:text-indigo-300">
+            <span className="text-lg font-black text-indigo-700 dark:text-indigo-300">
               {formatVND(liveTuition)}
             </span>
           </div>
@@ -725,16 +736,16 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
+              className="px-4 py-2 text-xs font-bold rounded-xl text-slate-600 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
             >
-              Hủy
+              Hủy bỏ
             </button>
             <button
               type="submit"
               disabled={isSaving}
-              className="flex items-center gap-1.5 px-5 py-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-md transition disabled:opacity-50"
+              className="flex items-center gap-1.5 px-5 py-2.5 text-xs font-black uppercase tracking-wider text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-md shadow-indigo-600/25 transition disabled:opacity-50"
             >
-              <Save className="w-4 h-4" />
+              <Save className="w-4 h-4 stroke-[2.5]" />
               {isSaving ? "Đang lưu..." : studentToEdit ? "Lưu thay đổi" : "Tạo học sinh"}
             </button>
           </div>
