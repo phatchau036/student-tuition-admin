@@ -30,11 +30,10 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# database & sensitive data
-data/
-*.db
-*.sqlite
-*.sqlite3
+# database & sensitive data (unignored as requested by user)
+!data/
+!data/*
+!*.db
 
 # env files (committed as requested by user)
 !.env

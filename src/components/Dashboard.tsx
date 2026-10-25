@@ -879,7 +879,7 @@ export default function Dashboard() {
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 text-sm">
                 {isLoading ? (
                   <tr>
-                    <td colSpan={7} className="text-center py-14 text-slate-400">
+                    <td colSpan={9} className="text-center py-14 text-slate-400">
                       <div className="flex flex-col items-center justify-center gap-2">
                         <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
                         <span className="font-semibold text-xs">Đang tải danh sách học sinh...</span>
@@ -888,7 +888,7 @@ export default function Dashboard() {
                   </tr>
                 ) : filteredStudents.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="text-center py-14 text-slate-400">
+                    <td colSpan={9} className="text-center py-14 text-slate-400">
                       <div className="flex flex-col items-center justify-center gap-2 max-w-sm mx-auto">
                         <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 mb-1">
                           <Users className="w-6 h-6" />
