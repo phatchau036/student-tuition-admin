@@ -92,9 +92,9 @@ export type ReconciliationMode = "manual" | "auto";
 export type ZaloReminderMode = "manual" | "bot";
 
 export interface ZaloBotConfig {
-  oa_secret_key?: string;
-  access_token?: string;
-  template_id?: string;
+  bot_token?: string; // Token nhận được từ Zalo Bot Creator (@Zalo Bot Manager)
+  bot_name?: string; // Tên bot (bắt đầu bằng tiền tố Bot, ví dụ: BotTrungTamHongAn)
+  webhook_url?: string;
 }
 
 export interface Teacher {
@@ -123,6 +123,8 @@ export interface SystemSettings {
   crowded_threshold_percent: number; // Ngưỡng cảnh báo lớp đông (Mặc định: 80%)
   reconciliation_mode?: ReconciliationMode; // 'manual' | 'auto'
   zalo_reminder_mode?: ZaloReminderMode; // 'manual' | 'bot'
+  zalo_bot_token?: string; // Token từ Zalo Bot Creator (@Zalo Bot Manager)
+  zalo_bot_name?: string; // Tên bot Zalo
   zalo_oa_secret_key?: string;
   zalo_access_token?: string;
   zalo_template_id?: string;
@@ -181,6 +183,7 @@ export interface Student {
   name: string;
   phone: string;
   zalo_link: string;
+  zalo_chat_id?: string; // ID người nhận hoặc cuộc trò chuyện từ Zalo Bot
   level_id: string;
   level_name?: string;
   level_surcharge?: number;

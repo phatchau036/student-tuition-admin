@@ -54,6 +54,8 @@ interface SettingsModalProps {
   initialCrowdedThreshold?: number;
   initialReconciliationMode?: ReconciliationMode;
   initialZaloReminderMode?: ZaloReminderMode;
+  initialZaloBotToken?: string;
+  initialZaloBotName?: string;
   initialZaloOaSecretKey?: string;
   initialZaloAccessToken?: string;
   initialZaloTemplateId?: string;
@@ -87,6 +89,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   initialCrowdedThreshold = 80,
   initialReconciliationMode = "manual",
   initialZaloReminderMode = "manual",
+  initialZaloBotToken = "",
+  initialZaloBotName = "",
   initialZaloOaSecretKey = "",
   initialZaloAccessToken = "",
   initialZaloTemplateId = "",
@@ -115,6 +119,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   // Zalo Reminder settings
   const [zaloReminderMode, setZaloReminderMode] = useState<ZaloReminderMode>(initialZaloReminderMode);
+  const [zaloBotToken, setZaloBotToken] = useState<string>(initialZaloBotToken);
+  const [zaloBotName, setZaloBotName] = useState<string>(initialZaloBotName);
+  const [isTestingBot, setIsTestingBot] = useState(false);
   const [zaloOaSecretKey, setZaloOaSecretKey] = useState<string>(initialZaloOaSecretKey);
   const [zaloAccessToken, setZaloAccessToken] = useState<string>(initialZaloAccessToken);
   const [zaloTemplateId, setZaloTemplateId] = useState<string>(initialZaloTemplateId);
@@ -202,6 +209,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setCrowdedThreshold(initialCrowdedThreshold);
     setReconciliationMode(initialReconciliationMode || "manual");
     setZaloReminderMode(initialZaloReminderMode || "manual");
+    setZaloBotToken(initialZaloBotToken || "");
+    setZaloBotName(initialZaloBotName || "");
     setZaloOaSecretKey(initialZaloOaSecretKey || "");
     setZaloAccessToken(initialZaloAccessToken || "");
     setZaloTemplateId(initialZaloTemplateId || "");
@@ -220,6 +229,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     initialCrowdedThreshold,
     initialReconciliationMode,
     initialZaloReminderMode,
+    initialZaloBotToken,
+    initialZaloBotName,
     initialZaloOaSecretKey,
     initialZaloAccessToken,
     initialZaloTemplateId,
@@ -229,6 +240,38 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     initialTuitionPackages,
     isOpen,
   ]);
+
+  // Test Zalo Bot Connection
+  const handleTestBotConnection = async () => {
+    if (!zaloBotToken.trim()) {
+      showToast("Vui lòng nhập Zalo Bot Token trước khi kiểm tra!", "error");
+      return;
+    }
+    try {
+      setIsTestingBot(true);
+      const res = await fetch("/api/zalo-bot", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "test_connection",
+          bot_token: zaloBotToken.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(data.message, "success");
+        if (data.data?.first_name || data.data?.username) {
+          setZaloBotName(data.data.first_name || data.data.username);
+        }
+      } else {
+        showToast(data.message || "Không thể kết nối tới Zalo Bot!", "error");
+      }
+    } catch {
+      showToast("Lỗi kết nối tới máy chủ API!", "error");
+    } finally {
+      setIsTestingBot(false);
+    }
+  };
 
   // Tuition Packages helpers
   const handleCreateOrUpdatePackage = async (e: React.FormEvent) => {
@@ -434,6 +477,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           crowded_threshold_percent: Number(crowdedThreshold) || 80,
           reconciliation_mode: reconciliationMode,
           zalo_reminder_mode: zaloReminderMode,
+          zalo_bot_token: zaloBotToken.trim(),
+          zalo_bot_name: zaloBotName.trim(),
           zalo_oa_secret_key: zaloOaSecretKey,
           zalo_access_token: zaloAccessToken,
           zalo_template_id: zaloTemplateId,
@@ -1361,47 +1406,79 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       </div>
                     </div>
 
-                    {/* Option A: Tích hợp Bot Zalo OA (Disabled) */}
+                    {/* Option A: Tích hợp Bot Zalo Platform (Hoạt động) */}
                     <div
-                      className="p-5 rounded-2xl border-2 border-slate-200 dark:border-slate-800 bg-slate-100/60 dark:bg-slate-900/40 opacity-60 cursor-not-allowed flex flex-col justify-between relative group"
-                      title="Sẽ cập nhật ở phiên bản tiếp theo"
+                      onClick={() => setZaloReminderMode("bot")}
+                      className={`p-5 rounded-2xl border-2 transition cursor-pointer flex flex-col justify-between ${
+                        zaloReminderMode === "bot"
+                          ? "border-blue-600 bg-blue-50/40 dark:bg-blue-950/30 shadow-xs"
+                          : "border-slate-200 dark:border-slate-700/80 bg-slate-50/50 dark:bg-slate-800/40 hover:border-slate-300"
+                      }`}
                     >
                       <div>
                         <div className="flex items-center justify-between mb-2">
-                          <span className="text-[11px] font-black uppercase tracking-wider text-slate-400">
-                            Phương Thức A (Tự động Bot)
+                          <span className="text-[11px] font-black uppercase tracking-wider text-blue-600">
+                            Phương Thức A (Zalo Bot API)
                           </span>
-                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
-                            Khóa
-                          </span>
+                          {zaloReminderMode === "bot" && (
+                            <div className="w-5 h-5 rounded-full bg-blue-600 text-white flex items-center justify-center">
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                            </div>
+                          )}
                         </div>
-                        <h4 className="text-sm font-extrabold text-slate-700 dark:text-slate-300">
-                          Tích Hợp Bot Zalo OA (Tự Động)
+                        <h4 className="text-sm font-extrabold text-slate-900 dark:text-white flex items-center gap-1.5">
+                          <Bot className="w-4 h-4 text-blue-600" />
+                          <span>Tích Hợp Zalo Bot Tự Động</span>
                         </h4>
                         <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-                          Tự động kết nối Zalo Official Account qua Webhook / Access Token để bot tự động gửi thông báo học phí hàng tháng cho phụ huynh.
+                          Sử dụng nền tảng <strong>Zalo Bot Platform</strong> (bot-api.zapps.me). Tự động gửi tin nhắn nhắc nợ học phí vào Zalo của phụ huynh khi đến hạn qua lệnh sendMessage.
                         </p>
-                      </div>
 
-                      {/* Mock Form disabled */}
-                      <div className="space-y-2 mt-3 pt-2 border-t border-slate-200/60 dark:border-slate-800 text-left pointer-events-none">
-                        <input
-                          type="text"
-                          disabled
-                          placeholder="Zalo OA Secret Key"
-                          className="w-full px-2.5 py-1 text-xs rounded bg-slate-200 dark:bg-slate-800"
-                        />
-                        <input
-                          type="text"
-                          disabled
-                          placeholder="Zalo Access Token"
-                          className="w-full px-2.5 py-1 text-xs rounded bg-slate-200 dark:bg-slate-800"
-                        />
-                      </div>
+                        {/* Form cấu hình Zalo Bot */}
+                        <div className="space-y-3 mt-3 pt-3 border-t border-slate-200 dark:border-slate-800 text-left">
+                          <div>
+                            <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 block mb-1">
+                              Zalo Bot Token *
+                            </label>
+                            <div className="flex items-center gap-1.5">
+                              <input
+                                type="text"
+                                placeholder="Nhập Bot Token từ Zalo Bot Creator..."
+                                value={zaloBotToken}
+                                onChange={(e) => setZaloBotToken(e.target.value)}
+                                className="w-full px-3 py-1.5 text-xs font-mono font-bold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none focus:ring-2 focus:ring-blue-500"
+                              />
+                              <button
+                                type="button"
+                                disabled={isTestingBot}
+                                onClick={handleTestBotConnection}
+                                className="px-3 py-1.5 text-[11px] font-bold rounded-xl bg-blue-600 hover:bg-blue-700 text-white shrink-0 transition disabled:opacity-50"
+                              >
+                                {isTestingBot ? "Đang thử..." : "Test Bot"}
+                              </button>
+                            </div>
+                          </div>
 
-                      <div className="mt-3 flex items-center gap-1.5 text-xs font-semibold text-amber-600 dark:text-amber-400">
-                        <AlertCircle className="w-3.5 h-3.5" />
-                        <span>Sẽ cập nhật ở phiên bản tiếp theo</span>
+                          {zaloBotName && (
+                            <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-[11px] text-emerald-800 dark:text-emerald-300 font-bold flex items-center gap-1.5">
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                              <span>Đã kết nối: {zaloBotName}</span>
+                            </div>
+                          )}
+
+                          {/* Hướng dẫn tạo bot theo chuẩn tài liệu zaloplatforms */}
+                          <div className="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-[11px] text-slate-600 dark:text-slate-400 space-y-1">
+                            <span className="font-bold text-slate-700 dark:text-slate-200 block text-[10px] uppercase">
+                              Hướng dẫn lấy Bot Token (1 phút):
+                            </span>
+                            <p>1. Mở app Zalo, tìm kiếm <strong>&quot;Zalo Bot Manager&quot;</strong>.</p>
+                            <p>2. Chọn <strong>&quot;Tạo bot&quot;</strong>, đặt tên bot có tiền tố <em>Bot</em> (VD: <em>BotTrungTamHongAn</em>).</p>
+                            <p>3. Copy mã <strong>Bot Token</strong> nhận được dán vào ô trên và bấm <strong>&quot;Test Bot&quot;</strong>.</p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="mt-3 pt-2 flex items-center gap-1.5 text-xs font-bold text-blue-600">
+                        <span>Hỗ trợ gửi tin nhắn tự động 1-click qua Bot</span>
                       </div>
                     </div>
                   </div>

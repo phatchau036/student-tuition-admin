@@ -94,6 +94,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [zaloLink, setZaloLink] = useState("");
+  const [zaloChatId, setZaloChatId] = useState("");
   const [levelId, setLevelId] = useState("");
   const [timeSlotId, setTimeSlotId] = useState("");
   const [teacherId, setTeacherId] = useState("");
@@ -124,6 +125,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
       setName(studentToEdit.name || "");
       setPhone(studentToEdit.phone || "");
       setZaloLink(studentToEdit.zalo_link || "");
+      setZaloChatId(studentToEdit.zalo_chat_id || "");
       setLevelId(studentToEdit.level_id || (levels[0]?.id ?? ""));
       setTimeSlotId(studentToEdit.time_slot_id || (timeSlots[0]?.id ?? ""));
       setTeacherId(studentToEdit.teacher_id || (teachers[0]?.id ?? ""));
@@ -165,6 +167,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
       setName("");
       setPhone("");
       setZaloLink("");
+      setZaloChatId("");
       setLevelId(levels[0]?.id || "");
       setTimeSlotId(timeSlots[0]?.id || "");
       setTeacherId(teachers[0]?.id || "");
@@ -342,6 +345,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
           name: name.trim(),
           phone: phone.trim(),
           zalo_link: zaloLink.trim(),
+          zalo_chat_id: zaloChatId.trim(),
           level_id: levelId,
           time_slot_id: timeSlotId || "",
           teacher_id: teacherId || null,
@@ -423,7 +427,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
           </div>
 
           {/* Phone & Zalo */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
                 Số điện thoại liên hệ <span className="text-rose-500">*</span>
@@ -453,6 +457,21 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                   onChange={(e) => setZaloLink(e.target.value)}
                   placeholder="https://zalo.me/..."
                   className="w-full pl-10 pr-4 py-2.5 text-sm font-mono font-semibold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+                Zalo Chat ID (Bot Tự Động)
+              </label>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={zaloChatId}
+                  onChange={(e) => setZaloChatId(e.target.value)}
+                  placeholder="ID chat từ Zalo Bot"
+                  className="w-full px-3.5 py-2.5 text-sm font-mono font-semibold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition"
                 />
               </div>
             </div>

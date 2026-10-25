@@ -115,6 +115,7 @@ export async function GET(req: Request) {
         name: String(row.name),
         phone: String(row.phone),
         zalo_link: String(row.zalo_link || ""),
+        zalo_chat_id: row.zalo_chat_id ? String(row.zalo_chat_id) : undefined,
         level_id: String(row.level_id),
         level_name: row.level_name ? String(row.level_name) : "Chưa phân loại",
         level_surcharge: Number(row.level_surcharge || 0),
@@ -182,6 +183,7 @@ export async function POST(req: Request) {
       name,
       phone,
       zalo_link,
+      zalo_chat_id,
       level_id,
       time_slot_id,
       teacher_id,
@@ -213,16 +215,17 @@ export async function POST(req: Request) {
 
     await db.execute({
       sql: `INSERT INTO students (
-              id, name, phone, zalo_link, level_id, time_slot_id, teacher_id, tuition_package_id,
+              id, name, phone, zalo_link, zalo_chat_id, level_id, time_slot_id, teacher_id, tuition_package_id,
               duration_mode, sessions_per_week, hours_per_week, registered_days, study_time_detail, schedule_details_json,
               is_discount_enabled, discount_percent
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       args: [
         id,
         name.trim(),
         phone.trim(),
         formattedZalo,
+        zalo_chat_id ? String(zalo_chat_id).trim() : null,
         level_id,
         time_slot_id || "",
         teacher_id || null,

@@ -139,6 +139,8 @@ export default function Dashboard() {
   const [crowdedThreshold, setCrowdedThreshold] = useState<number>(80);
   const [reconciliationMode, setReconciliationMode] = useState<string>("manual");
   const [zaloReminderMode, setZaloReminderMode] = useState<string>("manual");
+  const [zaloBotToken, setZaloBotToken] = useState<string>("");
+  const [zaloBotName, setZaloBotName] = useState<string>("");
 
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
@@ -267,6 +269,8 @@ export default function Dashboard() {
         setTuitionPackages(json.data.tuition_packages || []);
         setReconciliationMode(json.data.reconciliation_mode || "manual");
         setZaloReminderMode(json.data.zalo_reminder_mode || "manual");
+        setZaloBotToken(json.data.zalo_bot_token || "");
+        setZaloBotName(json.data.zalo_bot_name || "");
         if (json.data.current_school) {
           setCurrentSchool(json.data.current_school);
         }
@@ -1280,6 +1284,8 @@ export default function Dashboard() {
         initialCrowdedThreshold={crowdedThreshold}
         initialReconciliationMode={reconciliationMode as any}
         initialZaloReminderMode={zaloReminderMode as any}
+        initialZaloBotToken={zaloBotToken}
+        initialZaloBotName={zaloBotName}
         initialTimeSlots={timeSlots}
         initialLevelSurcharges={levels}
         initialDiscountPresets={discountPresets}

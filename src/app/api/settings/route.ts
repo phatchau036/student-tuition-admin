@@ -23,6 +23,8 @@ export async function GET() {
     const crowdedThresholdPercent = Number(settingsMap["crowded_threshold_percent"] || 80);
     const reconciliationMode = (settingsMap["reconciliation_mode"] as "manual" | "auto") || "manual";
     const zaloReminderMode = (settingsMap["zalo_reminder_mode"] as "manual" | "bot") || "manual";
+    const zaloBotToken = settingsMap["zalo_bot_token"] || "";
+    const zaloBotName = settingsMap["zalo_bot_name"] || "";
     const zaloOaSecretKey = settingsMap["zalo_oa_secret_key"] || "";
     const zaloAccessToken = settingsMap["zalo_access_token"] || "";
     const zaloTemplateId = settingsMap["zalo_template_id"] || "";
@@ -96,6 +98,8 @@ export async function GET() {
         crowded_threshold_percent: crowdedThresholdPercent,
         reconciliation_mode: reconciliationMode,
         zalo_reminder_mode: zaloReminderMode,
+        zalo_bot_token: zaloBotToken,
+        zalo_bot_name: zaloBotName,
         zalo_oa_secret_key: zaloOaSecretKey,
         zalo_access_token: zaloAccessToken,
         zalo_template_id: zaloTemplateId,
@@ -131,6 +135,8 @@ export async function POST(req: Request) {
       crowded_threshold_percent,
       reconciliation_mode,
       zalo_reminder_mode,
+      zalo_bot_token,
+      zalo_bot_name,
       zalo_oa_secret_key,
       zalo_access_token,
       zalo_template_id,
@@ -151,6 +157,8 @@ export async function POST(req: Request) {
       crowded_threshold_percent: crowded_threshold_percent !== undefined ? String(crowded_threshold_percent) : undefined,
       reconciliation_mode: reconciliation_mode !== undefined ? String(reconciliation_mode) : undefined,
       zalo_reminder_mode: zalo_reminder_mode !== undefined ? String(zalo_reminder_mode) : undefined,
+      zalo_bot_token: zalo_bot_token !== undefined ? String(zalo_bot_token) : undefined,
+      zalo_bot_name: zalo_bot_name !== undefined ? String(zalo_bot_name) : undefined,
       zalo_oa_secret_key: zalo_oa_secret_key !== undefined ? String(zalo_oa_secret_key) : undefined,
       zalo_access_token: zalo_access_token !== undefined ? String(zalo_access_token) : undefined,
       zalo_template_id: zalo_template_id !== undefined ? String(zalo_template_id) : undefined,

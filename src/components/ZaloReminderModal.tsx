@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { Student } from "@/lib/types";
 import { formatVND, formatMonthDisplay } from "@/lib/tuition";
-import { MessageSquare, Copy, ExternalLink, X, Check, Send, AlertCircle } from "lucide-react";
+import { MessageSquare, Copy, ExternalLink, X, Check, Send, AlertCircle, Bot, Sparkles } from "lucide-react";
 import { useToast } from "@/components/Toast";
 
 interface ZaloReminderModalProps {
@@ -21,6 +21,7 @@ export const ZaloReminderModal: React.FC<ZaloReminderModalProps> = ({
 }) => {
   const { showToast } = useToast();
   const [copied, setCopied] = useState(false);
+  const [isSendingBot, setIsSendingBot] = useState(false);
 
   if (!isOpen || !student) return null;
 
@@ -46,6 +47,41 @@ Trung tâm xin trân trọng cảm ơn!`;
     setTimeout(() => setCopied(false), 2500);
   };
 
+  const handleSendViaZaloBot = async () => {
+    if (!student.zalo_chat_id) {
+      showToast(
+        "Học sinh chưa có Zalo Chat ID! Phụ huynh cần nhắn tin chào Bot trước để nhận Chat ID (hoặc nhập Chat ID trong hồ sơ học sinh).",
+        "error"
+      );
+      return;
+    }
+
+    try {
+      setIsSendingBot(true);
+      const res = await fetch("/api/zalo-bot", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "send_message",
+          chat_id: student.zalo_chat_id,
+          text: messageTemplate,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        showToast("Đã gửi tin nhắn nhắc nợ tự động qua Zalo Bot thành công!", "success");
+        onClose();
+      } else {
+        showToast(data.message || "Gửi tin nhắn qua Bot thất bại!", "error");
+      }
+    } catch {
+      showToast("Lỗi kết nối máy chủ Zalo Bot!", "error");
+    } finally {
+      setIsSendingBot(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
       <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl w-full max-w-lg shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
@@ -59,11 +95,11 @@ Trung tâm xin trân trọng cảm ơn!`;
               <h3 className="text-base font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
                 <span>Nhắc Học Phí Qua Zalo</span>
                 <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/60 dark:text-blue-300">
-                  Thủ công
+                  {student.zalo_chat_id ? "Sẵn sàng Bot & Thủ công" : "Thủ công"}
                 </span>
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Gửi tin nhắn mẫu đã soạn sẵn đến Zalo phụ huynh {student.name}
+                Gửi thông báo học phí đến Zalo phụ huynh {student.name}
               </p>
             </div>
           </div>
@@ -83,6 +119,11 @@ Trung tâm xin trân trọng cảm ơn!`;
               <span className="text-slate-400 font-semibold block text-[10px] uppercase">Học sinh</span>
               <span className="font-black text-slate-900 dark:text-white text-sm">{student.name}</span>
               <span className="text-slate-500 block font-mono mt-0.5">{student.phone}</span>
+              {student.zalo_chat_id && (
+                <span className="text-[10px] text-emerald-600 font-bold block font-mono">
+                  Zalo Chat ID: {student.zalo_chat_id}
+                </span>
+              )}
             </div>
             <div className="text-right">
               <span className="text-slate-400 font-semibold block text-[10px] uppercase">Công nợ tháng</span>
@@ -116,12 +157,33 @@ Trung tâm xin trân trọng cảm ơn!`;
             />
           </div>
 
-          <div className="p-3 bg-blue-50/50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/40 rounded-xl flex items-start gap-2.5 text-[11px] text-slate-600 dark:text-slate-400">
-            <AlertCircle className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
-            <p>
-              Bấm <strong>&quot;Copy & Mở Zalo&quot;</strong> để hệ thống tự động copy nội dung vào clipboard và mở ngay phòng chat Zalo với phụ huynh số <strong>{student.phone}</strong>.
-            </p>
-          </div>
+          {/* Gửi tự động qua Bot nếu có Chat ID */}
+          {student.zalo_chat_id ? (
+            <div className="p-3 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-xl flex items-center justify-between gap-2 text-xs">
+              <div className="flex items-center gap-2">
+                <Bot className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span className="text-slate-700 dark:text-slate-300 font-semibold">
+                  Học sinh đã liên kết Zalo Bot. Bạn có thể gửi tin nhắn tự động 1-Click!
+                </span>
+              </div>
+              <button
+                type="button"
+                disabled={isSendingBot}
+                onClick={handleSendViaZaloBot}
+                className="px-3 py-1.5 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shrink-0 transition shadow-2xs disabled:opacity-50 flex items-center gap-1"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>{isSendingBot ? "Đang gửi..." : "Bấm Gửi Bot"}</span>
+              </button>
+            </div>
+          ) : (
+            <div className="p-3 bg-blue-50/50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/40 rounded-xl flex items-start gap-2.5 text-[11px] text-slate-600 dark:text-slate-400">
+              <AlertCircle className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+              <p>
+                Bấm <strong>&quot;Mở Zalo Ngay&quot;</strong> để hệ thống tự động copy nội dung vào clipboard và chuyển thẳng vào phòng chat Zalo với phụ huynh số <strong>{student.phone}</strong>.
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Footer Actions */}
@@ -152,7 +214,7 @@ Trung tâm xin trân trọng cảm ơn!`;
               className="px-4 py-2 text-xs font-black uppercase tracking-wider text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-md shadow-blue-600/25 transition flex items-center gap-1.5"
             >
               <Send className="w-3.5 h-3.5" />
-              <span>Mở Zalo Ngay</span>
+              <span>Mở Zalo Chat</span>
               <ExternalLink className="w-3 h-3 opacity-80" />
             </a>
           </div>
@@ -161,3 +223,4 @@ Trung tâm xin trân trọng cảm ơn!`;
     </div>
   );
 };
+
