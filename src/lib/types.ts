@@ -2,6 +2,10 @@ export interface School {
   id: string;
   name: string; // Tên trường / trung tâm
   code: string; // Mã trường (e.g. "TT-01")
+  school_type?: "TT" | "TH"; // TT: Trung tâm, TH: Trường học
+  street?: string; // Tên đường riêng (VD: "Hiền Vương")
+  city?: string; // Tỉnh / Thành phố (VD: "TPHCM", "Hà Nội"...)
+  branch_num?: number | string; // Chi nhánh số mấy (VD: 1, 2)
   address?: string;
   phone?: string;
   ip_restriction_enabled?: number; // 0: không giới hạn, 1: chỉ cho phép vào từ IP quy định

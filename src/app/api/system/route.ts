@@ -62,7 +62,7 @@ export async function POST(req: Request) {
 
     // 1. Tạo trường học mới
     if (action === "create_school") {
-      const { name, code, address, phone } = body;
+      const { name, code, school_type, street, city, branch_num, address, phone } = body;
       if (!name || !code) {
         return NextResponse.json(
           { success: false, message: "Vui lòng nhập tên và mã trường!" },
@@ -84,8 +84,19 @@ export async function POST(req: Request) {
 
       const id = `school-${Date.now()}`;
       await db.execute({
-        sql: "INSERT INTO schools (id, name, code, address, phone) VALUES (?, ?, ?, ?, ?)",
-        args: [id, name.trim(), code.trim().toUpperCase(), address?.trim() || "", phone?.trim() || ""],
+        sql: `INSERT INTO schools (id, name, code, school_type, street, city, branch_num, address, phone) 
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        args: [
+          id,
+          name.trim(),
+          code.trim().toUpperCase(),
+          school_type?.trim() || "TT",
+          street?.trim() || "",
+          city?.trim() || "TPHCM",
+          String(branch_num || "1"),
+          address?.trim() || "",
+          phone?.trim() || "",
+        ],
       });
 
       return NextResponse.json({
@@ -130,7 +141,7 @@ export async function POST(req: Request) {
 
     // 3. Đổi tên & cập nhật thông tin trường
     if (action === "edit_school") {
-      const { school_id, name, code, address, phone } = body;
+      const { school_id, name, code, school_type, street, city, branch_num, address, phone } = body;
       if (!school_id || !name || !code) {
         return NextResponse.json(
           { success: false, message: "Vui lòng nhập đầy đủ tên và mã trường!" },
@@ -151,8 +162,20 @@ export async function POST(req: Request) {
       }
 
       await db.execute({
-        sql: "UPDATE schools SET name = ?, code = ?, address = ?, phone = ? WHERE id = ?",
-        args: [name.trim(), code.trim().toUpperCase(), address?.trim() || "", phone?.trim() || "", school_id],
+        sql: `UPDATE schools 
+              SET name = ?, code = ?, school_type = ?, street = ?, city = ?, branch_num = ?, address = ?, phone = ? 
+              WHERE id = ?`,
+        args: [
+          name.trim(),
+          code.trim().toUpperCase(),
+          school_type?.trim() || "TT",
+          street?.trim() || "",
+          city?.trim() || "TPHCM",
+          String(branch_num || "1"),
+          address?.trim() || "",
+          phone?.trim() || "",
+          school_id,
+        ],
       });
 
       return NextResponse.json({

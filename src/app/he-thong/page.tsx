@@ -39,6 +39,10 @@ interface School {
   id: string;
   name: string;
   code: string;
+  school_type?: "TT" | "TH";
+  street?: string;
+  city?: string;
+  branch_num?: string | number;
   address: string;
   phone: string;
   ip_restriction_enabled?: number;
@@ -78,6 +82,10 @@ export default function SystemAdminPage() {
   const [isSchoolModalOpen, setIsSchoolModalOpen] = useState(false);
   const [newSchoolName, setNewSchoolName] = useState("");
   const [newSchoolCode, setNewSchoolCode] = useState("");
+  const [newSchoolType, setNewSchoolType] = useState<"TT" | "TH">("TT");
+  const [newSchoolStreet, setNewSchoolStreet] = useState("");
+  const [newSchoolCity, setNewSchoolCity] = useState("TPHCM");
+  const [newSchoolBranchNum, setNewSchoolBranchNum] = useState("1");
   const [newSchoolAddress, setNewSchoolAddress] = useState("");
   const [newSchoolPhone, setNewSchoolPhone] = useState("");
 
@@ -86,6 +94,10 @@ export default function SystemAdminPage() {
   const [editingSchoolId, setEditingSchoolId] = useState("");
   const [editSchoolName, setEditSchoolName] = useState("");
   const [editSchoolCode, setEditSchoolCode] = useState("");
+  const [editSchoolType, setEditSchoolType] = useState<"TT" | "TH">("TT");
+  const [editSchoolStreet, setEditSchoolStreet] = useState("");
+  const [editSchoolCity, setEditSchoolCity] = useState("TPHCM");
+  const [editSchoolBranchNum, setEditSchoolBranchNum] = useState("1");
   const [editSchoolAddress, setEditSchoolAddress] = useState("");
   const [editSchoolPhone, setEditSchoolPhone] = useState("");
   const [isSavingSchoolEdit, setIsSavingSchoolEdit] = useState(false);
@@ -235,6 +247,10 @@ export default function SystemAdminPage() {
     setEditingSchoolId(school.id);
     setEditSchoolName(school.name);
     setEditSchoolCode(school.code);
+    setEditSchoolType((school.school_type as "TT" | "TH") || "TT");
+    setEditSchoolStreet(school.street || "");
+    setEditSchoolCity(school.city || "TPHCM");
+    setEditSchoolBranchNum(String(school.branch_num || "1"));
     setEditSchoolAddress(school.address || "");
     setEditSchoolPhone(school.phone || "");
     setIsEditSchoolModalOpen(true);
@@ -258,6 +274,10 @@ export default function SystemAdminPage() {
           school_id: editingSchoolId,
           name: editSchoolName.trim(),
           code: editSchoolCode.trim().toUpperCase(),
+          school_type: editSchoolType,
+          street: editSchoolStreet.trim(),
+          city: editSchoolCity,
+          branch_num: editSchoolBranchNum,
           address: editSchoolAddress.trim(),
           phone: editSchoolPhone.trim(),
         }),
@@ -292,6 +312,10 @@ export default function SystemAdminPage() {
           action: "create_school",
           name: newSchoolName.trim(),
           code: newSchoolCode.trim().toUpperCase(),
+          school_type: newSchoolType,
+          street: newSchoolStreet.trim(),
+          city: newSchoolCity,
+          branch_num: newSchoolBranchNum,
           address: newSchoolAddress.trim(),
           phone: newSchoolPhone.trim(),
         }),
@@ -302,6 +326,10 @@ export default function SystemAdminPage() {
         setIsSchoolModalOpen(false);
         setNewSchoolName("");
         setNewSchoolCode("");
+        setNewSchoolType("TT");
+        setNewSchoolStreet("");
+        setNewSchoolCity("TPHCM");
+        setNewSchoolBranchNum("1");
         setNewSchoolAddress("");
         setNewSchoolPhone("");
         loadData();
@@ -785,7 +813,16 @@ export default function SystemAdminPage() {
                     </div>
 
                     <h3 className="text-base font-bold text-white mt-2 leading-snug">{school.name}</h3>
-                    <p className="text-xs text-slate-400 mt-1 line-clamp-1">{school.address || "Chưa có địa chỉ"}</p>
+                    <div className="flex items-center gap-1.5 flex-wrap mt-1 text-[11px] text-purple-300 font-semibold">
+                      <span>Đường: {school.street || "Chưa set"}</span>
+                      <span>•</span>
+                      <span>{school.city || "TPHCM"}</span>
+                      <span>•</span>
+                      <span className="bg-purple-900/60 px-1.5 py-0.2 rounded text-[10px] text-purple-200">
+                        CN{school.branch_num || 1}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-400 mt-1 line-clamp-1">{school.address || "Chưa có địa chỉ đầy đủ"}</p>
                     <p className="text-xs text-slate-400 mt-0.5">Hotline: {school.phone || "Chưa cập nhật"}</p>
 
                     {hasIpRestriction && school.allowed_ips && (
@@ -952,7 +989,7 @@ export default function SystemAdminPage() {
       {/* Modal: Đổi Tên Trung Tâm / Chỉnh Sửa Trường */}
       {isEditSchoolModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-slate-900 border border-slate-700 rounded-3xl w-full max-w-md p-6 space-y-5 shadow-2xl">
+          <div className="bg-slate-900 border border-slate-700 rounded-3xl w-full max-w-lg p-6 space-y-5 shadow-2xl max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between">
               <h3 className="text-base font-bold text-white flex items-center gap-2">
                 <Edit2 className="w-5 h-5 text-purple-400" />
@@ -967,50 +1004,133 @@ export default function SystemAdminPage() {
             </div>
 
             <form onSubmit={handleSaveEditSchool} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Tên Trường / Trung Tâm *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Tên trường / trung tâm đào tạo"
-                  value={editSchoolName}
-                  onChange={(e) => setEditSchoolName(e.target.value)}
-                  className="w-full px-3 py-2 text-sm rounded-xl bg-slate-800 border border-slate-700 text-white focus:outline-hidden focus:ring-2 focus:ring-purple-500"
-                />
+              {/* Loại cơ sở & Tên trường */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="sm:col-span-1">
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Loại Cơ Sở *</label>
+                  <select
+                    value={editSchoolType}
+                    onChange={(e) => setEditSchoolType(e.target.value as "TT" | "TH")}
+                    className="w-full px-3 py-2 text-sm rounded-xl bg-slate-800 border border-slate-700 text-white focus:outline-hidden focus:ring-2 focus:ring-purple-500"
+                  >
+                    <option value="TT">TT - Trung Tâm</option>
+                    <option value="TH">TH - Trường Học</option>
+                  </select>
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Tên Trường / Trung Tâm *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="VD: Hồng Ân, Sáng Tạo..."
+                    value={editSchoolName}
+                    onChange={(e) => setEditSchoolName(e.target.value)}
+                    className="w-full px-3 py-2 text-sm rounded-xl bg-slate-800 border border-slate-700 text-white focus:outline-hidden focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Mã Trường (Viết tắt) *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Mã trường (TT-01, TT-HA...)"
-                  value={editSchoolCode}
-                  onChange={(e) => setEditSchoolCode(e.target.value)}
-                  className="w-full px-3 py-2 text-sm uppercase rounded-xl bg-slate-800 border border-slate-700 text-white focus:outline-hidden focus:ring-2 focus:ring-purple-500"
-                />
+              {/* Tên đường riêng, Tỉnh thành & Chi nhánh số mấy */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="sm:col-span-1">
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Tên Đường Riêng *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="VD: Hiền Vương, Quang Trung..."
+                    value={editSchoolStreet}
+                    onChange={(e) => setEditSchoolStreet(e.target.value)}
+                    className="w-full px-3 py-2 text-sm rounded-xl bg-slate-800 border border-slate-700 text-white focus:outline-hidden focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+                <div className="sm:col-span-1">
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Tỉnh / Thành Phố *</label>
+                  <select
+                    value={editSchoolCity}
+                    onChange={(e) => setEditSchoolCity(e.target.value)}
+                    className="w-full px-3 py-2 text-sm rounded-xl bg-slate-800 border border-slate-700 text-white focus:outline-hidden focus:ring-2 focus:ring-purple-500"
+                  >
+                    <option value="TPHCM">TP. Hồ Chí Minh (TPHCM)</option>
+                    <option value="HN">Hà Nội (HN)</option>
+                    <option value="DN">Đà Nẵng (DN)</option>
+                    <option value="BD">Bình Dương (BD)</option>
+                    <option value="DNAI">Đồng Nai (DNAI)</option>
+                    <option value="CT">Cần Thơ (CT)</option>
+                    <option value="HP">Hải Phòng (HP)</option>
+                  </select>
+                </div>
+                <div className="sm:col-span-1">
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Chi Nhánh Số Mấy *</label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      min="1"
+                      max="99"
+                      required
+                      value={editSchoolBranchNum}
+                      onChange={(e) => setEditSchoolBranchNum(e.target.value)}
+                      className="w-full px-3 py-2 text-sm rounded-xl bg-slate-800 border border-slate-700 text-white focus:outline-hidden focus:ring-2 focus:ring-purple-500"
+                    />
+                    <span className="absolute right-3 top-2 text-xs font-bold text-slate-400">CN{editSchoolBranchNum || 1}</span>
+                  </div>
+                </div>
               </div>
 
+              {/* Mã trường & Hotline */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Mã Trường (Viết tắt) *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Mã trường (TT-HA, TT-01...)"
+                    value={editSchoolCode}
+                    onChange={(e) => setEditSchoolCode(e.target.value)}
+                    className="w-full px-3 py-2 text-sm uppercase rounded-xl bg-slate-800 border border-slate-700 text-white focus:outline-hidden focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Số điện thoại hotline</label>
+                  <input
+                    type="text"
+                    placeholder="Hotline liên hệ"
+                    value={editSchoolPhone}
+                    onChange={(e) => setEditSchoolPhone(e.target.value)}
+                    className="w-full px-3 py-2 text-sm rounded-xl bg-slate-800 border border-slate-700 text-white focus:outline-hidden focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+              </div>
+
+              {/* Địa chỉ chi tiết */}
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Địa chỉ</label>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Địa chỉ đầy đủ</label>
                 <input
                   type="text"
-                  placeholder="Địa chỉ chi nhánh cơ sở"
+                  placeholder="VD: 123 Hiền Vương, P. Phú Thạnh, Q. Tân Phú"
                   value={editSchoolAddress}
                   onChange={(e) => setEditSchoolAddress(e.target.value)}
                   className="w-full px-3 py-2 text-sm rounded-xl bg-slate-800 border border-slate-700 text-white focus:outline-hidden focus:ring-2 focus:ring-purple-500"
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Số điện thoại hotline</label>
-                <input
-                  type="text"
-                  placeholder="Hotline liên hệ"
-                  value={editSchoolPhone}
-                  onChange={(e) => setEditSchoolPhone(e.target.value)}
-                  className="w-full px-3 py-2 text-sm rounded-xl bg-slate-800 border border-slate-700 text-white focus:outline-hidden focus:ring-2 focus:ring-purple-500"
-                />
+              {/* Live Preview định dạng tài khoản Admin sẽ tạo */}
+              <div className="p-3.5 rounded-2xl bg-purple-950/40 border border-purple-800/60 text-xs space-y-1">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-purple-300 flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+                  Mẫu Tài Khoản Admin Sẽ Tự Sinh Chuẩn Xác:
+                </span>
+                <p className="font-mono text-sm font-black text-purple-200">
+                  {generateAdminUsernameFromSchool(
+                    {
+                      name: editSchoolName || "Trung tâm",
+                      school_type: editSchoolType,
+                      street: editSchoolStreet || "Hiền Vương",
+                      city: editSchoolCity || "TPHCM",
+                      branch_num: editSchoolBranchNum || "1",
+                    },
+                    1
+                  )}
+                </p>
               </div>
 
               <div className="flex justify-end gap-2 pt-3">
@@ -1302,7 +1422,7 @@ export default function SystemAdminPage() {
       {/* Modal: Tạo trường mới */}
       {isSchoolModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md p-6 space-y-5 shadow-2xl">
+          <div className="bg-slate-900 border border-slate-700 rounded-3xl w-full max-w-lg p-6 space-y-5 shadow-2xl max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between">
               <h3 className="text-base font-bold text-white flex items-center gap-2">
                 <Building2 className="w-5 h-5 text-purple-400" />
@@ -1317,50 +1437,133 @@ export default function SystemAdminPage() {
             </div>
 
             <form onSubmit={handleCreateSchool} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Tên Trường / Trung Tâm *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Tên trường / trung tâm mới"
-                  value={newSchoolName}
-                  onChange={(e) => setNewSchoolName(e.target.value)}
-                  className="w-full px-3 py-2 text-sm rounded-xl bg-slate-800 border border-slate-700 text-white focus:outline-hidden focus:ring-2 focus:ring-purple-500"
-                />
+              {/* Loại cơ sở & Tên trường */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="sm:col-span-1">
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Loại Cơ Sở *</label>
+                  <select
+                    value={newSchoolType}
+                    onChange={(e) => setNewSchoolType(e.target.value as "TT" | "TH")}
+                    className="w-full px-3 py-2 text-sm rounded-xl bg-slate-800 border border-slate-700 text-white focus:outline-hidden focus:ring-2 focus:ring-purple-500"
+                  >
+                    <option value="TT">TT - Trung Tâm</option>
+                    <option value="TH">TH - Trường Học</option>
+                  </select>
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Tên Trường / Trung Tâm *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="VD: Hồng Ân, Sáng Tạo..."
+                    value={newSchoolName}
+                    onChange={(e) => setNewSchoolName(e.target.value)}
+                    className="w-full px-3 py-2 text-sm rounded-xl bg-slate-800 border border-slate-700 text-white focus:outline-hidden focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Mã Trường (Viết tắt) *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Mã cơ sở (TT-01, TT-Q7...)"
-                  value={newSchoolCode}
-                  onChange={(e) => setNewSchoolCode(e.target.value)}
-                  className="w-full px-3 py-2 text-sm uppercase rounded-xl bg-slate-800 border border-slate-700 text-white focus:outline-hidden focus:ring-2 focus:ring-purple-500"
-                />
+              {/* Tên đường riêng, Tỉnh thành & Chi nhánh số mấy */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="sm:col-span-1">
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Tên Đường Riêng *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="VD: Hiền Vương, Quang Trung..."
+                    value={newSchoolStreet}
+                    onChange={(e) => setNewSchoolStreet(e.target.value)}
+                    className="w-full px-3 py-2 text-sm rounded-xl bg-slate-800 border border-slate-700 text-white focus:outline-hidden focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+                <div className="sm:col-span-1">
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Tỉnh / Thành Phố *</label>
+                  <select
+                    value={newSchoolCity}
+                    onChange={(e) => setNewSchoolCity(e.target.value)}
+                    className="w-full px-3 py-2 text-sm rounded-xl bg-slate-800 border border-slate-700 text-white focus:outline-hidden focus:ring-2 focus:ring-purple-500"
+                  >
+                    <option value="TPHCM">TP. Hồ Chí Minh (TPHCM)</option>
+                    <option value="HN">Hà Nội (HN)</option>
+                    <option value="DN">Đà Nẵng (DN)</option>
+                    <option value="BD">Bình Dương (BD)</option>
+                    <option value="DNAI">Đồng Nai (DNAI)</option>
+                    <option value="CT">Cần Thơ (CT)</option>
+                    <option value="HP">Hải Phòng (HP)</option>
+                  </select>
+                </div>
+                <div className="sm:col-span-1">
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Chi Nhánh Số Mấy *</label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      min="1"
+                      max="99"
+                      required
+                      value={newSchoolBranchNum}
+                      onChange={(e) => setNewSchoolBranchNum(e.target.value)}
+                      className="w-full px-3 py-2 text-sm rounded-xl bg-slate-800 border border-slate-700 text-white focus:outline-hidden focus:ring-2 focus:ring-purple-500"
+                    />
+                    <span className="absolute right-3 top-2 text-xs font-bold text-slate-400">CN{newSchoolBranchNum || 1}</span>
+                  </div>
+                </div>
               </div>
 
+              {/* Mã trường & Hotline */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Mã Trường (Viết tắt) *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Mã cơ sở (TT-HA, TT-01...)"
+                    value={newSchoolCode}
+                    onChange={(e) => setNewSchoolCode(e.target.value)}
+                    className="w-full px-3 py-2 text-sm uppercase rounded-xl bg-slate-800 border border-slate-700 text-white focus:outline-hidden focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Số điện thoại hotline</label>
+                  <input
+                    type="text"
+                    placeholder="Hotline liên hệ"
+                    value={newSchoolPhone}
+                    onChange={(e) => setNewSchoolPhone(e.target.value)}
+                    className="w-full px-3 py-2 text-sm rounded-xl bg-slate-800 border border-slate-700 text-white focus:outline-hidden focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+              </div>
+
+              {/* Địa chỉ chi tiết */}
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Địa chỉ</label>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">Địa chỉ đầy đủ</label>
                 <input
                   type="text"
-                  placeholder="Địa chỉ trụ sở"
+                  placeholder="VD: 123 Hiền Vương, P. Phú Thạnh, Q. Tân Phú"
                   value={newSchoolAddress}
                   onChange={(e) => setNewSchoolAddress(e.target.value)}
                   className="w-full px-3 py-2 text-sm rounded-xl bg-slate-800 border border-slate-700 text-white focus:outline-hidden focus:ring-2 focus:ring-purple-500"
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Số điện thoại hotline</label>
-                <input
-                  type="text"
-                  placeholder="Hotline liên hệ"
-                  value={newSchoolPhone}
-                  onChange={(e) => setNewSchoolPhone(e.target.value)}
-                  className="w-full px-3 py-2 text-sm rounded-xl bg-slate-800 border border-slate-700 text-white focus:outline-hidden focus:ring-2 focus:ring-purple-500"
-                />
+              {/* Live Preview định dạng tài khoản Admin sẽ tạo */}
+              <div className="p-3.5 rounded-2xl bg-purple-950/40 border border-purple-800/60 text-xs space-y-1">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-purple-300 flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+                  Mẫu Tài Khoản Admin Sẽ Tự Sinh Chuẩn Xác:
+                </span>
+                <p className="font-mono text-sm font-black text-purple-200">
+                  {generateAdminUsernameFromSchool(
+                    {
+                      name: newSchoolName || "Trung tâm",
+                      school_type: newSchoolType,
+                      street: newSchoolStreet || "Hiền Vương",
+                      city: newSchoolCity || "TPHCM",
+                      branch_num: newSchoolBranchNum || "1",
+                    },
+                    1
+                  )}
+                </p>
               </div>
 
               <div className="flex justify-end gap-2 pt-3">
@@ -1373,7 +1576,7 @@ export default function SystemAdminPage() {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 text-xs font-bold rounded-xl bg-purple-600 hover:bg-purple-500 text-white"
+                  className="px-4 py-2 text-xs font-bold rounded-xl bg-purple-600 hover:bg-purple-500 text-white shadow-md shadow-purple-600/30"
                 >
                   Khởi Tạo Trường
                 </button>

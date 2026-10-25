@@ -22,6 +22,10 @@ export async function initDb() {
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
       code TEXT NOT NULL UNIQUE,
+      school_type TEXT DEFAULT 'TT',
+      street TEXT DEFAULT '',
+      city TEXT DEFAULT 'TPHCM',
+      branch_num TEXT DEFAULT '1',
       address TEXT,
       phone TEXT,
       ip_restriction_enabled INTEGER DEFAULT 0,
@@ -29,6 +33,20 @@ export async function initDb() {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
   `);
+
+  // Migrate columns if needed
+  try {
+    await db.execute("ALTER TABLE schools ADD COLUMN school_type TEXT DEFAULT 'TT'");
+  } catch {}
+  try {
+    await db.execute("ALTER TABLE schools ADD COLUMN street TEXT DEFAULT ''");
+  } catch {}
+  try {
+    await db.execute("ALTER TABLE schools ADD COLUMN city TEXT DEFAULT 'TPHCM'");
+  } catch {}
+  try {
+    await db.execute("ALTER TABLE schools ADD COLUMN branch_num TEXT DEFAULT '1'");
+  } catch {}
 
   // 0.1 School Admins Table (Tài khoản admin cho từng trường)
   await db.execute(`
