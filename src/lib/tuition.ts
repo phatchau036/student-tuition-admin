@@ -40,6 +40,19 @@ export function getPreviousMonthStr(monthStr: string): string {
   return `${y}-${String(m).padStart(2, "0")}`;
 }
 
+export function getNextMonthStr(monthStr: string): string {
+  if (!monthStr || !monthStr.includes("-")) return "";
+  const [yearStr, monthStrPart] = monthStr.split("-");
+  let y = parseInt(yearStr, 10);
+  let m = parseInt(monthStrPart, 10);
+  m += 1;
+  if (m > 12) {
+    m = 1;
+    y += 1;
+  }
+  return `${y}-${String(m).padStart(2, "0")}`;
+}
+
 export function getCurrentMonthStr(): string {
   const now = new Date();
   const year = now.getFullYear();

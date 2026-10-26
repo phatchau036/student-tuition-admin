@@ -109,12 +109,19 @@ export async function GET(req: Request) {
     }
 
     const students = studentsRes.rows.map((row) => {
-      const stdTuition = calculateStandardTuition(
-        baseTuition,
-        Number(row.level_surcharge || 0),
-        Number(row.is_discount_enabled || 0),
-        Number(row.discount_percent || 0)
-      );
+      // 1. Nếu học sinh đăng ký gói học phí (VD: Theo quý, Khóa 6 tháng...) thì hiển thị đúng giá tiền của gói đó
+      const pkgAmount = Number(row.tuition_package_amount || 0);
+      let stdTuition = 0;
+      if (row.tuition_package_id && pkgAmount > 0) {
+        stdTuition = pkgAmount;
+      } else {
+        stdTuition = calculateStandardTuition(
+          baseTuition,
+          Number(row.level_surcharge || 0),
+          Number(row.is_discount_enabled || 0),
+          Number(row.discount_percent || 0)
+        );
+      }
 
       const override = overridesMap[String(row.id)] || null;
       const currentTuition = override ? override.amount : stdTuition;

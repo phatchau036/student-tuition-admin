@@ -28,11 +28,13 @@ export async function POST(req: Request) {
                  COALESCE(sc.address, (SELECT address FROM schools LIMIT 1), '') as school_address,
                  COALESCE(sc.phone, (SELECT phone FROM schools LIMIT 1), '') as school_phone,
                  l.level_name, l.surcharge_amount as level_surcharge,
-                 tc.name as teacher_name, tc.phone as teacher_phone, tc.color as teacher_color
+                 tc.name as teacher_name, tc.phone as teacher_phone, tc.color as teacher_color,
+                 pkg.name as tuition_package_name, pkg.amount as tuition_package_amount
           FROM students s
           LEFT JOIN schools sc ON s.school_id = sc.id
           LEFT JOIN level_surcharges l ON s.level_id = l.id
           LEFT JOIN teachers tc ON s.teacher_id = tc.id
+          LEFT JOIN tuition_packages pkg ON s.tuition_package_id = pkg.id
           WHERE replace(replace(replace(s.phone, ' ', ''), '.', ''), '-', '') LIKE ?
           ORDER BY s.created_at DESC
         `,
@@ -79,12 +81,18 @@ export async function POST(req: Request) {
           args: [studentId, currentMonth],
         });
 
-        const stdTuition = calculateStandardTuition(
-          baseTuition,
-          Number(st.level_surcharge || 0),
-          Number(st.is_discount_enabled || 0),
-          Number(st.discount_percent || 0)
-        );
+        const pkgAmount = Number(st.tuition_package_amount || 0);
+        let stdTuition = 0;
+        if (st.tuition_package_id && pkgAmount > 0) {
+          stdTuition = pkgAmount;
+        } else {
+          stdTuition = calculateStandardTuition(
+            baseTuition,
+            Number(st.level_surcharge || 0),
+            Number(st.is_discount_enabled || 0),
+            Number(st.discount_percent || 0)
+          );
+        }
 
         const override = overrideRes.rows.length > 0 ? overrideRes.rows[0] : null;
         const currentTuition = override ? Number(override.amount) : stdTuition;

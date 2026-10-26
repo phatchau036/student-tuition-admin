@@ -210,12 +210,15 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
   // Compute live preview of tuition
   const selectedLevel = levels.find((l) => l.id === levelId);
   const selectedLevelSurcharge = selectedLevel ? selectedLevel.surcharge_amount : 0;
-  const liveTuition = calculateStandardTuition(
-    baseTuition,
-    selectedLevelSurcharge,
-    isDiscountEnabled,
-    discountPercent
-  );
+  const selectedPkg = tuitionPackages.find((p) => p.id === tuitionPackageId);
+  const liveTuition = selectedPkg
+    ? selectedPkg.amount
+    : calculateStandardTuition(
+        baseTuition,
+        selectedLevelSurcharge,
+        isDiscountEnabled,
+        discountPercent
+      );
 
   // Helpers for schedule items in by_hours mode
   const handleAddScheduleItem = () => {
@@ -969,11 +972,12 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
           <div className="p-4 rounded-2xl bg-gradient-to-tr from-indigo-50 to-purple-50 dark:from-indigo-950/40 dark:to-purple-950/30 border border-indigo-100 dark:border-indigo-900/60 flex items-center justify-between">
             <div>
               <span className="text-xs font-bold text-slate-700 dark:text-slate-300 block">
-                Học phí chuẩn tự tính (Mặc định):
+                {selectedPkg ? `Học phí áp dụng (${selectedPkg.name}):` : "Học phí chuẩn tự tính (Mặc định):"}
               </span>
               <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
-                ({formatVND(baseTuition)} base + {formatVND(selectedLevelSurcharge)} surcharge)
-                {isDiscountEnabled && discountPercent > 0 ? ` - ${discountPercent}%` : ""}
+                {selectedPkg
+                  ? `Chu kỳ: ${selectedPkg.cycle_value} ${selectedPkg.cycle_unit === "month" ? "tháng" : "tuần"}`
+                  : `(${formatVND(baseTuition)} base + ${formatVND(selectedLevelSurcharge)} surcharge)${isDiscountEnabled && discountPercent > 0 ? ` - ${discountPercent}%` : ""}`}
               </span>
             </div>
             <span className="text-lg font-black text-indigo-700 dark:text-indigo-300">

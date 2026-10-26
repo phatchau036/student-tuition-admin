@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
+import { getPreviousMonthStr, getNextMonthStr } from "@/lib/tuition";
 
 // Helper: tính toán tháng kết thúc từ tháng bắt đầu và số tháng chu kỳ
 // Ví dụ: addMonthsToPeriod("2026-10", 3) => "2026-12" (10, 11, 12 là 3 tháng)
@@ -112,16 +113,87 @@ export async function POST(req: Request) {
 
     // 2. ĐỐI SOÁT: ĐÁNH DẤU CHƯA ĐÓNG / HỦY ĐỐI SOÁT (Unpaid)
     if (action === "mark_unpaid") {
-      // Xóa hoặc chuyển trạng thái các payment đang bao phủ tháng này
-      await db.execute({
-        sql: `DELETE FROM student_payments 
-              WHERE student_id = ? AND ? >= start_period AND ? <= end_period`,
+      // Tìm các bản ghi thanh toán đang bao phủ currentMonth
+      const activePaymentsRes = await db.execute({
+        sql: `SELECT * FROM student_payments 
+              WHERE student_id = ? AND ? >= start_period AND ? <= end_period AND status = 'paid'`,
         args: [student_id, currentMonth, currentMonth],
       });
 
+      for (const pay of activePaymentsRes.rows) {
+        const sp = String(pay.start_period);
+        const ep = String(pay.end_period);
+
+        if (sp === ep) {
+          // Gói đơn 1 tháng: Xóa bản ghi này
+          await db.execute({
+            sql: "DELETE FROM student_payments WHERE id = ?",
+            args: [pay.id],
+          });
+        } else if (currentMonth === sp) {
+          // Hủy tháng đầu tiên của gói: co ngắn gói lại bắt đầu từ tháng kế tiếp
+          const nextStart = getNextMonthStr(currentMonth);
+          if (nextStart <= ep) {
+            await db.execute({
+              sql: "UPDATE student_payments SET start_period = ? WHERE id = ?",
+              args: [nextStart, pay.id],
+            });
+          } else {
+            await db.execute({
+              sql: "DELETE FROM student_payments WHERE id = ?",
+              args: [pay.id],
+            });
+          }
+        } else if (currentMonth === ep) {
+          // Hủy tháng cuối cùng của gói: co ngắn gói lại kết thúc tại tháng trước
+          const prevEnd = getPreviousMonthStr(currentMonth);
+          if (prevEnd >= sp) {
+            await db.execute({
+              sql: "UPDATE student_payments SET end_period = ? WHERE id = ?",
+              args: [prevEnd, pay.id],
+            });
+          } else {
+            await db.execute({
+              sql: "DELETE FROM student_payments WHERE id = ?",
+              args: [pay.id],
+            });
+          }
+        } else {
+          // Tháng bị hủy nằm ở giữa chu kỳ: bảo lưu tháng cũ từ sp -> prevMonth, tách tháng mới từ nextMonth -> ep
+          const prevEnd = getPreviousMonthStr(currentMonth);
+          const nextStart = getNextMonthStr(currentMonth);
+
+          // Cập nhật nửa đầu (các tháng cũ đã đóng giữ nguyên)
+          await db.execute({
+            sql: "UPDATE student_payments SET end_period = ? WHERE id = ?",
+            args: [prevEnd, pay.id],
+          });
+
+          // Tách nửa sau nếu còn tháng hiệu lực
+          if (nextStart <= ep) {
+            const splitId = `pay-split-${Date.now()}`;
+            await db.execute({
+              sql: `INSERT INTO student_payments (id, student_id, package_id, package_name, amount, paid_date, start_period, end_period, status, note)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'paid', ?)`,
+              args: [
+                splitId,
+                pay.student_id,
+                pay.package_id,
+                pay.package_name,
+                pay.amount,
+                pay.paid_date,
+                nextStart,
+                ep,
+                pay.note || "Bảo lưu các tháng khác sau khi hủy đối soát tháng giữa",
+              ],
+            });
+          }
+        }
+      }
+
       return NextResponse.json({
         success: true,
-        message: `Đã chuyển trạng thái học sinh thành "Cần đóng tiền" cho tháng ${currentMonth}!`,
+        message: `Đã chuyển trạng thái tháng ${currentMonth} thành "Cần đóng tiền" (các tháng trước vẫn được bảo lưu)!`,
       });
     }
 
