@@ -128,6 +128,11 @@ export default function SystemAdminPage() {
   const [allowedIpsText, setAllowedIpsText] = useState("");
   const [isSavingIp, setIsSavingIp] = useState(false);
 
+  // Auto Upgrade from GitHub state
+  const [isUpgrading, setIsUpgrading] = useState(false);
+  const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
+  const [upgradeLogs, setUpgradeLogs] = useState<string[]>([]);
+
   // Custom Delete Confirmations
   const [schoolToDelete, setSchoolToDelete] = useState<School | null>(null);
   const [isDeletingSchool, setIsDeletingSchool] = useState(false);
@@ -547,6 +552,35 @@ export default function SystemAdminPage() {
     }
   };
 
+  // Kích hoạt cập nhật tự động từ GitHub
+  const handleTriggerUpgrade = async () => {
+    try {
+      setIsUpgrading(true);
+      setUpgradeLogs([
+        "Đang kích hoạt cờ bảo trì (Maintenance Mode)...",
+        "Tất cả người dùng truy cập lúc này sẽ thấy thông báo 'Server Đang Nâng Cấp'...",
+        "Đang kéo mã nguồn mới nhất từ kho GitHub (git pull origin main)...",
+        "Đang tiến hành tối ưu và biên dịch bản build (next build)...",
+        "Hệ thống sẽ tự động gỡ cờ bảo trì và khởi động lại dịch vụ ngay sau khi hoàn tất!",
+      ]);
+
+      const res = await fetch("/api/system/upgrade", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(data.message, "success");
+      } else {
+        showToast(data.message || "Kích hoạt nâng cấp thất bại", "error");
+        setIsUpgrading(false);
+      }
+    } catch {
+      showToast("Lỗi kết nối khi gửi yêu cầu nâng cấp", "error");
+      setIsUpgrading(false);
+    }
+  };
+
   // Toggle reveal password for admin
   const togglePasswordVisibility = (adminId: string) => {
     setRevealedPasswords((prev) => ({
@@ -710,6 +744,16 @@ export default function SystemAdminPage() {
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3">
+            {/* Nút Cập Nhật Phiên Bản Mới Từ GitHub */}
+            <button
+              onClick={() => setIsUpgradeModalOpen(true)}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs sm:text-sm font-bold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition shadow-sm shadow-emerald-600/30"
+              title="Tải mã nguồn mới nhất từ GitHub và tự động khởi động lại hệ thống"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isUpgrading ? "animate-spin" : ""}`} />
+              <span>Cập Nhật GitHub</span>
+            </button>
+
             <Link
               href="/admin"
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200 transition"
@@ -1907,6 +1951,78 @@ export default function SystemAdminPage() {
               >
                 <Trash2 className="w-4 h-4" />
                 <span>{isDeletingAdmin ? "Đang xóa..." : "Xác Nhận Xóa Admin"}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Cập Nhật Hệ Thống Từ GitHub (Tự động tải & Khởi động lại) */}
+      {isUpgradeModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-slate-900 border border-emerald-500/40 rounded-3xl w-full max-w-lg p-6 space-y-5 shadow-2xl">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+                  <RefreshCw className={`w-6 h-6 ${isUpgrading ? "animate-spin" : ""}`} />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white leading-snug">
+                    Cập Nhật Hệ Thống Từ GitHub
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    Tự động kéo commit mới nhất, build và khởi động lại
+                  </p>
+                </div>
+              </div>
+              {!isUpgrading && (
+                <button
+                  onClick={() => setIsUpgradeModalOpen(false)}
+                  className="text-slate-400 hover:text-white"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+
+            <div className="p-4 rounded-2xl bg-slate-800/80 border border-slate-700 space-y-3 text-xs">
+              <div className="flex items-center gap-2 text-amber-300 font-bold">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>Chế độ bảo vệ & trải nghiệm người dùng:</span>
+              </div>
+              <p className="text-slate-300 leading-relaxed text-[11px]">
+                Khi bắt đầu nâng cấp, hệ thống sẽ <strong>tự động bật màn hình bảo trì</strong>. Bất kỳ ai vào web lúc này sẽ nhận được thông báo <em>&quot;Server Đang Được Nâng Cấp&quot;</em>. Khi quá trình hoàn tất, máy chủ tự gỡ bảo trì và cho người dùng truy cập bình thường.
+              </p>
+
+              {upgradeLogs.length > 0 && (
+                <div className="pt-2 border-t border-slate-700/60 space-y-1 font-mono text-[11px] text-emerald-400 max-h-40 overflow-y-auto">
+                  {upgradeLogs.map((log, idx) => (
+                    <div key={idx} className="flex items-center gap-1.5">
+                      <span className="text-slate-500">&gt;</span>
+                      <span>{log}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                disabled={isUpgrading}
+                onClick={() => setIsUpgradeModalOpen(false)}
+                className="px-4 py-2.5 text-xs font-semibold rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition"
+              >
+                Đóng
+              </button>
+              <button
+                type="button"
+                disabled={isUpgrading}
+                onClick={handleTriggerUpgrade}
+                className="px-5 py-2.5 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/30 transition flex items-center gap-1.5 disabled:opacity-50"
+              >
+                <RefreshCw className={`w-4 h-4 ${isUpgrading ? "animate-spin" : ""}`} />
+                <span>{isUpgrading ? "Đang Tải & Build..." : "Bắt Đầu Cập Nhật Ngay"}</span>
               </button>
             </div>
           </div>
