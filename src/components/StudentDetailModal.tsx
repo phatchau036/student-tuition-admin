@@ -186,6 +186,28 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                 </div>
               )}
 
+              {/* Banner khi học sinh Đang học: Cho phép chuyển nhanh sang bảo lưu */}
+              {status === "studying" && (
+                <div className="p-3.5 rounded-2xl bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200/80 dark:border-amber-900/40 flex items-center justify-between gap-3 text-xs">
+                  <div className="flex items-center gap-2">
+                    <PauseCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                    <span className="text-slate-700 dark:text-slate-300">
+                      Học sinh muốn tạm dừng một thời gian?
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      onOpenStatusChange(student);
+                    }}
+                    className="px-3 py-1.5 text-xs font-bold rounded-xl bg-amber-500 hover:bg-amber-600 text-white shrink-0 shadow-xs transition"
+                  >
+                    Chuyển vào bảo lưu
+                  </button>
+                </div>
+              )}
+
               {status === "dropped" && (
                 <div className="p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/50 flex items-start justify-between gap-3 text-xs">
                   <div className="space-y-1">
