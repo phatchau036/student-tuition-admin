@@ -30,7 +30,9 @@ export async function GET() {
         email: row.email ? String(row.email) : "",
         color: String(row.color || "indigo"),
         specialty: row.specialty ? String(row.specialty) : "",
+        max_students: Number(row.max_students || 10),
         assigned_slot_ids: assignedSlotIds,
+        working_shifts_json: row.working_shifts_json ? String(row.working_shifts_json) : "[]",
         is_active: Number(row.is_active || 1),
         student_count: Number(row.student_count || 0),
         created_at: String(row.created_at || ""),
@@ -53,7 +55,7 @@ export async function POST(req: Request) {
     const db = getDb();
     const body = await req.json();
 
-    const { name, phone, email, specialty, color, assigned_slot_ids } = body;
+    const { name, phone, email, specialty, color, max_students, assigned_slot_ids, working_shifts_json } = body;
 
     if (!name || !phone) {
       return NextResponse.json(
@@ -64,11 +66,22 @@ export async function POST(req: Request) {
 
     const id = `tc-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
     const slotJson = JSON.stringify(Array.isArray(assigned_slot_ids) ? assigned_slot_ids : []);
+    const shiftJson = typeof working_shifts_json === "string" ? working_shifts_json : JSON.stringify(working_shifts_json || []);
 
     await db.execute({
-      sql: `INSERT INTO teachers (id, name, phone, email, specialty, color, assigned_slot_ids, is_active)
-            VALUES (?, ?, ?, ?, ?, ?, ?, 1)`,
-      args: [id, name.trim(), phone.trim(), email?.trim() || "", specialty?.trim() || "", color || "indigo", slotJson],
+      sql: `INSERT INTO teachers (id, name, phone, email, specialty, color, max_students, assigned_slot_ids, working_shifts_json, is_active)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+      args: [
+        id,
+        name.trim(),
+        phone.trim(),
+        email?.trim() || "",
+        specialty?.trim() || "",
+        color || "indigo",
+        Number(max_students) || 10,
+        slotJson,
+        shiftJson,
+      ],
     });
 
     return NextResponse.json({

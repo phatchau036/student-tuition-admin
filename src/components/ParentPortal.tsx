@@ -58,6 +58,11 @@ interface StudentData {
   current_month: string;
   current_tuition: number;
   standard_tuition: number;
+  is_paid?: boolean;
+  is_overdue?: boolean;
+  unpaid_months_count?: number;
+  previous_debt_amount?: number;
+  total_tuition_due?: number;
   is_override: boolean;
   override_note?: string;
   makeups: MakeupItem[];
@@ -474,13 +479,25 @@ export default function ParentPortal() {
                   </div>
 
                   <div className="text-right">
-                    <p className="text-[11px] text-emerald-100">Học phí {formatMonthDisplay(activeStudent.current_month, monthFormat)}</p>
-                    <p className="text-lg font-black text-white">{formatVND(activeStudent.current_tuition)}</p>
-                    {activeStudent.is_override && (
+                    <p className="text-[11px] text-emerald-100">
+                      {activeStudent.is_overdue
+                        ? `Tổng nợ (${activeStudent.unpaid_months_count} tháng)`
+                        : `Học phí ${formatMonthDisplay(activeStudent.current_month, monthFormat)}`}
+                    </p>
+                    <p className={`text-lg font-black ${activeStudent.is_overdue ? "text-amber-200" : "text-white"}`}>
+                      {activeStudent.is_overdue && activeStudent.total_tuition_due
+                        ? formatVND(activeStudent.total_tuition_due)
+                        : formatVND(activeStudent.current_tuition)}
+                    </p>
+                    {activeStudent.is_overdue && activeStudent.previous_debt_amount ? (
+                      <span className="text-[10px] text-rose-200 font-bold block bg-rose-900/60 px-2 py-0.5 rounded mt-0.5">
+                        * Nợ cũ: +{formatVND(activeStudent.previous_debt_amount)}
+                      </span>
+                    ) : activeStudent.is_override ? (
                       <span className="text-[10px] text-amber-200 font-semibold block">
                         Đã điều chỉnh học phí
                       </span>
-                    )}
+                    ) : null}
                   </div>
                 </div>
 
@@ -781,30 +798,30 @@ export default function ParentPortal() {
                                 setMakeupTime(slot.time_range);
                               }
                             }}
-                            className={`p-3 rounded-xl border text-xs transition cursor-pointer flex items-center justify-between ${
+                            className={`p-3 rounded-xl border text-xs transition flex items-center justify-between ${
                               slot.is_full
-                                ? "opacity-50 bg-slate-100 dark:bg-slate-800/40 border-slate-200 cursor-not-allowed"
+                                ? "opacity-60 bg-rose-50/40 dark:bg-rose-950/20 border-rose-200 dark:border-rose-900/50 cursor-not-allowed select-none"
                                 : isSelected
-                                ? "bg-amber-50 dark:bg-amber-950/40 border-amber-500 ring-2 ring-amber-500/20"
-                                : "bg-white dark:bg-slate-800 border-slate-200 hover:border-amber-300"
+                                ? "bg-amber-50 dark:bg-amber-950/40 border-amber-500 ring-2 ring-amber-500/20 cursor-pointer"
+                                : "bg-white dark:bg-slate-800 border-slate-200 hover:border-amber-300 cursor-pointer"
                             }`}
                           >
                             <div>
                               <div className="flex items-center gap-2">
-                                <span className="font-bold text-slate-900 dark:text-white">
+                                <span className={`font-bold ${slot.is_full ? "text-slate-400 line-through" : "text-slate-900 dark:text-white"}`}>
                                   {slot.time_range}
                                 </span>
                                 {slot.is_full ? (
-                                  <span className="px-1.5 py-0.5 rounded text-[10px] font-black uppercase bg-rose-100 text-rose-700 border border-rose-300">
-                                    Hết suất
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border border-rose-300 flex items-center gap-1">
+                                    <AlertCircle className="w-3 h-3" /> Hết suất ({slot.total_occupied}/{slot.max_capacity})
                                   </span>
                                 ) : slot.is_crowded ? (
-                                  <span className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase bg-amber-100 text-amber-700 border border-amber-300 flex items-center gap-1">
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 flex items-center gap-1">
                                     <AlertTriangle className="w-3 h-3 text-amber-600" />
                                     Lớp đông ({slot.occupancy_rate}%)
                                   </span>
                                 ) : (
-                                  <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-100 text-emerald-700">
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
                                     Còn chỗ ({slot.total_occupied}/{slot.max_capacity})
                                   </span>
                                 )}
@@ -818,10 +835,12 @@ export default function ParentPortal() {
                               disabled={slot.is_full}
                               checked={isSelected}
                               onChange={() => {
-                                setSelectedSlotId(slot.slot_id);
-                                setMakeupTime(slot.time_range);
+                                if (!slot.is_full) {
+                                  setSelectedSlotId(slot.slot_id);
+                                  setMakeupTime(slot.time_range);
+                                }
                               }}
-                              className="text-amber-600 focus:ring-amber-500"
+                              className="text-amber-600 focus:ring-amber-500 disabled:opacity-30 disabled:cursor-not-allowed"
                             />
                           </div>
                         );

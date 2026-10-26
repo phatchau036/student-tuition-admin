@@ -97,6 +97,16 @@ export interface ZaloBotConfig {
   webhook_url?: string;
 }
 
+export type CapacityMode = "by_slot" | "by_teacher"; // "by_slot": Tính theo ca/giờ mở cửa | "by_teacher": Tính theo giáo viên & ca làm việc riêng
+
+export interface TeacherShift {
+  id: string;
+  day: string; // "Thứ 2", "Thứ 3", ..., "Chủ Nhật"
+  start_time: string; // "17:00"
+  end_time: string; // "20:00"
+  max_students?: number; // Sĩ số tối đa giáo viên nhận trong ca này
+}
+
 export interface Teacher {
   id: string;
   school_id?: string;
@@ -105,8 +115,10 @@ export interface Teacher {
   email?: string;
   color?: string; // Color badge
   specialty?: string; // Chuyên môn / Môn dạy
+  max_students?: number; // Sĩ số tối đa 1 ca dạy của giáo viên này (Mặc định: 10)
   assigned_slot_ids?: string[]; // Danh sách ID các khung giờ / ca giáo viên được phân công dạy
   assigned_slots_desc?: string; // Chuỗi mô tả các ca dạy (VD: "Thứ 2 – Thứ 7: 17:00 - 20:00")
+  working_shifts_json?: string; // Danh sách ca làm việc linh hoạt TeacherShift[]
   is_active: number; // 1 or 0
   student_count?: number;
   created_at?: string;
@@ -156,6 +168,7 @@ export interface SystemSettings {
   default_study_time: string; // Ví dụ: "18:00 - 19:00"
   max_students_per_slot: number; // Sĩ số tối đa mặc định cho 1 lớp/ca
   crowded_threshold_percent: number; // Ngưỡng cảnh báo lớp đông (Mặc định: 80%)
+  capacity_mode?: CapacityMode; // 'by_slot' (Tính theo ca mở cửa) | 'by_teacher' (Tính theo ca/sĩ số của Giáo Viên)
   reconciliation_mode?: ReconciliationMode; // 'manual' | 'auto'
   
   // Cấu hình SePay Webhook
@@ -271,6 +284,12 @@ export interface Student {
   payment_status?: "paid" | "unpaid"; // 'paid' = Đã đóng, 'unpaid' = Cần đóng tiền
   payment_period_desc?: string; // Ví dụ: "Đã đóng tới tháng 12/2026" hoặc "Đã đóng tháng 10/2026"
   payment_id?: string; // ID của bản ghi payment nếu đã đóng
+
+  // Công nợ nợ cũ cộng dồn & cảnh báo nợ quá 1 tháng
+  unpaid_months_count?: number; // Số tháng nợ liên tiếp (>= 1, 2, 3...)
+  is_overdue?: boolean; // True nếu nợ quá 1 tháng (>= 2 tháng chưa thanh toán)
+  previous_debt_amount?: number; // Tiền nợ các tháng trước cộng dồn
+  total_tuition_due?: number; // Tổng học phí cần đóng = tiền tháng này + nợ cũ cộng dồn
 
   // Computed fields for a given month:
   monthly_override?: StudentMonthlyTuition | null;

@@ -308,6 +308,8 @@ export async function initDb() {
   try { await db.execute("ALTER TABLE schools ADD COLUMN allowed_ips TEXT DEFAULT ''"); } catch {}
   try { await db.execute("ALTER TABLE teachers ADD COLUMN school_id TEXT DEFAULT 'school-default'"); } catch {}
   try { await db.execute("ALTER TABLE teachers ADD COLUMN assigned_slot_ids TEXT DEFAULT '[]'"); } catch {}
+  try { await db.execute("ALTER TABLE teachers ADD COLUMN max_students INTEGER DEFAULT 10"); } catch {}
+  try { await db.execute("ALTER TABLE teachers ADD COLUMN working_shifts_json TEXT DEFAULT '[]'"); } catch {}
   try { await db.execute("ALTER TABLE time_slots ADD COLUMN school_id TEXT DEFAULT 'school-default'"); } catch {}
   try { await db.execute("ALTER TABLE level_surcharges ADD COLUMN school_id TEXT DEFAULT 'school-default'"); } catch {}
   try { await db.execute("ALTER TABLE discount_presets ADD COLUMN school_id TEXT DEFAULT 'school-default'"); } catch {}
@@ -321,6 +323,7 @@ export async function initDb() {
   try { await db.execute("ALTER TABLE students ADD COLUMN zalo_chat_id TEXT DEFAULT NULL"); } catch {}
   try { await db.execute("ALTER TABLE students ADD COLUMN start_date TEXT DEFAULT NULL"); } catch {}
   try { await db.execute("ALTER TABLE students ADD COLUMN discount_reason TEXT DEFAULT ''"); } catch {}
+  try { await db.execute("ALTER TABLE makeup_classes ADD COLUMN makeup_teacher_id TEXT DEFAULT NULL"); } catch {}
 
   // Defaults for settings
   const defaults: [string, string][] = [
@@ -331,6 +334,7 @@ export async function initDb() {
     ["default_study_time", "18:00 - 19:00"],
     ["max_students_per_slot", "10"],
     ["crowded_threshold_percent", "80"],
+    ["capacity_mode", "by_slot"],
     ["reconciliation_mode", "manual"],
     ["sepay_prefix", "HP"],
   ];

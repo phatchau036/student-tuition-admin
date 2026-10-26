@@ -91,24 +91,93 @@ export async function POST(req: Request) {
         );
       }
 
-      // Check slot capacity if slot is provided
+      // Check slot capacity if slot is provided (Enforce strictly based on capacity mode)
       if (makeup_slot_id) {
-        const slotCheck = await db.execute({
-          sql: "SELECT max_students FROM time_slots WHERE id = ?",
+        // Get settings
+        const settingsRes = await db.execute("SELECT key, value FROM settings");
+        const settingsMap: Record<string, string> = {};
+        for (const row of settingsRes.rows) {
+          settingsMap[String(row.key)] = String(row.value);
+        }
+        const defaultMaxCapacity = Number(settingsMap["max_students_per_slot"] || 10);
+        const capacityMode = settingsMap["capacity_mode"] || "by_slot";
+
+        // Determine day name
+        const [y, m, d] = makeup_date.split("-").map(Number);
+        const dateObj = new Date(y, m - 1, d);
+        const dayIdx = dateObj.getDay();
+        const dayName = dayIdx === 0 ? "Chủ Nhật" : `Thứ ${dayIdx + 1}`;
+
+        let maxCapacity = defaultMaxCapacity;
+
+        if (capacityMode === "by_teacher") {
+          const teachersRes = await db.execute("SELECT * FROM teachers WHERE is_active = 1");
+          let teacherCapTotal = 0;
+          let matchedTeacherCount = 0;
+
+          for (const tc of teachersRes.rows) {
+            let assignedSlots: string[] = [];
+            try {
+              if (tc.assigned_slot_ids) {
+                const parsed = JSON.parse(String(tc.assigned_slot_ids));
+                if (Array.isArray(parsed)) assignedSlots = parsed;
+              }
+            } catch {}
+
+            let shifts: any[] = [];
+            try {
+              if (tc.working_shifts_json) {
+                const parsed = JSON.parse(String(tc.working_shifts_json));
+                if (Array.isArray(parsed)) shifts = parsed;
+              }
+            } catch {}
+
+            const worksOnSlot =
+              assignedSlots.includes(makeup_slot_id) ||
+              shifts.some((s: any) => s.day === dayName);
+
+            if (worksOnSlot) {
+              matchedTeacherCount++;
+              teacherCapTotal += Number(tc.max_students || defaultMaxCapacity);
+            }
+          }
+
+          if (matchedTeacherCount > 0) {
+            maxCapacity = teacherCapTotal;
+          }
+        } else {
+          const slotCheck = await db.execute({
+            sql: "SELECT max_students FROM time_slots WHERE id = ?",
+            args: [makeup_slot_id],
+          });
+          if (slotCheck.rows.length > 0) {
+            maxCapacity = Number(slotCheck.rows[0].max_students || defaultMaxCapacity);
+          }
+        }
+
+        // Count regular students on this slot & day
+        const regularStudentsRes = await db.execute({
+          sql: "SELECT id, registered_days FROM students WHERE time_slot_id = ?",
           args: [makeup_slot_id],
         });
-        const maxCapacity = slotCheck.rows.length > 0 ? Number(slotCheck.rows[0].max_students || 10) : 10;
+        let regularCount = 0;
+        for (const st of regularStudentsRes.rows) {
+          if (String(st.registered_days || "").includes(dayName)) {
+            regularCount++;
+          }
+        }
 
         // Count current booked makeups
         const currentMakeups = await db.execute({
           sql: "SELECT COUNT(*) as count FROM makeup_classes WHERE makeup_date = ? AND makeup_slot_id = ? AND id != ? AND status IN ('scheduled', 'completed')",
           args: [makeup_date, makeup_slot_id, makeup_id],
         });
-        const booked = Number(currentMakeups.rows[0].count || 0);
+        const makeupBooked = Number(currentMakeups.rows[0].count || 0);
 
-        if (booked >= maxCapacity) {
+        const totalOccupied = regularCount + makeupBooked;
+        if (totalOccupied >= maxCapacity) {
           return NextResponse.json(
-            { success: false, message: "Khung giờ này trong ngày đã đủ sĩ số tối đa (hết suất). Vui lòng chọn khung giờ hoặc ngày khác!" },
+            { success: false, message: `Khung giờ này trong ngày đã đủ sĩ số tối đa (${totalOccupied}/${maxCapacity} học sinh - HẾT SUẤT). Vui lòng chọn khung giờ hoặc ngày khác!` },
             { status: 400 }
           );
         }

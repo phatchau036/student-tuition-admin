@@ -14,6 +14,7 @@ import {
   BookOpen,
   Check,
   UserCheck,
+  Users,
   X,
   User,
   Sparkles,
@@ -46,7 +47,9 @@ export const TeacherManagementModal: React.FC<TeacherManagementModalProps> = ({
   const [email, setEmail] = useState("");
   const [specialty, setSpecialty] = useState("");
   const [color, setColor] = useState("indigo");
+  const [maxStudents, setMaxStudents] = useState<number>(10);
   const [assignedSlotIds, setAssignedSlotIds] = useState<string[]>([]);
+  const [workingShifts, setWorkingShifts] = useState<{ id: string; day: string; start_time: string; end_time: string; max_students: number }[]>([]);
   const [isSaving, setIsSaving] = useState(false);
 
   // Custom Delete Confirm state
@@ -61,7 +64,9 @@ export const TeacherManagementModal: React.FC<TeacherManagementModalProps> = ({
     setEmail("");
     setSpecialty("");
     setColor("indigo");
+    setMaxStudents(10);
     setAssignedSlotIds([]);
+    setWorkingShifts([]);
   };
 
   const toggleSlotAssignment = (slotId: string) => {
@@ -72,6 +77,29 @@ export const TeacherManagementModal: React.FC<TeacherManagementModalProps> = ({
     }
   };
 
+  const handleAddShift = () => {
+    setWorkingShifts([
+      ...workingShifts,
+      {
+        id: `shift-${Date.now()}`,
+        day: "Thứ 2",
+        start_time: "17:00",
+        end_time: "20:00",
+        max_students: maxStudents || 10,
+      },
+    ]);
+  };
+
+  const handleUpdateShift = (index: number, field: string, val: any) => {
+    const updated = [...workingShifts];
+    updated[index] = { ...updated[index], [field]: val };
+    setWorkingShifts(updated);
+  };
+
+  const handleRemoveShift = (index: number) => {
+    setWorkingShifts(workingShifts.filter((_, i) => i !== index));
+  };
+
   const handleEditClick = (teacher: Teacher) => {
     setIsEditing(true);
     setEditingTeacherId(teacher.id);
@@ -80,7 +108,19 @@ export const TeacherManagementModal: React.FC<TeacherManagementModalProps> = ({
     setEmail(teacher.email || "");
     setSpecialty(teacher.specialty || "");
     setColor(teacher.color || "indigo");
+    setMaxStudents(teacher.max_students || 10);
     setAssignedSlotIds(teacher.assigned_slot_ids || []);
+    try {
+      if (teacher.working_shifts_json) {
+        const parsed = JSON.parse(teacher.working_shifts_json);
+        if (Array.isArray(parsed)) setWorkingShifts(parsed);
+        else setWorkingShifts([]);
+      } else {
+        setWorkingShifts([]);
+      }
+    } catch {
+      setWorkingShifts([]);
+    }
   };
 
   const handleConfirmDeleteTeacher = async () => {
@@ -129,7 +169,9 @@ export const TeacherManagementModal: React.FC<TeacherManagementModalProps> = ({
           email: email.trim(),
           specialty: specialty.trim(),
           color,
+          max_students: Number(maxStudents) || 10,
           assigned_slot_ids: assignedSlotIds,
+          working_shifts_json: JSON.stringify(workingShifts),
           is_active: 1,
         }),
       });
@@ -250,6 +292,98 @@ export const TeacherManagementModal: React.FC<TeacherManagementModalProps> = ({
                   placeholder="Piano, Guitar, Thanh nhạc..."
                   className="w-full px-3.5 py-2 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 outline-none focus:ring-2 focus:ring-indigo-500"
                 />
+              </div>
+
+              {/* Sĩ số tối đa giáo viên nhận trong 1 ca */}
+              <div className="p-3 rounded-xl bg-indigo-50/50 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/40">
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] font-bold text-slate-800 dark:text-slate-200">
+                    Sĩ số tối đa giáo viên dạy / ca:
+                  </label>
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="number"
+                      min="1"
+                      max="100"
+                      value={maxStudents}
+                      onChange={(e) => setMaxStudents(Number(e.target.value) || 10)}
+                      className="w-16 px-2 py-1 text-xs font-black text-center rounded-lg border border-indigo-200 dark:border-indigo-800 bg-white dark:bg-slate-900 text-indigo-600 outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                    <span className="text-[11px] font-bold text-slate-500">học sinh</span>
+                  </div>
+                </div>
+                <p className="text-[10px] text-slate-500 mt-1">
+                  Khi lớp của giáo viên đạt mức này, hệ thống sẽ tự động khóa và báo hết suất.
+                </p>
+              </div>
+
+              {/* Ca làm việc riêng linh hoạt theo tuần của giáo viên */}
+              <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="text-[11px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 block">
+                      Lịch ca làm việc riêng trong tuần ({workingShifts.length}):
+                    </label>
+                    <span className="text-[10px] text-slate-400">
+                      GV có thể làm 2-3 buổi/tuần, linh hoạt ca dạy riêng
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleAddShift}
+                    className="px-2 py-1 text-[11px] font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition flex items-center gap-1"
+                  >
+                    <Plus className="w-3 h-3" /> Thêm ca
+                  </button>
+                </div>
+
+                <div className="space-y-1.5 max-h-32 overflow-y-auto">
+                  {workingShifts.map((shift, idx) => (
+                    <div
+                      key={shift.id || idx}
+                      className="p-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-between gap-1.5 text-xs"
+                    >
+                      <select
+                        value={shift.day}
+                        onChange={(e) => handleUpdateShift(idx, "day", e.target.value)}
+                        className="px-2 py-1 text-[11px] font-bold rounded-md bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-200 outline-none"
+                      >
+                        {["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ Nhật"].map((d) => (
+                          <option key={d} value={d}>{d}</option>
+                        ))}
+                      </select>
+
+                      <div className="flex items-center gap-1 font-mono text-[11px]">
+                        <input
+                          type="time"
+                          value={shift.start_time}
+                          onChange={(e) => handleUpdateShift(idx, "start_time", e.target.value)}
+                          className="px-1 py-0.5 rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900"
+                        />
+                        <span>-</span>
+                        <input
+                          type="time"
+                          value={shift.end_time}
+                          onChange={(e) => handleUpdateShift(idx, "end_time", e.target.value)}
+                          className="px-1 py-0.5 rounded border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900"
+                        />
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveShift(idx)}
+                        className="p-1 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded transition"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                  {workingShifts.length === 0 && (
+                    <span className="text-[10px] text-slate-400 italic block text-center py-1">
+                      Chưa thêm ca làm việc riêng (áp dụng theo ca mở cửa bên dưới)
+                    </span>
+                  )}
+                </div>
               </div>
 
               {/* Phân công ca dạy / khung giờ phụ trách */}
@@ -374,6 +508,9 @@ export const TeacherManagementModal: React.FC<TeacherManagementModalProps> = ({
                         </span>
                         <span className="text-indigo-600 dark:text-indigo-400 font-bold flex items-center gap-1">
                           <UserCheck className="w-3.5 h-3.5" /> {tc.student_count || 0} học sinh phụ trách
+                        </span>
+                        <span className="text-amber-600 dark:text-amber-400 font-bold flex items-center gap-1">
+                          <Users className="w-3.5 h-3.5" /> Tối đa {tc.max_students || 10} HS/ca
                         </span>
                       </div>
 

@@ -45,6 +45,7 @@ import {
   ChevronRight,
   TrendingUp,
   AlertCircle,
+  AlertTriangle,
   HelpCircle,
   RefreshCw,
   Phone,
@@ -144,6 +145,7 @@ export default function Dashboard() {
   const [defaultStudyTime, setDefaultStudyTime] = useState<string>("18:00 - 19:00");
   const [maxStudents, setMaxStudents] = useState<number>(10);
   const [crowdedThreshold, setCrowdedThreshold] = useState<number>(80);
+  const [capacityMode, setCapacityMode] = useState<"by_slot" | "by_teacher">("by_slot");
   const [reconciliationMode, setReconciliationMode] = useState<string>("manual");
   const [zaloReminderMode, setZaloReminderMode] = useState<string>("manual");
   const [zaloBotToken, setZaloBotToken] = useState<string>("");
@@ -274,6 +276,7 @@ export default function Dashboard() {
         setDefaultStudyTime(json.data.default_study_time || "18:00 - 19:00");
         setMaxStudents(json.data.max_students_per_slot || 10);
         setCrowdedThreshold(json.data.crowded_threshold_percent || 80);
+        setCapacityMode(json.data.capacity_mode || "by_slot");
         setTimeSlots(json.data.time_slots);
         setLevels(json.data.level_surcharges);
         setDiscountPresets(json.data.discount_presets);
@@ -1137,7 +1140,9 @@ export default function Dashboard() {
                           <div className="flex flex-col">
                             <span
                               className={`text-sm font-black ${
-                                isCustom
+                                student.is_overdue
+                                  ? "text-rose-600 dark:text-rose-400"
+                                  : isCustom
                                   ? "text-amber-600 dark:text-amber-400"
                                   : "text-slate-900 dark:text-slate-100"
                               }`}
@@ -1145,7 +1150,18 @@ export default function Dashboard() {
                               {formatVND(student.current_tuition)}
                             </span>
 
-                            {isCustom ? (
+                            {/* CỘNG DỒN NỢ CŨ VÀ ĐÁNH DẤU NỢ QUÁ 1 THÁNG */}
+                            {student.is_overdue && student.previous_debt_amount ? (
+                              <div className="mt-1 flex flex-col items-start gap-0.5">
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-black bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border border-rose-300 dark:border-rose-800 animate-pulse">
+                                  <AlertTriangle className="w-3 h-3 text-rose-600" />
+                                  Nợ {student.unpaid_months_count} tháng (+{formatVND(student.previous_debt_amount)})
+                                </span>
+                                <span className="text-[10px] font-black text-rose-600 dark:text-rose-400">
+                                  Tổng phải nộp: {formatVND(student.total_tuition_due)}
+                                </span>
+                              </div>
+                            ) : isCustom ? (
                               <div className="mt-0.5 flex flex-col items-start gap-0.5">
                                 <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300">
                                   <Sparkles className="w-2.5 h-2.5" />
@@ -1172,11 +1188,15 @@ export default function Dashboard() {
                               className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-extrabold border transition shadow-2xs ${
                                 student.payment_status === "paid"
                                   ? "bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800"
+                                  : student.is_overdue
+                                  ? "bg-rose-600 text-white border-rose-700 hover:bg-rose-700 shadow-sm animate-pulse"
                                   : "bg-rose-50 text-rose-700 border-rose-300 hover:bg-rose-100 dark:bg-rose-950/50 dark:text-rose-300 dark:border-rose-800"
                               }`}
                               title={
                                 student.payment_status === "paid"
                                   ? "Bấm để chuyển về Chưa đóng"
+                                  : student.is_overdue
+                                  ? `Cảnh báo: Học sinh nợ liên tiếp ${student.unpaid_months_count} tháng! Tổng cần thu: ${formatVND(student.total_tuition_due)}`
                                   : "Bấm để xác nhận Đã đóng học phí"
                               }
                             >
@@ -1187,8 +1207,8 @@ export default function Dashboard() {
                                 </>
                               ) : (
                                 <>
-                                  <AlertCircle className="w-3.5 h-3.5 text-rose-600" />
-                                  <span>Cần đóng tiền</span>
+                                  <AlertCircle className={`w-3.5 h-3.5 ${student.is_overdue ? "text-white" : "text-rose-600"}`} />
+                                  <span>{student.is_overdue ? `Nợ ${student.unpaid_months_count} tháng` : "Cần đóng tiền"}</span>
                                 </>
                               )}
                             </button>
@@ -1335,6 +1355,7 @@ export default function Dashboard() {
         initialDefaultStudyTime={defaultStudyTime}
         initialMaxStudents={maxStudents}
         initialCrowdedThreshold={crowdedThreshold}
+        initialCapacityMode={capacityMode}
         initialReconciliationMode={reconciliationMode as any}
         initialSepayApiKey={sepayApiKey}
         initialSepayAccountNumber={sepayAccountNumber}

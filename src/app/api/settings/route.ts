@@ -21,6 +21,7 @@ export async function GET() {
     const defaultStudyTime = settingsMap["default_study_time"] || "18:00 - 19:00";
     const maxStudentsPerSlot = Number(settingsMap["max_students_per_slot"] || 10);
     const crowdedThresholdPercent = Number(settingsMap["crowded_threshold_percent"] || 80);
+    const capacityMode = (settingsMap["capacity_mode"] as "by_slot" | "by_teacher") || "by_slot";
     const reconciliationMode = (settingsMap["reconciliation_mode"] as "manual" | "auto") || "manual";
     const zaloReminderMode = (settingsMap["zalo_reminder_mode"] as "manual" | "bot") || "manual";
     const zaloBotToken = settingsMap["zalo_bot_token"] || "";
@@ -102,6 +103,7 @@ export async function GET() {
         default_study_time: defaultStudyTime,
         max_students_per_slot: maxStudentsPerSlot,
         crowded_threshold_percent: crowdedThresholdPercent,
+        capacity_mode: capacityMode,
         reconciliation_mode: reconciliationMode,
         zalo_reminder_mode: zaloReminderMode,
         zalo_bot_token: zaloBotToken,
@@ -143,6 +145,7 @@ export async function POST(req: Request) {
       default_study_time,
       max_students_per_slot,
       crowded_threshold_percent,
+      capacity_mode,
       reconciliation_mode,
       zalo_reminder_mode,
       zalo_bot_token,
@@ -169,6 +172,7 @@ export async function POST(req: Request) {
       default_study_time: default_study_time !== undefined ? String(default_study_time) : undefined,
       max_students_per_slot: max_students_per_slot !== undefined ? String(max_students_per_slot) : undefined,
       crowded_threshold_percent: crowded_threshold_percent !== undefined ? String(crowded_threshold_percent) : undefined,
+      capacity_mode: capacity_mode !== undefined ? String(capacity_mode) : undefined,
       reconciliation_mode: reconciliation_mode !== undefined ? String(reconciliation_mode) : undefined,
       sepay_api_key: sepay_api_key !== undefined ? String(sepay_api_key).trim() : undefined,
       sepay_account_number: sepay_account_number !== undefined ? String(sepay_account_number).trim() : undefined,

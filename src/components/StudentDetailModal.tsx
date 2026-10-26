@@ -225,16 +225,20 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                 </div>
 
                 <div className="grid grid-cols-2 gap-3 pt-1">
-                  <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
+                  <div className={`p-3 bg-white dark:bg-slate-900 rounded-xl border ${student.is_overdue ? "border-rose-300 dark:border-rose-900/60 bg-rose-50/20" : "border-slate-200 dark:border-slate-800"}`}>
                     <span className="text-[10px] uppercase font-bold text-slate-400 block">Số tiền cần đóng</span>
-                    <span className="text-lg font-black text-slate-900 dark:text-white mt-0.5 block">
-                      {formatVND(student.current_tuition)}
+                    <span className={`text-lg font-black mt-0.5 block ${student.is_overdue ? "text-rose-600 dark:text-rose-400" : "text-slate-900 dark:text-white"}`}>
+                      {student.total_tuition_due ? formatVND(student.total_tuition_due) : formatVND(student.current_tuition)}
                     </span>
-                    {student.monthly_override && (
+                    {student.is_overdue && student.previous_debt_amount ? (
+                      <span className="text-[10px] text-rose-600 font-bold block mt-0.5 animate-pulse">
+                        * Bao gồm nợ cũ: +{formatVND(student.previous_debt_amount)} (Nợ {student.unpaid_months_count} tháng)
+                      </span>
+                    ) : student.monthly_override ? (
                       <span className="text-[10px] text-amber-600 font-bold block mt-0.5">
                         * Đã điều chỉnh riêng tháng này
                       </span>
-                    )}
+                    ) : null}
                   </div>
 
                   <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 flex flex-col justify-between">
@@ -243,6 +247,10 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                       {isPaid ? (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-black bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 mt-1">
                           <CheckCircle2 className="w-3.5 h-3.5" /> Đã đóng học phí
+                        </span>
+                      ) : student.is_overdue ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-black bg-rose-600 text-white mt-1 shadow-xs animate-pulse">
+                          <AlertCircle className="w-3.5 h-3.5" /> NỢ QUÁ HẠN ({student.unpaid_months_count} THÁNG)
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-black bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 mt-1">

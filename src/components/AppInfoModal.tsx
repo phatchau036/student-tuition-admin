@@ -373,15 +373,15 @@ export const AppInfoModal: React.FC<AppInfoModalProps> = ({
                       <span className="text-xs font-bold text-slate-500">25/10/2026</span>
                     </div>
                     <span className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">
-                      Bản cập nhật đột phá
+                      Bản cập nhật hoàn thiện
                     </span>
                   </div>
                   <ul className="text-xs text-slate-700 dark:text-slate-300 space-y-1.5 list-disc list-inside">
+                    <li><strong>2 Tùy chọn kiểm soát sĩ số ca học:</strong> Hỗ trợ tính theo ca mở cửa cơ sở HOẶC theo từng giáo viên đứng lớp riêng biệt kèm lịch ca linh hoạt.</li>
+                    <li><strong>Bảo vệ lớp học & Khóa hết suất:</strong> Tự động cảnh báo Lớp đông khi vượt ngưỡng % và khóa cứng ô ca học khi hết suất (ghi chú Hết suất không cho chọn).</li>
                     <li><strong>Tích hợp SePay Webhook tự động:</strong> Nhận biến động số dư ngân hàng và tự động gạch nợ học phí theo mã HS và số điện thoại.</li>
-                    <li><strong>Cửa sổ Tổng Kết Tháng (Monthly Summary):</strong> Theo dõi doanh thu dự thu, thực thu, số nợ và nhật ký giao dịch ngân hàng theo từng tháng.</li>
-                    <li><strong>Lý do chiết khấu:</strong> Thêm cấu hình tên/lý do mốc chiết khấu trong Cài đặt và tự động điền vào hồ sơ học sinh.</li>
-                    <li><strong>Ngày bắt đầu đăng ký học:</strong> Bổ sung trường ngày nhập học kèm nút 1-click &quot;Hôm nay (Hiện tại ngay)&quot;.</li>
-                    <li><strong>Kênh tiếp nhận góp ý phụ huynh:</strong> Cung cấp form đánh giá sao và gửi phản hồi trực tiếp từ Cổng Phụ Huynh.</li>
+                    <li><strong>Cửa sổ Tổng Kết Tháng:</strong> Theo dõi doanh thu dự thu, thực thu, nợ tồn và nhật ký giao dịch ngân hàng theo từng tháng.</li>
+                    <li><strong>Kênh tiếp nhận góp ý phụ huynh & hệ thống:</strong> Form gửi ý kiến đánh giá trực tuyến từ phụ huynh và kênh đề xuất cải tiến cho TpTeam.</li>
                   </ul>
                 </div>
 
@@ -392,45 +392,16 @@ export const AppInfoModal: React.FC<AppInfoModalProps> = ({
                       <span className="px-2.5 py-1 rounded-xl text-xs font-black bg-slate-200 text-slate-800 dark:bg-slate-800 dark:text-slate-200">
                         v2.3.0
                       </span>
-                      <span className="text-xs font-bold text-slate-500">24/10/2026</span>
+                      <span className="text-xs font-bold text-slate-500">24/10/2026 (Bắt đầu dự án)</span>
                     </div>
+                    <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                      Khởi tạo nền tảng
+                    </span>
                   </div>
                   <ul className="text-xs text-slate-600 dark:text-slate-400 space-y-1.5 list-disc list-inside">
-                    <li><strong>Phân công ca dạy cho giáo viên:</strong> Phân công giáo viên phụ trách ca học và hiển thị trực quan trên Cổng Giáo Viên.</li>
-                    <li><strong>Gói học phí đa chu kỳ:</strong> Hỗ trợ thiết lập các gói học theo tháng, theo quý (3 tháng), khóa 6 tháng và 1 năm kèm ưu đãi.</li>
-                    <li><strong>Log biến động học sinh:</strong> Quản lý danh sách học sinh bảo lưu, nghỉ học và phục hồi trạng thái học tiếp.</li>
-                  </ul>
-                </div>
-
-                {/* v2.2.0 */}
-                <div className="p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-800/40 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="px-2.5 py-1 rounded-xl text-xs font-black bg-slate-200 text-slate-800 dark:bg-slate-800 dark:text-slate-200">
-                        v2.2.0
-                      </span>
-                      <span className="text-xs font-bold text-slate-500">23/10/2026</span>
-                    </div>
-                  </div>
-                  <ul className="text-xs text-slate-600 dark:text-slate-400 space-y-1.5 list-disc list-inside">
-                    <li><strong>Kiểm soát sức chứa lớp học bù:</strong> Thuật toán tính toán sĩ số theo ca mở cửa, chống xếp quá tải học sinh vào một buổi.</li>
-                    <li><strong>Nhắc học phí tự động qua Zalo:</strong> Hỗ trợ tạo mẫu thông báo học phí cá nhân hóa cho từng phụ huynh.</li>
-                  </ul>
-                </div>
-
-                {/* v2.0.0 */}
-                <div className="p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-800/40 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="px-2.5 py-1 rounded-xl text-xs font-black bg-slate-200 text-slate-800 dark:bg-slate-800 dark:text-slate-200">
-                        v2.0.0
-                      </span>
-                      <span className="text-xs font-bold text-slate-500">20/10/2026</span>
-                    </div>
-                  </div>
-                  <ul className="text-xs text-slate-600 dark:text-slate-400 space-y-1.5 list-disc list-inside">
-                    <li>Ra mắt giao diện Modern SaaS chuẩn quản trị chuyên nghiệp, hỗ trợ cả 2 chế độ học theo số tiếng/tuần và theo số buổi/tuần.</li>
-                    <li>Cổng thông tin phụ huynh tra cứu lịch học và báo nghỉ học trực tuyến.</li>
+                    <li><strong>Khởi tạo hệ thống quản trị trung tâm:</strong> Quản lý học sinh, danh sách lớp, gói học phí, phân công giáo viên và cổng phụ huynh tra cứu.</li>
+                    <li><strong>Quản lý học bù & sĩ số:</strong> Đăng ký học bù trực tuyến, theo dõi số buổi cần bù của học sinh.</li>
+                    <li><strong>Cấu hình chiết khấu & ngày đăng ký:</strong> Quản lý mốc chiết khấu, lý do giảm và ngày nhập học kèm nút Hôm nay.</li>
                   </ul>
                 </div>
               </div>

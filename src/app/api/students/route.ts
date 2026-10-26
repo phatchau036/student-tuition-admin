@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
-import { calculateStandardTuition } from "@/lib/tuition";
+import { calculateStandardTuition, getPreviousMonthStr } from "@/lib/tuition";
 
 export async function GET(req: Request) {
   try {
@@ -75,6 +75,27 @@ export async function GET(req: Request) {
       }
     }
 
+    // Fetch all student payments to calculate historical debt and overdue status
+    const allPaidRecordsRes = await db.execute("SELECT student_id, start_period, end_period, status FROM student_payments WHERE status = 'paid'");
+    const allPaidRecords = allPaidRecordsRes.rows;
+
+    // Helper: kiểm tra xem học sinh đã đóng học phí tháng targetMonth chưa
+    const isStudentPaidForMonth = (stId: string, targetMonth: string) => {
+      return allPaidRecords.some((p) => {
+        if (String(p.student_id) !== stId) return false;
+        const sp = String(p.start_period);
+        const ep = String(p.end_period);
+        return targetMonth >= sp && targetMonth <= ep;
+      });
+    };
+
+    // Fetch overrides for all months if needed
+    const allOverridesRes = await db.execute("SELECT student_id, month, amount FROM student_monthly_tuitions");
+    const allOverridesMap: Record<string, number> = {};
+    for (const row of allOverridesRes.rows) {
+      allOverridesMap[`${row.student_id}_${row.month}`] = Number(row.amount);
+    }
+
     // Fetch pending makeup classes count for each student
     const makeupsRes = await db.execute(`
       SELECT student_id, COUNT(*) as pending_count
@@ -110,6 +131,40 @@ export async function GET(req: Request) {
         }
       }
 
+      // TÍNH TOÁN CÔNG NỢ QUÁ HẠN & CỘNG DỒN SANG THÁNG TIẾP THEO:
+      // Duyệt lùi các tháng trước tháng đang chọn (tối đa 6 tháng) dựa theo ngày bắt đầu học
+      let unpaidMonthsCount = paymentStatus === "unpaid" ? 1 : 0;
+      let previousDebtAmount = 0;
+      const stStartDate = row.start_date ? String(row.start_date).slice(0, 7) : "";
+
+      if (month) {
+        let cursorMonth = getPreviousMonthStr(month);
+        let lookback = 0;
+        while (cursorMonth && lookback < 6) {
+          // Nếu tháng lùi trước ngày học sinh bắt đầu học thì dừng
+          if (stStartDate && cursorMonth < stStartDate) break;
+
+          const isPaidInCursor = isStudentPaidForMonth(String(row.id), cursorMonth);
+          if (!isPaidInCursor) {
+            unpaidMonthsCount += 1;
+            // Tiền tháng lùi đó (nếu có override thì lấy override, không thì stdTuition)
+            const pastOverride = allOverridesMap[`${row.id}_${cursorMonth}`];
+            const pastMonthTuition = pastOverride !== undefined ? pastOverride : stdTuition;
+            previousDebtAmount += pastMonthTuition;
+          } else {
+            // Đã trả tháng này thì ngắt chuỗi nợ liên tiếp
+            break;
+          }
+
+          cursorMonth = getPreviousMonthStr(cursorMonth);
+          lookback++;
+        }
+      }
+
+      // Đánh dấu đỏ nợ quá 1 tháng (nghĩa là nợ từ 2 tháng trở lên hoặc tháng này chưa đóng và tháng trước cũng chưa đóng)
+      const isOverdue = unpaidMonthsCount > 1;
+      const totalTuitionDue = paymentStatus === "paid" ? 0 : currentTuition + previousDebtAmount;
+
       return {
         id: String(row.id),
         student_code: row.student_code ? String(row.student_code) : `HS${String(row.id).slice(-4).toUpperCase()}`,
@@ -138,10 +193,14 @@ export async function GET(req: Request) {
         tuition_package_id: row.tuition_package_id ? String(row.tuition_package_id) : undefined,
         tuition_package_name: row.tuition_package_name ? String(row.tuition_package_name) : undefined,
 
-        // Công nợ đối soát tháng này
+        // Công nợ đối soát tháng này & nợ lũy kế
         payment_status: paymentStatus,
         payment_period_desc: paymentPeriodDesc,
         payment_id: paymentInfo ? paymentInfo.id : undefined,
+        unpaid_months_count: unpaidMonthsCount,
+        is_overdue: isOverdue,
+        previous_debt_amount: previousDebtAmount,
+        total_tuition_due: totalTuitionDue,
 
         duration_mode: (row.duration_mode as "by_hours" | "by_sessions") || "by_hours",
         sessions_per_week: Number(row.sessions_per_week || 3),

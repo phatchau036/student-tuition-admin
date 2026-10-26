@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
-import { calculateStandardTuition } from "@/lib/tuition";
+import { calculateStandardTuition, getPreviousMonthStr } from "@/lib/tuition";
 
 export async function POST(req: Request) {
   try {
@@ -87,6 +87,46 @@ export async function POST(req: Request) {
         const override = overrideRes.rows.length > 0 ? overrideRes.rows[0] : null;
         const currentTuition = override ? Number(override.amount) : stdTuition;
 
+        // Check if student has paid for current month
+        const curPaymentRes = await db.execute({
+          sql: `SELECT * FROM student_payments WHERE student_id = ? AND ? >= start_period AND ? <= end_period AND status = 'paid'`,
+          args: [studentId, currentMonth, currentMonth],
+        });
+        const isPaidThisMonth = curPaymentRes.rows.length > 0;
+
+        // Check historical unpaid months & overdue debt
+        let unpaidCount = isPaidThisMonth ? 0 : 1;
+        let pastDebt = 0;
+        const stStart = st.start_date ? String(st.start_date).slice(0, 7) : "";
+        let cursor = getPreviousMonthStr(currentMonth);
+        let lookback = 0;
+
+        while (cursor && lookback < 6) {
+          if (stStart && cursor < stStart) break;
+
+          const pastPayCheck = await db.execute({
+            sql: `SELECT * FROM student_payments WHERE student_id = ? AND ? >= start_period AND ? <= end_period AND status = 'paid'`,
+            args: [studentId, cursor, cursor],
+          });
+
+          if (pastPayCheck.rows.length === 0) {
+            unpaidCount += 1;
+            const pastOvr = await db.execute({
+              sql: "SELECT amount FROM student_monthly_tuitions WHERE student_id = ? AND month = ?",
+              args: [studentId, cursor],
+            });
+            pastDebt += pastOvr.rows.length > 0 ? Number(pastOvr.rows[0].amount) : stdTuition;
+          } else {
+            break;
+          }
+
+          cursor = getPreviousMonthStr(cursor);
+          lookback++;
+        }
+
+        const isOverdue = unpaidCount > 1;
+        const totalDue = isPaidThisMonth ? 0 : currentTuition + pastDebt;
+
         studentsData.push({
           id: studentId,
           name: String(st.name),
@@ -107,6 +147,11 @@ export async function POST(req: Request) {
           current_month: currentMonth,
           current_tuition: currentTuition,
           standard_tuition: stdTuition,
+          is_paid: isPaidThisMonth,
+          is_overdue: isOverdue,
+          unpaid_months_count: unpaidCount,
+          previous_debt_amount: pastDebt,
+          total_tuition_due: totalDue,
           is_override: Boolean(override),
           override_note: override ? String(override.note || "") : "",
           makeups: makeupsRes.rows.map((m) => ({

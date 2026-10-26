@@ -9,6 +9,7 @@ import {
   TuitionPackage,
   ReconciliationMode,
   ZaloReminderMode,
+  CapacityMode,
 } from "@/lib/types";
 import { formatVND, formatTimeSlotLabel, formatMonthDisplay, getCurrentMonthStr } from "@/lib/tuition";
 import { useToast } from "@/components/Toast";
@@ -23,6 +24,8 @@ import {
   Calendar,
   Users,
   CheckCircle2,
+  Check,
+  GraduationCap,
   Lock,
   KeyRound,
   ShieldCheck,
@@ -56,6 +59,7 @@ interface SettingsModalProps {
   initialDefaultStudyTime?: string;
   initialMaxStudents?: number;
   initialCrowdedThreshold?: number;
+  initialCapacityMode?: CapacityMode;
   initialReconciliationMode?: ReconciliationMode;
   initialSepayApiKey?: string;
   initialSepayAccountNumber?: string;
@@ -95,6 +99,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   initialDefaultStudyTime = "18:00 - 19:00",
   initialMaxStudents = 10,
   initialCrowdedThreshold = 80,
+  initialCapacityMode = "by_slot",
   initialReconciliationMode = "manual",
   initialSepayApiKey = "",
   initialSepayAccountNumber = "",
@@ -125,6 +130,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [defaultStudyTime, setDefaultStudyTime] = useState<string>(initialDefaultStudyTime);
   const [maxStudents, setMaxStudents] = useState<number>(initialMaxStudents);
   const [crowdedThreshold, setCrowdedThreshold] = useState<number>(initialCrowdedThreshold);
+  const [capacityMode, setCapacityMode] = useState<CapacityMode>(initialCapacityMode);
 
   // Reconciliation settings
   const [reconciliationMode, setReconciliationMode] = useState<ReconciliationMode>(initialReconciliationMode);
@@ -226,6 +232,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setDefaultStudyTime(initialDefaultStudyTime);
     setMaxStudents(initialMaxStudents);
     setCrowdedThreshold(initialCrowdedThreshold);
+    setCapacityMode(initialCapacityMode || "by_slot");
     setReconciliationMode(initialReconciliationMode || "manual");
     setSepayApiKey(initialSepayApiKey || "");
     setSepayAccountNumber(initialSepayAccountNumber || "");
@@ -250,6 +257,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     initialDefaultStudyTime,
     initialMaxStudents,
     initialCrowdedThreshold,
+    initialCapacityMode,
     initialReconciliationMode,
     initialZaloReminderMode,
     initialZaloBotToken,
@@ -508,6 +516,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           default_study_time: defaultStudyTime.trim() || "18:00 - 19:00",
           max_students_per_slot: Number(maxStudents) || 10,
           crowded_threshold_percent: Number(crowdedThreshold) || 80,
+          capacity_mode: capacityMode,
           reconciliation_mode: reconciliationMode,
           sepay_api_key: sepayApiKey.trim(),
           sepay_account_number: sepayAccountNumber.trim(),
@@ -820,18 +829,88 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               {/* Class Capacity & Crowded Threshold Card */}
               <div className="bg-amber-50/50 dark:bg-amber-950/20 p-5 rounded-2xl border border-amber-200/80 dark:border-amber-900/40 space-y-4">
                 <div className="flex items-center justify-between">
-                  <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                    <Users className="w-4 h-4 text-amber-600" />
-                    Cấu Hình Sĩ Số Ca & Cảnh Báo Lớp Đông Khi Học Bù
-                  </h4>
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                      <Users className="w-4 h-4 text-amber-600" />
+                      Cấu Hình Sĩ Số Ca & Cảnh Báo Lớp Đông Khi Học Bù
+                    </h4>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Lựa chọn cơ chế kiểm soát giới hạn học sinh để bảo vệ chất lượng giảng dạy
+                    </p>
+                  </div>
                   <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-300">
                     Bảo vệ lớp học
                   </span>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+                {/* 2 LỰA CHỌN CƠ CHẾ: THEO LỚP/GIỜ MỞ CỬA vs THEO GIÁO VIÊN */}
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-2">
+                    Cơ chế tính sĩ số & kiểm soát hết suất:
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* Option 1: Theo Lớp / Giờ Mở Cửa */}
+                    <div
+                      onClick={() => setCapacityMode("by_slot")}
+                      className={`p-3.5 rounded-2xl border-2 transition cursor-pointer flex flex-col justify-between ${
+                        capacityMode === "by_slot"
+                          ? "border-amber-500 bg-white dark:bg-slate-900 shadow-xs"
+                          : "border-slate-200 dark:border-slate-800 bg-white/60 dark:bg-slate-900/40 opacity-70 hover:opacity-100"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <Clock className="w-4 h-4 text-amber-600" />
+                          <span className="text-xs font-bold text-slate-900 dark:text-white">
+                            1. Theo Lớp / Giờ Mở Cửa
+                          </span>
+                        </div>
+                        {capacityMode === "by_slot" && (
+                          <div className="w-4 h-4 rounded-full bg-amber-500 text-white flex items-center justify-center">
+                            <Check className="w-3 h-3 stroke-[3]" />
+                          </div>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
+                        Sĩ số tính chung theo khung giờ mở cửa của cơ sở. Khi ca đạt giới hạn tối đa sẽ tự động khóa và hiển thị &quot;Hết suất&quot;.
+                      </p>
+                    </div>
+
+                    {/* Option 2: Theo Giáo Viên Đứng Lớp */}
+                    <div
+                      onClick={() => setCapacityMode("by_teacher")}
+                      className={`p-3.5 rounded-2xl border-2 transition cursor-pointer flex flex-col justify-between ${
+                        capacityMode === "by_teacher"
+                          ? "border-indigo-600 bg-white dark:bg-slate-900 shadow-xs"
+                          : "border-slate-200 dark:border-slate-800 bg-white/60 dark:bg-slate-900/40 opacity-70 hover:opacity-100"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <GraduationCap className="w-4 h-4 text-indigo-600" />
+                          <span className="text-xs font-bold text-slate-900 dark:text-white">
+                            2. Theo Giáo Viên Đứng Lớp
+                          </span>
+                        </div>
+                        {capacityMode === "by_teacher" && (
+                          <div className="w-4 h-4 rounded-full bg-indigo-600 text-white flex items-center justify-center">
+                            <Check className="w-3 h-3 stroke-[3]" />
+                          </div>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
+                        Sĩ số tính riêng theo từng giáo viên (cấu hình trong mục Giáo viên: GV nhận tối đa bao nhiêu học sinh, làm ca nào, tuần làm mấy buổi...).
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
                   <div>
                     <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                      Sĩ số tối đa trong một ca / lớp
+                      {capacityMode === "by_teacher"
+                        ? "Sĩ số chuẩn tối đa mặc định của Giáo viên"
+                        : "Sĩ số tối đa trong một ca / lớp"}
                     </label>
                     <div className="relative">
                       <input
@@ -842,7 +921,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         onChange={(e) => setMaxStudents(Number(e.target.value) || 10)}
                         className="w-full px-3 py-2 text-sm font-bold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 outline-none focus:ring-2 focus:ring-amber-500"
                       />
-                      <span className="absolute right-3 top-2 text-xs text-slate-400 font-semibold">học sinh / ca</span>
+                      <span className="absolute right-3 top-2 text-xs text-slate-400 font-semibold">
+                        {capacityMode === "by_teacher" ? "học sinh / GV" : "học sinh / ca"}
+                      </span>
                     </div>
                   </div>
 
