@@ -181,7 +181,7 @@ export const AppInfoModal: React.FC<AppInfoModalProps> = ({
                   Thông Tin Ứng Dụng & Trung Tâm Hỗ Trợ
                 </h2>
                 <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
-                  Phiên bản 2.4.0
+                  Phiên bản 2.5.0
                 </span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
@@ -363,25 +363,47 @@ export const AppInfoModal: React.FC<AppInfoModalProps> = ({
               </div>
 
               <div className="space-y-4">
-                {/* v2.4.0 */}
+                {/* v2.5.0 */}
                 <div className="p-5 rounded-2xl border-2 border-indigo-200 dark:border-indigo-900/60 bg-indigo-50/20 dark:bg-indigo-950/20 space-y-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <span className="px-2.5 py-1 rounded-xl text-xs font-black bg-indigo-600 text-white">
-                        v2.4.0 (Hiện tại)
+                        v2.5.0 (Hiện tại)
                       </span>
-                      <span className="text-xs font-bold text-slate-500">25/10/2026</span>
+                      <span className="text-xs font-bold text-slate-500">26/10/2026</span>
                     </div>
                     <span className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">
-                      Bản cập nhật hoàn thiện
+                      Đa Ngôn Ngữ & Nâng Cấp Tự Động
                     </span>
                   </div>
                   <ul className="text-xs text-slate-700 dark:text-slate-300 space-y-1.5 list-disc list-inside">
-                    <li><strong>2 Tùy chọn kiểm soát sĩ số ca học:</strong> Hỗ trợ tính theo ca mở cửa cơ sở HOẶC theo từng giáo viên đứng lớp riêng biệt kèm lịch ca linh hoạt.</li>
-                    <li><strong>Bảo vệ lớp học & Khóa hết suất:</strong> Tự động cảnh báo Lớp đông khi vượt ngưỡng % và khóa cứng ô ca học khi hết suất (ghi chú Hết suất không cho chọn).</li>
+                    <li><strong>Đa ngôn ngữ toàn diện (Full System i18n):</strong> Hỗ trợ 4 ngôn ngữ chuẩn quốc tế (🇻🇳 Tiếng Việt, 🇬🇧 English, 🇨🇳 中文, 🇯🇵 日本語) với chuyển ngữ 1-click tức thì trên toàn giao diện quản trị và cổng phụ huynh.</li>
+                    <li><strong>1-Click Cập nhật tự động từ GitHub:</strong> Tự động tải mã nguồn mới nhất từ kho GitHub, biên dịch bản build và khởi động lại dịch vụ ngay trên trang quản trị hệ thống.</li>
+                    <li><strong>Chế độ Bảo Trì Thông Minh (Maintenance Guard):</strong> Tự động kích hoạt màn hình thông báo &quot;Server Đang Được Nâng Cấp&quot; khi cập nhật, tự động kết nối lại khi máy chủ hoàn tất.</li>
+                    <li><strong>Tự động phát hiện nợ quá hạn & cộng dồn:</strong> Đánh dấu cảnh báo đỏ học sinh nợ học phí từ 2 tháng liên tiếp trở lên và tự động tính tổng nợ cũ vào tháng kế tiếp.</li>
+                    <li><strong>2 Tùy chọn kiểm soát sĩ số ca học:</strong> Tùy biến giới hạn theo ca mở cửa cơ sở HOẶC theo sức chứa và lịch ca làm việc riêng của từng giáo viên đứng lớp.</li>
+                  </ul>
+                </div>
+
+                {/* v2.4.0 */}
+                <div className="p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-800/40 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="px-2.5 py-1 rounded-xl text-xs font-black bg-slate-200 text-slate-800 dark:bg-slate-800 dark:text-slate-200">
+                        v2.4.0
+                      </span>
+                      <span className="text-xs font-bold text-slate-500">25/10/2026</span>
+                    </div>
+                    <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                      Đối Soát Ngân Hàng & Báo Cáo
+                    </span>
+                  </div>
+                  <ul className="text-xs text-slate-600 dark:text-slate-400 space-y-1.5 list-disc list-inside">
                     <li><strong>Tích hợp SePay Webhook tự động:</strong> Nhận biến động số dư ngân hàng và tự động gạch nợ học phí theo mã HS và số điện thoại.</li>
-                    <li><strong>Cửa sổ Tổng Kết Tháng:</strong> Theo dõi doanh thu dự thu, thực thu, nợ tồn và nhật ký giao dịch ngân hàng theo từng tháng.</li>
-                    <li><strong>Kênh tiếp nhận góp ý phụ huynh & hệ thống:</strong> Form gửi ý kiến đánh giá trực tuyến từ phụ huynh và kênh đề xuất cải tiến cho TpTeam.</li>
+                    <li><strong>Cửa sổ Tổng Kết Tháng (Monthly Summary):</strong> Theo dõi doanh thu dự thu, thực thu, số nợ và nhật ký giao dịch ngân hàng theo từng tháng.</li>
+                    <li><strong>Lý do chiết khấu:</strong> Thêm cấu hình tên/lý do mốc chiết khấu trong Cài đặt và tự động điền vào hồ sơ học sinh.</li>
+                    <li><strong>Ngày bắt đầu đăng ký học:</strong> Bổ sung trường ngày nhập học kèm nút 1-click &quot;Hôm nay (Hiện tại ngay)&quot;.</li>
+                    <li><strong>Kênh tiếp nhận góp ý phụ huynh:</strong> Cung cấp form đánh giá sao và gửi phản hồi trực tiếp từ Cổng Phụ Huynh.</li>
                   </ul>
                 </div>
 

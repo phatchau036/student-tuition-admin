@@ -238,8 +238,8 @@ Giao diện thân thiện, bảo mật, tối ưu hoàn hảo cho phụ huynh tr
 
 | Phương thức | Endpoint | Chức năng chính |
 |---|---|---|
-| `GET / POST` | `/api/settings` | Lấy và lưu cài đặt hệ thống (Học phí, khung giờ, level, chiết khấu, gói học phí, định dạng tháng) |
-| `GET / POST` | `/api/students` | Lấy danh sách học sinh (kèm công nợ, gói phí) và tạo mới học sinh |
+| `GET / POST` | `/api/settings` | Lấy và lưu cài đặt hệ thống (Học phí, khung giờ, level, chiết khấu, gói học phí, đa ngôn ngữ, định dạng tháng) |
+| `GET / POST` | `/api/students` | Lấy danh sách học sinh (kèm công nợ, gói phí, nợ quá hạn cộng dồn) và tạo mới học sinh |
 | `PUT / DELETE` | `/api/students/[id]` | Cập nhật thông tin hoặc xóa học sinh |
 | `POST` | `/api/students/status` | Chuyển trạng thái học sinh (Bảo lưu, Nghỉ học, Học tiếp) và ghi log |
 | `GET` | `/api/status-logs` | Lấy lịch sử biến động trạng thái (bảo lưu/nghỉ/học tiếp) theo tháng |
@@ -247,10 +247,16 @@ Giao diện thân thiện, bảo mật, tối ưu hoàn hảo cho phụ huynh tr
 | `POST` | `/api/payments` | Đối soát học phí (đánh dấu Đã đóng / Chưa đóng theo chu kỳ gói) |
 | `POST` | `/api/tuition-override` | Điều chỉnh hoặc đặt lại học phí tùy chỉnh riêng cho từng tháng |
 | `GET / POST` | `/api/makeups` | Lấy lịch học bù, báo nghỉ học và xếp lịch học bù |
-| `GET` | `/api/classes/occupancy` | Tính toán sĩ số và tỷ lệ lấp đầy thời gian thực của các ca trong ngày |
-| `GET / POST` | `/api/teachers` | Lấy danh sách giáo viên và tạo giáo viên mới |
+| `GET` | `/api/classes/occupancy` | Tính toán sĩ số và tỷ lệ lấp đầy thời gian thực của các ca trong ngày (Hỗ trợ 2 chế độ: ca mở cửa hoặc theo giáo viên) |
+| `GET / POST` | `/api/teachers` | Lấy danh sách giáo viên, cấu hình sĩ số tối đa và ca làm việc riêng |
 | `PUT / DELETE` | `/api/teachers/[id]` | Cập nhật hoặc xóa giáo viên |
 | `POST` | `/api/parent` | Xác thực đăng nhập phụ huynh bằng SĐT và trả về dữ liệu học sinh |
+| `POST` | `/api/feedbacks/parent` | Tiếp nhận và xem phản hồi, đánh giá từ phụ huynh |
+| `POST` | `/api/feedbacks/system` | Kênh gửi góp ý của cơ sở tới đội ngũ phát triển TpTeam |
+| `POST` | `/api/system/upgrade` | Kích hoạt tự động git pull, build Next.js, bảo trì và restart server |
+| `GET` | `/api/system/upgrade/status` | Trạng thái bảo trì phục vụ điều hướng tự động |
+| `POST` | `/api/sepay/webhook` | Webhook tự động nhận biến động số dư và gạch nợ học phí ngân hàng |
+| `GET` | `/api/reconciliation/summary` | Thống kê tài chính tổng kết tháng, tỷ lệ thu và nhật ký SePay |
 | `POST` | `/api/teacher` | Xác thực đăng nhập giáo viên và cập nhật Level học sinh |
 | `POST` | `/api/admin/auth` | Đăng nhập tài khoản Quản trị viên cơ sở |
 | `POST` | `/api/admin/change-password` | Đổi mật khẩu tài khoản Admin |
@@ -288,3 +294,26 @@ npx next start -H 0.0.0.0 -p 3000
 - **Quản trị cơ sở:** [http://localhost:3000/admin](http://localhost:3000/admin) hoặc `http://[IP_MÁY_CHỦ]:3000/admin`.
 - **Cổng giáo viên:** [http://localhost:3000/giao-vien](http://localhost:3000/giao-vien) hoặc `http://[IP_MÁY_CHỦ]:3000/giao-vien`.
 - **Cổng phụ huynh:** [http://localhost:3000](http://localhost:3000) hoặc `http://[IP_MÁY_CHỦ]:3000`.
+
+---
+
+## 8. Lịch Sử Phát Triển & Nhật Ký Phiên Bản (Changelog)
+
+### Phiên bản 2.5.0 (26/10/2026) - Đa Ngôn Ngữ & Nâng Cấp Tự Động
+- **Đa ngôn ngữ toàn diện (Full System i18n):** Hỗ trợ 4 ngôn ngữ (Tiếng Việt 🇻🇳, English 🇬🇧, 中文 🇨🇳, 日本語 🇯🇵) kèm nút chuyển nhanh trên Header và định dạng tháng đa ngữ.
+- **1-Click Tự động cập nhật từ GitHub:** Tải code mới nhất, tự động biên dịch và khởi động lại server.
+- **Chế độ bảo trì thông minh (Maintenance Guard):** Tự động chặn truy cập ngoài và hiển thị thông báo "Server Đang Được Nâng Cấp", tự động kết nối lại khi xong.
+- **Tự động cộng dồn nợ học phí quá 1 tháng:** Phát hiện học sinh nợ liên tiếp từ 2 tháng trở lên, cảnh báo đỏ nhấp nháy và tự tính dồn vào tháng kế tiếp.
+- **2 Tùy chọn kiểm soát sĩ số ca học:** Hỗ trợ tính theo ca mở cửa cơ sở HOẶC theo giáo viên đứng lớp. Khóa cứng ca học khi hết suất (không cho click).
+
+### Phiên bản 2.4.0 (25/10/2026) - Đối Soát Ngân Hàng & Báo Cáo
+- **Tích hợp SePay Webhook tự động:** Tự gạch nợ học sinh theo mã học sinh và số điện thoại.
+- **Cửa sổ Tổng Kết Tháng (Monthly Summary):** Thống kê dự thu, thực thu, công nợ và nhật ký SePay.
+- **Lý do chiết khấu:** Cấu hình tên/lý do mốc chiết khấu trong Cài đặt và tự động điền vào hồ sơ học sinh.
+- **Ngày bắt đầu đăng ký học:** Bổ sung trường ngày nhập học kèm nút 1-click "Hôm nay (Hiện tại ngay)".
+- **Kênh tiếp nhận góp ý phụ huynh & hệ thống:** Form đánh giá sao của phụ huynh và kênh đề xuất tính năng cho TpTeam.
+
+### Phiên bản 2.3.0 (24/10/2026 - Bắt đầu dự án) - Khởi Tạo Nền Tảng
+- **Khởi tạo hệ thống quản trị trung tâm:** Quản lý học sinh, danh sách lớp, gói học phí, phân công giáo viên và cổng phụ huynh tra cứu.
+- **Quản lý học bù & sĩ số:** Đăng ký học bù trực tuyến, theo dõi số buổi cần bù của học sinh.
+- **Cấu hình chiết khấu & ngày đăng ký:** Quản lý mốc chiết khấu, lý do giảm và ngày nhập học kèm nút Hôm nay.
