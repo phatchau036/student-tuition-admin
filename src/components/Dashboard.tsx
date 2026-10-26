@@ -61,16 +61,20 @@ import {
   QrCode,
   Info,
   Globe,
+  Sun,
+  Moon,
 } from "lucide-react";
 import Link from "next/link";
 import { MonthlySummaryModal } from "./MonthlySummaryModal";
 import { AppInfoModal } from "./AppInfoModal";
 import { useLanguage } from "@/lib/i18n";
+import { useTheme } from "@/lib/ThemeContext";
 import { AppLanguage } from "@/lib/types";
 
 export default function Dashboard() {
   const { showToast } = useToast();
   const { language, setLanguage, t } = useLanguage();
+  const { theme, toggleTheme } = useTheme();
 
   // Selected Month State
   const [selectedMonth, setSelectedMonth] = useState<string>("2026-10");
@@ -631,6 +635,20 @@ export default function Dashboard() {
                 <span>{t.parent_portal}</span>
               </Link>
             </div>
+
+            {/* Nút Chuyển Đổi Theme Sáng / Tối */}
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition shadow-2xs mr-1"
+              title={theme === "dark" ? "Chuyển sang chế độ Sáng (Light Mode)" : "Chuyển sang chế độ Tối (Dark Mode)"}
+            >
+              {theme === "dark" ? (
+                <Sun className="w-4 h-4 text-amber-400" />
+              ) : (
+                <Moon className="w-4 h-4 text-indigo-600" />
+              )}
+            </button>
 
             {/* Quick Language Switcher Dropdown */}
             <div className="relative inline-flex items-center">

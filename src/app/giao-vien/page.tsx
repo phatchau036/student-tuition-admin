@@ -24,7 +24,10 @@ import {
   ArrowRight,
   LogOut,
   User,
+  Sun,
+  Moon,
 } from "lucide-react";
+import { useTheme } from "@/lib/ThemeContext";
 
 interface Teacher {
   id: string;
@@ -80,6 +83,7 @@ interface Level {
 }
 
 export default function TeacherPortal() {
+  const { theme, toggleTheme } = useTheme();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [inputPhone, setInputPhone] = useState("");
   const [activeTeacher, setActiveTeacher] = useState<Teacher | null>(null);
@@ -282,6 +286,15 @@ export default function TeacherPortal() {
           </div>
 
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition"
+              title={theme === "dark" ? "Chế độ Sáng" : "Chế độ Tối"}
+            >
+              {theme === "dark" ? <Sun className="w-3.5 h-3.5 text-amber-400" /> : <Moon className="w-3.5 h-3.5 text-slate-600" />}
+            </button>
+
             {isLoggedIn && (
               <button
                 onClick={handleLogout}

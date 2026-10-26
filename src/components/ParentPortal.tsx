@@ -23,11 +23,14 @@ import {
   MessageSquareHeart,
   Star,
   Send,
+  Sun,
+  Moon,
 } from "lucide-react";
 import Link from "next/link";
 import { formatVND, formatMonthDisplay } from "@/lib/tuition";
 import { MonthFormat, AppLanguage } from "@/lib/types";
 import { useLanguage } from "@/lib/i18n";
+import { useTheme } from "@/lib/ThemeContext";
 
 interface MakeupItem {
   id: string;
@@ -84,6 +87,7 @@ interface SlotOccupancy {
 
 export default function ParentPortal() {
   const { language, setLanguage, t } = useLanguage();
+  const { theme, toggleTheme } = useTheme();
   const [phoneNumber, setPhoneNumber] = useState("");
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [students, setStudents] = useState<StudentData[]>([]);
@@ -372,6 +376,16 @@ export default function ParentPortal() {
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Theme Toggle Button */}
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition"
+              title={theme === "dark" ? "Chế độ Sáng" : "Chế độ Tối"}
+            >
+              {theme === "dark" ? <Sun className="w-3.5 h-3.5 text-amber-400" /> : <Moon className="w-3.5 h-3.5 text-slate-600" />}
+            </button>
+
             {/* Quick Language Dropdown */}
             <select
               value={language}
