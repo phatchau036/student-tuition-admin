@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { Student, LevelSurcharge, TimeSlot, DiscountOption, Teacher, ScheduleItem, TuitionPackage } from "@/lib/types";
 import {
   calculateStandardTuition,
+  applyDiscount,
   formatVND,
   formatTimeSlotLabel,
   isDayInSlot,
@@ -212,7 +213,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
   const selectedLevelSurcharge = selectedLevel ? selectedLevel.surcharge_amount : 0;
   const selectedPkg = tuitionPackages.find((p) => p.id === tuitionPackageId);
   const liveTuition = selectedPkg
-    ? selectedPkg.amount
+    ? applyDiscount(selectedPkg.amount, isDiscountEnabled, discountPercent)
     : calculateStandardTuition(
         baseTuition,
         selectedLevelSurcharge,
@@ -976,7 +977,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
               </span>
               <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
                 {selectedPkg
-                  ? `Chu kỳ: ${selectedPkg.cycle_value} ${selectedPkg.cycle_unit === "month" ? "tháng" : "tuần"}`
+                  ? `Chu kỳ: ${selectedPkg.cycle_value} ${selectedPkg.cycle_unit === "month" ? "tháng" : "tuần"}${isDiscountEnabled && discountPercent > 0 ? ` (Giảm -${discountPercent}%)` : ""}`
                   : `(${formatVND(baseTuition)} base + ${formatVND(selectedLevelSurcharge)} surcharge)${isDiscountEnabled && discountPercent > 0 ? ` - ${discountPercent}%` : ""}`}
               </span>
             </div>

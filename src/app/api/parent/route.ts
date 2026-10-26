@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
-import { calculateStandardTuition, getPreviousMonthStr } from "@/lib/tuition";
+import { calculateStandardTuition, applyDiscount, getPreviousMonthStr } from "@/lib/tuition";
 
 export async function POST(req: Request) {
   try {
@@ -84,7 +84,11 @@ export async function POST(req: Request) {
         const pkgAmount = Number(st.tuition_package_amount || 0);
         let stdTuition = 0;
         if (st.tuition_package_id && pkgAmount > 0) {
-          stdTuition = pkgAmount;
+          stdTuition = applyDiscount(
+            pkgAmount,
+            Number(st.is_discount_enabled || 0),
+            Number(st.discount_percent || 0)
+          );
         } else {
           stdTuition = calculateStandardTuition(
             baseTuition,
@@ -154,6 +158,10 @@ export async function POST(req: Request) {
           hours_per_week: Number(st.hours_per_week || 3),
           registered_days: String(st.registered_days || ""),
           study_time_detail: String(st.study_time_detail || ""),
+          tuition_package_name: st.tuition_package_name ? String(st.tuition_package_name) : undefined,
+          is_discount_enabled: Number(st.is_discount_enabled || 0),
+          discount_percent: Number(st.discount_percent || 0),
+          discount_reason: String(st.discount_reason || ""),
           current_month: currentMonth,
           current_tuition: currentTuition,
           standard_tuition: stdTuition,

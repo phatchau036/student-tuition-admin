@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
-import { calculateStandardTuition, getPreviousMonthStr } from "@/lib/tuition";
+import { calculateStandardTuition, applyDiscount, getPreviousMonthStr } from "@/lib/tuition";
 
 export async function GET(req: Request) {
   try {
@@ -109,11 +109,16 @@ export async function GET(req: Request) {
     }
 
     const students = studentsRes.rows.map((row) => {
-      // 1. Nếu học sinh đăng ký gói học phí (VD: Theo quý, Khóa 6 tháng...) thì hiển thị đúng giá tiền của gói đó
+      // 1. Tính học phí: Nếu có gói học phí thì lấy giá gói, ngược lại lấy baseTuition + phụ thu level.
+      // Sau đó ÁP DỤNG CHIẾT KHẤU riêng của học sinh (VD: 10% anh em ruột...) để trừ vào học phí.
       const pkgAmount = Number(row.tuition_package_amount || 0);
       let stdTuition = 0;
       if (row.tuition_package_id && pkgAmount > 0) {
-        stdTuition = pkgAmount;
+        stdTuition = applyDiscount(
+          pkgAmount,
+          Number(row.is_discount_enabled || 0),
+          Number(row.discount_percent || 0)
+        );
       } else {
         stdTuition = calculateStandardTuition(
           baseTuition,

@@ -20,11 +20,19 @@ export function calculateStandardTuition(
 ): number {
   const base = Number(baseTuition) || 0;
   const surcharge = Number(levelSurcharge) || 0;
-  const discount = Boolean(Number(isDiscountEnabled)) ? Number(discountPercent) || 0 : 0;
+  return applyDiscount(base + surcharge, isDiscountEnabled, discountPercent);
+}
 
-  const totalBeforeDiscount = base + surcharge;
+export function applyDiscount(
+  amount: number,
+  isDiscountEnabled: boolean | number,
+  discountPercent: number
+): number {
+  const raw = Number(amount) || 0;
+  const hasDiscount = Boolean(Number(isDiscountEnabled));
+  const discount = hasDiscount ? Number(discountPercent) || 0 : 0;
   const discountMultiplier = Math.max(0, 1 - discount / 100);
-  return Math.round(totalBeforeDiscount * discountMultiplier);
+  return Math.round(raw * discountMultiplier);
 }
 
 export function getPreviousMonthStr(monthStr: string): string {

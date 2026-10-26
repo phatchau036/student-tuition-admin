@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
-import { calculateStandardTuition } from "@/lib/tuition";
+import { calculateStandardTuition, applyDiscount } from "@/lib/tuition";
 
 export async function GET(req: Request) {
   try {
@@ -72,13 +72,23 @@ export async function GET(req: Request) {
       else if (status === "reserved") reservedCount++;
       else if (status === "dropped") droppedCount++;
 
-      // Tiền học phí phải đóng của tháng
-      const stdTuition = calculateStandardTuition(
-        baseTuition,
-        Number(row.level_surcharge || 0),
-        Number(row.is_discount_enabled || 0),
-        Number(row.discount_percent || 0)
-      );
+      // Tiền học phí phải đóng của tháng (tính theo gói hoặc học phí chuẩn, kèm chiết khấu nếu có)
+      const pkgAmount = Number(row.package_amount || 0);
+      let stdTuition = 0;
+      if (row.tuition_package_id && pkgAmount > 0) {
+        stdTuition = applyDiscount(
+          pkgAmount,
+          Number(row.is_discount_enabled || 0),
+          Number(row.discount_percent || 0)
+        );
+      } else {
+        stdTuition = calculateStandardTuition(
+          baseTuition,
+          Number(row.level_surcharge || 0),
+          Number(row.is_discount_enabled || 0),
+          Number(row.discount_percent || 0)
+        );
+      }
       const studentFee = overridesMap[studentId] !== undefined ? overridesMap[studentId] : stdTuition;
 
       // Học sinh nghỉ học hoặc bảo lưu có thể không tính dự thu nếu muốn, nhưng ở đây tính cho các học sinh đang học
