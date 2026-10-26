@@ -51,13 +51,23 @@ export async function POST(req: Request) {
         );
       }
 
-      // Get base tuition & month format
-      const settingsRes = await db.execute("SELECT key, value FROM settings WHERE key IN ('base_tuition', 'month_format')");
+      // Get base tuition, month format & bank settings for VietQR
+      const settingsRes = await db.execute("SELECT key, value FROM settings WHERE key IN ('base_tuition', 'month_format', 'sepay_bank_name', 'sepay_account_number', 'sepay_prefix', 'zalo_bot_name', 'zalo_bot_token')");
       let baseTuition = 1000000;
       let monthFormat = "vietnamese";
+      let sepayBankName = "";
+      let sepayAccountNumber = "";
+      let sepayPrefix = "HP";
+      let zaloBotName = "";
+      let isBotConfigured = false;
       for (const row of settingsRes.rows) {
         if (row.key === "base_tuition") baseTuition = Number(row.value) || 1000000;
         if (row.key === "month_format") monthFormat = String(row.value) || "vietnamese";
+        if (row.key === "sepay_bank_name") sepayBankName = String(row.value || "");
+        if (row.key === "sepay_account_number") sepayAccountNumber = String(row.value || "");
+        if (row.key === "sepay_prefix") sepayPrefix = String(row.value || "HP");
+        if (row.key === "zalo_bot_name") zaloBotName = String(row.value || "");
+        if (row.key === "zalo_bot_token" && row.value) isBotConfigured = true;
       }
 
       // Current month
@@ -143,9 +153,11 @@ export async function POST(req: Request) {
 
         studentsData.push({
           id: studentId,
+          student_code: st.student_code ? String(st.student_code) : `HS${studentId.slice(-4).toUpperCase()}`,
           name: String(st.name),
           phone: String(st.phone),
           zalo_link: String(st.zalo_link || ""),
+          zalo_chat_id: st.zalo_chat_id ? String(st.zalo_chat_id) : undefined,
           school_name: String(st.school_name || "Trung Tâm Đào Tạo"),
           school_address: String(st.school_address || ""),
           school_phone: String(st.school_phone || "0909123456"),
@@ -189,7 +201,93 @@ export async function POST(req: Request) {
         data: {
           students: studentsData,
           month_format: monthFormat,
+          bank_info: {
+            bank_name: sepayBankName,
+            account_number: sepayAccountNumber,
+            prefix: sepayPrefix,
+          },
+          zalo_bot: {
+            name: zaloBotName,
+            is_configured: isBotConfigured,
+          },
         },
+      });
+    }
+
+    // 2. Cập nhật Zalo Chat ID cho học sinh từ Cổng Phụ Huynh
+    if (action === "update_student_zalo_chat_id") {
+      const { student_id, zalo_chat_id } = body;
+      if (!student_id) {
+        return NextResponse.json({ success: false, message: "Thiếu mã học sinh!" }, { status: 400 });
+      }
+      const val = zalo_chat_id ? String(zalo_chat_id).trim() : null;
+      await db.execute({
+        sql: "UPDATE students SET zalo_chat_id = ? WHERE id = ?",
+        args: [val, student_id],
+      });
+      return NextResponse.json({
+        success: true,
+        message: val ? "Kết nối Zalo thành công!" : "Đã hủy kết nối Zalo!",
+        zalo_chat_id: val,
+      });
+    }
+
+    // 3. Phụ huynh xác nhận đã chuyển khoản / nộp học phí
+    if (action === "confirm_payment") {
+      const { student_id, month, amount, note } = body;
+      if (!student_id || !month) {
+        return NextResponse.json({ success: false, message: "Thiếu thông tin thanh toán!" }, { status: 400 });
+      }
+
+      // Lấy thông tin học sinh & gói học phí
+      const stRes = await db.execute({
+        sql: `SELECT s.*, p.name as package_name, p.amount as package_amount, p.cycle_unit, p.cycle_value
+              FROM students s
+              LEFT JOIN tuition_packages p ON s.tuition_package_id = p.id
+              WHERE s.id = ?`,
+        args: [student_id],
+      });
+
+      if (stRes.rows.length === 0) {
+        return NextResponse.json({ success: false, message: "Không tìm thấy học sinh!" }, { status: 404 });
+      }
+
+      const st = stRes.rows[0];
+      const todayStr = new Date().toISOString().slice(0, 10);
+      const paymentId = `pay-parent-${Date.now()}`;
+      const packageName = String(st.package_name || "Học phí chuẩn");
+      const targetPackageId = st.tuition_package_id ? String(st.tuition_package_id) : null;
+      const paymentAmount = Number(amount) || 0;
+
+      // Xóa bản ghi thanh toán cùng kỳ nếu có để cập nhật mới
+      await db.execute({
+        sql: "DELETE FROM student_payments WHERE student_id = ? AND start_period = ?",
+        args: [student_id, month],
+      });
+
+      // Tạo bản ghi thanh toán với trạng thái 'paid'
+      await db.execute({
+        sql: `INSERT INTO student_payments (
+                id, student_id, package_id, package_name, amount, paid_date, start_period, end_period, status, note
+              )
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'paid', ?)`,
+        args: [
+          paymentId,
+          student_id,
+          targetPackageId,
+          packageName,
+          paymentAmount,
+          todayStr,
+          month,
+          month,
+          note || "Phụ huynh xác nhận chuyển khoản nộp học phí qua Cổng phụ huynh",
+        ],
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: `Đã ghi nhận thanh toán học phí thành công cho tháng ${month}!`,
+        payment_id: paymentId,
       });
     }
 

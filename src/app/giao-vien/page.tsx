@@ -26,6 +26,10 @@ import {
   User,
   Sun,
   Moon,
+  Bell,
+  Check,
+  X,
+  ExternalLink,
 } from "lucide-react";
 import { useTheme } from "@/lib/ThemeContext";
 
@@ -36,6 +40,8 @@ interface Teacher {
   email?: string;
   color?: string;
   specialty?: string;
+  zalo_chat_id?: string;
+  zalo_link?: string;
   assigned_slot_ids?: string[];
   school_id?: string;
   school_name?: string;
@@ -101,6 +107,13 @@ export default function TeacherPortal() {
   const [targetStudent, setTargetStudent] = useState<Student | MakeupClass | null>(null);
   const [newLevelId, setNewLevelId] = useState("");
   const [isSubmittingLevel, setIsSubmittingLevel] = useState(false);
+
+  // Zalo Connection Modal State
+  const [isZaloModalOpen, setIsZaloModalOpen] = useState(false);
+  const [zaloChatIdInput, setZaloChatIdInput] = useState("");
+  const [isSubmittingZalo, setIsSubmittingZalo] = useState(false);
+  const [zaloBotName, setZaloBotName] = useState("");
+  const [isBotConfigured, setIsBotConfigured] = useState(false);
 
   // Toast
   const [toastMessage, setToastMessage] = useState<{ text: string; type: "success" | "error" } | null>(null);
@@ -179,6 +192,11 @@ export default function TeacherPortal() {
         setMakeups(json.data.makeups || []);
         setLevels(json.data.levels || []);
         setTimeSlots(json.data.time_slots || []);
+        setZaloBotName(json.data.zalo_bot_name || "");
+        setIsBotConfigured(Boolean(json.data.is_bot_configured));
+        if (json.data.teacher?.zalo_chat_id) {
+          setZaloChatIdInput(json.data.teacher.zalo_chat_id);
+        }
       } else {
         showToast(json.message || "Lỗi tải thông tin giáo viên", "error");
       }
@@ -226,6 +244,35 @@ export default function TeacherPortal() {
       showToast("Lỗi kết nối mạng", "error");
     } finally {
       setIsSubmittingLevel(false);
+    }
+  };
+
+  // Handle Save / Disconnect Zalo Chat ID
+  const handleSaveZaloChatId = async (newId: string | null) => {
+    if (!activeTeacher) return;
+    try {
+      setIsSubmittingZalo(true);
+      const res = await fetch("/api/teacher", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "update_zalo_chat_id",
+          teacher_id: activeTeacher.id,
+          zalo_chat_id: newId,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(data.message, "success");
+        setIsZaloModalOpen(false);
+        setActiveTeacher((prev) => (prev ? { ...prev, zalo_chat_id: newId || undefined } : null));
+      } else {
+        showToast(data.message || "Không thể cập nhật Zalo!", "error");
+      }
+    } catch {
+      showToast("Lỗi kết nối máy chủ!", "error");
+    } finally {
+      setIsSubmittingZalo(false);
     }
   };
 
@@ -427,6 +474,38 @@ export default function TeacherPortal() {
                     </div>
                   </div>
                 )}
+
+                {/* Zalo Notification Status & Connect Action */}
+                <div className="pt-2.5 border-t border-white/20 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5 text-xs">
+                    <MessageCircle className="w-4 h-4 text-emerald-300 shrink-0" />
+                    {activeTeacher.zalo_chat_id ? (
+                      <span className="text-emerald-200 font-bold flex items-center gap-1">
+                        <Check className="w-3.5 h-3.5" /> Đã kết nối nhận thông báo Zalo
+                      </span>
+                    ) : (
+                      <span className="text-amber-200 font-semibold flex items-center gap-1">
+                        <AlertCircle className="w-3.5 h-3.5" /> Chưa kết nối nhận thông báo Zalo
+                      </span>
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setZaloChatIdInput(activeTeacher.zalo_chat_id || "");
+                      setIsZaloModalOpen(true);
+                    }}
+                    className={`px-3 py-1 rounded-xl text-xs font-black transition shadow-xs flex items-center gap-1 shrink-0 ${
+                      activeTeacher.zalo_chat_id
+                        ? "bg-white/20 hover:bg-white/30 text-white border border-white/30"
+                        : "bg-emerald-500 hover:bg-emerald-600 text-white border border-emerald-400 animate-pulse"
+                    }`}
+                  >
+                    <MessageCircle className="w-3.5 h-3.5" />
+                    <span>{activeTeacher.zalo_chat_id ? "Sửa kết nối" : "Kết nối Zalo ngay"}</span>
+                  </button>
+                </div>
               </div>
             )}
 
@@ -720,6 +799,109 @@ export default function TeacherPortal() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Kết Nối Nhận Thông Báo Zalo */}
+      {isZaloModalOpen && activeTeacher && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
+          <div className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 flex items-center justify-center">
+                  <MessageCircle className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-slate-900 dark:text-white">
+                    Kết Nối Nhận Thông Báo Zalo
+                  </h3>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Nhận lịch dạy, học sinh học bù & cập nhật mới qua Zalo
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsZaloModalOpen(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {/* Bot Info if configured */}
+              {isBotConfigured && zaloBotName && (
+                <div className="p-3 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-xs text-emerald-800 dark:text-emerald-300 font-medium flex items-start gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-bold">Bot Zalo của trung tâm:</span> {zaloBotName}
+                    <p className="text-[11px] text-emerald-700 dark:text-emerald-400 mt-0.5">
+                      Thầy/cô chỉ cần mở Zalo, tìm kiếm bot này và nhấn <strong>Bắt đầu (Start)</strong> để nhận thông báo.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Instructions */}
+              <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80 text-xs space-y-2">
+                <span className="font-bold text-slate-800 dark:text-slate-200 block text-[11px] uppercase tracking-wider">
+                  Các bước kết nối (chỉ 1 lần duy nhất):
+                </span>
+                <ol className="list-decimal list-inside space-y-1 text-slate-600 dark:text-slate-400 text-[11px]">
+                  <li>Mở Zalo và tìm kiếm bot của trung tâm hoặc quét mã QR.</li>
+                  <li>Nhắn bất kỳ tin nhắn nào (ví dụ: &quot;Xin chào&quot;) để kích hoạt cuộc trò chuyện.</li>
+                  <li>Copy mã <strong>Chat ID</strong> hoặc nhập số điện thoại Zalo của thầy/cô vào ô bên dưới.</li>
+                </ol>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                  Mã Zalo Chat ID (hoặc SĐT Zalo):
+                </label>
+                <input
+                  type="text"
+                  placeholder="Ví dụ: 894726482103 hoặc số điện thoại Zalo"
+                  value={zaloChatIdInput}
+                  onChange={(e) => setZaloChatIdInput(e.target.value)}
+                  className="w-full px-3.5 py-2.5 text-xs font-mono font-bold rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                {activeTeacher.zalo_chat_id ? (
+                  <button
+                    type="button"
+                    disabled={isSubmittingZalo}
+                    onClick={() => handleSaveZaloChatId(null)}
+                    className="px-3 py-2 text-xs font-bold text-rose-600 hover:text-rose-700 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl transition"
+                  >
+                    Hủy kết nối Zalo
+                  </button>
+                ) : (
+                  <div></div>
+                )}
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsZaloModalOpen(false)}
+                    className="px-3.5 py-2 text-xs font-semibold rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                  >
+                    Đóng
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isSubmittingZalo}
+                    onClick={() => handleSaveZaloChatId(zaloChatIdInput.trim())}
+                    className="px-4 py-2 text-xs font-bold rounded-xl bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-600/30 disabled:opacity-50 flex items-center gap-1.5"
+                  >
+                    {isSubmittingZalo ? "Đang lưu..." : "Lưu Kết Nối"}
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}

@@ -25,6 +25,11 @@ import {
   Send,
   Sun,
   Moon,
+  QrCode,
+  CreditCard,
+  Check,
+  X,
+  Copy,
 } from "lucide-react";
 import Link from "next/link";
 import { formatVND, formatMonthDisplay } from "@/lib/tuition";
@@ -44,9 +49,11 @@ interface MakeupItem {
 
 interface StudentData {
   id: string;
+  student_code?: string;
   name: string;
   phone: string;
   zalo_link?: string;
+  zalo_chat_id?: string;
   school_name: string;
   school_address?: string;
   school_phone?: string;
@@ -59,6 +66,10 @@ interface StudentData {
   hours_per_week: number;
   registered_days: string;
   study_time_detail?: string;
+  tuition_package_name?: string;
+  is_discount_enabled?: number;
+  discount_percent?: number;
+  discount_reason?: string;
   current_month: string;
   current_tuition: number;
   standard_tuition: number;
@@ -120,6 +131,27 @@ export default function ParentPortal() {
   const [parentNameInput, setParentNameInput] = useState("");
   const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
 
+  // Bank Info & Zalo Bot Info from API
+  const [bankInfo, setBankInfo] = useState<{ bank_name: string; account_number: string; prefix: string }>({
+    bank_name: "",
+    account_number: "",
+    prefix: "HP",
+  });
+  const [zaloBotInfo, setZaloBotInfo] = useState<{ name: string; is_configured: boolean }>({
+    name: "",
+    is_configured: false,
+  });
+
+  // Zalo Connection Modal State for Student
+  const [isZaloModalOpen, setIsZaloModalOpen] = useState(false);
+  const [studentZaloChatIdInput, setStudentZaloChatIdInput] = useState("");
+  const [isSubmittingZalo, setIsSubmittingZalo] = useState(false);
+
+  // Tuition Payment Confirmation Modal State
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [paymentNote, setPaymentNote] = useState("");
+  const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
+
   // Toast
   const [toastMessage, setToastMessage] = useState<{ text: string; type: "success" | "error" } | null>(null);
 
@@ -156,6 +188,12 @@ export default function ParentPortal() {
         if (data.data.month_format) {
           setMonthFormat(data.data.month_format);
         }
+        if (data.data.bank_info) {
+          setBankInfo(data.data.bank_info);
+        }
+        if (data.data.zalo_bot) {
+          setZaloBotInfo(data.data.zalo_bot);
+        }
         setIsLoggedIn(true);
         localStorage.setItem("parent_phone", phoneToAuth.trim());
       } else {
@@ -181,6 +219,75 @@ export default function ParentPortal() {
   const refreshStudentData = async () => {
     if (phoneNumber) {
       await handleLoginWithPhone(phoneNumber);
+    }
+  };
+
+  // Handle Save / Disconnect Student Zalo Chat ID
+  const handleSaveStudentZalo = async (newId: string | null) => {
+    if (!activeStudent) return;
+    try {
+      setIsSubmittingZalo(true);
+      const res = await fetch("/api/parent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "update_student_zalo_chat_id",
+          student_id: activeStudent.id,
+          zalo_chat_id: newId,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(data.message, "success");
+        setIsZaloModalOpen(false);
+        setStudents((prev) =>
+          prev.map((s, idx) =>
+            idx === activeStudentIndex ? { ...s, zalo_chat_id: newId || undefined } : s
+          )
+        );
+      } else {
+        showToast(data.message || "Không thể lưu kết nối Zalo!", "error");
+      }
+    } catch {
+      showToast("Lỗi kết nối máy chủ!", "error");
+    } finally {
+      setIsSubmittingZalo(false);
+    }
+  };
+
+  // Handle Confirm Tuition Payment
+  const handleConfirmPayment = async () => {
+    if (!activeStudent) return;
+    const amountToPay = activeStudent.is_overdue && activeStudent.total_tuition_due
+      ? activeStudent.total_tuition_due
+      : activeStudent.current_tuition;
+
+    try {
+      setIsSubmittingPayment(true);
+      const res = await fetch("/api/parent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "confirm_payment",
+          student_id: activeStudent.id,
+          month: activeStudent.current_month,
+          amount: amountToPay,
+          note: paymentNote.trim() || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(data.message, "success");
+        setIsPaymentModalOpen(false);
+        setPaymentNote("");
+        await refreshStudentData();
+      } else {
+        showToast(data.message || "Ghi nhận thanh toán thất bại!", "error");
+      }
+    } catch {
+      showToast("Lỗi kết nối máy chủ!", "error");
+    } finally {
+      setIsSubmittingPayment(false);
     }
   };
 
@@ -545,6 +652,161 @@ export default function ParentPortal() {
                     </p>
                   </div>
                 </div>
+
+                {/* Zalo Notification Status & Action */}
+                <div className="pt-2.5 border-t border-white/20 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5 text-xs">
+                    <MessageCircle className="w-4 h-4 text-emerald-300 shrink-0" />
+                    {activeStudent.zalo_chat_id ? (
+                      <span className="text-emerald-200 font-bold flex items-center gap-1 text-[11px]">
+                        <Check className="w-3.5 h-3.5" /> Đã kết nối nhận tin Zalo
+                      </span>
+                    ) : (
+                      <span className="text-amber-200 font-semibold flex items-center gap-1 text-[11px]">
+                        <AlertCircle className="w-3.5 h-3.5" /> Chưa kết nối nhận tin Zalo
+                      </span>
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStudentZaloChatIdInput(activeStudent.zalo_chat_id || "");
+                      setIsZaloModalOpen(true);
+                    }}
+                    className={`px-2.5 py-1 rounded-xl text-xs font-black transition shadow-xs flex items-center gap-1 shrink-0 ${
+                      activeStudent.zalo_chat_id
+                        ? "bg-white/20 hover:bg-white/30 text-white border border-white/30"
+                        : "bg-amber-400 hover:bg-amber-500 text-slate-900 border border-amber-300 animate-pulse font-black"
+                    }`}
+                  >
+                    <MessageCircle className="w-3.5 h-3.5" />
+                    <span>{activeStudent.zalo_chat_id ? "Sửa kết nối" : "Kết nối Zalo nhận tin"}</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* TUITION PAYMENT & STATUS SECTION (THÔNG BÁO HỌC PHÍ & ĐÓNG TIỀN) */}
+            {activeStudent && (
+              <div className={`p-4.5 rounded-3xl border shadow-sm transition space-y-3.5 ${
+                activeStudent.is_paid
+                  ? "bg-emerald-50/60 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800/60"
+                  : activeStudent.is_overdue
+                  ? "bg-rose-50/70 dark:bg-rose-950/30 border-rose-200 dark:border-rose-800/80 animate-pulse-subtle"
+                  : "bg-white dark:bg-slate-900 border-slate-200/80 dark:border-slate-800"
+              }`}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold ${
+                      activeStudent.is_paid
+                        ? "bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300"
+                        : "bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300"
+                    }`}>
+                      <CreditCard className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-black text-slate-900 dark:text-white">
+                        Trạng Thái Học Phí {formatMonthDisplay(activeStudent.current_month, monthFormat)}
+                      </h3>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                        {activeStudent.tuition_package_name ? `Gói: ${activeStudent.tuition_package_name}` : "Học phí chuẩn hàng tháng"}
+                      </p>
+                    </div>
+                  </div>
+
+                  {activeStudent.is_paid ? (
+                    <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-black bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                      ĐÃ HOÀN TẤT
+                    </span>
+                  ) : (
+                    <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-black border ${
+                      activeStudent.is_overdue
+                        ? "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border-rose-300 dark:border-rose-700"
+                        : "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border-amber-300 dark:border-amber-700"
+                    }`}>
+                      <AlertCircle className="w-3.5 h-3.5" />
+                      CẦN ĐÓNG TIỀN
+                    </span>
+                  )}
+                </div>
+
+                {/* Details Breakdown */}
+                <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200/70 dark:border-slate-700/60 space-y-2 text-xs">
+                  <div className="flex items-center justify-between text-slate-600 dark:text-slate-300">
+                    <span>Học phí tháng này:</span>
+                    <span className="font-bold text-slate-900 dark:text-white">{formatVND(activeStudent.current_tuition)}</span>
+                  </div>
+
+                  {activeStudent.is_discount_enabled && activeStudent.discount_percent ? (
+                    <div className="flex items-center justify-between text-emerald-600 dark:text-emerald-400 font-semibold">
+                      <span>Chiết khấu ({activeStudent.discount_reason || "Ưu đãi"}):</span>
+                      <span>-{activeStudent.discount_percent}%</span>
+                    </div>
+                  ) : null}
+
+                  {activeStudent.is_overdue && activeStudent.previous_debt_amount ? (
+                    <div className="flex items-center justify-between text-rose-600 dark:text-rose-400 font-bold border-t border-slate-100 dark:border-slate-700 pt-1.5">
+                      <span>Nợ tích lũy ({activeStudent.unpaid_months_count} tháng qua):</span>
+                      <span>+{formatVND(activeStudent.previous_debt_amount)}</span>
+                    </div>
+                  ) : null}
+
+                  <div className="flex items-center justify-between font-black text-sm pt-2 border-t border-slate-100 dark:border-slate-700">
+                    <span className="text-slate-900 dark:text-white">Tổng số tiền cần thanh toán:</span>
+                    <span className={activeStudent.is_paid ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}>
+                      {activeStudent.is_paid
+                        ? "0 đ (Đã thanh toán)"
+                        : activeStudent.is_overdue && activeStudent.total_tuition_due
+                        ? formatVND(activeStudent.total_tuition_due)
+                        : formatVND(activeStudent.current_tuition)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* If Not Paid: Show Payment Guide & 1-Click Confirmation */}
+                {!activeStudent.is_paid && (
+                  <div className="space-y-3 pt-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs text-slate-600 dark:text-slate-400">
+                        Quý phụ huynh vui lòng chuyển khoản theo thông tin ngân hàng của trung tâm hoặc bấm xác nhận đã nộp học phí.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setIsPaymentModalOpen(true)}
+                        className="px-4 py-2 text-xs font-black rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white shadow-md shadow-emerald-600/30 transition shrink-0 flex items-center gap-1.5"
+                      >
+                        <CheckCircle2 className="w-4 h-4" />
+                        <span>Tôi Đã Đóng Học Phí</span>
+                      </button>
+                    </div>
+
+                    {/* VietQR Quick Scan Box if bank info is set */}
+                    {bankInfo.account_number && bankInfo.bank_name && (
+                      <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700 flex flex-col sm:flex-row items-center gap-3">
+                        {/* QR Code image generated via VietQR public API */}
+                        <div className="w-28 h-28 rounded-xl bg-white p-1.5 shadow-xs border border-slate-200 shrink-0 flex items-center justify-center">
+                          <img
+                            src={`https://img.vietqr.io/image/${bankInfo.bank_name.trim().toLowerCase()}-${bankInfo.account_number.trim()}-compact2.png?amount=${activeStudent.is_overdue && activeStudent.total_tuition_due ? activeStudent.total_tuition_due : activeStudent.current_tuition}&addInfo=${bankInfo.prefix || "HP"}+${activeStudent.student_code || activeStudent.phone}&accountName=${encodeURIComponent(activeStudent.school_name || "TRUNG TAM")}`}
+                            alt="Mã QR Chuyển Khoản Học Phí"
+                            className="w-full h-full object-contain"
+                          />
+                        </div>
+
+                        <div className="space-y-1 text-xs text-slate-600 dark:text-slate-300 flex-1">
+                          <p className="font-bold text-slate-900 dark:text-white flex items-center gap-1">
+                            <QrCode className="w-3.5 h-3.5 text-emerald-600" /> Quét mã VietQR chuyển khoản nhanh:
+                          </p>
+                          <p>• Ngân hàng: <strong className="text-slate-900 dark:text-white uppercase">{bankInfo.bank_name}</strong></p>
+                          <p>• Số tài khoản: <strong className="text-slate-900 dark:text-white font-mono">{bankInfo.account_number}</strong></p>
+                          <p>• Cú pháp: <strong className="text-emerald-700 dark:text-emerald-400 font-mono font-black">{bankInfo.prefix || "HP"} {activeStudent.student_code || activeStudent.phone}</strong></p>
+                          <p className="text-[10px] text-slate-400 italic">Hệ thống sẽ tự động gạch nợ ngay khi ngân hàng báo biến động số dư.</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
@@ -1038,6 +1300,194 @@ export default function ParentPortal() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Kết Nối Nhận Tin Nhắn & Thông Báo Zalo (Phụ Huynh) */}
+      {isZaloModalOpen && activeStudent && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in font-sans">
+          <div className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 flex items-center justify-center">
+                  <MessageCircle className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-slate-900 dark:text-white">
+                    Kết Nối Zalo Nhận Thông Báo
+                  </h3>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Học sinh: <strong>{activeStudent.name}</strong>
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsZaloModalOpen(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {/* Bot Info if configured */}
+              {zaloBotInfo.is_configured && zaloBotInfo.name && (
+                <div className="p-3 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-xs text-emerald-800 dark:text-emerald-300 font-medium flex items-start gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-bold">Bot Zalo trung tâm:</span> {zaloBotInfo.name}
+                    <p className="text-[11px] text-emerald-700 dark:text-emerald-400 mt-0.5">
+                      Phụ huynh mở ứng dụng Zalo, tìm bot <strong>{zaloBotInfo.name}</strong> và gửi tin nhắn để kích hoạt nhận lịch học, báo nghỉ và nhắc học phí tự động.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Instructions */}
+              <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80 text-xs space-y-2">
+                <span className="font-bold text-slate-800 dark:text-slate-200 block text-[11px] uppercase tracking-wider">
+                  Hướng dẫn kết nối nhanh:
+                </span>
+                <ol className="list-decimal list-inside space-y-1 text-slate-600 dark:text-slate-400 text-[11px]">
+                  <li>Mở Zalo và tìm kiếm Bot trung tâm (hoặc số Zalo trung tâm).</li>
+                  <li>Gửi tin nhắn chào Bot để nhận mã cuộc trò chuyện (Chat ID).</li>
+                  <li>Nhập mã <strong>Chat ID</strong> hoặc số điện thoại Zalo của phụ huynh vào ô dưới.</li>
+                </ol>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                  Mã Zalo Chat ID (hoặc SĐT Zalo của Phụ Huynh):
+                </label>
+                <input
+                  type="text"
+                  placeholder="Ví dụ: 894726482103 hoặc số điện thoại Zalo"
+                  value={studentZaloChatIdInput}
+                  onChange={(e) => setStudentZaloChatIdInput(e.target.value)}
+                  className="w-full px-3.5 py-2.5 text-xs font-mono font-bold rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                {activeStudent.zalo_chat_id ? (
+                  <button
+                    type="button"
+                    disabled={isSubmittingZalo}
+                    onClick={() => handleSaveStudentZalo(null)}
+                    className="px-3 py-2 text-xs font-bold text-rose-600 hover:text-rose-700 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl transition"
+                  >
+                    Hủy kết nối
+                  </button>
+                ) : (
+                  <div></div>
+                )}
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsZaloModalOpen(false)}
+                    className="px-3.5 py-2 text-xs font-semibold rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                  >
+                    Đóng
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isSubmittingZalo}
+                    onClick={() => handleSaveStudentZalo(studentZaloChatIdInput.trim())}
+                    className="px-4 py-2 text-xs font-bold rounded-xl bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-600/30 disabled:opacity-50 flex items-center gap-1.5"
+                  >
+                    {isSubmittingZalo ? "Đang lưu..." : "Lưu Kết Nối"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Xác Nhận Đã Đóng Học Phí (Phụ Huynh) */}
+      {isPaymentModalOpen && activeStudent && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in font-sans">
+          <div className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 flex items-center justify-center">
+                  <CheckCircle2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-slate-900 dark:text-white">
+                    Xác Nhận Đã Đóng Học Phí
+                  </h3>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Ghi nhận thanh toán cho bé {activeStudent.name}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsPaymentModalOpen(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60 space-y-2 text-xs">
+              <div className="flex justify-between">
+                <span className="text-slate-600 dark:text-slate-400">Kỳ học phí:</span>
+                <span className="font-bold text-slate-900 dark:text-white">
+                  {formatMonthDisplay(activeStudent.current_month, monthFormat)}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-600 dark:text-slate-400">Học sinh:</span>
+                <span className="font-bold text-slate-900 dark:text-white">{activeStudent.name} ({activeStudent.student_code || activeStudent.phone})</span>
+              </div>
+              <div className="flex justify-between pt-1 border-t border-emerald-200/60 dark:border-emerald-800/60 text-sm font-black">
+                <span className="text-emerald-900 dark:text-emerald-200">Số tiền xác nhận đã nộp:</span>
+                <span className="text-emerald-700 dark:text-emerald-300">
+                  {formatVND(
+                    activeStudent.is_overdue && activeStudent.total_tuition_due
+                      ? activeStudent.total_tuition_due
+                      : activeStudent.current_tuition
+                  )}
+                </span>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                Ghi chú thêm (Tùy chọn):
+              </label>
+              <input
+                type="text"
+                placeholder="Ví dụ: Đã chuyển khoản qua Vietcombank lúc 10h, tiền mặt..."
+                value={paymentNote}
+                onChange={(e) => setPaymentNote(e.target.value)}
+                className="w-full px-3.5 py-2.5 text-xs rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => setIsPaymentModalOpen(false)}
+                className="px-3.5 py-2 text-xs font-semibold rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                disabled={isSubmittingPayment}
+                onClick={handleConfirmPayment}
+                className="px-4 py-2 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-600/30 flex items-center gap-1.5 disabled:opacity-50"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                <span>{isSubmittingPayment ? "Đang ghi nhận..." : "Xác Nhận Đã Đóng"}</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

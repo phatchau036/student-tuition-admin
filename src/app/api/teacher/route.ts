@@ -71,6 +71,15 @@ export async function GET(req: Request) {
     // 4. Get all Time Slots for displaying teacher's assigned slots
     const slotsRes = await db.execute("SELECT * FROM time_slots ORDER BY id ASC");
 
+    // 5. Get Zalo Bot name from settings if configured
+    const botSettingRes = await db.execute("SELECT key, value FROM settings WHERE key IN ('zalo_bot_name', 'zalo_bot_token')");
+    let zaloBotName = "";
+    let isBotConfigured = false;
+    for (const r of botSettingRes.rows) {
+      if (r.key === "zalo_bot_name") zaloBotName = String(r.value || "");
+      if (r.key === "zalo_bot_token" && r.value) isBotConfigured = true;
+    }
+
     return NextResponse.json({
       success: true,
       data: {
@@ -79,6 +88,8 @@ export async function GET(req: Request) {
         makeups: makeupsRes.rows,
         levels: levelsRes.rows,
         time_slots: slotsRes.rows,
+        zalo_bot_name: zaloBotName,
+        is_bot_configured: isBotConfigured,
       },
     });
   } catch (error: unknown) {
@@ -139,10 +150,30 @@ export async function POST(req: Request) {
           phone: String(teacher.phone),
           specialty: String(teacher.specialty || ""),
           color: String(teacher.color || "indigo"),
+          zalo_chat_id: teacher.zalo_chat_id ? String(teacher.zalo_chat_id) : undefined,
+          zalo_link: teacher.zalo_link ? String(teacher.zalo_link) : undefined,
           school_id: String(teacher.school_id || ""),
           school_name: String(teacher.school_name || ""),
           school_code: String(teacher.school_code || ""),
         },
+      });
+    }
+
+    // 2. Cập nhật kết nối Zalo Chat ID cho giáo viên
+    if (action === "update_zalo_chat_id") {
+      const { teacher_id, zalo_chat_id } = body;
+      if (!teacher_id) {
+        return NextResponse.json({ success: false, message: "Thiếu mã giáo viên!" }, { status: 400 });
+      }
+      const val = zalo_chat_id ? String(zalo_chat_id).trim() : null;
+      await db.execute({
+        sql: "UPDATE teachers SET zalo_chat_id = ? WHERE id = ?",
+        args: [val, teacher_id],
+      });
+      return NextResponse.json({
+        success: true,
+        message: val ? "Kết nối Zalo thành công!" : "Đã hủy kết nối Zalo!",
+        zalo_chat_id: val,
       });
     }
 

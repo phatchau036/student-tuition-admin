@@ -115,6 +115,8 @@ export interface Teacher {
   email?: string;
   color?: string; // Color badge
   specialty?: string; // Chuyên môn / Môn dạy
+  zalo_chat_id?: string; // ID người nhận thông báo từ Zalo Bot
+  zalo_link?: string; // Link Zalo cá nhân
   max_students?: number; // Sĩ số tối đa 1 ca dạy của giáo viên này (Mặc định: 10)
   assigned_slot_ids?: string[]; // Danh sách ID các khung giờ / ca giáo viên được phân công dạy
   assigned_slots_desc?: string; // Chuỗi mô tả các ca dạy (VD: "Thứ 2 – Thứ 7: 17:00 - 20:00")

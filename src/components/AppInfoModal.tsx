@@ -377,11 +377,12 @@ export const AppInfoModal: React.FC<AppInfoModalProps> = ({
                     </span>
                   </div>
                   <ul className="text-xs text-slate-700 dark:text-slate-300 space-y-1.5 list-disc list-inside">
+                    <li><strong>Kết nối thông báo Zalo cho Giáo viên & Phụ huynh:</strong> Cung cấp khu vực kết nối trực tiếp trên Cổng Giáo Viên và Cổng Phụ Huynh để nhận tin nhắn lịch học, nhắc học phí và lịch bù qua Zalo Bot.</li>
+                    <li><strong>Thông báo đóng học phí & Mã VietQR tự động:</strong> Cổng Phụ Huynh hiển thị rõ trạng thái đóng/nợ học phí, mã VietQR quét nộp tiền tức thì kèm nút &quot;Tôi đã đóng học phí&quot; để ghi nhận ngay lập tức vào hệ thống.</li>
                     <li><strong>Đa ngôn ngữ toàn diện (Full System i18n):</strong> Hỗ trợ 4 ngôn ngữ chuẩn quốc tế (🇻🇳 Tiếng Việt, 🇬🇧 English, 🇨🇳 中文, 🇯🇵 日本語) với chuyển ngữ 1-click tức thì trên toàn giao diện quản trị và cổng phụ huynh.</li>
                     <li><strong>1-Click Cập nhật tự động từ GitHub:</strong> Tự động tải mã nguồn mới nhất từ kho GitHub, biên dịch bản build và khởi động lại dịch vụ ngay trên trang quản trị hệ thống.</li>
                     <li><strong>Chế độ Bảo Trì Thông Minh (Maintenance Guard):</strong> Tự động kích hoạt màn hình thông báo &quot;Server Đang Được Nâng Cấp&quot; khi cập nhật, tự động kết nối lại khi máy chủ hoàn tất.</li>
                     <li><strong>Tự động phát hiện nợ quá hạn & cộng dồn:</strong> Đánh dấu cảnh báo đỏ học sinh nợ học phí từ 2 tháng liên tiếp trở lên và tự động tính tổng nợ cũ vào tháng kế tiếp.</li>
-                    <li><strong>2 Tùy chọn kiểm soát sĩ số ca học:</strong> Tùy biến giới hạn theo ca mở cửa cơ sở HOẶC theo sức chứa và lịch ca làm việc riêng của từng giáo viên đứng lớp.</li>
                   </ul>
                 </div>
 

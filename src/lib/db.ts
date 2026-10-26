@@ -323,6 +323,8 @@ export async function initDb() {
   try { await db.execute("ALTER TABLE students ADD COLUMN zalo_chat_id TEXT DEFAULT NULL"); } catch {}
   try { await db.execute("ALTER TABLE students ADD COLUMN start_date TEXT DEFAULT NULL"); } catch {}
   try { await db.execute("ALTER TABLE students ADD COLUMN discount_reason TEXT DEFAULT ''"); } catch {}
+  try { await db.execute("ALTER TABLE teachers ADD COLUMN zalo_chat_id TEXT DEFAULT NULL"); } catch {}
+  try { await db.execute("ALTER TABLE teachers ADD COLUMN zalo_link TEXT DEFAULT NULL"); } catch {}
   try { await db.execute("ALTER TABLE makeup_classes ADD COLUMN makeup_teacher_id TEXT DEFAULT NULL"); } catch {}
 
   // Defaults for settings
