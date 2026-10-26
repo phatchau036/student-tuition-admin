@@ -588,110 +588,140 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           </button>
         </div>
 
-        {/* Modern Pill Navigation Tabs */}
-        <div className="flex border-b border-slate-200/80 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/20 px-6 py-2.5 gap-2 overflow-x-auto scrollbar-none">
-          <button
-            onClick={() => setActiveTab("general")}
-            className={`flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl transition shrink-0 ${
-              activeTab === "general"
-                ? "bg-indigo-600 text-white shadow-sm shadow-indigo-600/25"
-                : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
-            }`}
-          >
-            <Coins className="w-4 h-4" />
-            <span>Học phí & Thời lượng</span>
-          </button>
+        {/* Modern 2-Column Layout Container */}
+        <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+          {/* Left Sidebar Navigation Tabs */}
+          <div className="w-full md:w-60 border-b md:border-b-0 md:border-r border-slate-200/80 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/40 p-3 flex md:flex-col gap-1 overflow-x-auto md:overflow-y-auto shrink-0 scrollbar-none">
+            <button
+              onClick={() => setActiveTab("general")}
+              className={`flex items-center justify-between px-3.5 py-2.5 text-xs font-bold rounded-xl transition shrink-0 md:w-full ${
+                activeTab === "general"
+                  ? "bg-indigo-600 text-white shadow-sm shadow-indigo-600/25"
+                  : "text-slate-600 dark:text-slate-400 hover:bg-slate-200/60 dark:hover:bg-slate-800"
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <Coins className="w-4 h-4 shrink-0" />
+                <span>Học phí cơ bản</span>
+              </div>
+            </button>
 
-          {/* TAB MỚI 1: GÓI HỌC PHÍ */}
-          <button
-            onClick={() => setActiveTab("packages")}
-            className={`flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl transition shrink-0 ${
-              activeTab === "packages"
-                ? "bg-indigo-600 text-white shadow-sm shadow-indigo-600/25"
-                : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
-            }`}
-          >
-            <Package className="w-4 h-4" />
-            <span>Gói Học Phí ({packages.length})</span>
-          </button>
+            {/* TAB MỚI 1: GÓI HỌC PHÍ */}
+            <button
+              onClick={() => setActiveTab("packages")}
+              className={`flex items-center justify-between px-3.5 py-2.5 text-xs font-bold rounded-xl transition shrink-0 md:w-full ${
+                activeTab === "packages"
+                  ? "bg-indigo-600 text-white shadow-sm shadow-indigo-600/25"
+                  : "text-slate-600 dark:text-slate-400 hover:bg-slate-200/60 dark:hover:bg-slate-800"
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <Package className="w-4 h-4 shrink-0" />
+                <span>Gói Học Phí</span>
+              </div>
+              <span className={`text-[10px] px-1.5 py-0.2 rounded-md font-bold hidden md:inline ${activeTab === "packages" ? "bg-white/20 text-white" : "bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400"}`}>
+                {packages.length}
+              </span>
+            </button>
 
-          {/* TAB MỚI 2: ĐỐI SOÁT HỌC PHÍ */}
-          <button
-            onClick={() => setActiveTab("reconciliation")}
-            className={`flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl transition shrink-0 ${
-              activeTab === "reconciliation"
-                ? "bg-indigo-600 text-white shadow-sm shadow-indigo-600/25"
-                : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
-            }`}
-          >
-            <CreditCard className="w-4 h-4" />
-            <span>Đối Soát Thanh Toán</span>
-          </button>
+            {/* TAB MỚI 2: ĐỐI SOÁT HỌC PHÍ */}
+            <button
+              onClick={() => setActiveTab("reconciliation")}
+              className={`flex items-center justify-between px-3.5 py-2.5 text-xs font-bold rounded-xl transition shrink-0 md:w-full ${
+                activeTab === "reconciliation"
+                  ? "bg-indigo-600 text-white shadow-sm shadow-indigo-600/25"
+                  : "text-slate-600 dark:text-slate-400 hover:bg-slate-200/60 dark:hover:bg-slate-800"
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <CreditCard className="w-4 h-4 shrink-0" />
+                <span>Đối Soát SePay</span>
+              </div>
+            </button>
 
-          {/* TAB MỚI 3: NHẮC HỌC PHÍ QUA ZALO */}
-          <button
-            onClick={() => setActiveTab("zalo")}
-            className={`flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl transition shrink-0 ${
-              activeTab === "zalo"
-                ? "bg-indigo-600 text-white shadow-sm shadow-indigo-600/25"
-                : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
-            }`}
-          >
-            <MessageSquare className="w-4 h-4" />
-            <span>Nhắc Zalo</span>
-          </button>
+            {/* TAB MỚI 3: NHẮC HỌC PHÍ QUA ZALO */}
+            <button
+              onClick={() => setActiveTab("zalo")}
+              className={`flex items-center justify-between px-3.5 py-2.5 text-xs font-bold rounded-xl transition shrink-0 md:w-full ${
+                activeTab === "zalo"
+                  ? "bg-indigo-600 text-white shadow-sm shadow-indigo-600/25"
+                  : "text-slate-600 dark:text-slate-400 hover:bg-slate-200/60 dark:hover:bg-slate-800"
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <MessageSquare className="w-4 h-4 shrink-0" />
+                <span>Nhắc Zalo Bot</span>
+              </div>
+            </button>
 
-          <button
-            onClick={() => setActiveTab("slots")}
-            className={`flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl transition shrink-0 ${
-              activeTab === "slots"
-                ? "bg-indigo-600 text-white shadow-sm shadow-indigo-600/25"
-                : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
-            }`}
-          >
-            <Clock className="w-4 h-4" />
-            <span>Khung giờ ({timeSlots.length})</span>
-          </button>
+            <button
+              onClick={() => setActiveTab("slots")}
+              className={`flex items-center justify-between px-3.5 py-2.5 text-xs font-bold rounded-xl transition shrink-0 md:w-full ${
+                activeTab === "slots"
+                  ? "bg-indigo-600 text-white shadow-sm shadow-indigo-600/25"
+                  : "text-slate-600 dark:text-slate-400 hover:bg-slate-200/60 dark:hover:bg-slate-800"
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <Clock className="w-4 h-4 shrink-0" />
+                <span>Khung giờ ca</span>
+              </div>
+              <span className={`text-[10px] px-1.5 py-0.2 rounded-md font-bold hidden md:inline ${activeTab === "slots" ? "bg-white/20 text-white" : "bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400"}`}>
+                {timeSlots.length}
+              </span>
+            </button>
 
-          <button
-            onClick={() => setActiveTab("levels")}
-            className={`flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl transition shrink-0 ${
-              activeTab === "levels"
-                ? "bg-indigo-600 text-white shadow-sm shadow-indigo-600/25"
-                : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
-            }`}
-          >
-            <Layers className="w-4 h-4" />
-            <span>Phụ thu Level ({levels.length})</span>
-          </button>
+            <button
+              onClick={() => setActiveTab("levels")}
+              className={`flex items-center justify-between px-3.5 py-2.5 text-xs font-bold rounded-xl transition shrink-0 md:w-full ${
+                activeTab === "levels"
+                  ? "bg-indigo-600 text-white shadow-sm shadow-indigo-600/25"
+                  : "text-slate-600 dark:text-slate-400 hover:bg-slate-200/60 dark:hover:bg-slate-800"
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <Layers className="w-4 h-4 shrink-0" />
+                <span>Phụ thu Level</span>
+              </div>
+              <span className={`text-[10px] px-1.5 py-0.2 rounded-md font-bold hidden md:inline ${activeTab === "levels" ? "bg-white/20 text-white" : "bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400"}`}>
+                {levels.length}
+              </span>
+            </button>
 
-          <button
-            onClick={() => setActiveTab("discounts")}
-            className={`flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl transition shrink-0 ${
-              activeTab === "discounts"
-                ? "bg-indigo-600 text-white shadow-sm shadow-indigo-600/25"
-                : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
-            }`}
-          >
-            <Percent className="w-4 h-4" />
-            <span>Chiết khấu ({discounts.length})</span>
-          </button>
+            <button
+              onClick={() => setActiveTab("discounts")}
+              className={`flex items-center justify-between px-3.5 py-2.5 text-xs font-bold rounded-xl transition shrink-0 md:w-full ${
+                activeTab === "discounts"
+                  ? "bg-indigo-600 text-white shadow-sm shadow-indigo-600/25"
+                  : "text-slate-600 dark:text-slate-400 hover:bg-slate-200/60 dark:hover:bg-slate-800"
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <Percent className="w-4 h-4 shrink-0" />
+                <span>Mức chiết khấu</span>
+              </div>
+              <span className={`text-[10px] px-1.5 py-0.2 rounded-md font-bold hidden md:inline ${activeTab === "discounts" ? "bg-white/20 text-white" : "bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400"}`}>
+                {discounts.length}
+              </span>
+            </button>
 
-          <button
-            onClick={() => setActiveTab("password")}
-            className={`flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl transition shrink-0 ${
-              activeTab === "password"
-                ? "bg-indigo-600 text-white shadow-sm shadow-indigo-600/25"
-                : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
-            }`}
-          >
-            <KeyRound className="w-4 h-4" />
-            <span>Đổi Mật Khẩu</span>
-          </button>
-        </div>
+            <button
+              onClick={() => setActiveTab("password")}
+              className={`flex items-center justify-between px-3.5 py-2.5 text-xs font-bold rounded-xl transition shrink-0 md:w-full ${
+                activeTab === "password"
+                  ? "bg-indigo-600 text-white shadow-sm shadow-indigo-600/25"
+                  : "text-slate-600 dark:text-slate-400 hover:bg-slate-200/60 dark:hover:bg-slate-800"
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <KeyRound className="w-4 h-4 shrink-0" />
+                <span>Đổi Mật Khẩu</span>
+              </div>
+            </button>
+          </div>
 
-        {/* Tab Content */}
-        <div className="p-6 overflow-y-auto flex-1 space-y-6">
+          {/* Right Panel: Scrollable Tab Content */}
+          <div className="p-6 overflow-y-auto flex-1 space-y-6">
           {/* TAB 1: Base Tuition, Capacity & Weekly Duration Mode */}
           {activeTab === "general" && (
             <div className="space-y-6 w-full">
@@ -2344,6 +2374,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </form>
             </div>
           )}
+          </div>
         </div>
 
         {/* Modal Footer */}

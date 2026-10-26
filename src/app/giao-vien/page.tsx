@@ -541,16 +541,32 @@ export default function TeacherPortal() {
               </button>
             </div>
 
-            {/* Search Bar */}
-            <div className="relative">
-              <Search className="w-4 h-4 absolute left-3.5 top-3 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Tìm theo tên học sinh, số điện thoại, trình độ..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 text-sm rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
-              />
+            {/* Search Bar with Counter & Quick Clear */}
+            <div className="space-y-1.5">
+              <div className="relative">
+                <Search className="w-4 h-4 absolute left-3.5 top-3 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Tìm theo tên học sinh, số điện thoại, trình độ..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-9 py-2 text-sm rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery("")}
+                    className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+              {searchQuery && (
+                <p className="text-[11px] text-slate-400 px-1 font-medium">
+                  Hiển thị {activeTab === "all" ? filteredStudents.length : filteredMakeups.length} học sinh phù hợp.
+                </p>
+              )}
             </div>
 
             {/* TAB 1: Regular Students List */}
@@ -582,7 +598,7 @@ export default function TeacherPortal() {
                         title="Nâng cấp hoặc thay đổi Level/Grade"
                       >
                         <Award className="w-3.5 h-3.5 text-purple-600" />
-                        <span>Nâng Level</span>
+                        <span>Đổi Level</span>
                       </button>
                     </div>
 
@@ -677,10 +693,10 @@ export default function TeacherPortal() {
                       <button
                         onClick={() => handleOpenUpgrade(mk)}
                         className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-700 text-xs font-bold border border-purple-200 shrink-0"
-                        title="Nâng cấp Level"
+                        title="Thay đổi Level/Grade"
                       >
-                        <Award className="w-3.5 h-3.5" />
-                        <span>Đổi Grade</span>
+                        <Award className="w-3.5 h-3.5 text-purple-600" />
+                        <span>Đổi Level</span>
                       </button>
                     </div>
 
@@ -704,11 +720,20 @@ export default function TeacherPortal() {
 
                     <div className="flex items-center justify-end gap-2 pt-1 text-xs">
                       <a
-                        href={`tel:${mk.student_phone}`}
-                        className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-semibold"
+                        href={`https://zalo.me/${mk.student_phone.replace(/\D/g, "")}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 text-blue-700 hover:bg-blue-100 font-bold"
                       >
-                        <Phone className="w-3.5 h-3.5 text-emerald-600" />
-                        <span>Liên Hệ Học Sinh</span>
+                        <MessageCircle className="w-3.5 h-3.5 text-blue-600" />
+                        <span>Chat Zalo</span>
+                      </a>
+                      <a
+                        href={`tel:${mk.student_phone}`}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold transition"
+                      >
+                        <Phone className="w-3.5 h-3.5 text-slate-500" />
+                        <span>Gọi Điện</span>
                       </a>
                     </div>
                   </div>

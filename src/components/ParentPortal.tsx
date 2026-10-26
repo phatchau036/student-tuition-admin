@@ -152,6 +152,9 @@ export default function ParentPortal() {
   const [paymentNote, setPaymentNote] = useState("");
   const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
 
+  // Active Tab for Parent Portal
+  const [activeParentTab, setActiveParentTab] = useState<"schedule" | "tuition" | "contact">("schedule");
+
   // Toast
   const [toastMessage, setToastMessage] = useState<{ text: string; type: "success" | "error" } | null>(null);
 
@@ -602,9 +605,9 @@ export default function ParentPortal() {
               </div>
             )}
 
-            {/* School Banner Card */}
+            {/* School & Student Profile Card */}
             {activeStudent && (
-              <div className="p-4 rounded-3xl bg-linear-to-br from-emerald-600 to-teal-700 text-white shadow-xl shadow-emerald-600/20 space-y-3">
+              <div className="p-4.5 rounded-3xl bg-linear-to-br from-emerald-600 to-teal-700 text-white shadow-xl shadow-emerald-600/20 space-y-3">
                 <div className="flex items-start justify-between">
                   <div>
                     <span className="text-[11px] uppercase tracking-wider font-bold text-emerald-100 flex items-center gap-1">
@@ -612,29 +615,36 @@ export default function ParentPortal() {
                       {activeStudent.school_name}
                     </span>
                     <h2 className="text-xl font-black mt-0.5">{activeStudent.name}</h2>
-                    <span className="inline-block mt-1 px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-white/20 backdrop-blur-md">
-                      Trình độ: {activeStudent.level_name}
-                    </span>
+                    <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                      <span className="px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-white/20 backdrop-blur-md">
+                        Trình độ: {activeStudent.level_name}
+                      </span>
+                      <span className="px-2 py-0.5 rounded-full text-[11px] font-mono font-bold bg-emerald-900/60 text-emerald-200 border border-emerald-500/40">
+                        {activeStudent.student_code || activeStudent.phone}
+                      </span>
+                    </div>
                   </div>
 
                   <div className="text-right">
                     <p className="text-[11px] text-emerald-100">
                       {activeStudent.is_overdue
-                        ? `Tổng nợ (${activeStudent.unpaid_months_count} tháng)`
+                        ? `Nợ (${activeStudent.unpaid_months_count} tháng)`
                         : `Học phí ${formatMonthDisplay(activeStudent.current_month, monthFormat)}`}
                     </p>
                     <p className={`text-lg font-black ${activeStudent.is_overdue ? "text-amber-200" : "text-white"}`}>
-                      {activeStudent.is_overdue && activeStudent.total_tuition_due
+                      {activeStudent.is_paid
+                        ? "Đã đóng"
+                        : activeStudent.is_overdue && activeStudent.total_tuition_due
                         ? formatVND(activeStudent.total_tuition_due)
                         : formatVND(activeStudent.current_tuition)}
                     </p>
-                    {activeStudent.is_overdue && activeStudent.previous_debt_amount ? (
-                      <span className="text-[10px] text-rose-200 font-bold block bg-rose-900/60 px-2 py-0.5 rounded mt-0.5">
-                        * Nợ cũ: +{formatVND(activeStudent.previous_debt_amount)}
+                    {activeStudent.is_paid ? (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-200 bg-white/10 px-2 py-0.5 rounded mt-0.5">
+                        <CheckCircle2 className="w-3 h-3 text-emerald-300" /> Hoàn tất
                       </span>
-                    ) : activeStudent.is_override ? (
-                      <span className="text-[10px] text-amber-200 font-semibold block">
-                        Đã điều chỉnh học phí
+                    ) : activeStudent.is_overdue ? (
+                      <span className="text-[10px] text-rose-200 font-bold block bg-rose-900/60 px-2 py-0.5 rounded mt-0.5">
+                        * Nợ quá hạn
                       </span>
                     ) : null}
                   </div>
@@ -652,309 +662,415 @@ export default function ParentPortal() {
                     </p>
                   </div>
                 </div>
+              </div>
+            )}
 
-                {/* Zalo Notification Status & Action */}
-                <div className="pt-2.5 border-t border-white/20 flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-1.5 text-xs">
-                    <MessageCircle className="w-4 h-4 text-emerald-300 shrink-0" />
-                    {activeStudent.zalo_chat_id ? (
-                      <span className="text-emerald-200 font-bold flex items-center gap-1 text-[11px]">
-                        <Check className="w-3.5 h-3.5" /> Đã kết nối nhận tin Zalo
-                      </span>
-                    ) : (
-                      <span className="text-amber-200 font-semibold flex items-center gap-1 text-[11px]">
-                        <AlertCircle className="w-3.5 h-3.5" /> Chưa kết nối nhận tin Zalo
-                      </span>
+            {/* Segmented 3-Tab Navigation Bar */}
+            <div className="grid grid-cols-3 gap-1 p-1 rounded-2xl bg-slate-200/80 dark:bg-slate-800/80 text-xs font-bold">
+              <button
+                type="button"
+                onClick={() => setActiveParentTab("schedule")}
+                className={`py-2 px-1 rounded-xl transition flex items-center justify-center gap-1.5 ${
+                  activeParentTab === "schedule"
+                    ? "bg-white dark:bg-slate-900 text-emerald-700 dark:text-emerald-400 shadow-xs"
+                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
+                }`}
+              >
+                <Calendar className="w-3.5 h-3.5" />
+                <span className="truncate">Lịch học & Bù</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveParentTab("tuition")}
+                className={`py-2 px-1 rounded-xl transition flex items-center justify-center gap-1.5 relative ${
+                  activeParentTab === "tuition"
+                    ? "bg-white dark:bg-slate-900 text-emerald-700 dark:text-emerald-400 shadow-xs"
+                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
+                }`}
+              >
+                <CreditCard className="w-3.5 h-3.5" />
+                <span className="truncate">Học phí & QR</span>
+                {activeStudent && !activeStudent.is_paid && (
+                  <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse absolute top-1.5 right-1.5" />
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveParentTab("contact")}
+                className={`py-2 px-1 rounded-xl transition flex items-center justify-center gap-1.5 ${
+                  activeParentTab === "contact"
+                    ? "bg-white dark:bg-slate-900 text-emerald-700 dark:text-emerald-400 shadow-xs"
+                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
+                }`}
+              >
+                <MessageSquareHeart className="w-3.5 h-3.5" />
+                <span className="truncate">Liên hệ & Góp ý</span>
+              </button>
+            </div>
+
+            {/* TAB 1: LỊCH HỌC & ĐIỂM DANH */}
+            {activeParentTab === "schedule" && activeStudent && (
+              <div className="space-y-3.5 animate-in fade-in duration-150">
+                {/* Schedule Details Card */}
+                <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                      <Clock className="w-4 h-4 text-emerald-600" />
+                      <span>Lịch Học Trong Tuần</span>
+                    </h3>
+                    <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                      {activeStudent.duration_mode === "by_hours"
+                        ? `${activeStudent.hours_per_week} tiếng / tuần`
+                        : `${activeStudent.sessions_per_week} buổi / tuần`}
+                    </span>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 text-xs text-slate-700 dark:text-slate-300 space-y-1">
+                    <p className="font-semibold text-slate-900 dark:text-white">
+                      Các ngày học: {activeStudent.registered_days || "Chưa chọn lịch"}
+                    </p>
+                    {activeStudent.study_time_detail && (
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">{activeStudent.study_time_detail}</p>
                     )}
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setStudentZaloChatIdInput(activeStudent.zalo_chat_id || "");
-                      setIsZaloModalOpen(true);
-                    }}
-                    className={`px-2.5 py-1 rounded-xl text-xs font-black transition shadow-xs flex items-center gap-1 shrink-0 ${
-                      activeStudent.zalo_chat_id
-                        ? "bg-white/20 hover:bg-white/30 text-white border border-white/30"
-                        : "bg-amber-400 hover:bg-amber-500 text-slate-900 border border-amber-300 animate-pulse font-black"
-                    }`}
-                  >
-                    <MessageCircle className="w-3.5 h-3.5" />
-                    <span>{activeStudent.zalo_chat_id ? "Sửa kết nối" : "Kết nối Zalo nhận tin"}</span>
-                  </button>
+                  <div className="pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setIsReportModalOpen(true)}
+                      className="w-full py-2.5 px-3 rounded-xl bg-amber-500 hover:bg-amber-600 active:scale-[0.99] text-white font-bold text-xs flex items-center justify-center gap-2 transition shadow-xs"
+                    >
+                      <CalendarCheck className="w-4 h-4" />
+                      <span>Báo Nghỉ Học (Tự Động Tạo Suất Học Bù)</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Makeups Section */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                      <Sparkles className="w-4 h-4 text-amber-500" />
+                      <span>Danh Sách Buổi Báo Nghỉ & Học Bù</span>
+                    </h3>
+                  </div>
+
+                  {activeStudent.makeups.length === 0 && (
+                    <div className="p-6 text-center rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 text-slate-400 text-xs">
+                      <CalendarCheck className="w-8 h-8 mx-auto text-slate-300 mb-2" />
+                      <p>Bé đi học đầy đủ! Chưa có ngày nghỉ nào cần xếp lịch học bù.</p>
+                    </div>
+                  )}
+
+                  {activeStudent.makeups.map((mk) => (
+                    <div
+                      key={mk.id}
+                      className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-3"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-bold text-sm text-slate-900 dark:text-white">
+                              Nghỉ ngày: {mk.absence_date}
+                            </span>
+                            {mk.status === "pending" && (
+                              <span className="px-2 py-0.5 text-[11px] font-bold rounded-md bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200">
+                                Chưa chọn ngày bù
+                              </span>
+                            )}
+                            {mk.status === "scheduled" && (
+                              <span className="px-2 py-0.5 text-[11px] font-bold rounded-md bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200">
+                                Đã xếp lịch bù
+                              </span>
+                            )}
+                            {mk.status === "completed" && (
+                              <span className="px-2 py-0.5 text-[11px] font-bold rounded-md bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200">
+                                Đã học xong
+                              </span>
+                            )}
+                          </div>
+                          {mk.absence_reason && (
+                            <p className="text-xs text-slate-500 mt-1">Lý do: {mk.absence_reason}</p>
+                          )}
+                        </div>
+
+                        {mk.status === "pending" && (
+                          <button
+                            onClick={() => {
+                              setSchedulingItem(mk);
+                              setMakeupDate("");
+                            }}
+                            className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shadow-xs transition shrink-0"
+                          >
+                            Chọn Lịch Bù
+                          </button>
+                        )}
+                      </div>
+
+                      {mk.status === "scheduled" && (
+                        <div className="p-3 rounded-xl bg-blue-50/60 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/40 text-xs space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-blue-900 dark:text-blue-200 flex items-center gap-1.5">
+                              <Calendar className="w-3.5 h-3.5 text-blue-600" />
+                              <span>Lịch học bù: {mk.makeup_date}</span>
+                            </span>
+                            {mk.makeup_time && (
+                              <span className="text-blue-700 font-semibold">{mk.makeup_time}</span>
+                            )}
+                          </div>
+                          {mk.note && <p className="text-slate-500 text-[11px]">Ghi chú: {mk.note}</p>}
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
 
-            {/* TUITION PAYMENT & STATUS SECTION (THÔNG BÁO HỌC PHÍ & ĐÓNG TIỀN) */}
-            {activeStudent && (
-              <div className={`p-4.5 rounded-3xl border shadow-sm transition space-y-3.5 ${
-                activeStudent.is_paid
-                  ? "bg-emerald-50/60 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800/60"
-                  : activeStudent.is_overdue
-                  ? "bg-rose-50/70 dark:bg-rose-950/30 border-rose-200 dark:border-rose-800/80 animate-pulse-subtle"
-                  : "bg-white dark:bg-slate-900 border-slate-200/80 dark:border-slate-800"
-              }`}>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold ${
-                      activeStudent.is_paid
-                        ? "bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300"
-                        : "bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300"
-                    }`}>
-                      <CreditCard className="w-4 h-4" />
+            {/* TAB 2: HỌC PHÍ & VIETQR */}
+            {activeParentTab === "tuition" && activeStudent && (
+              <div className="space-y-3.5 animate-in fade-in duration-150">
+                <div className={`p-4.5 rounded-3xl border shadow-sm transition space-y-3.5 ${
+                  activeStudent.is_paid
+                    ? "bg-emerald-50/60 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800/60"
+                    : activeStudent.is_overdue
+                    ? "bg-rose-50/70 dark:bg-rose-950/30 border-rose-200 dark:border-rose-800/80"
+                    : "bg-white dark:bg-slate-900 border-slate-200/80 dark:border-slate-800"
+                }`}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold ${
+                        activeStudent.is_paid
+                          ? "bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300"
+                          : "bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300"
+                      }`}>
+                        <CreditCard className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-black text-slate-900 dark:text-white">
+                          Học Phí {formatMonthDisplay(activeStudent.current_month, monthFormat)}
+                        </h3>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                          {activeStudent.tuition_package_name ? `Gói: ${activeStudent.tuition_package_name}` : "Học phí chuẩn hàng tháng"}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="text-sm font-black text-slate-900 dark:text-white">
-                        Trạng Thái Học Phí {formatMonthDisplay(activeStudent.current_month, monthFormat)}
-                      </h3>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                        {activeStudent.tuition_package_name ? `Gói: ${activeStudent.tuition_package_name}` : "Học phí chuẩn hàng tháng"}
-                      </p>
+
+                    {activeStudent.is_paid ? (
+                      <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-black bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                        ĐÃ THANH TOÁN
+                      </span>
+                    ) : (
+                      <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-black border ${
+                        activeStudent.is_overdue
+                          ? "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border-rose-300 dark:border-rose-700"
+                          : "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border-amber-300 dark:border-amber-700"
+                      }`}>
+                        <AlertCircle className="w-3.5 h-3.5" />
+                        {activeStudent.is_overdue ? `Nợ ${activeStudent.unpaid_months_count} tháng` : "CẦN ĐÓNG TIỀN"}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Financial Breakdown */}
+                  <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200/70 dark:border-slate-700/60 space-y-2 text-xs">
+                    <div className="flex items-center justify-between text-slate-600 dark:text-slate-300">
+                      <span>Học phí tháng này:</span>
+                      <span className="font-bold text-slate-900 dark:text-white">{formatVND(activeStudent.current_tuition)}</span>
+                    </div>
+
+                    {activeStudent.is_discount_enabled && activeStudent.discount_percent ? (
+                      <div className="flex items-center justify-between text-emerald-600 dark:text-emerald-400 font-semibold">
+                        <span>Chiết khấu ({activeStudent.discount_reason || "Ưu đãi"}):</span>
+                        <span>-{activeStudent.discount_percent}%</span>
+                      </div>
+                    ) : null}
+
+                    {activeStudent.is_overdue && activeStudent.previous_debt_amount ? (
+                      <div className="flex items-center justify-between text-rose-600 dark:text-rose-400 font-bold border-t border-slate-100 dark:border-slate-700 pt-1.5">
+                        <span>Nợ tích lũy ({activeStudent.unpaid_months_count} tháng trước):</span>
+                        <span>+{formatVND(activeStudent.previous_debt_amount)}</span>
+                      </div>
+                    ) : null}
+
+                    <div className="flex items-center justify-between font-black text-sm pt-2 border-t border-slate-100 dark:border-slate-700">
+                      <span className="text-slate-900 dark:text-white">Tổng số tiền cần nộp:</span>
+                      <span className={activeStudent.is_paid ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}>
+                        {activeStudent.is_paid
+                          ? "0 đ (Đã hoàn tất)"
+                          : activeStudent.is_overdue && activeStudent.total_tuition_due
+                          ? formatVND(activeStudent.total_tuition_due)
+                          : formatVND(activeStudent.current_tuition)}
+                      </span>
                     </div>
                   </div>
 
-                  {activeStudent.is_paid ? (
-                    <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-black bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                      ĐÃ HOÀN TẤT
-                    </span>
-                  ) : (
-                    <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-black border ${
-                      activeStudent.is_overdue
-                        ? "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border-rose-300 dark:border-rose-700"
-                        : "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border-amber-300 dark:border-amber-700"
-                    }`}>
-                      <AlertCircle className="w-3.5 h-3.5" />
-                      CẦN ĐÓNG TIỀN
-                    </span>
-                  )}
-                </div>
+                  {/* If Not Paid: Show Payment Guide & 1-Click Confirmation */}
+                  {!activeStudent.is_paid && (
+                    <div className="space-y-3 pt-1">
+                      {/* VietQR Quick Scan Box if bank info is set */}
+                      {bankInfo.account_number && bankInfo.bank_name ? (
+                        <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700 flex flex-col sm:flex-row items-center gap-3.5">
+                          <div className="w-32 h-32 rounded-xl bg-white p-1.5 shadow-xs border border-slate-200 shrink-0 flex items-center justify-center">
+                            <img
+                              src={`https://img.vietqr.io/image/${bankInfo.bank_name.trim().toLowerCase()}-${bankInfo.account_number.trim()}-compact2.png?amount=${activeStudent.is_overdue && activeStudent.total_tuition_due ? activeStudent.total_tuition_due : activeStudent.current_tuition}&addInfo=${bankInfo.prefix || "HP"}+${activeStudent.student_code || activeStudent.phone}&accountName=${encodeURIComponent(activeStudent.school_name || "TRUNG TAM")}`}
+                              alt="Mã QR Chuyển Khoản Học Phí"
+                              className="w-full h-full object-contain"
+                            />
+                          </div>
 
-                {/* Details Breakdown */}
-                <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200/70 dark:border-slate-700/60 space-y-2 text-xs">
-                  <div className="flex items-center justify-between text-slate-600 dark:text-slate-300">
-                    <span>Học phí tháng này:</span>
-                    <span className="font-bold text-slate-900 dark:text-white">{formatVND(activeStudent.current_tuition)}</span>
-                  </div>
+                          <div className="space-y-2 text-xs text-slate-600 dark:text-slate-300 flex-1 w-full">
+                            <p className="font-bold text-slate-900 dark:text-white flex items-center gap-1 text-xs">
+                              <QrCode className="w-3.5 h-3.5 text-emerald-600" /> Quét mã VietQR chuyển khoản nhanh:
+                            </p>
+                            <div className="flex items-center justify-between bg-white dark:bg-slate-900 px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700">
+                              <span>Ngân hàng: <strong className="text-slate-900 dark:text-white uppercase">{bankInfo.bank_name}</strong></span>
+                            </div>
 
-                  {activeStudent.is_discount_enabled && activeStudent.discount_percent ? (
-                    <div className="flex items-center justify-between text-emerald-600 dark:text-emerald-400 font-semibold">
-                      <span>Chiết khấu ({activeStudent.discount_reason || "Ưu đãi"}):</span>
-                      <span>-{activeStudent.discount_percent}%</span>
-                    </div>
-                  ) : null}
+                            <div className="flex items-center justify-between bg-white dark:bg-slate-900 px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700">
+                              <span>STK: <strong className="text-slate-900 dark:text-white font-mono">{bankInfo.account_number}</strong></span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(bankInfo.account_number);
+                                  showToast("Đã copy số tài khoản!", "success");
+                                }}
+                                className="text-[11px] font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1"
+                              >
+                                <Copy className="w-3 h-3" />
+                                <span>Copy</span>
+                              </button>
+                            </div>
 
-                  {activeStudent.is_overdue && activeStudent.previous_debt_amount ? (
-                    <div className="flex items-center justify-between text-rose-600 dark:text-rose-400 font-bold border-t border-slate-100 dark:border-slate-700 pt-1.5">
-                      <span>Nợ tích lũy ({activeStudent.unpaid_months_count} tháng qua):</span>
-                      <span>+{formatVND(activeStudent.previous_debt_amount)}</span>
-                    </div>
-                  ) : null}
+                            <div className="flex items-center justify-between bg-white dark:bg-slate-900 px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700">
+                              <span className="truncate mr-1">Cú pháp: <strong className="text-emerald-700 dark:text-emerald-400 font-mono font-black">{bankInfo.prefix || "HP"} {activeStudent.student_code || activeStudent.phone}</strong></span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(`${bankInfo.prefix || "HP"} ${activeStudent.student_code || activeStudent.phone}`);
+                                  showToast("Đã copy cú pháp chuyển khoản!", "success");
+                                }}
+                                className="text-[11px] font-bold text-emerald-600 hover:text-emerald-700 flex items-center gap-1 shrink-0"
+                              >
+                                <Copy className="w-3 h-3" />
+                                <span>Copy</span>
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ) : null}
 
-                  <div className="flex items-center justify-between font-black text-sm pt-2 border-t border-slate-100 dark:border-slate-700">
-                    <span className="text-slate-900 dark:text-white">Tổng số tiền cần thanh toán:</span>
-                    <span className={activeStudent.is_paid ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}>
-                      {activeStudent.is_paid
-                        ? "0 đ (Đã thanh toán)"
-                        : activeStudent.is_overdue && activeStudent.total_tuition_due
-                        ? formatVND(activeStudent.total_tuition_due)
-                        : formatVND(activeStudent.current_tuition)}
-                    </span>
-                  </div>
-                </div>
-
-                {/* If Not Paid: Show Payment Guide & 1-Click Confirmation */}
-                {!activeStudent.is_paid && (
-                  <div className="space-y-3 pt-1">
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-xs text-slate-600 dark:text-slate-400">
-                        Quý phụ huynh vui lòng chuyển khoản theo thông tin ngân hàng của trung tâm hoặc bấm xác nhận đã nộp học phí.
-                      </p>
+                      {/* Confirm Button */}
                       <button
                         type="button"
                         onClick={() => setIsPaymentModalOpen(true)}
-                        className="px-4 py-2 text-xs font-black rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white shadow-md shadow-emerald-600/30 transition shrink-0 flex items-center gap-1.5"
+                        className="w-full py-3 px-4 text-xs font-black rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] text-white shadow-md shadow-emerald-600/30 transition flex items-center justify-center gap-2"
                       >
                         <CheckCircle2 className="w-4 h-4" />
-                        <span>Tôi Đã Đóng Học Phí</span>
+                        <span>Tôi Đã Đóng Học Phí (Xác Nhận & Ghi Nhận Ngay)</span>
                       </button>
                     </div>
-
-                    {/* VietQR Quick Scan Box if bank info is set */}
-                    {bankInfo.account_number && bankInfo.bank_name && (
-                      <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700 flex flex-col sm:flex-row items-center gap-3">
-                        {/* QR Code image generated via VietQR public API */}
-                        <div className="w-28 h-28 rounded-xl bg-white p-1.5 shadow-xs border border-slate-200 shrink-0 flex items-center justify-center">
-                          <img
-                            src={`https://img.vietqr.io/image/${bankInfo.bank_name.trim().toLowerCase()}-${bankInfo.account_number.trim()}-compact2.png?amount=${activeStudent.is_overdue && activeStudent.total_tuition_due ? activeStudent.total_tuition_due : activeStudent.current_tuition}&addInfo=${bankInfo.prefix || "HP"}+${activeStudent.student_code || activeStudent.phone}&accountName=${encodeURIComponent(activeStudent.school_name || "TRUNG TAM")}`}
-                            alt="Mã QR Chuyển Khoản Học Phí"
-                            className="w-full h-full object-contain"
-                          />
-                        </div>
-
-                        <div className="space-y-1 text-xs text-slate-600 dark:text-slate-300 flex-1">
-                          <p className="font-bold text-slate-900 dark:text-white flex items-center gap-1">
-                            <QrCode className="w-3.5 h-3.5 text-emerald-600" /> Quét mã VietQR chuyển khoản nhanh:
-                          </p>
-                          <p>• Ngân hàng: <strong className="text-slate-900 dark:text-white uppercase">{bankInfo.bank_name}</strong></p>
-                          <p>• Số tài khoản: <strong className="text-slate-900 dark:text-white font-mono">{bankInfo.account_number}</strong></p>
-                          <p>• Cú pháp: <strong className="text-emerald-700 dark:text-emerald-400 font-mono font-black">{bankInfo.prefix || "HP"} {activeStudent.student_code || activeStudent.phone}</strong></p>
-                          <p className="text-[10px] text-slate-400 italic">Hệ thống sẽ tự động gạch nợ ngay khi ngân hàng báo biến động số dư.</p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
             )}
 
-            {/* Schedule Details Card */}
-            {activeStudent && (
-              <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-2">
-                <div className="flex items-center justify-between">
+            {/* TAB 3: LIÊN HỆ & ĐÓNG GÓP Ý KIẾN */}
+            {activeParentTab === "contact" && activeStudent && (
+              <div className="space-y-3.5 animate-in fade-in duration-150">
+                {/* Zalo Notification Connection Card */}
+                <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 flex items-center justify-center">
+                        <MessageCircle className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h3 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                          Thông Báo Tự Động Qua Zalo
+                        </h3>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                          Nhận lịch học, báo nghỉ và nhắc học phí trực tiếp
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setStudentZaloChatIdInput(activeStudent.zalo_chat_id || "");
+                        setIsZaloModalOpen(true);
+                      }}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 ${
+                        activeStudent.zalo_chat_id
+                          ? "bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300"
+                          : "bg-amber-500 hover:bg-amber-600 text-white shadow-xs"
+                      }`}
+                    >
+                      <span>{activeStudent.zalo_chat_id ? "Đã kết nối (Sửa)" : "Kết nối ngay"}</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Direct Hotlines Card */}
+                <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-2.5">
                   <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-                    <Clock className="w-4 h-4 text-emerald-600" />
-                    <span>Lịch Học Trong Tuần</span>
+                    <Phone className="w-4 h-4 text-emerald-600" />
+                    <span>Đường Dây Nóng Hỗ Trợ</span>
                   </h3>
-                  <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
-                    {activeStudent.duration_mode === "by_hours"
-                      ? `${activeStudent.hours_per_week} tiếng / tuần`
-                      : `${activeStudent.sessions_per_week} buổi / tuần`}
-                  </span>
-                </div>
 
-                <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 text-xs text-slate-700 dark:text-slate-300 space-y-1">
-                  <p className="font-semibold text-slate-900 dark:text-white">
-                    Các ngày học: {activeStudent.registered_days || "Chưa chọn lịch"}
-                  </p>
-                  {activeStudent.study_time_detail && (
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400">{activeStudent.study_time_detail}</p>
-                  )}
-                </div>
-
-                <div className="flex items-center justify-between pt-1 text-xs">
-                  <div className="flex items-center gap-2 flex-wrap">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                     <a
                       href={`tel:${activeStudent.school_phone || "0909123456"}`}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold transition shadow-xs"
-                      title="Gọi trực tiếp tới số điện thoại trung tâm"
+                      className="flex items-center justify-between p-3 rounded-xl bg-emerald-50/70 hover:bg-emerald-100 text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200 border border-emerald-200/70 dark:border-emerald-800/60 font-bold transition"
                     >
-                      <Phone className="w-3.5 h-3.5" />
-                      <span>SĐT Trung Tâm: {activeStudent.school_phone || "0909123456"}</span>
+                      <span className="flex items-center gap-2">
+                        <Phone className="w-4 h-4 text-emerald-600" />
+                        <span>Hotline Trung Tâm:</span>
+                      </span>
+                      <span className="font-mono">{activeStudent.school_phone || "0909123456"}</span>
                     </a>
+
                     {activeStudent.teacher_phone && (
                       <a
                         href={`tel:${activeStudent.teacher_phone}`}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300 font-bold transition shadow-2xs"
+                        className="flex items-center justify-between p-3 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 font-bold transition"
                       >
-                        <User className="w-3.5 h-3.5 text-slate-500" />
-                        <span>SĐT Giáo Viên: {activeStudent.teacher_phone}</span>
+                        <span className="flex items-center gap-2">
+                          <User className="w-4 h-4 text-slate-500" />
+                          <span>Giáo Viên ({activeStudent.teacher_name}):</span>
+                        </span>
+                        <span className="font-mono">{activeStudent.teacher_phone}</span>
                       </a>
                     )}
                   </div>
                 </div>
-              </div>
-            )}
 
-            {/* Quick Actions: Report Absence & Feedback */}
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                onClick={() => setIsReportModalOpen(true)}
-                className="py-3 px-3 rounded-2xl bg-amber-50 hover:bg-amber-100/80 text-amber-900 dark:bg-amber-950/40 dark:text-amber-200 border border-amber-200 dark:border-amber-800/60 font-bold text-xs flex items-center justify-center gap-1.5 transition shadow-xs"
-              >
-                <CalendarCheck className="w-4 h-4 text-amber-600" />
-                <span>Báo Nghỉ Học</span>
-              </button>
-
-              <button
-                onClick={() => setIsFeedbackModalOpen(true)}
-                className="py-3 px-3 rounded-2xl bg-rose-50 hover:bg-rose-100/80 text-rose-900 dark:bg-rose-950/40 dark:text-rose-200 border border-rose-200 dark:border-rose-800/60 font-bold text-xs flex items-center justify-center gap-1.5 transition shadow-xs"
-              >
-                <MessageSquareHeart className="w-4 h-4 text-rose-600" />
-                <span>Góp Ý Cho Trung Tâm</span>
-              </button>
-            </div>
-
-            {/* Makeups Section */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
-                  <Sparkles className="w-4 h-4 text-amber-500" />
-                  <span>Danh Sách Buổi Báo Nghỉ & Học Bù</span>
-                </h3>
-              </div>
-
-              {activeStudent && activeStudent.makeups.length === 0 && (
-                <div className="p-6 text-center rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 text-slate-400 text-xs">
-                  <CalendarCheck className="w-8 h-8 mx-auto text-slate-300 mb-2" />
-                  <p>Bé đi học đầy đủ! Chưa có ngày nghỉ nào cần xếp lịch học bù.</p>
-                </div>
-              )}
-
-              {activeStudent?.makeups.map((mk) => (
-                <div
-                  key={mk.id}
-                  className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-3"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-bold text-sm text-slate-900 dark:text-white">
-                          Nghỉ ngày: {mk.absence_date}
-                        </span>
-                        {mk.status === "pending" && (
-                          <span className="px-2 py-0.5 text-[11px] font-bold rounded-md bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200">
-                            Chưa chọn ngày bù
-                          </span>
-                        )}
-                        {mk.status === "scheduled" && (
-                          <span className="px-2 py-0.5 text-[11px] font-bold rounded-md bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200">
-                            Đã xếp lịch bù
-                          </span>
-                        )}
-                        {mk.status === "completed" && (
-                          <span className="px-2 py-0.5 text-[11px] font-bold rounded-md bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200">
-                            Đã học xong
-                          </span>
-                        )}
-                      </div>
-                      {mk.absence_reason && (
-                        <p className="text-xs text-slate-500 mt-1">Lý do: {mk.absence_reason}</p>
-                      )}
-                    </div>
-
-                    {mk.status === "pending" && (
-                      <button
-                        onClick={() => {
-                          setSchedulingItem(mk);
-                          setMakeupDate("");
-                        }}
-                        className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shadow-xs transition shrink-0"
-                      >
-                        Chọn Lịch Bù
-                      </button>
-                    )}
+                {/* Feedback CTA */}
+                <div className="p-4 rounded-2xl bg-rose-50/60 dark:bg-rose-950/30 border border-rose-200/70 dark:border-rose-800/60 flex items-center justify-between gap-3">
+                  <div>
+                    <h3 className="text-xs font-bold text-rose-900 dark:text-rose-300 uppercase tracking-wider flex items-center gap-1.5">
+                      <MessageSquareHeart className="w-4 h-4 text-rose-600" />
+                      <span>Đóng Góp Ý Kiến</span>
+                    </h3>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                      Đánh giá chất lượng giảng dạy, cơ sở vật chất hoặc lịch học
+                    </p>
                   </div>
 
-                  {mk.status === "scheduled" && (
-                    <div className="p-3 rounded-xl bg-blue-50/60 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/40 text-xs space-y-1">
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-blue-900 dark:text-blue-200 flex items-center gap-1.5">
-                          <Calendar className="w-3.5 h-3.5 text-blue-600" />
-                          <span>Lịch học bù: {mk.makeup_date}</span>
-                        </span>
-                        {mk.makeup_time && (
-                          <span className="text-blue-700 font-semibold">{mk.makeup_time}</span>
-                        )}
-                      </div>
-                      {mk.note && <p className="text-slate-500 text-[11px]">Ghi chú: {mk.note}</p>}
-                    </div>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => setIsFeedbackModalOpen(true)}
+                    className="px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-bold text-xs shadow-xs transition shrink-0"
+                  >
+                    Gửi ý kiến
+                  </button>
                 </div>
-              ))}
-            </div>
+              </div>
+            )}
           </div>
         )}
       </main>

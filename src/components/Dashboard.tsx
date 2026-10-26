@@ -63,6 +63,11 @@ import {
   Globe,
   Sun,
   Moon,
+  MoreVertical,
+  MoreHorizontal,
+  SlidersHorizontal,
+  X,
+  FileSpreadsheet,
 } from "lucide-react";
 import Link from "next/link";
 import { MonthlySummaryModal } from "./MonthlySummaryModal";
@@ -172,6 +177,11 @@ export default function Dashboard() {
   const [selectedTeacherFilter, setSelectedTeacherFilter] = useState("all");
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<"all" | "studying" | "reserved" | "dropped">("all");
   const [selectedPaymentFilter, setSelectedPaymentFilter] = useState<"all" | "paid" | "unpaid">("all");
+
+  // Modern UI states: Active Row Action Menu & Quick Manage Dropdown
+  const [openRowActionId, setOpenRowActionId] = useState<string | null>(null);
+  const [isManagementMenuOpen, setIsManagementMenuOpen] = useState(false);
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
   // Check IP restriction & Admin Auth on mount
   useEffect(() => {
@@ -676,72 +686,124 @@ export default function Dashboard() {
               </select>
             </div>
 
-            {/* Tổng Kết Tháng & Báo Cáo Học Phí */}
+            {/* Tổng Kết Tháng Quick Badge */}
             <button
               onClick={() => setIsMonthlySummaryModalOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl border border-emerald-200 dark:border-emerald-800/60 bg-emerald-50 hover:bg-emerald-100/80 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-300 transition shadow-2xs shrink-0"
+              className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl border border-emerald-200 dark:border-emerald-800/60 bg-emerald-50 hover:bg-emerald-100/80 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-300 transition shadow-2xs shrink-0"
               title="Xem tổng kết thu chi, tình hình đóng học phí và giao dịch SePay tự động"
             >
               <BarChart3 className="w-4 h-4 text-emerald-600" />
               <span>{t.monthly_summary}</span>
             </button>
 
-            {/* Log tổng biến động học sinh (Bảo lưu, nghỉ, học tiếp) */}
-            <button
-              onClick={() => setIsStatusLogModalOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl border border-indigo-200 dark:border-indigo-800/60 bg-indigo-50 hover:bg-indigo-100/80 dark:bg-indigo-950/40 text-indigo-900 dark:text-indigo-300 transition shadow-2xs shrink-0"
-              title="Xem nhật ký tổng học sinh nghỉ, bảo lưu và trở lại học"
-            >
-              <History className="w-4 h-4 text-indigo-600" />
-              <span>{t.status_log}</span>
-            </button>
+            {/* Menu Quản Lý Nghiệp Vụ Tập Trung (Consolidated Management Menu) */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setIsManagementMenuOpen(!isManagementMenuOpen)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 text-slate-700 dark:text-slate-200 transition shadow-2xs shrink-0"
+                title="Mở menu quản lý trung tâm"
+              >
+                <SlidersHorizontal className="w-4 h-4 text-indigo-500" />
+                <span>Nghiệp vụ cơ sở</span>
+                {totalPendingMakeups > 0 && (
+                  <span className="w-4 h-4 rounded-full bg-amber-500 text-white text-[10px] font-black flex items-center justify-center animate-pulse ml-0.5">
+                    {totalPendingMakeups}
+                  </span>
+                )}
+                <ChevronRight className={`w-3.5 h-3.5 text-slate-400 transition-transform ${isManagementMenuOpen ? "rotate-90" : ""}`} />
+              </button>
 
-            {/* Make up classes button */}
-            <button
-              onClick={() => {
-                setSelectedStudentForMakeup(undefined);
-                setIsMakeupModalOpen(true);
-              }}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl border border-amber-200 dark:border-amber-800/60 bg-amber-50 hover:bg-amber-100/80 dark:bg-amber-950/40 text-amber-900 dark:text-amber-300 transition shadow-2xs shrink-0"
-            >
-              <CalendarCheck className="w-4 h-4 text-amber-600" />
-              <span>{t.absence_makeup}</span>
-              {totalPendingMakeups > 0 && (
-                <span className="w-4.5 h-4.5 rounded-full bg-amber-500 text-white text-[10px] font-black flex items-center justify-center animate-pulse">
-                  {totalPendingMakeups}
-                </span>
+              {isManagementMenuOpen && (
+                <div
+                  className="absolute right-0 top-full mt-2 w-64 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl z-50 p-1.5 space-y-1 animate-in fade-in zoom-in-95"
+                  onMouseLeave={() => setIsManagementMenuOpen(false)}
+                >
+                  <button
+                    onClick={() => {
+                      setIsManagementMenuOpen(false);
+                      setIsTeacherModalOpen(true);
+                    }}
+                    className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition text-left"
+                  >
+                    <span className="flex items-center gap-2">
+                      <GraduationCap className="w-4 h-4 text-indigo-600" />
+                      <span>{t.teachers_team}</span>
+                    </span>
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
+                      {teachers.length}
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setIsManagementMenuOpen(false);
+                      setSelectedStudentForMakeup(undefined);
+                      setIsMakeupModalOpen(true);
+                    }}
+                    className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition text-left"
+                  >
+                    <span className="flex items-center gap-2">
+                      <CalendarCheck className="w-4 h-4 text-amber-600" />
+                      <span>{t.absence_makeup}</span>
+                    </span>
+                    {totalPendingMakeups > 0 && (
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                        {totalPendingMakeups} chờ xếp
+                      </span>
+                    )}
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setIsManagementMenuOpen(false);
+                      setIsStatusLogModalOpen(true);
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition text-left"
+                  >
+                    <History className="w-4 h-4 text-indigo-600" />
+                    <span>{t.status_log} (Bảo lưu & Nghỉ)</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setIsManagementMenuOpen(false);
+                      setIsMonthlySummaryModalOpen(true);
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition text-left"
+                  >
+                    <BarChart3 className="w-4 h-4 text-emerald-600" />
+                    <span>{t.monthly_summary} & Đối soát</span>
+                  </button>
+
+                  <div className="my-1 border-t border-slate-100 dark:border-slate-800" />
+
+                  <button
+                    onClick={() => {
+                      setIsManagementMenuOpen(false);
+                      setIsSettingsOpen(true);
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition text-left"
+                  >
+                    <Settings className="w-4 h-4 text-slate-500" />
+                    <span>{t.settings}</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setIsManagementMenuOpen(false);
+                      setIsAppInfoModalOpen(true);
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition text-left"
+                  >
+                    <Info className="w-4 h-4 text-indigo-600" />
+                    <span>{t.app_info_feedback}</span>
+                  </button>
+                </div>
               )}
-            </button>
+            </div>
 
-            {/* Teachers Management Button */}
-            <button
-              onClick={() => setIsTeacherModalOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 text-slate-700 dark:text-slate-200 transition shadow-2xs shrink-0"
-            >
-              <GraduationCap className="w-4 h-4 text-indigo-600" />
-              <span>{t.teachers_team} ({teachers.length})</span>
-            </button>
-
-            {/* System Settings Button */}
-            <button
-              onClick={() => setIsSettingsOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 text-slate-700 dark:text-slate-200 transition shadow-2xs shrink-0"
-            >
-              <Settings className="w-4 h-4 text-slate-500" />
-              <span>{t.settings}</span>
-            </button>
-
-            {/* Giới Thiệu Phần Mềm & Changelog & Góp Ý TpTeam */}
-            <button
-              onClick={() => setIsAppInfoModalOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl border border-indigo-200 dark:border-indigo-800/60 bg-indigo-50/70 hover:bg-indigo-100/80 dark:bg-indigo-950/40 text-indigo-900 dark:text-indigo-300 transition shadow-2xs shrink-0"
-              title="Giới thiệu phần mềm, nhật ký cập nhật changelog và góp ý cho đội ngũ phát triển"
-            >
-              <Info className="w-4 h-4 text-indigo-600" />
-              <span>{t.app_info_feedback}</span>
-            </button>
-
-            {/* Add Student Button */}
+            {/* Add Student Primary Action */}
             <button
               onClick={() => {
                 setStudentToEdit(null);
@@ -847,105 +909,192 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Filter and Search Bar */}
-        <div className="bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col md:flex-row items-center justify-between gap-3">
-          {/* Search Input */}
-          <div className="relative w-full md:w-80">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
-            <input
-              type="text"
-              placeholder="Tìm theo tên học sinh, số điện thoại..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 text-sm font-medium rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition"
-            />
-          </div>
+        {/* Filter and Search Bar: Modern Executive Toolbar */}
+        <div className="bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-3">
+          <div className="flex flex-col lg:flex-row items-center justify-between gap-3">
+            {/* Quick Status Filter Pills */}
+            <div className="flex items-center gap-1.5 overflow-x-auto w-full lg:w-auto pb-1 lg:pb-0 text-xs font-bold scrollbar-none">
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedStatusFilter("all");
+                  setSelectedPaymentFilter("all");
+                }}
+                className={`px-3 py-1.5 rounded-xl transition whitespace-nowrap ${
+                  selectedStatusFilter === "all" && selectedPaymentFilter === "all"
+                    ? "bg-indigo-600 text-white shadow-xs"
+                    : "bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300"
+                }`}
+              >
+                Tất cả ({students.length})
+              </button>
 
-          {/* Select Filters */}
-          <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
-            <div className="flex items-center gap-1 text-xs font-bold text-slate-400 uppercase tracking-wider mr-1">
-              <Filter className="w-3.5 h-3.5" /> Lọc:
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedStatusFilter("studying");
+                  setSelectedPaymentFilter("all");
+                }}
+                className={`px-3 py-1.5 rounded-xl transition whitespace-nowrap flex items-center gap-1.5 ${
+                  selectedStatusFilter === "studying" && selectedPaymentFilter === "all"
+                    ? "bg-emerald-600 text-white shadow-xs"
+                    : "bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300"
+                }`}
+              >
+                <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                <span>Đang học ({students.filter((s) => (s.status || "studying") === "studying").length})</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedPaymentFilter("unpaid");
+                  setSelectedStatusFilter("all");
+                }}
+                className={`px-3 py-1.5 rounded-xl transition whitespace-nowrap flex items-center gap-1.5 ${
+                  selectedPaymentFilter === "unpaid"
+                    ? "bg-rose-600 text-white shadow-xs"
+                    : "bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300"
+                }`}
+              >
+                <AlertCircle className="w-3.5 h-3.5 text-rose-500" />
+                <span>Cần đóng tiền ({students.filter((s) => s.payment_status === "unpaid").length})</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedPaymentFilter("paid");
+                  setSelectedStatusFilter("all");
+                }}
+                className={`px-3 py-1.5 rounded-xl transition whitespace-nowrap flex items-center gap-1.5 ${
+                  selectedPaymentFilter === "paid"
+                    ? "bg-indigo-600 text-white shadow-xs"
+                    : "bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300"
+                }`}
+              >
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                <span>Đã nộp ({students.filter((s) => s.payment_status === "paid").length})</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedStatusFilter("reserved");
+                  setSelectedPaymentFilter("all");
+                }}
+                className={`px-3 py-1.5 rounded-xl transition whitespace-nowrap flex items-center gap-1.5 ${
+                  selectedStatusFilter === "reserved"
+                    ? "bg-amber-600 text-white shadow-xs"
+                    : "bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300"
+                }`}
+              >
+                <PauseCircle className="w-3.5 h-3.5 text-amber-500" />
+                <span>Bảo lưu ({students.filter((s) => s.status === "reserved").length})</span>
+              </button>
             </div>
 
-            {/* Filter by Status: Đang học / Bảo lưu / Nghỉ học */}
-            <select
-              value={selectedStatusFilter}
-              onChange={(e) => setSelectedStatusFilter(e.target.value as any)}
-              className="px-3 py-2 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 outline-none hover:border-slate-300 transition"
-            >
-              <option value="all">{t.filter_all_status}</option>
-              <option value="studying">🟢 {t.status_studying}</option>
-              <option value="reserved">🟡 {t.status_reserved}</option>
-              <option value="dropped">🔴 {t.status_dropped}</option>
-            </select>
+            {/* Right Side: Search & Advanced Filters Toggle */}
+            <div className="flex items-center gap-2 w-full lg:w-auto">
+              <div className="relative flex-1 lg:w-72">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-2.5" />
+                <input
+                  type="text"
+                  placeholder="Tìm học sinh, SĐT, mã..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-8 py-2 text-xs font-semibold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery("")}
+                    className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
 
-            {/* Filter by Payment: Đã đóng / Cần đóng tiền */}
-            <select
-              value={selectedPaymentFilter}
-              onChange={(e) => setSelectedPaymentFilter(e.target.value as any)}
-              className="px-3 py-2 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 outline-none hover:border-slate-300 transition"
-            >
-              <option value="all">{t.filter_all_payment}</option>
-              <option value="paid">✅ {t.paid}</option>
-              <option value="unpaid">⚠️ {t.unpaid}</option>
-            </select>
-
-            {/* Filter by Teacher */}
-            <select
-              value={selectedTeacherFilter}
-              onChange={(e) => setSelectedTeacherFilter(e.target.value)}
-              className="px-3 py-2 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 outline-none hover:border-slate-300 transition"
-            >
-              <option value="all">{t.filter_all_teachers}</option>
-              {teachers.map((tc) => (
-                <option key={tc.id} value={tc.id}>
-                  {tc.name}
-                </option>
-              ))}
-            </select>
-
-            {/* Filter by Level */}
-            <select
-              value={selectedLevelFilter}
-              onChange={(e) => setSelectedLevelFilter(e.target.value)}
-              className="px-3 py-2 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 outline-none hover:border-slate-300 transition"
-            >
-              <option value="all">{t.filter_all_levels}</option>
-              {levels.map((lvl) => (
-                <option key={lvl.id} value={lvl.id}>
-                  {lvl.level_name}
-                </option>
-              ))}
-            </select>
-
-            {/* Filter by Slot */}
-            <select
-              value={selectedSlotFilter}
-              onChange={(e) => setSelectedSlotFilter(e.target.value)}
-              className="px-3 py-2 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 outline-none hover:border-slate-300 transition"
-            >
-              <option value="all">{t.filter_all_slots}</option>
-              {timeSlots.map((slot) => (
-                <option key={slot.id} value={slot.id}>
-                  {formatTimeSlotLabel(slot)}
-                </option>
-              ))}
-            </select>
-
-            {(searchQuery || selectedLevelFilter !== "all" || selectedSlotFilter !== "all" || selectedTeacherFilter !== "all") && (
               <button
-                onClick={() => {
-                  setSearchQuery("");
-                  setSelectedLevelFilter("all");
-                  setSelectedSlotFilter("all");
-                  setSelectedTeacherFilter("all");
-                }}
-                className="text-xs text-rose-500 hover:text-rose-600 font-bold px-2 py-1 transition"
+                type="button"
+                onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                className={`px-3 py-2 text-xs font-bold rounded-xl border transition flex items-center gap-1.5 shrink-0 ${
+                  showAdvancedFilters || selectedTeacherFilter !== "all" || selectedLevelFilter !== "all" || selectedSlotFilter !== "all"
+                    ? "bg-indigo-50 border-indigo-200 text-indigo-700 dark:bg-indigo-950/60 dark:border-indigo-800 dark:text-indigo-300"
+                    : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50"
+                }`}
               >
-                {t.reset_filter}
+                <Filter className="w-3.5 h-3.5" />
+                <span>Lọc nâng cao</span>
+                {(selectedTeacherFilter !== "all" || selectedLevelFilter !== "all" || selectedSlotFilter !== "all") && (
+                  <span className="w-2 h-2 rounded-full bg-indigo-600" />
+                )}
               </button>
-            )}
+            </div>
           </div>
+
+          {/* Advanced Filters Expandable Drawer */}
+          {showAdvancedFilters && (
+            <div className="pt-3 border-t border-slate-100 dark:border-slate-800 grid grid-cols-1 sm:grid-cols-3 gap-2.5 animate-in fade-in duration-150">
+              {/* Filter by Teacher */}
+              <div>
+                <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">
+                  Giáo viên:
+                </label>
+                <select
+                  value={selectedTeacherFilter}
+                  onChange={(e) => setSelectedTeacherFilter(e.target.value)}
+                  className="w-full px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 outline-none"
+                >
+                  <option value="all">-- Tất cả giáo viên --</option>
+                  {teachers.map((tc) => (
+                    <option key={tc.id} value={tc.id}>
+                      {tc.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Filter by Level */}
+              <div>
+                <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">
+                  Level / Trình độ:
+                </label>
+                <select
+                  value={selectedLevelFilter}
+                  onChange={(e) => setSelectedLevelFilter(e.target.value)}
+                  className="w-full px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 outline-none"
+                >
+                  <option value="all">-- Tất cả các Level --</option>
+                  {levels.map((lvl) => (
+                    <option key={lvl.id} value={lvl.id}>
+                      {lvl.level_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Filter by Slot */}
+              <div>
+                <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">
+                  Ca mở cửa:
+                </label>
+                <select
+                  value={selectedSlotFilter}
+                  onChange={(e) => setSelectedSlotFilter(e.target.value)}
+                  className="w-full px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 outline-none"
+                >
+                  <option value="all">-- Tất cả ca mở cửa --</option>
+                  {timeSlots.map((slot) => (
+                    <option key={slot.id} value={slot.id}>
+                      {formatTimeSlotLabel(slot)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Student Table Listing */}
@@ -1271,102 +1420,138 @@ export default function Dashboard() {
                           </div>
                         </td>
 
-                        {/* Action Buttons */}
+                        {/* Consolidated Modern Action Column */}
                         <td className="py-3 px-3 text-right whitespace-nowrap">
-                          <div className="inline-flex items-center gap-1">
-                            {/* Nhắc học phí Zalo */}
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setStudentForZalo(student);
-                                setIsZaloModalOpen(true);
-                              }}
-                              className="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/50 rounded-lg transition shrink-0"
-                              title="Soạn tin nhắn nhắc học phí Zalo"
-                            >
-                              <MessageSquare className="w-3.5 h-3.5" />
-                            </button>
-
-                            {/* Chi tiết học sinh */}
+                          <div className="inline-flex items-center gap-1.5 relative">
+                            {/* Primary Action: Xem Chi Tiết */}
                             <button
                               type="button"
                               onClick={() => {
                                 setStudentForDetail(student);
                                 setIsDetailModalOpen(true);
                               }}
-                              className="p-1.5 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 rounded-lg transition shrink-0"
-                              title="Xem chi tiết & lịch sử bảo lưu/nghỉ"
+                              className="px-2.5 py-1 text-xs font-bold rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition flex items-center gap-1"
+                              title="Xem chi tiết học sinh & hồ sơ"
                             >
-                              <Eye className="w-3.5 h-3.5" />
+                              <Eye className="w-3.5 h-3.5 text-indigo-500" />
+                              <span className="hidden sm:inline">Chi tiết</span>
                             </button>
 
-                            {/* Make up button */}
-                            <button
-                              onClick={() => {
-                                setSelectedStudentForMakeup(student.id);
-                                setIsMakeupModalOpen(true);
-                              }}
-                              className="px-2 py-1 text-[11px] font-bold rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300 transition shrink-0"
-                              title="Báo nghỉ hoặc xếp lịch học bù"
-                            >
-                              Học bù
-                            </button>
-
-                            {/* Monthly Tuition Edit Override Button */}
-                            <button
-                              onClick={() => {
-                                setStudentForMonthly(student);
-                                setIsMonthlyModalOpen(true);
-                              }}
-                              className="px-2 py-1 text-[11px] font-bold rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60 transition inline-flex items-center gap-1 shrink-0"
-                              title="Chỉnh sửa học phí riêng tháng này"
-                            >
-                              <DollarSign className="w-3 h-3" />
-                              <span>Sửa học phí</span>
-                            </button>
-
-                            {/* Nút Chuyển Trạng Thái Bảo Lưu / Học Tiếp trực tiếp */}
+                            {/* Dropdown Action Menu Trigger */}
                             <button
                               type="button"
-                              onClick={() => {
-                                setStudentForStatusChange(student);
-                                setIsChangeStatusModalOpen(true);
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenRowActionId(openRowActionId === student.id ? null : student.id);
                               }}
-                              className={`px-2 py-1 text-[11px] font-bold rounded-lg transition inline-flex items-center gap-1 shrink-0 ${
-                                student.status === "reserved"
-                                  ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200"
-                                  : "bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-200"
+                              className={`p-1.5 rounded-xl border transition shadow-2xs ${
+                                openRowActionId === student.id
+                                  ? "bg-indigo-600 text-white border-indigo-600"
+                                  : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
                               }`}
-                              title={
-                                student.status === "reserved"
-                                  ? "Học sinh đang bảo lưu. Bấm để cho học tiếp"
-                                  : "Bấm để đưa học sinh này vào danh sách bảo lưu"
-                              }
+                              title="Tất cả thao tác"
                             >
-                              <PauseCircle className="w-3 h-3 text-amber-600" />
-                              <span>{student.status === "reserved" ? "Học tiếp" : "Bảo lưu"}</span>
+                              <MoreHorizontal className="w-4 h-4" />
                             </button>
 
-                            {/* Edit Student Info Button */}
-                            <button
-                              onClick={() => {
-                                setStudentToEdit(student);
-                                setIsStudentModalOpen(true);
-                              }}
-                              className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition shrink-0"
-                              title="Sửa thông tin học sinh"
-                            >
-                              <Edit2 className="w-3.5 h-3.5" />
-                            </button>
+                            {/* Action Menu Popover */}
+                            {openRowActionId === student.id && (
+                              <>
+                                <div
+                                  className="fixed inset-0 z-40"
+                                  onClick={() => setOpenRowActionId(null)}
+                                />
+                                <div
+                                  className="absolute right-0 top-full mt-1.5 w-52 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl z-50 p-1.5 space-y-0.5 text-left animate-in fade-in zoom-in-95"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  {/* Nhắc học phí Zalo */}
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setOpenRowActionId(null);
+                                      setStudentForZalo(student);
+                                      setIsZaloModalOpen(true);
+                                    }}
+                                    className="w-full flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-xl text-slate-700 dark:text-slate-200 hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-950/50 dark:hover:text-blue-300 transition"
+                                  >
+                                    <MessageSquare className="w-3.5 h-3.5 text-blue-500" />
+                                    <span>Nhắc Zalo</span>
+                                  </button>
 
-                            {/* Delete Student Button */}
-                            <button
-                              onClick={() => setStudentToDelete(student)}
-                              className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition shrink-0"
-                              title="Xóa học sinh"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+                                  {/* Sửa học phí tháng */}
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setOpenRowActionId(null);
+                                      setStudentForMonthly(student);
+                                      setIsMonthlyModalOpen(true);
+                                    }}
+                                    className="w-full flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-xl text-slate-700 dark:text-slate-200 hover:bg-amber-50 hover:text-amber-700 dark:hover:bg-amber-950/50 dark:hover:text-amber-300 transition"
+                                  >
+                                    <DollarSign className="w-3.5 h-3.5 text-amber-500" />
+                                    <span>Sửa học phí tháng</span>
+                                  </button>
+
+                                  {/* Báo nghỉ / Học bù */}
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setOpenRowActionId(null);
+                                      setSelectedStudentForMakeup(student.id);
+                                      setIsMakeupModalOpen(true);
+                                    }}
+                                    className="w-full flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-xl text-slate-700 dark:text-slate-200 hover:bg-indigo-50 hover:text-indigo-600 dark:hover:bg-indigo-950/50 dark:hover:text-indigo-300 transition"
+                                  >
+                                    <CalendarCheck className="w-3.5 h-3.5 text-indigo-500" />
+                                    <span>Báo nghỉ & học bù</span>
+                                  </button>
+
+                                  {/* Bảo lưu / Học tiếp */}
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setOpenRowActionId(null);
+                                      setStudentForStatusChange(student);
+                                      setIsChangeStatusModalOpen(true);
+                                    }}
+                                    className="w-full flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                                  >
+                                    <PauseCircle className="w-3.5 h-3.5 text-amber-600" />
+                                    <span>{student.status === "reserved" ? "Cho học tiếp" : "Chuyển bảo lưu"}</span>
+                                  </button>
+
+                                  {/* Chỉnh sửa thông tin */}
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setOpenRowActionId(null);
+                                      setStudentToEdit(student);
+                                      setIsStudentModalOpen(true);
+                                    }}
+                                    className="w-full flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                                  >
+                                    <Edit2 className="w-3.5 h-3.5 text-slate-500" />
+                                    <span>Sửa thông tin</span>
+                                  </button>
+
+                                  <div className="my-1 border-t border-slate-100 dark:border-slate-800" />
+
+                                  {/* Xóa học sinh */}
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setOpenRowActionId(null);
+                                      setStudentToDelete(student);
+                                    }}
+                                    className="w-full flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-xl text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                    <span>Xóa học sinh</span>
+                                  </button>
+                                </div>
+                              </>
+                            )}
                           </div>
                         </td>
                       </tr>
