@@ -24,7 +24,9 @@ export async function POST(req: Request) {
       const studentsRes = await db.execute({
         sql: `
           SELECT s.*, 
-                 sc.name as school_name, sc.address as school_address, sc.phone as school_phone,
+                 COALESCE(sc.name, (SELECT name FROM schools LIMIT 1), 'Trung Tâm Đào Tạo') as school_name,
+                 COALESCE(sc.address, (SELECT address FROM schools LIMIT 1), '') as school_address,
+                 COALESCE(sc.phone, (SELECT phone FROM schools LIMIT 1), '') as school_phone,
                  l.level_name, l.surcharge_amount as level_surcharge,
                  tc.name as teacher_name, tc.phone as teacher_phone, tc.color as teacher_color
           FROM students s
@@ -134,7 +136,7 @@ export async function POST(req: Request) {
           zalo_link: String(st.zalo_link || ""),
           school_name: String(st.school_name || "Trung Tâm Đào Tạo"),
           school_address: String(st.school_address || ""),
-          school_phone: String(st.school_phone || ""),
+          school_phone: String(st.school_phone || "0909123456"),
           level_name: String(st.level_name || "Chưa phân loại"),
           teacher_name: st.teacher_name ? String(st.teacher_name) : "Chưa phân công",
           teacher_phone: st.teacher_phone ? String(st.teacher_phone) : "",

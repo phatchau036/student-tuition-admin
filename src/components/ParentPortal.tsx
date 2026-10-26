@@ -559,23 +559,22 @@ export default function ParentPortal() {
                 </div>
 
                 <div className="flex items-center justify-between pt-1 text-xs">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <a
+                      href={`tel:${activeStudent.school_phone || "0909123456"}`}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold transition shadow-xs"
+                      title="Gọi trực tiếp tới số điện thoại trung tâm"
+                    >
+                      <Phone className="w-3.5 h-3.5" />
+                      <span>SĐT Trung Tâm: {activeStudent.school_phone || "0909123456"}</span>
+                    </a>
                     {activeStudent.teacher_phone && (
                       <a
                         href={`tel:${activeStudent.teacher_phone}`}
-                        className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold"
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300 font-bold transition shadow-2xs"
                       >
-                        <Phone className="w-3.5 h-3.5 text-slate-600" />
-                        <span>SĐT Giáo Viên</span>
-                      </a>
-                    )}
-                    {activeStudent.school_phone && (
-                      <a
-                        href={`tel:${activeStudent.school_phone}`}
-                        className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold"
-                      >
-                        <Building2 className="w-3.5 h-3.5 text-slate-600" />
-                        <span>Hotline Trung Tâm</span>
+                        <User className="w-3.5 h-3.5 text-slate-500" />
+                        <span>SĐT Giáo Viên: {activeStudent.teacher_phone}</span>
                       </a>
                     )}
                   </div>
