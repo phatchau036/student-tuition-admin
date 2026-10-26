@@ -20,6 +20,9 @@ import {
   MessageCircle,
   ExternalLink,
   ShieldAlert,
+  MessageSquareHeart,
+  Star,
+  Send,
 } from "lucide-react";
 import Link from "next/link";
 import { formatVND, formatMonthDisplay } from "@/lib/tuition";
@@ -97,6 +100,14 @@ export default function ParentPortal() {
   const [isLoadingOccupancy, setIsLoadingOccupancy] = useState(false);
   const [dayNameVi, setDayNameVi] = useState("");
   const [isSubmittingMakeup, setIsSubmittingMakeup] = useState(false);
+
+  // Feedback modal for parents
+  const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
+  const [feedbackCategory, setFeedbackCategory] = useState<"teaching" | "facility" | "tuition" | "schedule" | "other">("teaching");
+  const [feedbackRating, setFeedbackRating] = useState<number>(5);
+  const [feedbackContent, setFeedbackContent] = useState("");
+  const [parentNameInput, setParentNameInput] = useState("");
+  const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
 
   // Toast
   const [toastMessage, setToastMessage] = useState<{ text: string; type: "success" | "error" } | null>(null);
@@ -272,6 +283,45 @@ export default function ParentPortal() {
       showToast("Lỗi kết nối mạng", "error");
     } finally {
       setIsSubmittingMakeup(false);
+    }
+  };
+
+  // Handle submit feedback
+  const handleSubmitFeedback = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!feedbackContent.trim()) {
+      showToast("Vui lòng nhập nội dung góp ý!", "error");
+      return;
+    }
+
+    try {
+      setIsSubmittingFeedback(true);
+      const res = await fetch("/api/feedbacks/parent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          school_id: "school-default",
+          student_name: activeStudent?.name || "",
+          parent_name: parentNameInput.trim() || undefined,
+          parent_phone: phoneNumber || "",
+          category: feedbackCategory,
+          rating: feedbackRating,
+          content: feedbackContent.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast("Cảm ơn quý phụ huynh! Ý kiến đóng góp đã được gửi tới Ban Quản Trị trung tâm.", "success");
+        setFeedbackContent("");
+        setFeedbackRating(5);
+        setIsFeedbackModalOpen(false);
+      } else {
+        showToast(data.message || "Không thể gửi góp ý!", "error");
+      }
+    } catch {
+      showToast("Lỗi kết nối mạng!", "error");
+    } finally {
+      setIsSubmittingFeedback(false);
     }
   };
 
@@ -498,14 +548,22 @@ export default function ParentPortal() {
               </div>
             )}
 
-            {/* Quick Actions: Report Absence */}
-            <div className="flex items-center gap-2">
+            {/* Quick Actions: Report Absence & Feedback */}
+            <div className="grid grid-cols-2 gap-2">
               <button
                 onClick={() => setIsReportModalOpen(true)}
-                className="flex-1 py-3 px-4 rounded-2xl bg-amber-50 hover:bg-amber-100/80 text-amber-900 dark:bg-amber-950/40 dark:text-amber-200 border border-amber-200 dark:border-amber-800/60 font-bold text-xs flex items-center justify-center gap-2 transition shadow-xs"
+                className="py-3 px-3 rounded-2xl bg-amber-50 hover:bg-amber-100/80 text-amber-900 dark:bg-amber-950/40 dark:text-amber-200 border border-amber-200 dark:border-amber-800/60 font-bold text-xs flex items-center justify-center gap-1.5 transition shadow-xs"
               >
                 <CalendarCheck className="w-4 h-4 text-amber-600" />
-                <span>Báo Nghỉ Học (Nhận +1 Suất Bù)</span>
+                <span>Báo Nghỉ Học</span>
+              </button>
+
+              <button
+                onClick={() => setIsFeedbackModalOpen(true)}
+                className="py-3 px-3 rounded-2xl bg-rose-50 hover:bg-rose-100/80 text-rose-900 dark:bg-rose-950/40 dark:text-rose-200 border border-rose-200 dark:border-rose-800/60 font-bold text-xs flex items-center justify-center gap-1.5 transition shadow-xs"
+              >
+                <MessageSquareHeart className="w-4 h-4 text-rose-600" />
+                <span>Góp Ý Cho Trung Tâm</span>
               </button>
             </div>
 
@@ -800,6 +858,133 @@ export default function ParentPortal() {
                   className="px-4 py-2 text-xs font-bold rounded-xl bg-amber-600 hover:bg-amber-700 text-white shadow-md shadow-amber-600/30 disabled:opacity-50"
                 >
                   {isSubmittingMakeup ? "Đang xếp lịch..." : "Xác Nhận Lịch Học Bù"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Góp ý cho Trung Tâm từ Phụ Huynh */}
+      {isFeedbackModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-md p-6 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <MessageSquareHeart className="w-5 h-5 text-rose-600" />
+                <span>Ý Kiến Đóng Góp Cho Trung Tâm</span>
+              </h3>
+              <button
+                onClick={() => setIsFeedbackModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 text-lg font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-500">
+              Mọi ý kiến của quý phụ huynh về giáo viên, cơ sở vật chất, lịch học hoặc học phí đều giúp trung tâm nâng cao chất lượng phục vụ các bé tốt hơn.
+            </p>
+
+            <form onSubmit={handleSubmitFeedback} className="space-y-3.5">
+              {/* Category */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Chủ đề góp ý:
+                </label>
+                <select
+                  value={feedbackCategory}
+                  onChange={(e) => setFeedbackCategory(e.target.value as any)}
+                  className="w-full px-3 py-2 text-xs font-bold rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-rose-500"
+                >
+                  <option value="teaching">Chất lượng giảng dạy & Giáo viên</option>
+                  <option value="facility">Cơ sở vật chất & Phòng học</option>
+                  <option value="schedule">Lịch học, điểm danh & Học bù</option>
+                  <option value="tuition">Học phí & Chính sách ưu đãi</option>
+                  <option value="other">Ý kiến đóng góp khác</option>
+                </select>
+              </div>
+
+              {/* Star Rating */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Đánh giá mức độ hài lòng:
+                </label>
+                <div className="flex items-center gap-2">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      type="button"
+                      key={star}
+                      onClick={() => setFeedbackRating(star)}
+                      className="p-1 transition hover:scale-110"
+                    >
+                      <Star
+                        className={`w-6 h-6 ${
+                          star <= feedbackRating
+                            ? "text-amber-400 fill-amber-400"
+                            : "text-slate-300 dark:text-slate-700"
+                        }`}
+                      />
+                    </button>
+                  ))}
+                  <span className="text-xs font-bold text-slate-600 dark:text-slate-400 ml-1">
+                    {feedbackRating === 5
+                      ? "Rất hài lòng (5/5)"
+                      : feedbackRating === 4
+                      ? "Hài lòng (4/5)"
+                      : feedbackRating === 3
+                      ? "Bình thường (3/5)"
+                      : feedbackRating === 2
+                      ? "Chưa hài lòng (2/5)"
+                      : "Cần cải thiện (1/5)"}
+                  </span>
+                </div>
+              </div>
+
+              {/* Parent Name */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Họ tên phụ huynh (Tùy chọn):
+                </label>
+                <input
+                  type="text"
+                  placeholder="Để trống nếu muốn ẩn danh"
+                  value={parentNameInput}
+                  onChange={(e) => setParentNameInput(e.target.value)}
+                  className="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-rose-500"
+                />
+              </div>
+
+              {/* Content */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Nội dung đóng góp ý kiến <span className="text-rose-500">*</span>:
+                </label>
+                <textarea
+                  rows={4}
+                  required
+                  placeholder="Kính mong quý phụ huynh chia sẻ cụ thể để trung tâm hỗ trợ tốt nhất..."
+                  value={feedbackContent}
+                  onChange={(e) => setFeedbackContent(e.target.value)}
+                  className="w-full px-3 py-2 text-xs rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-rose-500 resize-none"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setIsFeedbackModalOpen(false)}
+                  className="px-4 py-2 text-xs font-semibold rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                >
+                  Đóng
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingFeedback || !feedbackContent.trim()}
+                  className="px-4 py-2 text-xs font-bold rounded-xl bg-rose-600 hover:bg-rose-700 text-white shadow-md shadow-rose-600/30 flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  <span>{isSubmittingFeedback ? "Đang gửi..." : "Gửi Ý Kiến"}</span>
                 </button>
               </div>
             </form>

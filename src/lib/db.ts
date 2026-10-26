@@ -267,6 +267,42 @@ export async function initDb() {
     );
   `);
 
+  // 13. Parent Feedbacks Table (Phụ huynh gửi ý kiến/góp ý cho Trung tâm)
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS parent_feedbacks (
+      id TEXT PRIMARY KEY,
+      school_id TEXT DEFAULT 'school-default',
+      student_name TEXT,
+      parent_name TEXT,
+      parent_phone TEXT,
+      category TEXT DEFAULT 'teaching', -- teaching | facility | tuition | schedule | other
+      rating INTEGER DEFAULT 5,
+      content TEXT NOT NULL,
+      status TEXT DEFAULT 'pending', -- pending | reviewed | resolved
+      response_note TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+
+  // 14. System Feedbacks Table (Trung tâm gửi góp ý cho Hệ thống TpTeam)
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS system_feedbacks (
+      id TEXT PRIMARY KEY,
+      school_id TEXT NOT NULL,
+      school_name TEXT,
+      school_code TEXT,
+      sender_name TEXT,
+      sender_contact TEXT,
+      category TEXT DEFAULT 'feature_request', -- feature_request | bug_report | ui_ux | performance | other
+      priority TEXT DEFAULT 'medium', -- low | medium | high
+      title TEXT NOT NULL,
+      content TEXT NOT NULL,
+      status TEXT DEFAULT 'pending', -- pending | in_review | planned | completed
+      admin_reply TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+
   // Migrations for school_id & ip restriction
   try { await db.execute("ALTER TABLE schools ADD COLUMN ip_restriction_enabled INTEGER DEFAULT 0"); } catch {}
   try { await db.execute("ALTER TABLE schools ADD COLUMN allowed_ips TEXT DEFAULT ''"); } catch {}

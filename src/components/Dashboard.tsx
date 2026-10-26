@@ -58,9 +58,11 @@ import {
   Eye,
   BarChart3,
   QrCode,
+  Info,
 } from "lucide-react";
 import Link from "next/link";
 import { MonthlySummaryModal } from "./MonthlySummaryModal";
+import { AppInfoModal } from "./AppInfoModal";
 
 export default function Dashboard() {
   const { showToast } = useToast();
@@ -118,6 +120,7 @@ export default function Dashboard() {
 
   const [isStatusLogModalOpen, setIsStatusLogModalOpen] = useState(false);
   const [isMonthlySummaryModalOpen, setIsMonthlySummaryModalOpen] = useState(false);
+  const [isAppInfoModalOpen, setIsAppInfoModalOpen] = useState(false);
 
   // Custom Delete Confirmation Modal state
   const [studentToDelete, setStudentToDelete] = useState<Student | null>(null);
@@ -672,6 +675,16 @@ export default function Dashboard() {
             >
               <Settings className="w-4 h-4 text-slate-500" />
               <span>Cài Đặt</span>
+            </button>
+
+            {/* Giới Thiệu Phần Mềm & Changelog & Góp Ý TpTeam */}
+            <button
+              onClick={() => setIsAppInfoModalOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl border border-indigo-200 dark:border-indigo-800/60 bg-indigo-50/70 hover:bg-indigo-100/80 dark:bg-indigo-950/40 text-indigo-900 dark:text-indigo-300 transition shadow-2xs shrink-0"
+              title="Giới thiệu phần mềm, nhật ký cập nhật changelog và góp ý cho đội ngũ phát triển"
+            >
+              <Info className="w-4 h-4 text-indigo-600" />
+              <span>Giới Thiệu & Góp Ý</span>
             </button>
 
             {/* Add Student Button */}
@@ -1430,6 +1443,15 @@ export default function Dashboard() {
         initialMonth={selectedMonth}
         monthFormat={monthFormat}
         onRefreshData={() => loadStudents(selectedMonth)}
+      />
+
+      {/* App Info & Feedback Modal (Giới thiệu, Changelog & Góp ý) */}
+      <AppInfoModal
+        isOpen={isAppInfoModalOpen}
+        onClose={() => setIsAppInfoModalOpen(false)}
+        schoolId={currentSchool?.id || "school-default"}
+        schoolName={currentSchool?.name || "Trung tâm đào tạo"}
+        schoolCode={currentSchool?.code || "TT"}
       />
     </div>
   );

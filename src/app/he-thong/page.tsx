@@ -28,8 +28,13 @@ import {
   Sparkles,
   RefreshCw,
   Check,
+  MessageSquare,
+  Send,
+  Inbox,
+  Filter,
 } from "lucide-react";
 import Link from "next/link";
+import { SystemFeedback } from "@/lib/types";
 import {
   generateAdminUsernameFromSchool,
   generateRandomPassword,
@@ -108,6 +113,13 @@ export default function SystemAdminPage() {
   const [adminFullName, setAdminFullName] = useState("");
   const [adminUsername, setAdminUsername] = useState("");
   const [adminPassword, setAdminPassword] = useState("");
+
+  // Feedbacks from Schools to TpTeam
+  const [systemFeedbacks, setSystemFeedbacks] = useState<SystemFeedback[]>([]);
+  const [isLoadingFeedbacks, setIsLoadingFeedbacks] = useState(false);
+  const [activeFeedbackReplyId, setActiveFeedbackReplyId] = useState<string | null>(null);
+  const [feedbackReplyText, setFeedbackReplyText] = useState("");
+  const [feedbackStatusUpdate, setFeedbackStatusUpdate] = useState<"pending" | "in_review" | "planned" | "completed">("in_review");
 
   // Modal IP Whitelist for School
   const [isIpModalOpen, setIsIpModalOpen] = useState(false);
@@ -235,10 +247,51 @@ export default function SystemAdminPage() {
           setSelectedSchoolId(json.data.schools[0].id);
         }
       }
+      loadSystemFeedbacks();
     } catch {
       showToast("Lỗi kết nối khi tải dữ liệu hệ thống!", "error");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const loadSystemFeedbacks = async () => {
+    try {
+      setIsLoadingFeedbacks(true);
+      const res = await fetch("/api/feedbacks/system");
+      const json = await res.json();
+      if (json.success) {
+        setSystemFeedbacks(json.data || []);
+      }
+    } catch {
+      console.error("Lỗi khi tải danh sách góp ý");
+    } finally {
+      setIsLoadingFeedbacks(false);
+    }
+  };
+
+  const handleUpdateFeedbackStatus = async (id: string) => {
+    try {
+      const res = await fetch("/api/feedbacks/system", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id,
+          status: feedbackStatusUpdate,
+          admin_reply: feedbackReplyText.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(data.message, "success");
+        setActiveFeedbackReplyId(null);
+        setFeedbackReplyText("");
+        loadSystemFeedbacks();
+      } else {
+        showToast(data.message || "Không thể cập nhật góp ý", "error");
+      }
+    } catch {
+      showToast("Lỗi mạng", "error");
     }
   };
 
@@ -982,6 +1035,186 @@ export default function SystemAdminPage() {
                 </tbody>
               </table>
             </div>
+          </div>
+        </div>
+
+        {/* FEEDBACKS SECTION: Góp Ý Của Các Trung Tâm Gửi Cho TpTeam */}
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                <Inbox className="w-5 h-5 text-amber-400" />
+                <span>Ý Kiến Đóng Góp & Yêu Cầu Từ Các Trung Tâm ({systemFeedbacks.length})</span>
+              </h2>
+              <p className="text-xs text-slate-400">
+                Lắng nghe phản hồi thực tế từ các cơ sở để cải tiến sản phẩm và cập nhật tính năng
+              </p>
+            </div>
+            <button
+              onClick={loadSystemFeedbacks}
+              className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200 transition shrink-0"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isLoadingFeedbacks ? "animate-spin" : ""}`} />
+              <span>Làm mới góp ý</span>
+            </button>
+          </div>
+
+          <div className="bg-slate-800/80 rounded-2xl border border-slate-700/80 overflow-hidden">
+            {isLoadingFeedbacks ? (
+              <div className="py-12 text-center text-xs text-slate-400">Đang tải danh sách góp ý...</div>
+            ) : systemFeedbacks.length === 0 ? (
+              <div className="py-12 text-center text-xs text-slate-500">
+                Chưa có góp ý hoặc yêu cầu nào từ các trung tâm.
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-700/60">
+                {systemFeedbacks.map((fb) => (
+                  <div key={fb.id} className="p-5 space-y-3 hover:bg-slate-700/20 transition">
+                    <div className="flex items-start justify-between gap-3 flex-wrap">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-extrabold text-sm text-white">{fb.title}</span>
+                          <span className="px-2 py-0.5 rounded text-[10px] font-black bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                            {fb.school_name || "Trung tâm"} ({fb.school_code || fb.school_id})
+                          </span>
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-700 text-slate-300 uppercase">
+                            {fb.category}
+                          </span>
+                          <span
+                            className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                              fb.priority === "high"
+                                ? "bg-rose-500/20 text-rose-300 border border-rose-500/30"
+                                : fb.priority === "medium"
+                                ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
+                                : "bg-slate-700 text-slate-400"
+                            }`}
+                          >
+                            Ưu tiên: {fb.priority}
+                          </span>
+                        </div>
+                        {fb.sender_contact && (
+                          <p className="text-xs text-slate-400">
+                            Người liên hệ: <strong className="text-slate-200">{fb.sender_contact}</strong>
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`px-2.5 py-1 rounded-full text-xs font-bold ${
+                            fb.status === "completed"
+                              ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
+                              : fb.status === "planned"
+                              ? "bg-blue-500/20 text-blue-300 border border-blue-500/30"
+                              : fb.status === "in_review"
+                              ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
+                              : "bg-slate-700 text-slate-300"
+                          }`}
+                        >
+                          {fb.status === "completed"
+                            ? "Đã hoàn thành"
+                            : fb.status === "planned"
+                            ? "Đã lên kế hoạch"
+                            : fb.status === "in_review"
+                            ? "Đang xử lý"
+                            : "Mới tiếp nhận"}
+                        </span>
+                        <button
+                          onClick={() => {
+                            setActiveFeedbackReplyId(fb.id);
+                            setFeedbackReplyText(fb.admin_reply || "");
+                            setFeedbackStatusUpdate(fb.status);
+                          }}
+                          className="px-3 py-1 text-xs font-semibold rounded-lg bg-purple-600/30 hover:bg-purple-600/50 text-purple-300 border border-purple-500/30 transition"
+                        >
+                          Xử lý & Phản hồi
+                        </button>
+                      </div>
+                    </div>
+
+                    <p className="text-xs text-slate-300 leading-relaxed bg-slate-900/40 p-3 rounded-xl border border-slate-700/40">
+                      {fb.content}
+                    </p>
+
+                    {fb.admin_reply && (
+                      <div className="p-3 rounded-xl bg-purple-950/30 border border-purple-900/40 text-xs text-purple-200">
+                        <strong className="block text-[10px] uppercase tracking-wider text-purple-400">
+                          Phản hồi của TpTeam đã gửi tới trung tâm:
+                        </strong>
+                        <p className="mt-0.5">{fb.admin_reply}</p>
+                      </div>
+                    )}
+
+                    {/* Form phản hồi khi bấm nút */}
+                    {activeFeedbackReplyId === fb.id && (
+                      <div className="p-4 rounded-xl bg-slate-900/90 border border-purple-500/40 space-y-3 animate-in fade-in">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-white">Phản hồi góp ý cho cơ sở</span>
+                          <button
+                            onClick={() => setActiveFeedbackReplyId(null)}
+                            className="text-xs text-slate-400 hover:text-white"
+                          >
+                            Đóng
+                          </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+                              Cập nhật trạng thái
+                            </label>
+                            <select
+                              value={feedbackStatusUpdate}
+                              onChange={(e) => setFeedbackStatusUpdate(e.target.value as any)}
+                              className="w-full px-3 py-2 text-xs rounded-xl bg-slate-800 border border-slate-700 text-white outline-none"
+                            >
+                              <option value="pending">Mới tiếp nhận</option>
+                              <option value="in_review">Đang xem xét & xử lý</option>
+                              <option value="planned">Đã lên kế hoạch phát triển</option>
+                              <option value="completed">Đã hoàn thành / Đã cập nhật</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+                            Nội dung phản hồi (Trung tâm sẽ nhìn thấy câu trả lời này)
+                          </label>
+                          <textarea
+                            rows={3}
+                            value={feedbackReplyText}
+                            onChange={(e) => setFeedbackReplyText(e.target.value)}
+                            placeholder="Nhập nội dung phản hồi gửi tới quản trị viên trung tâm..."
+                            className="w-full px-3 py-2 text-xs rounded-xl bg-slate-800 border border-slate-700 text-white outline-none resize-none"
+                          />
+                        </div>
+
+                        <div className="flex justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setActiveFeedbackReplyId(null)}
+                            className="px-3 py-1.5 text-xs rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300"
+                          >
+                            Hủy
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateFeedbackStatus(fb.id)}
+                            className="px-4 py-1.5 text-xs font-bold rounded-lg bg-purple-600 hover:bg-purple-500 text-white shadow-xs"
+                          >
+                            Lưu & Gửi Phản Hồi
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="text-[10px] text-slate-500">
+                      Gửi lúc: {fb.created_at}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </main>
