@@ -10,8 +10,10 @@ import {
   ReconciliationMode,
   ZaloReminderMode,
   CapacityMode,
+  AppLanguage,
 } from "@/lib/types";
 import { formatVND, formatTimeSlotLabel, formatMonthDisplay, getCurrentMonthStr } from "@/lib/tuition";
+import { useLanguage } from "@/lib/i18n";
 import { useToast } from "@/components/Toast";
 import {
   Clock,
@@ -45,6 +47,7 @@ import {
   QrCode,
   Copy,
   ExternalLink,
+  Globe,
 } from "lucide-react";
 
 interface SettingsModalProps {
@@ -53,6 +56,7 @@ interface SettingsModalProps {
   onSaved: () => void;
   initialBaseTuition: number;
   initialDurationMode?: "by_hours" | "by_sessions";
+  initialAppLanguage?: AppLanguage;
   initialMonthFormat?: MonthFormat;
   initialDefaultHours?: number;
   initialDefaultSessions?: number;
@@ -93,6 +97,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onSaved,
   initialBaseTuition,
   initialDurationMode = "by_hours",
+  initialAppLanguage = "vi",
   initialMonthFormat = "vietnamese",
   initialDefaultHours = 3,
   initialDefaultSessions = 3,
@@ -121,9 +126,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     "general" | "packages" | "reconciliation" | "zalo" | "slots" | "levels" | "discounts" | "password"
   >("general");
 
+  const { setLanguage: setGlobalLanguage } = useLanguage();
+
   // State
   const [baseTuition, setBaseTuition] = useState<number>(initialBaseTuition);
   const [durationMode, setDurationMode] = useState<"by_hours" | "by_sessions">(initialDurationMode);
+  const [appLanguage, setAppLanguage] = useState<AppLanguage>(initialAppLanguage);
   const [monthFormat, setMonthFormat] = useState<MonthFormat>(initialMonthFormat);
   const [defaultHours, setDefaultHours] = useState<number>(initialDefaultHours);
   const [defaultSessions, setDefaultSessions] = useState<number>(initialDefaultSessions);
@@ -226,6 +234,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   useEffect(() => {
     setBaseTuition(initialBaseTuition);
     setDurationMode(initialDurationMode);
+    setAppLanguage(initialAppLanguage);
     setMonthFormat(initialMonthFormat);
     setDefaultHours(initialDefaultHours);
     setDefaultSessions(initialDefaultSessions);
@@ -510,6 +519,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         body: JSON.stringify({
           base_tuition: Number(baseTuition) || 0,
           duration_mode: durationMode,
+          app_language: appLanguage,
           month_format: monthFormat,
           default_hours_per_week: Number(defaultHours) || 3,
           default_sessions_per_week: Number(defaultSessions) || 3,
@@ -537,6 +547,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       const data = await res.json();
       if (data.success) {
         showToast("Lưu cấu hình hệ thống thành công!", "success");
+        setGlobalLanguage(appLanguage);
         onSaved();
         onClose();
       } else {
@@ -946,6 +957,130 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
               </div>
 
+              {/* NGÔN NGỮ TOÀN GIAO DIỆN (FULL SYSTEM LANGUAGE) */}
+              <div className="bg-gradient-to-tr from-indigo-50/70 to-purple-50/60 dark:from-indigo-950/30 dark:to-purple-950/20 p-5 rounded-2xl border border-indigo-200/80 dark:border-indigo-900/40 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
+                      <Globe className="w-4 h-4 text-indigo-600" />
+                      Ngôn Ngữ Toàn Giao Diện (Full App Language)
+                    </h4>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      Chuyển đổi toàn bộ giao diện quản trị, danh mục và cổng thông tin sang ngôn ngữ đã chọn
+                    </p>
+                  </div>
+                  <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-300">
+                    4 Quốc Gia
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {/* Tiếng Việt */}
+                  <div
+                    onClick={() => {
+                      setAppLanguage("vi");
+                      setMonthFormat("vietnamese");
+                    }}
+                    className={`p-3.5 rounded-2xl border-2 transition cursor-pointer flex flex-col justify-between ${
+                      appLanguage === "vi"
+                        ? "border-indigo-600 bg-white dark:bg-slate-900 shadow-xs"
+                        : "border-slate-200 dark:border-slate-700/80 bg-white/60 dark:bg-slate-800/40 hover:border-slate-300"
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-base font-emoji">🇻🇳</span>
+                        {appLanguage === "vi" && (
+                          <div className="w-4 h-4 rounded-full bg-indigo-600 text-white flex items-center justify-center">
+                            <CheckCircle2 className="w-3 h-3" />
+                          </div>
+                        )}
+                      </div>
+                      <p className="text-xs font-black text-slate-900 dark:text-white">Tiếng Việt</p>
+                      <p className="text-[10px] text-slate-500 mt-0.5">Mặc định cơ sở</p>
+                    </div>
+                  </div>
+
+                  {/* English */}
+                  <div
+                    onClick={() => {
+                      setAppLanguage("en");
+                      setMonthFormat("english");
+                    }}
+                    className={`p-3.5 rounded-2xl border-2 transition cursor-pointer flex flex-col justify-between ${
+                      appLanguage === "en"
+                        ? "border-indigo-600 bg-white dark:bg-slate-900 shadow-xs"
+                        : "border-slate-200 dark:border-slate-700/80 bg-white/60 dark:bg-slate-800/40 hover:border-slate-300"
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-base font-emoji">🇬🇧</span>
+                        {appLanguage === "en" && (
+                          <div className="w-4 h-4 rounded-full bg-indigo-600 text-white flex items-center justify-center">
+                            <CheckCircle2 className="w-3 h-3" />
+                          </div>
+                        )}
+                      </div>
+                      <p className="text-xs font-black text-slate-900 dark:text-white">English</p>
+                      <p className="text-[10px] text-slate-500 mt-0.5">Tiếng Anh Quốc Tế</p>
+                    </div>
+                  </div>
+
+                  {/* 中文 (Tiếng Trung) */}
+                  <div
+                    onClick={() => {
+                      setAppLanguage("zh");
+                      setMonthFormat("chinese");
+                    }}
+                    className={`p-3.5 rounded-2xl border-2 transition cursor-pointer flex flex-col justify-between ${
+                      appLanguage === "zh"
+                        ? "border-indigo-600 bg-white dark:bg-slate-900 shadow-xs"
+                        : "border-slate-200 dark:border-slate-700/80 bg-white/60 dark:bg-slate-800/40 hover:border-slate-300"
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-base font-emoji">🇨🇳</span>
+                        {appLanguage === "zh" && (
+                          <div className="w-4 h-4 rounded-full bg-indigo-600 text-white flex items-center justify-center">
+                            <CheckCircle2 className="w-3 h-3" />
+                          </div>
+                        )}
+                      </div>
+                      <p className="text-xs font-black text-slate-900 dark:text-white">中文 (Tiếng Trung)</p>
+                      <p className="text-[10px] text-slate-500 mt-0.5">Chữ Hán giản thể</p>
+                    </div>
+                  </div>
+
+                  {/* 日本語 (Tiếng Nhật) */}
+                  <div
+                    onClick={() => {
+                      setAppLanguage("ja");
+                      setMonthFormat("japanese");
+                    }}
+                    className={`p-3.5 rounded-2xl border-2 transition cursor-pointer flex flex-col justify-between ${
+                      appLanguage === "ja"
+                        ? "border-indigo-600 bg-white dark:bg-slate-900 shadow-xs"
+                        : "border-slate-200 dark:border-slate-700/80 bg-white/60 dark:bg-slate-800/40 hover:border-slate-300"
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-base font-emoji">🇯🇵</span>
+                        {appLanguage === "ja" && (
+                          <div className="w-4 h-4 rounded-full bg-indigo-600 text-white flex items-center justify-center">
+                            <CheckCircle2 className="w-3 h-3" />
+                          </div>
+                        )}
+                      </div>
+                      <p className="text-xs font-black text-slate-900 dark:text-white">日本語 (Tiếng Nhật)</p>
+                      <p className="text-[10px] text-slate-500 mt-0.5">Tiếng Nhật chuẩn</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               {/* MONTH FORMAT CONFIGURATION CARD */}
               <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 space-y-4">
                 <div className="flex items-center justify-between">
@@ -963,32 +1098,29 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </span>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
                   {/* Option 1: Tiếng Việt */}
                   <div
                     onClick={() => setMonthFormat("vietnamese")}
-                    className={`p-3.5 rounded-2xl border-2 transition cursor-pointer flex flex-col justify-between ${
+                    className={`p-3 rounded-2xl border-2 transition cursor-pointer flex flex-col justify-between ${
                       monthFormat === "vietnamese"
                         ? "border-indigo-600 bg-indigo-50/40 dark:bg-indigo-950/30 shadow-xs"
                         : "border-slate-200 dark:border-slate-700/80 bg-slate-50/50 dark:bg-slate-800/40 hover:border-slate-300"
                     }`}
                   >
                     <div>
-                      <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-[11px] font-black uppercase tracking-wider text-indigo-600">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-indigo-600">
                           Tiếng Việt
                         </span>
                         {monthFormat === "vietnamese" && (
-                          <div className="w-4 h-4 rounded-full bg-indigo-600 text-white flex items-center justify-center">
-                            <CheckCircle2 className="w-3 h-3" />
+                          <div className="w-3.5 h-3.5 rounded-full bg-indigo-600 text-white flex items-center justify-center">
+                            <CheckCircle2 className="w-2.5 h-2.5" />
                           </div>
                         )}
                       </div>
-                      <p className="text-sm font-extrabold text-slate-900 dark:text-white">
+                      <p className="text-xs font-extrabold text-slate-900 dark:text-white">
                         {formatMonthDisplay(getCurrentMonthStr(), "vietnamese")}
-                      </p>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                        Hiển thị chữ &quot;Tháng&quot; kèm tháng và năm
                       </p>
                     </div>
                   </div>
@@ -996,57 +1128,103 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   {/* Option 2: Tiếng Anh */}
                   <div
                     onClick={() => setMonthFormat("english")}
-                    className={`p-3.5 rounded-2xl border-2 transition cursor-pointer flex flex-col justify-between ${
+                    className={`p-3 rounded-2xl border-2 transition cursor-pointer flex flex-col justify-between ${
                       monthFormat === "english"
                         ? "border-indigo-600 bg-indigo-50/40 dark:bg-indigo-950/30 shadow-xs"
                         : "border-slate-200 dark:border-slate-700/80 bg-slate-50/50 dark:bg-slate-800/40 hover:border-slate-300"
                     }`}
                   >
                     <div>
-                      <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-[11px] font-black uppercase tracking-wider text-indigo-600">
-                          Tiếng Anh (English)
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-indigo-600">
+                          English
                         </span>
                         {monthFormat === "english" && (
-                          <div className="w-4 h-4 rounded-full bg-indigo-600 text-white flex items-center justify-center">
-                            <CheckCircle2 className="w-3 h-3" />
+                          <div className="w-3.5 h-3.5 rounded-full bg-indigo-600 text-white flex items-center justify-center">
+                            <CheckCircle2 className="w-2.5 h-2.5" />
                           </div>
                         )}
                       </div>
-                      <p className="text-sm font-extrabold text-slate-900 dark:text-white">
+                      <p className="text-xs font-extrabold text-slate-900 dark:text-white">
                         {formatMonthDisplay(getCurrentMonthStr(), "english")}
-                      </p>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                        Tên tháng tiếng Anh chuẩn quốc tế (October 2026)
                       </p>
                     </div>
                   </div>
 
-                  {/* Option 3: Số */}
+                  {/* Option 3: Tiếng Trung */}
+                  <div
+                    onClick={() => setMonthFormat("chinese")}
+                    className={`p-3 rounded-2xl border-2 transition cursor-pointer flex flex-col justify-between ${
+                      monthFormat === "chinese"
+                        ? "border-indigo-600 bg-indigo-50/40 dark:bg-indigo-950/30 shadow-xs"
+                        : "border-slate-200 dark:border-slate-700/80 bg-slate-50/50 dark:bg-slate-800/40 hover:border-slate-300"
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-indigo-600">
+                          中文
+                        </span>
+                        {monthFormat === "chinese" && (
+                          <div className="w-3.5 h-3.5 rounded-full bg-indigo-600 text-white flex items-center justify-center">
+                            <CheckCircle2 className="w-2.5 h-2.5" />
+                          </div>
+                        )}
+                      </div>
+                      <p className="text-xs font-extrabold text-slate-900 dark:text-white">
+                        {formatMonthDisplay(getCurrentMonthStr(), "chinese")}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Option 4: Tiếng Nhật */}
+                  <div
+                    onClick={() => setMonthFormat("japanese")}
+                    className={`p-3 rounded-2xl border-2 transition cursor-pointer flex flex-col justify-between ${
+                      monthFormat === "japanese"
+                        ? "border-indigo-600 bg-indigo-50/40 dark:bg-indigo-950/30 shadow-xs"
+                        : "border-slate-200 dark:border-slate-700/80 bg-slate-50/50 dark:bg-slate-800/40 hover:border-slate-300"
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-indigo-600">
+                          日本語
+                        </span>
+                        {monthFormat === "japanese" && (
+                          <div className="w-3.5 h-3.5 rounded-full bg-indigo-600 text-white flex items-center justify-center">
+                            <CheckCircle2 className="w-2.5 h-2.5" />
+                          </div>
+                        )}
+                      </div>
+                      <p className="text-xs font-extrabold text-slate-900 dark:text-white">
+                        {formatMonthDisplay(getCurrentMonthStr(), "japanese")}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Option 5: Số */}
                   <div
                     onClick={() => setMonthFormat("number")}
-                    className={`p-3.5 rounded-2xl border-2 transition cursor-pointer flex flex-col justify-between ${
+                    className={`p-3 rounded-2xl border-2 transition cursor-pointer flex flex-col justify-between ${
                       monthFormat === "number"
                         ? "border-indigo-600 bg-indigo-50/40 dark:bg-indigo-950/30 shadow-xs"
                         : "border-slate-200 dark:border-slate-700/80 bg-slate-50/50 dark:bg-slate-800/40 hover:border-slate-300"
                     }`}
                   >
                     <div>
-                      <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-[11px] font-black uppercase tracking-wider text-indigo-600">
-                          Dạng Số (MM/YYYY)
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-indigo-600">
+                          Dạng Số
                         </span>
                         {monthFormat === "number" && (
-                          <div className="w-4 h-4 rounded-full bg-indigo-600 text-white flex items-center justify-center">
-                            <CheckCircle2 className="w-3 h-3" />
+                          <div className="w-3.5 h-3.5 rounded-full bg-indigo-600 text-white flex items-center justify-center">
+                            <CheckCircle2 className="w-2.5 h-2.5" />
                           </div>
                         )}
                       </div>
-                      <p className="text-sm font-extrabold text-slate-900 dark:text-white">
+                      <p className="text-xs font-extrabold text-slate-900 dark:text-white">
                         {formatMonthDisplay(getCurrentMonthStr(), "number")}
-                      </p>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                        Hiển thị số gọn gàng dạng 10/2026
                       </p>
                     </div>
                   </div>

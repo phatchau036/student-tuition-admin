@@ -124,7 +124,8 @@ export interface Teacher {
   created_at?: string;
 }
 
-export type MonthFormat = "vietnamese" | "english" | "number";
+export type AppLanguage = "vi" | "en" | "zh" | "ja"; // vi: Tiếng Việt, en: English, zh: 中文 (Tiếng Trung), ja: 日本語 (Tiếng Nhật)
+export type MonthFormat = "vietnamese" | "english" | "number" | "chinese" | "japanese";
 
 export interface SePayTransaction {
   id: string; // ID giao dịch SePay
@@ -162,7 +163,8 @@ export interface MonthlyReconciliationSummary {
 export interface SystemSettings {
   base_tuition: number; // Base price in VNĐ
   duration_mode: "by_hours" | "by_sessions"; // Chế độ: HOẶC theo tiếng HOẶC theo buổi
-  month_format?: MonthFormat; // Định dạng tháng: 'vietnamese' (Tháng 10/2026), 'english' (October 2026 / Oct 2026), 'number' (10/2026)
+  app_language?: AppLanguage; // Ngôn ngữ toàn giao diện: 'vi' | 'en' | 'zh' | 'ja'
+  month_format?: MonthFormat; // Định dạng tháng: 'vietnamese', 'english', 'chinese', 'japanese', 'number'
   default_hours_per_week: number; // Ví dụ: 3 tiếng/tuần
   default_sessions_per_week: number; // Ví dụ: 3 buổi/tuần
   default_study_time: string; // Ví dụ: "18:00 - 19:00"

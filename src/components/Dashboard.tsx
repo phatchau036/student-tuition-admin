@@ -60,13 +60,17 @@ import {
   BarChart3,
   QrCode,
   Info,
+  Globe,
 } from "lucide-react";
 import Link from "next/link";
 import { MonthlySummaryModal } from "./MonthlySummaryModal";
 import { AppInfoModal } from "./AppInfoModal";
+import { useLanguage } from "@/lib/i18n";
+import { AppLanguage } from "@/lib/types";
 
 export default function Dashboard() {
   const { showToast } = useToast();
+  const { language, setLanguage, t } = useLanguage();
 
   // Selected Month State
   const [selectedMonth, setSelectedMonth] = useState<string>("2026-10");
@@ -270,6 +274,9 @@ export default function Dashboard() {
       if (json.success) {
         setBaseTuition(json.data.base_tuition);
         setDurationMode(json.data.duration_mode || "by_hours");
+        if (json.data.app_language) {
+          setLanguage(json.data.app_language);
+        }
         setMonthFormat(json.data.month_format || "vietnamese");
         setDefaultHours(json.data.default_hours_per_week || 3);
         setDefaultSessions(json.data.default_sessions_per_week || 3);
@@ -585,7 +592,7 @@ export default function Dashboard() {
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-base font-black text-slate-900 dark:text-white tracking-tight whitespace-nowrap">
-                  Quản Trị Cơ Sở
+                  {t.school_portal}
                 </h1>
                 {currentSchool && (
                   <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300 border border-indigo-200/80 dark:border-indigo-800/80 shrink-0">
@@ -598,7 +605,7 @@ export default function Dashboard() {
                 )}
               </div>
               <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                Hệ thống quản lý học sinh, phân công giáo viên, theo dõi học phí & lịch học bù
+                {t.app_subtitle}
               </p>
             </div>
           </div>
@@ -613,7 +620,7 @@ export default function Dashboard() {
                 title="Cổng dành cho giáo viên"
               >
                 <GraduationCap className="w-3.5 h-3.5 text-indigo-600" />
-                <span>Cổng GV</span>
+                <span>{t.teacher_portal}</span>
               </Link>
               <Link
                 href="/"
@@ -621,8 +628,34 @@ export default function Dashboard() {
                 title="Cổng dành cho phụ huynh"
               >
                 <Users className="w-3.5 h-3.5 text-emerald-600" />
-                <span>Cổng PH</span>
+                <span>{t.parent_portal}</span>
               </Link>
+            </div>
+
+            {/* Quick Language Switcher Dropdown */}
+            <div className="relative inline-flex items-center">
+              <select
+                value={language}
+                onChange={(e) => {
+                  const newL = e.target.value as AppLanguage;
+                  setLanguage(newL);
+                  fetch("/api/settings", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      app_language: newL,
+                      month_format: newL === "vi" ? "vietnamese" : newL === "zh" ? "chinese" : newL === "ja" ? "japanese" : "english",
+                    }),
+                  });
+                }}
+                className="px-2.5 py-1.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 outline-none hover:border-slate-300 transition cursor-pointer shadow-2xs mr-1"
+                title="Chọn ngôn ngữ giao diện (Tiếng Việt, English, 中文, 日本語)"
+              >
+                <option value="vi">🇻🇳 Tiếng Việt</option>
+                <option value="en">🇬🇧 English</option>
+                <option value="zh">🇨🇳 中文</option>
+                <option value="ja">🇯🇵 日本語</option>
+              </select>
             </div>
 
             {/* Tổng Kết Tháng & Báo Cáo Học Phí */}
@@ -632,7 +665,7 @@ export default function Dashboard() {
               title="Xem tổng kết thu chi, tình hình đóng học phí và giao dịch SePay tự động"
             >
               <BarChart3 className="w-4 h-4 text-emerald-600" />
-              <span>Tổng Kết Tháng</span>
+              <span>{t.monthly_summary}</span>
             </button>
 
             {/* Log tổng biến động học sinh (Bảo lưu, nghỉ, học tiếp) */}
@@ -642,7 +675,7 @@ export default function Dashboard() {
               title="Xem nhật ký tổng học sinh nghỉ, bảo lưu và trở lại học"
             >
               <History className="w-4 h-4 text-indigo-600" />
-              <span>Log Biến Động</span>
+              <span>{t.status_log}</span>
             </button>
 
             {/* Make up classes button */}
@@ -654,7 +687,7 @@ export default function Dashboard() {
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl border border-amber-200 dark:border-amber-800/60 bg-amber-50 hover:bg-amber-100/80 dark:bg-amber-950/40 text-amber-900 dark:text-amber-300 transition shadow-2xs shrink-0"
             >
               <CalendarCheck className="w-4 h-4 text-amber-600" />
-              <span>Báo Nghỉ & Học Bù</span>
+              <span>{t.absence_makeup}</span>
               {totalPendingMakeups > 0 && (
                 <span className="w-4.5 h-4.5 rounded-full bg-amber-500 text-white text-[10px] font-black flex items-center justify-center animate-pulse">
                   {totalPendingMakeups}
@@ -668,7 +701,7 @@ export default function Dashboard() {
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 text-slate-700 dark:text-slate-200 transition shadow-2xs shrink-0"
             >
               <GraduationCap className="w-4 h-4 text-indigo-600" />
-              <span>Đội Ngũ Giáo Viên ({teachers.length})</span>
+              <span>{t.teachers_team} ({teachers.length})</span>
             </button>
 
             {/* System Settings Button */}
@@ -677,7 +710,7 @@ export default function Dashboard() {
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 text-slate-700 dark:text-slate-200 transition shadow-2xs shrink-0"
             >
               <Settings className="w-4 h-4 text-slate-500" />
-              <span>Cài Đặt</span>
+              <span>{t.settings}</span>
             </button>
 
             {/* Giới Thiệu Phần Mềm & Changelog & Góp Ý TpTeam */}
@@ -687,7 +720,7 @@ export default function Dashboard() {
               title="Giới thiệu phần mềm, nhật ký cập nhật changelog và góp ý cho đội ngũ phát triển"
             >
               <Info className="w-4 h-4 text-indigo-600" />
-              <span>Giới Thiệu & Góp Ý</span>
+              <span>{t.app_info_feedback}</span>
             </button>
 
             {/* Add Student Button */}
@@ -699,7 +732,7 @@ export default function Dashboard() {
               className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-black rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] text-white shadow-md shadow-indigo-600/25 transition shrink-0"
             >
               <Plus className="w-4 h-4 stroke-[3]" />
-              <span>Thêm Học Sinh</span>
+              <span>{t.add_student}</span>
             </button>
 
             {/* Logout Button */}
@@ -709,7 +742,7 @@ export default function Dashboard() {
               title="Đăng xuất khỏi cổng quản trị cơ sở"
             >
               <LogOut className="w-3.5 h-3.5" />
-              <span>Đăng Xuất</span>
+              <span>{t.logout}</span>
             </button>
           </div>
         </div>
@@ -724,14 +757,14 @@ export default function Dashboard() {
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
                 <Calendar className="w-4 h-4 text-indigo-500" />
-                Kỳ Báo Cáo Học Phí
+                {t.tuition_month}
               </span>
               <button
                 onClick={() => setSelectedMonth(getCurrentMonthStr())}
-                title="Về tháng hiện tại"
+                title={t.current_month}
                 className="px-2.5 py-1 text-xs font-bold rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-indigo-50 hover:text-indigo-600 dark:hover:bg-indigo-950/50 dark:hover:text-indigo-300 text-slate-600 dark:text-slate-300 transition"
               >
-                Hiện tại
+                {t.current_month}
               </button>
             </div>
 
@@ -740,7 +773,7 @@ export default function Dashboard() {
                 <span className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
                   {formatMonthDisplay(selectedMonth, monthFormat)}
                 </span>
-                <p className="text-[11px] text-slate-500 mt-0.5">Dữ liệu học phí áp dụng cho tháng này</p>
+                <p className="text-[11px] text-slate-500 mt-0.5">{t.app_subtitle}</p>
               </div>
               <MonthPicker
                 value={selectedMonth}
@@ -756,7 +789,7 @@ export default function Dashboard() {
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-wider text-indigo-200 flex items-center gap-1.5">
                 <TrendingUp className="w-4 h-4 text-indigo-300" />
-                Dự Thu {formatMonthDisplay(selectedMonth, monthFormat)}
+                {t.expected_revenue} {formatMonthDisplay(selectedMonth, monthFormat)}
               </span>
               <div className="w-9 h-9 rounded-xl bg-white/20 backdrop-blur-xs flex items-center justify-center">
                 <DollarSign className="w-5 h-5 text-white" />
@@ -768,7 +801,7 @@ export default function Dashboard() {
               </div>
               <span className="text-xs text-indigo-100 font-medium mt-1 flex items-center gap-1">
                 <Users className="w-3.5 h-3.5 opacity-80" />
-                Tổng cộng <strong>{filteredStudents.length}</strong> học sinh đang theo học
+                <strong>{filteredStudents.length}</strong> {t.total_active_students}
               </span>
             </div>
           </div>
@@ -778,7 +811,7 @@ export default function Dashboard() {
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
                 <Tag className="w-4 h-4 text-emerald-500" />
-                Học Phí Cơ Bản (Base)
+                {t.base_tuition}
               </span>
               <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 flex items-center justify-center">
                 <Sparkles className="w-5 h-5" />
@@ -786,11 +819,11 @@ export default function Dashboard() {
             </div>
             <div className="mt-2">
               <div className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-                {formatVND(baseTuition)} <span className="text-sm font-semibold text-slate-400">/ tháng</span>
+                {formatVND(baseTuition)} <span className="text-sm font-semibold text-slate-400">{t.per_month}</span>
               </div>
               <span className="text-xs text-amber-600 dark:text-amber-400 font-bold mt-1 inline-flex items-center gap-1">
                 <Sparkles className="w-3.5 h-3.5" />
-                {overriddenCount} học sinh có học phí tùy chỉnh tháng này
+                {overriddenCount} {t.overridden_students}
               </span>
             </div>
           </div>
@@ -822,10 +855,10 @@ export default function Dashboard() {
               onChange={(e) => setSelectedStatusFilter(e.target.value as any)}
               className="px-3 py-2 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 outline-none hover:border-slate-300 transition"
             >
-              <option value="all">Tất cả Trạng thái</option>
-              <option value="studying">🟢 Đang học</option>
-              <option value="reserved">🟡 Bảo lưu</option>
-              <option value="dropped">🔴 Nghỉ học</option>
+              <option value="all">{t.filter_all_status}</option>
+              <option value="studying">🟢 {t.status_studying}</option>
+              <option value="reserved">🟡 {t.status_reserved}</option>
+              <option value="dropped">🔴 {t.status_dropped}</option>
             </select>
 
             {/* Filter by Payment: Đã đóng / Cần đóng tiền */}
@@ -834,9 +867,9 @@ export default function Dashboard() {
               onChange={(e) => setSelectedPaymentFilter(e.target.value as any)}
               className="px-3 py-2 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 outline-none hover:border-slate-300 transition"
             >
-              <option value="all">Tất cả Đối soát</option>
-              <option value="paid">✅ Đã đóng học phí</option>
-              <option value="unpaid">⚠️ Cần đóng tiền</option>
+              <option value="all">{t.filter_all_payment}</option>
+              <option value="paid">✅ {t.paid}</option>
+              <option value="unpaid">⚠️ {t.unpaid}</option>
             </select>
 
             {/* Filter by Teacher */}
@@ -845,7 +878,7 @@ export default function Dashboard() {
               onChange={(e) => setSelectedTeacherFilter(e.target.value)}
               className="px-3 py-2 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 outline-none hover:border-slate-300 transition"
             >
-              <option value="all">Tất cả Giáo viên</option>
+              <option value="all">{t.filter_all_teachers}</option>
               {teachers.map((tc) => (
                 <option key={tc.id} value={tc.id}>
                   {tc.name}
@@ -859,7 +892,7 @@ export default function Dashboard() {
               onChange={(e) => setSelectedLevelFilter(e.target.value)}
               className="px-3 py-2 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 outline-none hover:border-slate-300 transition"
             >
-              <option value="all">Tất cả Level</option>
+              <option value="all">{t.filter_all_levels}</option>
               {levels.map((lvl) => (
                 <option key={lvl.id} value={lvl.id}>
                   {lvl.level_name}
@@ -873,7 +906,7 @@ export default function Dashboard() {
               onChange={(e) => setSelectedSlotFilter(e.target.value)}
               className="px-3 py-2 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 outline-none hover:border-slate-300 transition"
             >
-              <option value="all">Tất cả Khung giờ</option>
+              <option value="all">{t.filter_all_slots}</option>
               {timeSlots.map((slot) => (
                 <option key={slot.id} value={slot.id}>
                   {formatTimeSlotLabel(slot)}
@@ -891,7 +924,7 @@ export default function Dashboard() {
                 }}
                 className="text-xs text-rose-500 hover:text-rose-600 font-bold px-2 py-1 transition"
               >
-                Đặt lại
+                {t.reset_filter}
               </button>
             )}
           </div>
@@ -903,15 +936,15 @@ export default function Dashboard() {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50/80 dark:bg-slate-800/60 border-b border-slate-200/80 dark:border-slate-800 text-[11px] font-black uppercase tracking-wider text-slate-400 whitespace-nowrap">
-                  <th className="py-3 px-3 sm:px-4">Học sinh</th>
-                  <th className="py-3 px-2.5">Trạng thái</th>
-                  <th className="py-3 px-2.5">Giáo viên</th>
-                  <th className="py-3 px-2.5">Level & Phụ thu</th>
-                  <th className="py-3 px-3">Gói & Lịch học</th>
-                  <th className="py-3 px-2 text-center">Chiết khấu</th>
-                  <th className="py-3 px-3">Học phí {formatMonthDisplay(selectedMonth, monthFormat)}</th>
-                  <th className="py-3 px-3 text-center">Đối soát phí</th>
-                  <th className="py-3 px-3 text-right">Thao tác</th>
+                  <th className="py-3 px-3 sm:px-4">{t.col_student}</th>
+                  <th className="py-3 px-2.5">{t.col_status}</th>
+                  <th className="py-3 px-2.5">{t.col_teacher}</th>
+                  <th className="py-3 px-2.5">{t.col_level_surcharge}</th>
+                  <th className="py-3 px-3">{t.col_package_schedule}</th>
+                  <th className="py-3 px-2 text-center">{t.col_discount}</th>
+                  <th className="py-3 px-3">{t.col_tuition} {formatMonthDisplay(selectedMonth, monthFormat)}</th>
+                  <th className="py-3 px-3 text-center">{t.col_reconciliation}</th>
+                  <th className="py-3 px-3 text-right">{t.col_actions}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 text-sm">

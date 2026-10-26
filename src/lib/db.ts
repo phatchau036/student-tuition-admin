@@ -335,6 +335,7 @@ export async function initDb() {
     ["max_students_per_slot", "10"],
     ["crowded_threshold_percent", "80"],
     ["capacity_mode", "by_slot"],
+    ["app_language", "vi"],
     ["reconciliation_mode", "manual"],
     ["sepay_prefix", "HP"],
   ];

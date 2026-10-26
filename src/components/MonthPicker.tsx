@@ -62,6 +62,9 @@ export const MonthPicker: React.FC<MonthPickerProps> = ({
       const shortEng = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
       return shortEng[m - 1];
     }
+    if (monthFormat === "chinese" || monthFormat === "japanese") {
+      return `${m}月`;
+    }
     return `Tháng ${m}`;
   };
 

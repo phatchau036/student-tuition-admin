@@ -72,6 +72,14 @@ export function formatMonthDisplay(monthStr: string, format: MonthFormat = "viet
     return `${monthName} ${year}`;
   }
 
+  if (format === "chinese") {
+    return `${year}年${monthNum}月`;
+  }
+
+  if (format === "japanese") {
+    return `${year}年${monthNum}月度`;
+  }
+
   if (format === "number") {
     return `${month}/${year}`;
   }

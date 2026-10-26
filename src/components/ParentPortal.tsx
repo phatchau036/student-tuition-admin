@@ -26,7 +26,8 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { formatVND, formatMonthDisplay } from "@/lib/tuition";
-import { MonthFormat } from "@/lib/types";
+import { MonthFormat, AppLanguage } from "@/lib/types";
+import { useLanguage } from "@/lib/i18n";
 
 interface MakeupItem {
   id: string;
@@ -82,6 +83,7 @@ interface SlotOccupancy {
 }
 
 export default function ParentPortal() {
+  const { language, setLanguage, t } = useLanguage();
   const [phoneNumber, setPhoneNumber] = useState("");
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [students, setStudents] = useState<StudentData[]>([]);
@@ -370,13 +372,29 @@ export default function ParentPortal() {
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Quick Language Dropdown */}
+            <select
+              value={language}
+              onChange={(e) => {
+                const newL = e.target.value as AppLanguage;
+                setLanguage(newL);
+                setMonthFormat(newL === "vi" ? "vietnamese" : newL === "zh" ? "chinese" : newL === "ja" ? "japanese" : "english");
+              }}
+              className="px-2 py-1 text-xs font-bold rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 outline-none"
+            >
+              <option value="vi">🇻🇳 VI</option>
+              <option value="en">🇬🇧 EN</option>
+              <option value="zh">🇨🇳 中文</option>
+              <option value="ja">🇯🇵 日本語</option>
+            </select>
+
             {isLoggedIn && (
               <button
                 onClick={handleLogout}
                 className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-300 transition"
               >
                 <LogOut className="w-3.5 h-3.5" />
-                <span>Thoát</span>
+                <span>{t.logout}</span>
               </button>
             )}
           </div>

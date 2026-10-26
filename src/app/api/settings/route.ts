@@ -15,7 +15,8 @@ export async function GET() {
 
     const baseTuition = Number(settingsMap["base_tuition"] || 0);
     const durationMode = (settingsMap["duration_mode"] as "by_hours" | "by_sessions") || "by_hours";
-    const monthFormat = (settingsMap["month_format"] as "vietnamese" | "english" | "number") || "vietnamese";
+    const appLanguage = (settingsMap["app_language"] as "vi" | "en" | "zh" | "ja") || "vi";
+    const monthFormat = (settingsMap["month_format"] as "vietnamese" | "english" | "chinese" | "japanese" | "number") || "vietnamese";
     const defaultHours = Number(settingsMap["default_hours_per_week"] || 3);
     const defaultSessions = Number(settingsMap["default_sessions_per_week"] || 3);
     const defaultStudyTime = settingsMap["default_study_time"] || "18:00 - 19:00";
@@ -97,6 +98,7 @@ export async function GET() {
         current_school: schools[0] || null,
         base_tuition: baseTuition,
         duration_mode: durationMode,
+        app_language: appLanguage,
         month_format: monthFormat,
         default_hours_per_week: defaultHours,
         default_sessions_per_week: defaultSessions,
@@ -139,6 +141,7 @@ export async function POST(req: Request) {
     const {
       base_tuition,
       duration_mode,
+      app_language,
       month_format,
       default_hours_per_week,
       default_sessions_per_week,
@@ -166,6 +169,7 @@ export async function POST(req: Request) {
     const keysToUpdate: Record<string, any> = {
       base_tuition: base_tuition !== undefined ? String(base_tuition) : undefined,
       duration_mode: duration_mode !== undefined ? String(duration_mode) : undefined,
+      app_language: app_language !== undefined ? String(app_language) : undefined,
       month_format: month_format !== undefined ? String(month_format) : undefined,
       default_hours_per_week: default_hours_per_week !== undefined ? String(default_hours_per_week) : undefined,
       default_sessions_per_week: default_sessions_per_week !== undefined ? String(default_sessions_per_week) : undefined,
