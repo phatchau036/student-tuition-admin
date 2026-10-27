@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
+import { getSchoolIdFromRequest } from "@/lib/authHelper";
 
 // GET /api/status-logs - Lấy lịch sử log tổng bảo lưu, nghỉ học và trở lại học
 export async function GET(req: Request) {
@@ -14,14 +15,15 @@ export async function GET(req: Request) {
 
     await initDb();
     const db = getDb();
+    const schoolId = getSchoolIdFromRequest(req);
 
     let sql = `
       SELECT l.*, s.name as student_name, s.phone as student_phone, s.school_id 
       FROM student_status_logs l
       JOIN students s ON l.student_id = s.id
-      WHERE 1=1
+      WHERE s.school_id = ?
     `;
-    const args: any[] = [];
+    const args: any[] = [schoolId];
 
     if (student_id) {
       sql += " AND l.student_id = ?";

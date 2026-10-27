@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
 import { isDayInSlot } from "@/lib/tuition";
+import { getSchoolIdFromRequest } from "@/lib/authHelper";
 
 // Helper to determine Vietnamese day of week name from YYYY-MM-DD
 function getDayNameVi(dateStr: string): string {
@@ -40,19 +41,36 @@ export async function GET(req: Request) {
     const thresholdPercent = Number(settingsMap["crowded_threshold_percent"] || 80);
     const capacityMode = settingsMap["capacity_mode"] || "by_slot"; // "by_slot" hoặc "by_teacher"
 
-    // 2. Get active time slots
-    const slotsRes = await db.execute("SELECT * FROM time_slots WHERE is_active = 1 ORDER BY start_time ASC");
+    const schoolId = getSchoolIdFromRequest(req);
 
-    // 3. Get all teachers with their assigned slots and working shifts
-    const teachersRes = await db.execute("SELECT * FROM teachers WHERE is_active = 1");
+    // 2. Get active time slots for this school
+    let slotsRes = await db.execute({
+      sql: "SELECT * FROM time_slots WHERE is_active = 1 AND school_id = ? ORDER BY start_time ASC",
+      args: [schoolId],
+    });
+    if (slotsRes.rows.length === 0) {
+      slotsRes = await db.execute("SELECT * FROM time_slots WHERE is_active = 1 ORDER BY start_time ASC");
+    }
 
-    // 4. Get all active students with their registered days, slot & teacher
-    const studentsRes = await db.execute("SELECT id, name, time_slot_id, teacher_id, registered_days FROM students");
+    // 3. Get all teachers with their assigned slots and working shifts for this school
+    const teachersRes = await db.execute({
+      sql: "SELECT * FROM teachers WHERE is_active = 1 AND school_id = ?",
+      args: [schoolId],
+    });
+
+    // 4. Get all active students with their registered days, slot & teacher for this school
+    const studentsRes = await db.execute({
+      sql: "SELECT id, name, time_slot_id, teacher_id, registered_days FROM students WHERE school_id = ?",
+      args: [schoolId],
+    });
 
     // 5. Get all scheduled makeup classes on this date
     const makeupsRes = await db.execute({
-      sql: "SELECT id, student_id, makeup_slot_id, makeup_teacher_id, makeup_time FROM makeup_classes WHERE makeup_date = ? AND status IN ('scheduled', 'completed')",
-      args: [dateStr],
+      sql: `SELECT m.id, m.student_id, m.makeup_slot_id, m.makeup_teacher_id, m.makeup_time 
+            FROM makeup_classes m
+            JOIN students s ON m.student_id = s.id
+            WHERE m.makeup_date = ? AND m.status IN ('scheduled', 'completed') AND s.school_id = ?`,
+      args: [dateStr, schoolId],
     });
 
     const slotsOccupancy = slotsRes.rows.map((slot) => {

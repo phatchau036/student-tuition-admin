@@ -1,15 +1,23 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
+import { getSchoolIdFromRequest } from "@/lib/authHelper";
 
 // GET /api/packages - Lấy danh sách gói học phí
-export async function GET() {
+export async function GET(req: Request) {
   try {
     await initDb();
     const db = getDb();
-    const res = await db.execute("SELECT * FROM tuition_packages ORDER BY cycle_value ASC, amount ASC");
+    const schoolId = getSchoolIdFromRequest(req);
+    let res = await db.execute({
+      sql: "SELECT * FROM tuition_packages WHERE school_id = ? ORDER BY cycle_value ASC, amount ASC",
+      args: [schoolId],
+    });
+    if (res.rows.length === 0) {
+      res = await db.execute("SELECT * FROM tuition_packages ORDER BY cycle_value ASC, amount ASC");
+    }
     const packages = res.rows.map((row) => ({
       id: String(row.id),
-      school_id: String(row.school_id || "school-default"),
+      school_id: String(row.school_id || schoolId),
       name: String(row.name),
       amount: Number(row.amount),
       original_amount: Number(row.original_amount || row.amount),
@@ -37,8 +45,10 @@ export async function POST(req: Request) {
   try {
     await initDb();
     const db = getDb();
+    const schoolId = getSchoolIdFromRequest(req);
     const body = await req.json();
-    const { action, id, name, amount, original_amount, cycle_unit, cycle_value, discount_type, discount_value, benefits, is_active } = body;
+    const { action, id, school_id, name, amount, original_amount, cycle_unit, cycle_value, discount_type, discount_value, benefits, is_active } = body;
+    const targetSchoolId = school_id || schoolId || "school-default";
 
     // 1. Thêm gói mới
     if (action === "create" || !action) {
@@ -47,19 +57,20 @@ export async function POST(req: Request) {
       }
       const newId = id || `pkg-${Date.now()}`;
       await db.execute({
-        sql: `INSERT INTO tuition_packages (id, name, amount, original_amount, cycle_unit, cycle_value, discount_type, discount_value, benefits, is_active)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        sql: `INSERT INTO tuition_packages (id, school_id, name, amount, original_amount, cycle_unit, cycle_value, discount_type, discount_value, benefits, is_active)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         args: [
           newId,
+          targetSchoolId,
           name.trim(),
           Number(amount) || 0,
           Number(original_amount || amount) || 0,
-          cycle_unit === "week" ? "week" : "month",
+          cycle_unit || "month",
           Number(cycle_value) || 1,
           discount_type || "none",
           Number(discount_value) || 0,
-          benefits?.trim() || "",
-          is_active !== undefined ? (Number(is_active) ? 1 : 0) : 1,
+          benefits || "",
+          Number(is_active !== undefined ? is_active : 1),
         ],
       });
 

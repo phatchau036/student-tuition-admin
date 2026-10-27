@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
+import { getSchoolIdFromRequest } from "@/lib/authHelper";
 
 export async function GET(req: Request) {
   try {
     await initDb();
     const db = getDb();
+    const schoolId = getSchoolIdFromRequest(req);
     const { searchParams } = new URL(req.url);
     const studentId = searchParams.get("student_id");
 
@@ -14,11 +16,12 @@ export async function GET(req: Request) {
       FROM makeup_classes m
       JOIN students s ON m.student_id = s.id
       LEFT JOIN teachers tc ON s.teacher_id = tc.id
+      WHERE s.school_id = ?
     `;
-    const args: any[] = [];
+    const args: any[] = [schoolId];
 
     if (studentId) {
-      query += " WHERE m.student_id = ?";
+      query += " AND m.student_id = ?";
       args.push(studentId);
     }
 

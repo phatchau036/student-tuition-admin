@@ -1,18 +1,24 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
+import { getSchoolIdFromRequest } from "@/lib/authHelper";
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
     await initDb();
     const db = getDb();
+    const schoolId = getSchoolIdFromRequest(req);
 
-    const teachersRes = await db.execute(`
-      SELECT t.*, COUNT(s.id) as student_count
-      FROM teachers t
-      LEFT JOIN students s ON s.teacher_id = t.id
-      GROUP BY t.id
-      ORDER BY t.created_at ASC
-    `);
+    const teachersRes = await db.execute({
+      sql: `
+        SELECT t.*, COUNT(s.id) as student_count
+        FROM teachers t
+        LEFT JOIN students s ON s.teacher_id = t.id AND s.school_id = t.school_id
+        WHERE t.school_id = ?
+        GROUP BY t.id
+        ORDER BY t.created_at ASC
+      `,
+      args: [schoolId],
+    });
 
     const teachers = teachersRes.rows.map((row) => {
       let assignedSlotIds: string[] = [];
@@ -53,9 +59,11 @@ export async function POST(req: Request) {
   try {
     await initDb();
     const db = getDb();
+    const schoolId = getSchoolIdFromRequest(req);
     const body = await req.json();
 
-    const { name, phone, email, specialty, color, max_students, assigned_slot_ids, working_shifts_json } = body;
+    const { name, phone, email, specialty, color, max_students, assigned_slot_ids, working_shifts_json, school_id } = body;
+    const targetSchoolId = school_id || schoolId || "school-default";
 
     if (!name || !phone) {
       return NextResponse.json(
@@ -69,10 +77,11 @@ export async function POST(req: Request) {
     const shiftJson = typeof working_shifts_json === "string" ? working_shifts_json : JSON.stringify(working_shifts_json || []);
 
     await db.execute({
-      sql: `INSERT INTO teachers (id, name, phone, email, specialty, color, max_students, assigned_slot_ids, working_shifts_json, is_active)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+      sql: `INSERT INTO teachers (id, school_id, name, phone, email, specialty, color, max_students, assigned_slot_ids, working_shifts_json, is_active)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
       args: [
         id,
+        targetSchoolId,
         name.trim(),
         phone.trim(),
         email?.trim() || "",

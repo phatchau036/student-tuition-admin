@@ -89,6 +89,71 @@ export async function POST(req: Request) {
         ],
       });
 
+      // Tự động khởi tạo dữ liệu mẫu (Seed Data) riêng biệt cho trường mới
+      // 1. Ca học mở cửa
+      await db.execute({
+        sql: `INSERT INTO time_slots (id, school_id, name, from_day, to_day, days, start_time, end_time, max_students, is_active)
+              VALUES 
+              (?, ?, 'Ca Tối (T2 - T7)', 'Thứ 2', 'Thứ 7', 'Thứ 2 – Thứ 7', '17:00', '20:00', 10, 1),
+              (?, ?, 'Ca Sáng T7', 'Thứ 7', 'Thứ 7', 'Thứ 7', '09:00', '11:00', 10, 1),
+              (?, ?, 'Ca Sáng CN', 'Chủ Nhật', 'Chủ Nhật', 'Chủ Nhật', '08:00', '11:30', 10, 1)`,
+        args: [
+          `slot-${Date.now()}-1`, id,
+          `slot-${Date.now()}-2`, id,
+          `slot-${Date.now()}-3`, id,
+        ],
+      });
+
+      // 2. Mức phụ thu Level
+      await db.execute({
+        sql: `INSERT INTO level_surcharges (id, school_id, level_name, surcharge_amount, sort_order)
+              VALUES 
+              (?, ?, 'Grade 1', 0, 1),
+              (?, ?, 'Grade 2', 100000, 2)`,
+        args: [
+          `lvl-${Date.now()}-1`, id,
+          `lvl-${Date.now()}-2`, id,
+        ],
+      });
+
+      // 3. Mức chiết khấu
+      await db.execute({
+        sql: `INSERT INTO discount_presets (id, school_id, percentage, label)
+              VALUES 
+              (?, ?, 10, 'Anh em ruột cùng học'),
+              (?, ?, 20, 'Đăng ký sớm'),
+              (?, ?, 50, 'Học sinh nghèo vượt khó')`,
+        args: [
+          `disc-${Date.now()}-1`, id,
+          `disc-${Date.now()}-2`, id,
+          `disc-${Date.now()}-3`, id,
+        ],
+      });
+
+      // 4. Gói học phí mặc định
+      await db.execute({
+        sql: `INSERT INTO tuition_packages (id, school_id, name, amount, cycle_unit, cycle_value, is_active)
+              VALUES 
+              (?, ?, 'Học phí 1 tháng', 1000000, 'month', 1, 1),
+              (?, ?, 'Gói Khóa 3 tháng (-5%)', 2850000, 'month', 3, 1)`,
+        args: [
+          `pkg-${Date.now()}-1`, id,
+          `pkg-${Date.now()}-2`, id,
+        ],
+      });
+
+      // 5. Danh mục bộ môn học mặc định
+      await db.execute({
+        sql: `INSERT INTO subjects (id, school_id, name, description, color, is_active)
+              VALUES 
+              (?, ?, 'Piano', 'Bộ môn Piano cơ bản & nâng cao', 'indigo', 1),
+              (?, ?, 'Guitar', 'Bộ môn Guitar đệm hát & cổ điển', 'amber', 1)`,
+        args: [
+          `sub-${Date.now()}-1`, id,
+          `sub-${Date.now()}-2`, id,
+        ],
+      });
+
       return NextResponse.json({
         success: true,
         message: "Tạo trường mới thành công!",

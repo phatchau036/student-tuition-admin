@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
+import { getSchoolIdFromRequest } from "@/lib/authHelper";
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
     await initDb();
     const db = getDb();
+    const schoolId = getSchoolIdFromRequest(req);
 
     // 1. Get Settings
     const settingsRes = await db.execute("SELECT key, value FROM settings");
@@ -37,8 +39,14 @@ export async function GET() {
     const sepayBankName = settingsMap["sepay_bank_name"] || "";
     const sepayPrefix = settingsMap["sepay_prefix"] || "HP";
 
-    // 2. Get Time Slots
-    const timeSlotsRes = await db.execute("SELECT * FROM time_slots ORDER BY id ASC");
+    // 2. Get Time Slots for this school
+    let timeSlotsRes = await db.execute({
+      sql: "SELECT * FROM time_slots WHERE school_id = ? ORDER BY id ASC",
+      args: [schoolId],
+    });
+    if (timeSlotsRes.rows.length === 0) {
+      timeSlotsRes = await db.execute("SELECT * FROM time_slots ORDER BY id ASC");
+    }
     const timeSlots = timeSlotsRes.rows.map((row) => ({
       id: String(row.id),
       name: String(row.name),
@@ -51,8 +59,14 @@ export async function GET() {
       is_active: Number(row.is_active),
     }));
 
-    // 3. Get Level Surcharges
-    const levelRes = await db.execute("SELECT * FROM level_surcharges ORDER BY sort_order ASC, level_name ASC");
+    // 3. Get Level Surcharges for this school
+    let levelRes = await db.execute({
+      sql: "SELECT * FROM level_surcharges WHERE school_id = ? ORDER BY sort_order ASC, level_name ASC",
+      args: [schoolId],
+    });
+    if (levelRes.rows.length === 0) {
+      levelRes = await db.execute("SELECT * FROM level_surcharges ORDER BY sort_order ASC, level_name ASC");
+    }
     const levelSurcharges = levelRes.rows.map((row) => ({
       id: String(row.id),
       level_name: String(row.level_name),
@@ -60,19 +74,31 @@ export async function GET() {
       sort_order: Number(row.sort_order),
     }));
 
-    // 4. Get Discount Presets
-    const discountRes = await db.execute("SELECT * FROM discount_presets ORDER BY percentage ASC");
+    // 4. Get Discount Presets for this school
+    let discountRes = await db.execute({
+      sql: "SELECT * FROM discount_presets WHERE school_id = ? ORDER BY percentage ASC",
+      args: [schoolId],
+    });
+    if (discountRes.rows.length === 0) {
+      discountRes = await db.execute("SELECT * FROM discount_presets ORDER BY percentage ASC");
+    }
     const discountPresets = discountRes.rows.map((row) => ({
       id: String(row.id),
       percentage: Number(row.percentage),
       label: String(row.label),
     }));
 
-    // 4.1 Get Tuition Packages
-    const packagesRes = await db.execute("SELECT * FROM tuition_packages ORDER BY cycle_value ASC, amount ASC");
+    // 4.1 Get Tuition Packages for this school
+    let packagesRes = await db.execute({
+      sql: "SELECT * FROM tuition_packages WHERE school_id = ? ORDER BY cycle_value ASC, amount ASC",
+      args: [schoolId],
+    });
+    if (packagesRes.rows.length === 0) {
+      packagesRes = await db.execute("SELECT * FROM tuition_packages ORDER BY cycle_value ASC, amount ASC");
+    }
     const tuitionPackages = packagesRes.rows.map((row) => ({
       id: String(row.id),
-      school_id: String(row.school_id || "school-default"),
+      school_id: String(row.school_id || schoolId),
       name: String(row.name),
       amount: Number(row.amount),
       cycle_unit: String(row.cycle_unit) as "month" | "week",
@@ -81,11 +107,17 @@ export async function GET() {
       created_at: String(row.created_at || ""),
     }));
 
-    // 4.2 Get Subjects
-    const subjectsRes = await db.execute("SELECT * FROM subjects ORDER BY created_at ASC");
+    // 4.2 Get Subjects for this school
+    let subjectsRes = await db.execute({
+      sql: "SELECT * FROM subjects WHERE school_id = ? ORDER BY created_at ASC",
+      args: [schoolId],
+    });
+    if (subjectsRes.rows.length === 0) {
+      subjectsRes = await db.execute("SELECT * FROM subjects ORDER BY created_at ASC");
+    }
     const subjects = subjectsRes.rows.map((row) => ({
       id: String(row.id),
-      school_id: String(row.school_id || "school-default"),
+      school_id: String(row.school_id || schoolId),
       name: String(row.name),
       description: String(row.description || ""),
       color: String(row.color || "indigo"),
@@ -93,7 +125,7 @@ export async function GET() {
       created_at: String(row.created_at || ""),
     }));
 
-    // 5. Get Schools
+    // 5. Get Schools and specific current school
     const schoolsRes = await db.execute("SELECT * FROM schools ORDER BY created_at ASC");
     const schools = schoolsRes.rows.map((s) => ({
       id: String(s.id),
@@ -103,11 +135,13 @@ export async function GET() {
       phone: String(s.phone || ""),
     }));
 
+    const matchedSchool = schools.find((s) => s.id === schoolId) || schools[0] || null;
+
     return NextResponse.json({
       success: true,
       data: {
         schools: schools,
-        current_school: schools[0] || null,
+        current_school: matchedSchool,
         base_tuition: baseTuition,
         duration_mode: durationMode,
         app_language: appLanguage,

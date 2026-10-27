@@ -1,18 +1,21 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
+import { getSchoolIdFromRequest } from "@/lib/authHelper";
 
 // GET /api/subjects - Lấy danh sách Bộ Môn
 export async function GET(req: Request) {
   try {
     await initDb();
     const db = getDb();
-    const { searchParams } = new URL(req.url);
-    const schoolId = searchParams.get("school_id") || "school-default";
+    const schoolId = getSchoolIdFromRequest(req);
 
-    const res = await db.execute({
+    let res = await db.execute({
       sql: "SELECT * FROM subjects WHERE school_id = ? ORDER BY created_at ASC",
       args: [schoolId],
     });
+    if (res.rows.length === 0) {
+      res = await db.execute("SELECT * FROM subjects ORDER BY created_at ASC");
+    }
 
     const subjects = res.rows.map((row) => ({
       id: String(row.id),
@@ -39,9 +42,10 @@ export async function POST(req: Request) {
   try {
     await initDb();
     const db = getDb();
+    const schoolId = getSchoolIdFromRequest(req);
     const body = await req.json();
     const { action, id, school_id, name, description, color, is_active } = body;
-    const targetSchoolId = school_id || "school-default";
+    const targetSchoolId = school_id || schoolId || "school-default";
 
     // 1. Thêm bộ môn mới
     if (action === "create" || !action) {

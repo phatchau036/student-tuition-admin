@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
 import { calculateStandardTuition, applyDiscount } from "@/lib/tuition";
+import { getSchoolIdFromRequest } from "@/lib/authHelper";
 
 export async function GET(req: Request) {
   try {
@@ -9,6 +10,7 @@ export async function GET(req: Request) {
 
     await initDb();
     const db = getDb();
+    const schoolId = getSchoolIdFromRequest(req);
 
     // 1. Get Base Tuition
     const baseTuitionRes = await db.execute({
@@ -17,17 +19,21 @@ export async function GET(req: Request) {
     });
     const baseTuition = baseTuitionRes.rows.length > 0 ? Number(baseTuitionRes.rows[0].value) : 0;
 
-    // 2. Get All Students
-    const studentsRes = await db.execute(`
-      SELECT 
-        s.*,
-        l.surcharge_amount as level_surcharge,
-        pkg.name as package_name,
-        pkg.amount as package_amount
-      FROM students s
-      LEFT JOIN level_surcharges l ON s.level_id = l.id
-      LEFT JOIN tuition_packages pkg ON s.tuition_package_id = pkg.id
-    `);
+    // 2. Get All Students for this school
+    const studentsRes = await db.execute({
+      sql: `
+        SELECT 
+          s.*,
+          l.surcharge_amount as level_surcharge,
+          pkg.name as package_name,
+          pkg.amount as package_amount
+        FROM students s
+        LEFT JOIN level_surcharges l ON s.level_id = l.id
+        LEFT JOIN tuition_packages pkg ON s.tuition_package_id = pkg.id
+        WHERE s.school_id = ?
+      `,
+      args: [schoolId],
+    });
 
     // 3. Get Overrides for this month
     const overridesRes = await db.execute({

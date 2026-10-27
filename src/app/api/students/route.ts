@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
 import { calculateStandardTuition, applyDiscount, getPreviousMonthStr } from "@/lib/tuition";
+import { getSchoolIdFromRequest } from "@/lib/authHelper";
 
 export async function GET(req: Request) {
   try {
     await initDb();
     const db = getDb();
+    const schoolId = getSchoolIdFromRequest(req);
     const { searchParams } = new URL(req.url);
     const month = searchParams.get("month") || "";
 
@@ -16,30 +18,34 @@ export async function GET(req: Request) {
     });
     const baseTuition = baseTuitionRes.rows.length > 0 ? Number(baseTuitionRes.rows[0].value) : 0;
 
-    // Get All Students with level, time slot, teacher and package details
-    const studentsRes = await db.execute(`
-      SELECT 
-        s.*,
-        l.level_name,
-        l.surcharge_amount as level_surcharge,
-        sub.name as subject_name,
-        sub.color as subject_color,
-        t.name as time_slot_name,
-        (t.days || ': ' || t.start_time || ' - ' || t.end_time) as time_slot_desc,
-        tc.name as teacher_name,
-        tc.color as teacher_color,
-        pkg.name as tuition_package_name,
-        pkg.amount as tuition_package_amount,
-        pkg.cycle_unit as tuition_package_cycle_unit,
-        pkg.cycle_value as tuition_package_cycle_value
-      FROM students s
-      LEFT JOIN level_surcharges l ON s.level_id = l.id
-      LEFT JOIN subjects sub ON s.subject_id = sub.id
-      LEFT JOIN time_slots t ON s.time_slot_id = t.id
-      LEFT JOIN teachers tc ON s.teacher_id = tc.id
-      LEFT JOIN tuition_packages pkg ON s.tuition_package_id = pkg.id
-      ORDER BY s.created_at DESC
-    `);
+    // Get All Students belonging to this school
+    const studentsRes = await db.execute({
+      sql: `
+        SELECT 
+          s.*,
+          l.level_name,
+          l.surcharge_amount as level_surcharge,
+          sub.name as subject_name,
+          sub.color as subject_color,
+          t.name as time_slot_name,
+          (t.days || ': ' || t.start_time || ' - ' || t.end_time) as time_slot_desc,
+          tc.name as teacher_name,
+          tc.color as teacher_color,
+          pkg.name as tuition_package_name,
+          pkg.amount as tuition_package_amount,
+          pkg.cycle_unit as tuition_package_cycle_unit,
+          pkg.cycle_value as tuition_package_cycle_value
+        FROM students s
+        LEFT JOIN level_surcharges l ON s.level_id = l.id
+        LEFT JOIN subjects sub ON s.subject_id = sub.id
+        LEFT JOIN time_slots t ON s.time_slot_id = t.id
+        LEFT JOIN teachers tc ON s.teacher_id = tc.id
+        LEFT JOIN tuition_packages pkg ON s.tuition_package_id = pkg.id
+        WHERE s.school_id = ?
+        ORDER BY s.created_at DESC
+      `,
+      args: [schoolId],
+    });
 
     // Fetch overrides for month if provided
     let overridesMap: Record<string, { id: string; amount: number; note: string; items_json: string; month: string }> = {};
@@ -258,11 +264,13 @@ export async function POST(req: Request) {
   try {
     await initDb();
     const db = getDb();
+    const schoolId = getSchoolIdFromRequest(req);
     const body = await req.json();
 
     const {
       name,
       phone,
+      school_id,
       zalo_link,
       zalo_chat_id,
       level_id,
@@ -282,6 +290,8 @@ export async function POST(req: Request) {
       discount_reason,
     } = body;
 
+    const targetSchoolId = school_id || schoolId || "school-default";
+
     if (!name || !phone || !level_id) {
       return NextResponse.json(
         { success: false, message: "Vui lòng điền đầy đủ tên, số điện thoại và level!" },
@@ -300,13 +310,14 @@ export async function POST(req: Request) {
 
     await db.execute({
       sql: `INSERT INTO students (
-              id, student_code, name, phone, zalo_link, zalo_chat_id, level_id, subject_id, time_slot_id, teacher_id, tuition_package_id,
+              id, school_id, student_code, name, phone, zalo_link, zalo_chat_id, level_id, subject_id, time_slot_id, teacher_id, tuition_package_id,
               start_date, duration_mode, sessions_per_week, hours_per_week, registered_days, study_time_detail, schedule_details_json,
               is_discount_enabled, discount_percent, discount_reason
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       args: [
         id,
+        targetSchoolId,
         studentCode,
         name.trim(),
         phone.trim(),

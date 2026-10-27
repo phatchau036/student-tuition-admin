@@ -224,6 +224,9 @@ export default function Dashboard() {
             name: json.admin.school_name,
             code: json.admin.school_code,
           });
+          loadSettings(json.admin.school_id);
+          loadTeachers(json.admin.school_id);
+          loadStudents(selectedMonth, json.admin.school_id);
         } else {
           setIsAuthenticated(false);
         }
@@ -261,14 +264,15 @@ export default function Dashboard() {
         }
         setIsAuthenticated(true);
         setAdminUser(data.admin);
-        setCurrentSchool({
+        const schoolObj = {
           id: data.admin.school_id,
           name: data.admin.school_name,
           code: data.admin.school_code,
-        });
-        loadSettings();
-        loadTeachers();
-        loadStudents(selectedMonth);
+        };
+        setCurrentSchool(schoolObj);
+        loadSettings(data.admin.school_id);
+        loadTeachers(data.admin.school_id);
+        loadStudents(selectedMonth, data.admin.school_id);
       } else {
         showToast(data.message || "Đăng nhập thất bại!", "error");
       }
@@ -287,10 +291,23 @@ export default function Dashboard() {
     showToast("Đã đăng xuất khỏi cổng Quản trị cơ sở", "success");
   };
 
+  // Helper lấy headers có kèm Authorization token
+  const getAuthHeaders = (): Record<string, string> => {
+    const token = typeof window !== "undefined" ? localStorage.getItem("admin_token") : null;
+    const headers: Record<string, string> = {};
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+    if (currentSchool?.id) headers["x-school-id"] = currentSchool.id;
+    return headers;
+  };
+
   // Load Settings
-  const loadSettings = async () => {
+  const loadSettings = async (schoolId?: string) => {
     try {
-      const res = await fetch("/api/settings");
+      const targetSchoolId = schoolId || currentSchool?.id || "";
+      const query = targetSchoolId ? `?school_id=${targetSchoolId}` : "";
+      const res = await fetch(`/api/settings${query}`, {
+        headers: getAuthHeaders(),
+      });
       const json = await res.json();
       if (json.success) {
         setBaseTuition(json.data.base_tuition);
@@ -328,9 +345,13 @@ export default function Dashboard() {
   };
 
   // Load Teachers
-  const loadTeachers = async () => {
+  const loadTeachers = async (schoolId?: string) => {
     try {
-      const res = await fetch("/api/teachers");
+      const targetSchoolId = schoolId || currentSchool?.id || "";
+      const query = targetSchoolId ? `?school_id=${targetSchoolId}` : "";
+      const res = await fetch(`/api/teachers${query}`, {
+        headers: getAuthHeaders(),
+      });
       const json = await res.json();
       if (json.success) {
         setTeachers(json.data);
@@ -341,10 +362,14 @@ export default function Dashboard() {
   };
 
   // Load Students for Selected Month
-  const loadStudents = async (month: string) => {
+  const loadStudents = async (month: string, schoolId?: string) => {
     try {
       setIsLoading(true);
-      const res = await fetch(`/api/students?month=${month}`);
+      const targetSchoolId = schoolId || currentSchool?.id || "";
+      const schoolParam = targetSchoolId ? `&school_id=${targetSchoolId}` : "";
+      const res = await fetch(`/api/students?month=${month}${schoolParam}`, {
+        headers: getAuthHeaders(),
+      });
       const json = await res.json();
       if (json.success) {
         setStudents(json.data.students);
