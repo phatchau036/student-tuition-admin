@@ -197,11 +197,6 @@ export default function SystemAdminPage() {
         }),
       });
 
-      if (res.status === 404) {
-        setIsLocalhostAccess(false);
-        return;
-      }
-
       const data = await res.json();
       if (data.success) {
         showToast(data.message, "success");
@@ -231,10 +226,6 @@ export default function SystemAdminPage() {
     try {
       setIsLoading(true);
       const res = await fetch("/api/system");
-      if (res.status === 404) {
-        setIsLocalhostAccess(false);
-        return;
-      }
       const json = await res.json();
       if (json.success) {
         setSchools(json.data.schools);
