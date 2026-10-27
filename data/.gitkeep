@@ -1,0 +1,2 @@
+# Giữ thư mục data này trên git để máy mới clone về có sẵn thư mục
+# File database thật data/admin.db đã được ignore bởi .gitignore

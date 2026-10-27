@@ -1,11 +1,20 @@
 import { createClient, Client } from "@libsql/client";
 import path from "path";
+import fs from "fs";
 
 let dbInstance: Client | null = null;
 
 export function getDb(): Client {
   if (!dbInstance) {
-    const dbPath = path.join(process.cwd(), "data", "admin.db");
+    const dataDir = path.join(process.cwd(), "data");
+    if (!fs.existsSync(dataDir)) {
+      try {
+        fs.mkdirSync(dataDir, { recursive: true });
+      } catch (err) {
+        console.error("Error creating data directory:", err);
+      }
+    }
+    const dbPath = path.join(dataDir, "admin.db");
     dbInstance = createClient({
       url: `file:${dbPath}`,
     });

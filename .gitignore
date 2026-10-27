@@ -30,13 +30,20 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# database & sensitive data (unignored as requested by user)
-!data/
-!data/*
-!*.db
+# database & sensitive data - NEVER commit real SQLite files to Git
+data/*.db
+data/*.db-journal
+data/*.db-wal
+data/*.db-shm
+*.sqlite
+*.sqlite3
+!data/.gitkeep
 
 # env files (committed as requested by user)
 !.env
+
+# local IDE & agent files
+.zcode/
 
 # vercel
 .vercel
