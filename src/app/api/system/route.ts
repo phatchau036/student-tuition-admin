@@ -1,14 +1,8 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
-import { isLocalhost } from "@/lib/ipHelper";
 
 // API quản trị hệ thống: Quản lý các trường & Tài khoản Admin của từng trường
-// Chỉ cho phép truy cập từ localhost (nếu truy cập từ ngoài IP sẽ báo 404 không tồn tại)
 export async function GET(req: Request) {
-  if (!isLocalhost(req)) {
-    return new NextResponse("404 Not Found - Trang web không tồn tại", { status: 404 });
-  }
-
   try {
     await initDb();
     const db = getDb();
@@ -50,10 +44,6 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  if (!isLocalhost(req)) {
-    return new NextResponse("404 Not Found - Trang web không tồn tại", { status: 404 });
-  }
-
   try {
     await initDb();
     const db = getDb();

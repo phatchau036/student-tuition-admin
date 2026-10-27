@@ -155,17 +155,9 @@ export default function SystemAdminPage() {
     showToast(`Đã sao chép ${label} vào clipboard!`, "success");
   };
 
-  // 1. Check if user is accessing through localhost (127.0.0.1 or localhost)
+  // 1. Kiểm tra xác thực token khi tải trang (Hỗ trợ truy cập cả localhost và qua IP Network)
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const hostname = window.location.hostname;
-      const isLocal = hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]";
-      setIsLocalhostAccess(isLocal);
-
-      if (isLocal) {
-        checkAuth();
-      }
-    }
+    checkAuth();
   }, []);
 
   const checkAuth = async () => {
@@ -175,10 +167,6 @@ export default function SystemAdminPage() {
       if (token) headers["Authorization"] = `Bearer ${token}`;
 
       const res = await fetch("/api/system/auth", { headers });
-      if (res.status === 404) {
-        setIsLocalhostAccess(false);
-        return;
-      }
       const json = await res.json();
       if (json.authenticated) {
         setIsAuthenticated(true);
@@ -593,33 +581,7 @@ export default function SystemAdminPage() {
     }));
   };
 
-  // CASE 1: Accessed from outside IP (not localhost) -> Show 404 Not Found Page!
-  if (isLocalhostAccess === false) {
-    return (
-      <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-center p-4 font-sans text-center">
-        <div className="space-y-4 max-w-md">
-          <div className="w-16 h-16 rounded-3xl bg-rose-500/10 border border-rose-500/20 text-rose-500 flex items-center justify-center mx-auto">
-            <ShieldAlert className="w-8 h-8" />
-          </div>
-          <h1 className="text-4xl font-black text-white">404</h1>
-          <h2 className="text-lg font-bold text-slate-200">Trang Web Không Tồn Tại</h2>
-          <p className="text-xs text-slate-400">
-            Địa chỉ truy cập này không tồn tại hoặc đã bị khóa quyền truy cập ngoài mạng cục bộ.
-          </p>
-          <div className="pt-2">
-            <Link
-              href="/"
-              className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 transition"
-            >
-              Về Trang Chủ
-            </Link>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // CASE 2: Loading screen while checking auth
+  // CASE 1: Loading screen while checking auth
   if (isAuthenticated === null) {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-400">
@@ -653,7 +615,7 @@ export default function SystemAdminPage() {
             </div>
             <h1 className="text-xl font-extrabold text-white">Cổng Quản Trị Hệ Thống</h1>
             <p className="text-xs text-slate-400">
-              Khu vực dành riêng cho Chủ Hệ Thống. Chỉ khả dụng khi truy cập từ <code className="text-purple-400">localhost</code>.
+              Khu vực đăng nhập dành riêng cho Chủ Hệ Thống quản lý toàn diện các cơ sở.
             </p>
           </div>
 
@@ -738,7 +700,7 @@ export default function SystemAdminPage() {
                   Quản Trị Hệ Thống Toàn Cục
                 </h1>
                 <span className="px-2 py-0.5 text-[11px] font-bold uppercase rounded-md bg-purple-500/20 text-purple-300 border border-purple-500/30">
-                  Chủ Hệ Thống (Localhost)
+                  Chủ Hệ Thống (Network & Local)
                 </span>
               </div>
               <p className="text-xs text-slate-400">

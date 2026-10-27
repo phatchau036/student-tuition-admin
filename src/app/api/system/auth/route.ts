@@ -1,11 +1,6 @@
 import { NextResponse } from "next/server";
-import { isLocalhost } from "@/lib/ipHelper";
 
 export async function POST(req: Request) {
-  if (!isLocalhost(req)) {
-    return new NextResponse("404 Not Found - Trang web không tồn tại", { status: 404 });
-  }
-
   try {
     const body = await req.json();
     const { username, password } = body;
@@ -60,10 +55,6 @@ export async function POST(req: Request) {
 }
 
 export async function GET(req: Request) {
-  if (!isLocalhost(req)) {
-    return new NextResponse("404 Not Found - Trang web không tồn tại", { status: 404 });
-  }
-
   try {
     const authHeader = req.headers.get("authorization");
     const cookieHeader = req.headers.get("cookie");
