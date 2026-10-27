@@ -12,30 +12,15 @@ export async function POST(req: Request) {
     // 1. Kích hoạt cờ bảo trì ngay lập tức để bất kỳ ai truy cập vào đều thấy trang Server Đang Nâng Cấp
     writeFileSync(flagPath, JSON.stringify({ started_at: new Date().toISOString() }), "utf-8");
 
-    // Quy trình tự động hóa độc lập thông qua script:
-    // 1. Kéo code mới nhất từ GitHub: git pull origin main
-    // 2. Tự động cài thư viện mới nếu có: npm install
-    // 3. Tối ưu và biên dịch bản build Next.js: npm run build
-    // 4. Gỡ cờ bảo trì: del .maintenance
-    // 5. Giải phóng port 3000 và khởi động lại dịch vụ máy chủ mới: npm start
-    const isWindows = process.platform === "win32";
-    const scriptPath = isWindows
-      ? join(cwd, "scripts", "auto-upgrade.bat")
-      : join(cwd, "scripts", "auto-upgrade.sh");
+    // Khởi chạy tiến trình nâng cấp nền qua Node.js (tương thích 100% mọi hệ điều hành)
+    const scriptPath = join(cwd, "scripts", "run-upgrade.js");
 
-    // Khởi chạy tiến trình nền độc lập (detached)
-    const child = isWindows
-      ? spawn("cmd.exe", ["/c", scriptPath], {
-          cwd,
-          detached: true,
-          stdio: "ignore",
-          windowsHide: true,
-        })
-      : spawn("bash", [scriptPath], {
-          cwd,
-          detached: true,
-          stdio: "ignore",
-        });
+    const child = spawn(process.execPath, [scriptPath], {
+      cwd,
+      detached: true,
+      stdio: "ignore",
+      windowsHide: true,
+    });
 
     child.unref();
 
