@@ -70,7 +70,6 @@ interface SchoolAdmin {
 }
 
 export default function SystemAdminPage() {
-  const [isLocalhostAccess, setIsLocalhostAccess] = useState<boolean | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [authUsername, setAuthUsername] = useState("");
   const [authPassword, setAuthPassword] = useState("");
