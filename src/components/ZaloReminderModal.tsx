@@ -30,12 +30,21 @@ export const ZaloReminderModal: React.FC<ZaloReminderModalProps> = ({
   const amountStr = formatVND(student.current_tuition);
   const monthDisplay = formatMonthDisplay(selectedMonth);
 
+  // Parse breakdown of custom items if present
+  let breakdownLines = "";
+  try {
+    const items = JSON.parse(student.monthly_override?.items_json || "[]");
+    if (Array.isArray(items) && items.length > 0) {
+      breakdownLines = "\n- Chi tiết điều chỉnh:\n" + items.map((it: any) => `  • ${it.type === "add" ? "+" : "-"}${formatVND(it.amount)} (${it.name})`).join("\n");
+    }
+  } catch {}
+
   // Mẫu tin nhắn nhắc học phí chuẩn mực, lịch sự và chuyên nghiệp
   const messageTemplate = `Kính gửi Quý phụ huynh học sinh ${student.name},
 Trung tâm xin thông báo về kỳ đóng học phí ${monthDisplay}:
 - Học sinh: ${student.name} (${student.level_name || "Lớp học"})
-- Gói áp dụng: ${student.tuition_package_name || "Gói học phí chuẩn"}
-- Học phí cần thanh toán: ${amountStr}
+- Gói áp dụng: ${student.tuition_package_name || "Gói học phí chuẩn"}${breakdownLines}
+- Tổng học phí cần thanh toán: ${amountStr}
 
 Quý phụ huynh vui lòng hoàn tất học phí để trung tâm duy trì lịch học ổn định cho bé. Nếu quý phụ huynh đã thanh toán, xin vui lòng bỏ qua thông báo này.
 Trung tâm xin trân trọng cảm ơn!`;

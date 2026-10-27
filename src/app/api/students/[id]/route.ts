@@ -14,6 +14,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       zalo_link,
       zalo_chat_id,
       level_id,
+      subject_id,
       time_slot_id,
       teacher_id,
       tuition_package_id,
@@ -38,7 +39,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
     await db.execute({
       sql: `UPDATE students 
-            SET name = ?, phone = ?, zalo_link = ?, zalo_chat_id = ?, level_id = ?, time_slot_id = ?, teacher_id = ?, tuition_package_id = ?,
+            SET name = ?, phone = ?, zalo_link = ?, zalo_chat_id = ?, level_id = ?, subject_id = ?, time_slot_id = ?, teacher_id = ?, tuition_package_id = ?,
                 start_date = ?, duration_mode = ?, sessions_per_week = ?, hours_per_week = ?, registered_days = ?, study_time_detail = ?, schedule_details_json = ?,
                 is_discount_enabled = ?, discount_percent = ?, discount_reason = ?
             WHERE id = ?`,
@@ -48,6 +49,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         formattedZalo,
         zalo_chat_id ? String(zalo_chat_id).trim() : null,
         level_id,
+        subject_id || null,
         time_slot_id || "",
         teacher_id || null,
         tuition_package_id || null,

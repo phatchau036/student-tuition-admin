@@ -184,6 +184,7 @@ export async function POST(req: Request) {
           total_tuition_due: totalDue,
           is_override: Boolean(override),
           override_note: override ? String(override.note || "") : "",
+          override_items_json: override?.items_json ? String(override.items_json) : "[]",
           makeups: makeupsRes.rows.map((m) => ({
             id: String(m.id),
             absence_date: String(m.absence_date),

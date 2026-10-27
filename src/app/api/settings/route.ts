@@ -81,6 +81,18 @@ export async function GET() {
       created_at: String(row.created_at || ""),
     }));
 
+    // 4.2 Get Subjects
+    const subjectsRes = await db.execute("SELECT * FROM subjects ORDER BY created_at ASC");
+    const subjects = subjectsRes.rows.map((row) => ({
+      id: String(row.id),
+      school_id: String(row.school_id || "school-default"),
+      name: String(row.name),
+      description: String(row.description || ""),
+      color: String(row.color || "indigo"),
+      is_active: Number(row.is_active),
+      created_at: String(row.created_at || ""),
+    }));
+
     // 5. Get Schools
     const schoolsRes = await db.execute("SELECT * FROM schools ORDER BY created_at ASC");
     const schools = schoolsRes.rows.map((s) => ({
@@ -121,6 +133,7 @@ export async function GET() {
         level_surcharges: levelSurcharges,
         discount_presets: discountPresets,
         tuition_packages: tuitionPackages,
+        subjects: subjects,
       },
     });
   } catch (error: unknown) {

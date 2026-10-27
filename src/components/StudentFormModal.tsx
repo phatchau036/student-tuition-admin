@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Student, LevelSurcharge, TimeSlot, DiscountOption, Teacher, ScheduleItem, TuitionPackage } from "@/lib/types";
+import { Student, LevelSurcharge, TimeSlot, DiscountOption, Teacher, ScheduleItem, TuitionPackage, Subject } from "@/lib/types";
 import {
   calculateStandardTuition,
   applyDiscount,
@@ -38,6 +38,7 @@ import {
   Package,
   CalendarDays,
   Sparkles,
+  BookOpen,
 } from "lucide-react";
 
 interface StudentFormModalProps {
@@ -51,6 +52,7 @@ interface StudentFormModalProps {
   teachers: Teacher[];
   discountPresets: DiscountOption[];
   tuitionPackages?: TuitionPackage[];
+  subjects?: Subject[];
   defaultDurationMode?: "by_hours" | "by_sessions";
   defaultSessions?: number;
   defaultHours?: number;
@@ -87,6 +89,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
   teachers,
   discountPresets,
   tuitionPackages = [],
+  subjects = [],
   defaultDurationMode = "by_hours",
   defaultSessions = 3,
   defaultHours = 3,
@@ -99,6 +102,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
   const [zaloLink, setZaloLink] = useState("");
   const [zaloChatId, setZaloChatId] = useState("");
   const [levelId, setLevelId] = useState("");
+  const [subjectId, setSubjectId] = useState("");
   const [timeSlotId, setTimeSlotId] = useState("");
   const [teacherId, setTeacherId] = useState("");
   const [tuitionPackageId, setTuitionPackageId] = useState("");
@@ -132,6 +136,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
       setZaloLink(studentToEdit.zalo_link || "");
       setZaloChatId(studentToEdit.zalo_chat_id || "");
       setLevelId(studentToEdit.level_id || (levels[0]?.id ?? ""));
+      setSubjectId(studentToEdit.subject_id || (subjects[0]?.id ?? ""));
       setTimeSlotId(studentToEdit.time_slot_id || (timeSlots[0]?.id ?? ""));
       setTeacherId(studentToEdit.teacher_id || (teachers[0]?.id ?? ""));
       setTuitionPackageId(studentToEdit.tuition_package_id || "");
@@ -176,6 +181,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
       setZaloLink("");
       setZaloChatId("");
       setLevelId(levels[0]?.id || "");
+      setSubjectId(subjects[0]?.id || "");
       setTimeSlotId(timeSlots[0]?.id || "");
       setTeacherId(teachers[0]?.id || "");
       setTuitionPackageId(tuitionPackages[0]?.id || "");
@@ -359,6 +365,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
           zalo_link: zaloLink.trim(),
           zalo_chat_id: zaloChatId.trim(),
           level_id: levelId,
+          subject_id: subjectId || null,
           time_slot_id: timeSlotId || "",
           teacher_id: teacherId || null,
           tuition_package_id: tuitionPackageId || null,
@@ -527,8 +534,29 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
             </div>
           </div>
 
-          {/* Teacher & Level */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+          {/* Teacher, Level & Subject */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+                Môn học đào tạo
+              </label>
+              <div className="relative">
+                <BookOpen className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
+                <select
+                  value={subjectId}
+                  onChange={(e) => setSubjectId(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 outline-none hover:border-slate-300 transition"
+                >
+                  <option value="">-- Mặc định / Chưa phân môn --</option>
+                  {subjects.map((sub) => (
+                    <option key={sub.id} value={sub.id}>
+                      {sub.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
                 Giáo viên phụ trách

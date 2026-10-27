@@ -8,7 +8,7 @@ export async function POST(req: Request) {
     const db = getDb();
     const body = await req.json();
 
-    const { student_id, month, amount, note, action } = body;
+    const { student_id, month, amount, note, items_json, action } = body;
 
     if (!student_id || !month) {
       return NextResponse.json(
@@ -39,16 +39,18 @@ export async function POST(req: Request) {
 
     const id = `override-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
     const parsedAmount = Math.max(0, Math.round(Number(amount)));
+    const itemsJsonStr = typeof items_json === "string" ? items_json : JSON.stringify(items_json || []);
 
     // Upsert into student_monthly_tuitions
     await db.execute({
-      sql: `INSERT INTO student_monthly_tuitions (id, student_id, month, amount, note, updated_at)
-            VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+      sql: `INSERT INTO student_monthly_tuitions (id, student_id, month, amount, note, items_json, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
             ON CONFLICT(student_id, month) DO UPDATE SET
               amount = excluded.amount,
               note = excluded.note,
+              items_json = excluded.items_json,
               updated_at = CURRENT_TIMESTAMP`,
-      args: [id, student_id, month, parsedAmount, note || ""],
+      args: [id, student_id, month, parsedAmount, note || "", itemsJsonStr],
     });
 
     return NextResponse.json({

@@ -7,6 +7,7 @@ import {
   DiscountOption,
   MonthFormat,
   TuitionPackage,
+  Subject,
   ReconciliationMode,
   ZaloReminderMode,
   CapacityMode,
@@ -48,6 +49,7 @@ import {
   Copy,
   ExternalLink,
   Globe,
+  BookOpen,
 } from "lucide-react";
 
 interface SettingsModalProps {
@@ -79,6 +81,7 @@ interface SettingsModalProps {
   initialLevelSurcharges: LevelSurcharge[];
   initialDiscountPresets: DiscountOption[];
   initialTuitionPackages?: TuitionPackage[];
+  initialSubjects?: Subject[];
 }
 
 const WEEKDAYS = [
@@ -120,13 +123,21 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   initialLevelSurcharges,
   initialDiscountPresets,
   initialTuitionPackages = [],
+  initialSubjects = [],
 }) => {
   const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState<
-    "general" | "packages" | "reconciliation" | "zalo" | "slots" | "levels" | "discounts" | "password"
+    "general" | "packages" | "reconciliation" | "zalo" | "subjects" | "slots" | "levels" | "discounts" | "password"
   >("general");
 
   const { setLanguage: setGlobalLanguage } = useLanguage();
+
+  // Subjects State
+  const [subjects, setSubjects] = useState<Subject[]>(initialSubjects);
+  const [newSubjectName, setNewSubjectName] = useState("");
+  const [newSubjectDesc, setNewSubjectDesc] = useState("");
+  const [newSubjectColor, setNewSubjectColor] = useState("indigo");
+  const [isAddingSubject, setIsAddingSubject] = useState(false);
 
   // State
   const [baseTuition, setBaseTuition] = useState<number>(initialBaseTuition);
@@ -510,6 +521,66 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setDiscounts(discounts.filter((_, i) => i !== index));
   };
 
+  const handleAddSubject = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newSubjectName.trim()) {
+      showToast("Vui lòng nhập tên môn học!", "error");
+      return;
+    }
+
+    try {
+      setIsAddingSubject(true);
+      const res = await fetch("/api/subjects", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "create",
+          name: newSubjectName.trim(),
+          description: newSubjectDesc.trim(),
+          color: newSubjectColor,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(data.message, "success");
+        setSubjects([...subjects, {
+          id: data.subject_id,
+          name: newSubjectName.trim(),
+          description: newSubjectDesc.trim(),
+          color: newSubjectColor,
+          is_active: 1,
+        }]);
+        setNewSubjectName("");
+        setNewSubjectDesc("");
+      } else {
+        showToast(data.message || "Thêm thất bại", "error");
+      }
+    } catch {
+      showToast("Lỗi kết nối máy chủ", "error");
+    } finally {
+      setIsAddingSubject(false);
+    }
+  };
+
+  const handleDeleteSubject = async (id: string) => {
+    try {
+      const res = await fetch("/api/subjects", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "delete", id }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast("Đã xóa môn học!", "success");
+        setSubjects(subjects.filter((s) => s.id !== id));
+      } else {
+        showToast(data.message || "Xóa thất bại", "error");
+      }
+    } catch {
+      showToast("Lỗi kết nối máy chủ", "error");
+    }
+  };
+
   const handleSave = async () => {
     try {
       setIsSaving(true);
@@ -652,6 +723,24 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <MessageSquare className="w-4 h-4 shrink-0" />
                 <span>Nhắc Zalo Bot</span>
               </div>
+            </button>
+
+            {/* TAB MỚI 4: QUẢN LÝ BỘ MÔN / CHƯƠNG TRÌNH HỌC */}
+            <button
+              onClick={() => setActiveTab("subjects")}
+              className={`flex items-center justify-between px-3.5 py-2.5 text-xs font-bold rounded-xl transition shrink-0 md:w-full ${
+                activeTab === "subjects"
+                  ? "bg-indigo-600 text-white shadow-sm shadow-indigo-600/25"
+                  : "text-slate-600 dark:text-slate-400 hover:bg-slate-200/60 dark:hover:bg-slate-800"
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <BookOpen className="w-4 h-4 shrink-0" />
+                <span>Môn học ({subjects.length})</span>
+              </div>
+              <span className={`text-[10px] px-1.5 py-0.2 rounded-md font-bold hidden md:inline ${activeTab === "subjects" ? "bg-white/20 text-white" : "bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400"}`}>
+                {subjects.length}
+              </span>
             </button>
 
             <button
@@ -1981,6 +2070,112 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       </div>
                     </div>
                   </div>
+                </div>
+              )}
+              {/* TAB MỚI: QUẢN LÝ BỘ MÔN / CHƯƠNG TRÌNH HỌC */}
+              {activeTab === "subjects" && (
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                        <BookOpen className="w-5 h-5 text-indigo-600" />
+                        <span>Danh Mục Bộ Môn / Chương Trình Học</span>
+                      </h3>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        Tự do thiết lập các môn học phù hợp với ngành đào tạo của trung tâm (Âm nhạc, Ngoại ngữ, Dạy thêm, Năng khiếu...)
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Form thêm môn học mới */}
+                  <form onSubmit={handleAddSubject} className="p-4 rounded-2xl bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/60 space-y-3">
+                    <span className="text-xs font-black uppercase tracking-wider text-indigo-900 dark:text-indigo-300 block">
+                      Thêm Môn Học Mới:
+                    </span>
+                    <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
+                      <div className="sm:col-span-2">
+                        <input
+                          type="text"
+                          required
+                          placeholder="Tên môn (VD: Piano, IELTS, Toán 10, Vẽ...)"
+                          value={newSubjectName}
+                          onChange={(e) => setNewSubjectName(e.target.value)}
+                          className="w-full px-3 py-2 text-xs font-bold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"
+                        />
+                      </div>
+                      <div>
+                        <select
+                          value={newSubjectColor}
+                          onChange={(e) => setNewSubjectColor(e.target.value)}
+                          className="w-full px-3 py-2 text-xs font-bold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white outline-none"
+                        >
+                          <option value="indigo">Màu Xanh Indigo</option>
+                          <option value="purple">Màu Tím Purple</option>
+                          <option value="emerald">Màu Xanh Lá Emerald</option>
+                          <option value="amber">Màu Cam Amber</option>
+                          <option value="rose">Màu Đỏ Rose</option>
+                          <option value="sky">Màu Xanh Biển Sky</option>
+                        </select>
+                      </div>
+                      <div>
+                        <button
+                          type="submit"
+                          disabled={isAddingSubject}
+                          className="w-full py-2 px-3 text-xs font-bold rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs transition flex items-center justify-center gap-1.5 disabled:opacity-50"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>{isAddingSubject ? "Đang thêm..." : "Thêm Môn"}</span>
+                        </button>
+                      </div>
+                    </div>
+                  </form>
+
+                  {/* Danh sách các môn hiện có */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {subjects.map((sub) => (
+                      <div
+                        key={sub.id}
+                        className="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs flex items-center justify-between gap-3 hover:border-slate-300 transition"
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-white shrink-0 ${
+                            sub.color === "purple" ? "bg-purple-600 shadow-purple-600/30" :
+                            sub.color === "emerald" ? "bg-emerald-600 shadow-emerald-600/30" :
+                            sub.color === "amber" ? "bg-amber-600 shadow-amber-600/30" :
+                            sub.color === "rose" ? "bg-rose-600 shadow-rose-600/30" :
+                            sub.color === "sky" ? "bg-sky-600 shadow-sky-600/30" :
+                            "bg-indigo-600 shadow-indigo-600/30"
+                          } shadow-sm`}>
+                            <BookOpen className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <h4 className="text-sm font-bold text-slate-900 dark:text-white leading-tight">
+                              {sub.name}
+                            </h4>
+                            <span className="text-[10px] text-slate-400">
+                              {sub.description || "Môn học cơ sở"}
+                            </span>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteSubject(sub.id)}
+                          className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition"
+                          title="Xóa môn học này"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+
+                  {subjects.length === 0 && (
+                    <div className="py-12 text-center text-xs text-slate-400 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-3xl">
+                      <BookOpen className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                      <p>Chưa có môn học nào. Hãy thêm các môn đào tạo ở form trên!</p>
+                    </div>
+                  )}
                 </div>
               )}
           {activeTab === "slots" && (

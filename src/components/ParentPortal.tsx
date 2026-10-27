@@ -80,6 +80,7 @@ interface StudentData {
   total_tuition_due?: number;
   is_override: boolean;
   override_note?: string;
+  override_items_json?: string;
   makeups: MakeupItem[];
 }
 
@@ -888,6 +889,29 @@ export default function ParentPortal() {
                         <span>-{activeStudent.discount_percent}%</span>
                       </div>
                     ) : null}
+
+                    {/* Breakdown of custom adjustment items (Phụ thu & Giảm trừ) */}
+                    {(() => {
+                      try {
+                        const items = JSON.parse(activeStudent.override_items_json || "[]");
+                        if (Array.isArray(items) && items.length > 0) {
+                          return items.map((it: any, idx: number) => (
+                            <div
+                              key={it.id || idx}
+                              className={`flex items-center justify-between text-xs font-semibold pl-2 border-l-2 ${
+                                it.type === "add"
+                                  ? "border-amber-400 text-amber-700 dark:text-amber-400"
+                                  : "border-blue-400 text-blue-700 dark:text-blue-400"
+                              }`}
+                            >
+                              <span>{it.type === "add" ? "+" : "-"} {it.name}:</span>
+                              <span>{it.type === "add" ? "+" : "-"}{formatVND(it.amount)}</span>
+                            </div>
+                          ));
+                        }
+                      } catch {}
+                      return null;
+                    })()}
 
                     {activeStudent.is_overdue && activeStudent.previous_debt_amount ? (
                       <div className="flex items-center justify-between text-rose-600 dark:text-rose-400 font-bold border-t border-slate-100 dark:border-slate-700 pt-1.5">

@@ -44,6 +44,16 @@ export interface TimeSlot {
   created_at?: string;
 }
 
+export interface Subject {
+  id: string;
+  school_id?: string;
+  name: string; // VD: Piano, Guitar, Organ, Trống, IELTS, Tiếng Anh, Toán, Vẽ...
+  description?: string;
+  color?: string; // e.g. "indigo", "purple", "emerald", "amber", "rose", "sky"
+  is_active: number; // 1 or 0
+  created_at?: string;
+}
+
 export interface LevelSurcharge {
   id: string;
   school_id?: string;
@@ -189,12 +199,20 @@ export interface SystemSettings {
   zalo_template_id?: string;
 }
 
+export interface TuitionAdjustmentItem {
+  id: string;
+  name: string; // VD: "Tập chép nhạc", "Sách giáo trình", "Trừ nghỉ lễ 2/9", "Áo đồng phục"...
+  type: "add" | "deduct"; // "add": cộng thêm (+), "deduct": giảm trừ (-)
+  amount: number;
+}
+
 export interface StudentMonthlyTuition {
   id: string;
   student_id: string;
   month: string; // YYYY-MM
   amount: number;
   note: string;
+  items_json?: string; // JSON mảng TuitionAdjustmentItem[]
   created_at?: string;
   updated_at?: string;
 }
@@ -247,6 +265,9 @@ export interface Student {
   level_id: string;
   level_name?: string;
   level_surcharge?: number;
+  subject_id?: string;
+  subject_name?: string;
+  subject_color?: string;
   time_slot_id: string;
   time_slot_name?: string;
   time_slot_desc?: string;

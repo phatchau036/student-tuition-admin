@@ -133,6 +133,19 @@ export async function initDb() {
     );
   `);
 
+  // 4.1 Subjects Table (Danh mục Bộ Môn / Chương Trình Học động)
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS subjects (
+      id TEXT PRIMARY KEY,
+      school_id TEXT DEFAULT 'school-default',
+      name TEXT NOT NULL,
+      description TEXT DEFAULT '',
+      color TEXT DEFAULT 'indigo',
+      is_active INTEGER NOT NULL DEFAULT 1,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+
   // 5. Discount Presets Table
   await db.execute(`
     CREATE TABLE IF NOT EXISTS discount_presets (
@@ -323,8 +336,10 @@ export async function initDb() {
   try { await db.execute("ALTER TABLE students ADD COLUMN zalo_chat_id TEXT DEFAULT NULL"); } catch {}
   try { await db.execute("ALTER TABLE students ADD COLUMN start_date TEXT DEFAULT NULL"); } catch {}
   try { await db.execute("ALTER TABLE students ADD COLUMN discount_reason TEXT DEFAULT ''"); } catch {}
+  try { await db.execute("ALTER TABLE students ADD COLUMN subject_id TEXT DEFAULT NULL"); } catch {}
   try { await db.execute("ALTER TABLE teachers ADD COLUMN zalo_chat_id TEXT DEFAULT NULL"); } catch {}
   try { await db.execute("ALTER TABLE teachers ADD COLUMN zalo_link TEXT DEFAULT NULL"); } catch {}
+  try { await db.execute("ALTER TABLE student_monthly_tuitions ADD COLUMN items_json TEXT DEFAULT '[]'"); } catch {}
   try { await db.execute("ALTER TABLE makeup_classes ADD COLUMN makeup_teacher_id TEXT DEFAULT NULL"); } catch {}
 
   // Defaults for settings

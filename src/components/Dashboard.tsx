@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
-import { Student, TimeSlot, LevelSurcharge, DiscountOption, Teacher, MonthFormat, TuitionPackage, StudentStatus } from "@/lib/types";
+import { Student, TimeSlot, LevelSurcharge, DiscountOption, Teacher, MonthFormat, TuitionPackage, Subject, StudentStatus } from "@/lib/types";
 import { formatVND, formatMonthDisplay, getCurrentMonthStr, formatTimeSlotLabel } from "@/lib/tuition";
 import { useToast } from "@/components/Toast";
 import { SettingsModal } from "@/components/SettingsModal";
@@ -68,10 +68,14 @@ import {
   SlidersHorizontal,
   X,
   FileSpreadsheet,
+  Download,
+  Upload,
 } from "lucide-react";
 import Link from "next/link";
 import { MonthlySummaryModal } from "./MonthlySummaryModal";
 import { AppInfoModal } from "./AppInfoModal";
+import { SmartExcelImportModal } from "./SmartExcelImportModal";
+import { exportStudentsToExcel } from "@/lib/exportExcel";
 import { useLanguage } from "@/lib/i18n";
 import { useTheme } from "@/lib/ThemeContext";
 import { AppLanguage } from "@/lib/types";
@@ -135,6 +139,7 @@ export default function Dashboard() {
   const [isStatusLogModalOpen, setIsStatusLogModalOpen] = useState(false);
   const [isMonthlySummaryModalOpen, setIsMonthlySummaryModalOpen] = useState(false);
   const [isAppInfoModalOpen, setIsAppInfoModalOpen] = useState(false);
+  const [isExcelImportModalOpen, setIsExcelImportModalOpen] = useState(false);
 
   // Custom Delete Confirmation Modal state
   const [studentToDelete, setStudentToDelete] = useState<Student | null>(null);
@@ -147,6 +152,7 @@ export default function Dashboard() {
   const [levels, setLevels] = useState<LevelSurcharge[]>([]);
   const [discountPresets, setDiscountPresets] = useState<DiscountOption[]>([]);
   const [tuitionPackages, setTuitionPackages] = useState<TuitionPackage[]>([]);
+  const [subjects, setSubjects] = useState<Subject[]>([]);
   const [currentSchool, setCurrentSchool] = useState<{ id: string; name: string; code: string } | null>(null);
 
   // Settings
@@ -172,6 +178,7 @@ export default function Dashboard() {
 
   // Filters & Search
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedSubjectFilter, setSelectedSubjectFilter] = useState("all");
   const [selectedLevelFilter, setSelectedLevelFilter] = useState("all");
   const [selectedSlotFilter, setSelectedSlotFilter] = useState("all");
   const [selectedTeacherFilter, setSelectedTeacherFilter] = useState("all");
@@ -302,6 +309,7 @@ export default function Dashboard() {
         setLevels(json.data.level_surcharges);
         setDiscountPresets(json.data.discount_presets);
         setTuitionPackages(json.data.tuition_packages || []);
+        setSubjects(json.data.subjects || []);
         setReconciliationMode(json.data.reconciliation_mode || "manual");
         setZaloReminderMode(json.data.zalo_reminder_mode || "manual");
         setZaloBotToken(json.data.zalo_bot_token || "");
@@ -421,6 +429,7 @@ export default function Dashboard() {
       const matchSearch =
         s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         s.phone.includes(searchQuery);
+      const matchSubject = selectedSubjectFilter === "all" || s.subject_id === selectedSubjectFilter;
       const matchLevel = selectedLevelFilter === "all" || s.level_id === selectedLevelFilter;
       const matchSlot = selectedSlotFilter === "all" || s.time_slot_id === selectedSlotFilter;
       const matchTeacher = selectedTeacherFilter === "all" || s.teacher_id === selectedTeacherFilter;
@@ -429,11 +438,12 @@ export default function Dashboard() {
       const matchPayment =
         selectedPaymentFilter === "all" || (s.payment_status || "unpaid") === selectedPaymentFilter;
 
-      return matchSearch && matchLevel && matchSlot && matchTeacher && matchStatus && matchPayment;
+      return matchSearch && matchSubject && matchLevel && matchSlot && matchTeacher && matchStatus && matchPayment;
     });
   }, [
     students,
     searchQuery,
+    selectedSubjectFilter,
     selectedLevelFilter,
     selectedSlotFilter,
     selectedTeacherFilter,
@@ -778,6 +788,33 @@ export default function Dashboard() {
 
                   <div className="my-1 border-t border-slate-100 dark:border-slate-800" />
 
+                  {/* Smart Excel Import */}
+                  <button
+                    onClick={() => {
+                      setIsManagementMenuOpen(false);
+                      setIsExcelImportModalOpen(true);
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-xl text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition text-left"
+                  >
+                    <Upload className="w-4 h-4 text-emerald-600" />
+                    <span>Nhập dữ liệu từ Excel (.xlsx)</span>
+                  </button>
+
+                  {/* Export Excel */}
+                  <button
+                    onClick={() => {
+                      setIsManagementMenuOpen(false);
+                      exportStudentsToExcel(filteredStudents, selectedMonth, currentSchool?.name || "TrungTam");
+                      showToast("Đã xuất file Excel học viên thành công!", "success");
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-xl text-indigo-700 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition text-left"
+                  >
+                    <Download className="w-4 h-4 text-indigo-600" />
+                    <span>Xuất danh sách ra Excel (.xlsx)</span>
+                  </button>
+
+                  <div className="my-1 border-t border-slate-100 dark:border-slate-800" />
+
                   <button
                     onClick={() => {
                       setIsManagementMenuOpen(false);
@@ -1036,7 +1073,26 @@ export default function Dashboard() {
 
           {/* Advanced Filters Expandable Drawer */}
           {showAdvancedFilters && (
-            <div className="pt-3 border-t border-slate-100 dark:border-slate-800 grid grid-cols-1 sm:grid-cols-3 gap-2.5 animate-in fade-in duration-150">
+            <div className="pt-3 border-t border-slate-100 dark:border-slate-800 grid grid-cols-1 sm:grid-cols-4 gap-2.5 animate-in fade-in duration-150">
+              {/* Filter by Subject */}
+              <div>
+                <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">
+                  Môn học đào tạo:
+                </label>
+                <select
+                  value={selectedSubjectFilter}
+                  onChange={(e) => setSelectedSubjectFilter(e.target.value)}
+                  className="w-full px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 outline-none"
+                >
+                  <option value="all">-- Tất cả bộ môn --</option>
+                  {subjects.map((sub) => (
+                    <option key={sub.id} value={sub.id}>
+                      {sub.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               {/* Filter by Teacher */}
               <div>
                 <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">
@@ -1266,16 +1322,24 @@ export default function Dashboard() {
                           )}
                         </td>
 
-                        {/* Level & Surcharge */}
+                        {/* Level & Subject & Surcharge */}
                         <td className="py-3 px-2.5 whitespace-nowrap">
-                          <span className="inline-block px-2 py-0.5 text-xs font-bold rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                            {student.level_name}
-                          </span>
-                          {student.level_surcharge && student.level_surcharge > 0 ? (
-                            <span className="block text-[10px] text-emerald-600 dark:text-emerald-400 font-bold mt-0.5">
-                              +{formatVND(student.level_surcharge)}
+                          <div className="flex flex-col items-start gap-1">
+                            {student.subject_name && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-black uppercase rounded-md bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                                <BookOpen className="w-2.5 h-2.5" />
+                                {student.subject_name}
+                              </span>
+                            )}
+                            <span className="inline-block px-2 py-0.5 text-xs font-bold rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                              {student.level_name}
                             </span>
-                          ) : null}
+                            {student.level_surcharge && student.level_surcharge > 0 ? (
+                              <span className="block text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">
+                                +{formatVND(student.level_surcharge)}
+                              </span>
+                            ) : null}
+                          </div>
                         </td>
 
                         {/* Package & Weekly Schedule */}
@@ -1626,6 +1690,7 @@ export default function Dashboard() {
         initialLevelSurcharges={levels}
         initialDiscountPresets={discountPresets}
         initialTuitionPackages={tuitionPackages}
+        initialSubjects={subjects}
       />
 
       {/* Teachers Management Modal */}
@@ -1659,6 +1724,7 @@ export default function Dashboard() {
         teachers={teachers}
         discountPresets={discountPresets}
         tuitionPackages={tuitionPackages}
+        subjects={subjects}
         defaultDurationMode={durationMode}
         defaultSessions={defaultSessions}
         defaultHours={defaultHours}
@@ -1731,6 +1797,15 @@ export default function Dashboard() {
         schoolId={currentSchool?.id || "school-default"}
         schoolName={currentSchool?.name || "Trung tâm đào tạo"}
         schoolCode={currentSchool?.code || "TT"}
+      />
+
+      {/* Smart Excel Import Modal */}
+      <SmartExcelImportModal
+        isOpen={isExcelImportModalOpen}
+        onClose={() => setIsExcelImportModalOpen(false)}
+        onSuccess={handleRefresh}
+        subjects={subjects}
+        levels={levels}
       />
     </div>
   );

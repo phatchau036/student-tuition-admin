@@ -1,10 +1,10 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Student, MonthFormat } from "@/lib/types";
+import { Student, MonthFormat, TuitionAdjustmentItem } from "@/lib/types";
 import { formatVND, formatMonthDisplay } from "@/lib/tuition";
 import { useToast } from "@/components/Toast";
-import { Calendar, DollarSign, FileText, RotateCcw, Save, X, Sparkles, CheckCircle2 } from "lucide-react";
+import { Calendar, DollarSign, FileText, RotateCcw, Save, X, Sparkles, CheckCircle2, Plus, Trash2, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { MonthPicker } from "@/components/MonthPicker";
 
 interface MonthlyTuitionModalProps {
@@ -29,7 +29,13 @@ export const MonthlyTuitionModal: React.FC<MonthlyTuitionModalProps> = ({
   const [month, setMonth] = useState(selectedMonth);
   const [amount, setAmount] = useState<number>(0);
   const [note, setNote] = useState<string>("");
+  const [adjustmentItems, setAdjustmentItems] = useState<TuitionAdjustmentItem[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+
+  // New item inputs
+  const [newItemName, setNewItemName] = useState("");
+  const [newItemType, setNewItemType] = useState<"add" | "deduct">("add");
+  const [newItemAmount, setNewItemAmount] = useState<number>(50000);
 
   useEffect(() => {
     if (student) {
@@ -37,12 +43,64 @@ export const MonthlyTuitionModal: React.FC<MonthlyTuitionModalProps> = ({
       if (student.monthly_override && student.monthly_override.month === selectedMonth) {
         setAmount(student.monthly_override.amount);
         setNote(student.monthly_override.note || "");
+        try {
+          const parsed = JSON.parse(student.monthly_override.items_json || "[]");
+          setAdjustmentItems(Array.isArray(parsed) ? parsed : []);
+        } catch {
+          setAdjustmentItems([]);
+        }
       } else {
         setAmount(student.standard_tuition || 0);
         setNote("");
+        setAdjustmentItems([]);
       }
     }
   }, [student, selectedMonth, isOpen]);
+
+  // Compute total with items
+  const baseStandard = student?.standard_tuition || 0;
+
+  const handleAddItem = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newItemName.trim() || !newItemAmount) return;
+
+    const newItem: TuitionAdjustmentItem = {
+      id: `it-${Date.now()}`,
+      name: newItemName.trim(),
+      type: newItemType,
+      amount: Math.abs(Number(newItemAmount)),
+    };
+
+    const nextItems = [...adjustmentItems, newItem];
+    setAdjustmentItems(nextItems);
+    
+    // Auto calculate final tuition based on standard tuition + adjustments
+    const netAdjustment = nextItems.reduce(
+      (acc, it) => acc + (it.type === "add" ? it.amount : -it.amount),
+      0
+    );
+    setAmount(Math.max(0, baseStandard + netAdjustment));
+
+    // Auto-update note summary
+    const summary = nextItems.map(i => `${i.type === "add" ? "+" : "-"}${formatVND(i.amount)} (${i.name})`).join(", ");
+    setNote(summary);
+
+    setNewItemName("");
+    setNewItemAmount(50000);
+  };
+
+  const handleRemoveItem = (id: string) => {
+    const nextItems = adjustmentItems.filter((it) => it.id !== id);
+    setAdjustmentItems(nextItems);
+
+    const netAdjustment = nextItems.reduce(
+      (acc, it) => acc + (it.type === "add" ? it.amount : -it.amount),
+      0
+    );
+    setAmount(Math.max(0, baseStandard + netAdjustment));
+    const summary = nextItems.map(i => `${i.type === "add" ? "+" : "-"}${formatVND(i.amount)} (${i.name})`).join(", ");
+    setNote(summary);
+  };
 
   if (!isOpen || !student) return null;
 
@@ -60,6 +118,7 @@ export const MonthlyTuitionModal: React.FC<MonthlyTuitionModalProps> = ({
           month: month,
           amount: Number(amount) || 0,
           note: note.trim(),
+          items_json: JSON.stringify(adjustmentItems),
         }),
       });
 
@@ -170,10 +229,108 @@ export const MonthlyTuitionModal: React.FC<MonthlyTuitionModalProps> = ({
             </div>
           </div>
 
+          {/* Bóc Tách Hóa Đơn: Các Khoản Phụ Thu (+) & Giảm Trừ (-) */}
+          <div className="p-4 bg-slate-50/80 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-800 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                <span>Bóc Tách Khoản Thu / Giảm Trừ Phát Sinh</span>
+              </span>
+              <span className="text-[10px] text-slate-400 font-medium">Tự động cộng dồn vào tổng học phí</span>
+            </div>
+
+            {/* Form thêm khoản phụ thu/giảm trừ */}
+            <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 pt-1">
+              <div className="sm:col-span-3">
+                <select
+                  value={newItemType}
+                  onChange={(e) => setNewItemType(e.target.value as "add" | "deduct")}
+                  className={`w-full px-2.5 py-1.5 text-xs font-bold rounded-xl border outline-none ${
+                    newItemType === "add"
+                      ? "bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950 dark:text-amber-300"
+                      : "bg-blue-50 text-blue-800 border-blue-300 dark:bg-blue-950 dark:text-blue-300"
+                  }`}
+                >
+                  <option value="add">+ Phụ thu</option>
+                  <option value="deduct">- Giảm trừ</option>
+                </select>
+              </div>
+
+              <div className="sm:col-span-5">
+                <input
+                  type="text"
+                  placeholder="Tên khoản (sách, tập nhạc, nghỉ lễ...)"
+                  value={newItemName}
+                  onChange={(e) => setNewItemName(e.target.value)}
+                  className="w-full px-3 py-1.5 text-xs font-medium rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white outline-none"
+                />
+              </div>
+
+              <div className="sm:col-span-3">
+                <input
+                  type="number"
+                  step="10000"
+                  min="0"
+                  placeholder="Số tiền"
+                  value={newItemAmount}
+                  onChange={(e) => setNewItemAmount(Number(e.target.value) || 0)}
+                  className="w-full px-2.5 py-1.5 text-xs font-black rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white outline-none"
+                />
+              </div>
+
+              <div className="sm:col-span-1">
+                <button
+                  type="button"
+                  onClick={handleAddItem}
+                  className="w-full h-full py-1.5 flex items-center justify-center rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold transition shadow-xs"
+                  title="Thêm khoản thu/trừ"
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Danh sách các khoản đã thêm */}
+            {adjustmentItems.length > 0 && (
+              <div className="space-y-1.5 pt-2 border-t border-slate-200/60 dark:border-slate-700/60">
+                {adjustmentItems.map((it) => (
+                  <div
+                    key={it.id}
+                    className={`flex items-center justify-between p-2 rounded-xl text-xs font-semibold ${
+                      it.type === "add"
+                        ? "bg-amber-100/70 text-amber-900 dark:bg-amber-950/60 dark:text-amber-200 border border-amber-200/80"
+                        : "bg-blue-100/70 text-blue-900 dark:bg-blue-950/60 dark:text-blue-200 border border-blue-200/80"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="font-black text-xs px-1.5 py-0.2 rounded bg-white/60 dark:bg-black/30">
+                        {it.type === "add" ? "+ Phụ thu" : "- Giảm trừ"}
+                      </span>
+                      <span>{it.name}</span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono font-black">
+                        {it.type === "add" ? "+" : "-"}{formatVND(it.amount)}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveItem(it.id)}
+                        className="text-slate-400 hover:text-rose-600 p-0.5 rounded transition"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           {/* Custom Amount */}
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
-              Số tiền học phí tùy chỉnh (VNĐ) <span className="text-rose-500">*</span>
+              Tổng số tiền học phí cuối cùng (VNĐ) <span className="text-rose-500">*</span>
             </label>
             <div className="relative">
               <DollarSign className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
@@ -189,7 +346,7 @@ export const MonthlyTuitionModal: React.FC<MonthlyTuitionModalProps> = ({
               />
             </div>
             <div className="mt-1 text-xs text-slate-500 flex items-center gap-1 font-medium">
-              <span>Định dạng:</span>
+              <span>Định dạng hiển thị:</span>
               <span className="font-bold text-slate-800 dark:text-slate-200">{formatVND(amount)}</span>
             </div>
           </div>

@@ -22,6 +22,8 @@ export async function GET(req: Request) {
         s.*,
         l.level_name,
         l.surcharge_amount as level_surcharge,
+        sub.name as subject_name,
+        sub.color as subject_color,
         t.name as time_slot_name,
         (t.days || ': ' || t.start_time || ' - ' || t.end_time) as time_slot_desc,
         tc.name as teacher_name,
@@ -32,6 +34,7 @@ export async function GET(req: Request) {
         pkg.cycle_value as tuition_package_cycle_value
       FROM students s
       LEFT JOIN level_surcharges l ON s.level_id = l.id
+      LEFT JOIN subjects sub ON s.subject_id = sub.id
       LEFT JOIN time_slots t ON s.time_slot_id = t.id
       LEFT JOIN teachers tc ON s.teacher_id = tc.id
       LEFT JOIN tuition_packages pkg ON s.tuition_package_id = pkg.id
@@ -39,7 +42,7 @@ export async function GET(req: Request) {
     `);
 
     // Fetch overrides for month if provided
-    let overridesMap: Record<string, { id: string; amount: number; note: string; month: string }> = {};
+    let overridesMap: Record<string, { id: string; amount: number; note: string; items_json: string; month: string }> = {};
     if (month) {
       const overridesRes = await db.execute({
         sql: "SELECT * FROM student_monthly_tuitions WHERE month = ?",
@@ -50,6 +53,7 @@ export async function GET(req: Request) {
           id: String(row.id),
           amount: Number(row.amount),
           note: String(row.note || ""),
+          items_json: String(row.items_json || "[]"),
           month: String(row.month),
         };
       }
@@ -187,6 +191,9 @@ export async function GET(req: Request) {
         level_id: String(row.level_id),
         level_name: row.level_name ? String(row.level_name) : "Chưa phân loại",
         level_surcharge: Number(row.level_surcharge || 0),
+        subject_id: row.subject_id ? String(row.subject_id) : undefined,
+        subject_name: row.subject_name ? String(row.subject_name) : undefined,
+        subject_color: row.subject_color ? String(row.subject_color) : undefined,
         time_slot_id: String(row.time_slot_id || ""),
         time_slot_name: row.time_slot_name ? String(row.time_slot_name) : "Khung giờ linh hoạt",
         time_slot_desc: row.time_slot_desc ? String(row.time_slot_desc) : "",
@@ -259,6 +266,7 @@ export async function POST(req: Request) {
       zalo_link,
       zalo_chat_id,
       level_id,
+      subject_id,
       time_slot_id,
       teacher_id,
       tuition_package_id,
@@ -292,11 +300,11 @@ export async function POST(req: Request) {
 
     await db.execute({
       sql: `INSERT INTO students (
-              id, student_code, name, phone, zalo_link, zalo_chat_id, level_id, time_slot_id, teacher_id, tuition_package_id,
+              id, student_code, name, phone, zalo_link, zalo_chat_id, level_id, subject_id, time_slot_id, teacher_id, tuition_package_id,
               start_date, duration_mode, sessions_per_week, hours_per_week, registered_days, study_time_detail, schedule_details_json,
               is_discount_enabled, discount_percent, discount_reason
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       args: [
         id,
         studentCode,
@@ -305,6 +313,7 @@ export async function POST(req: Request) {
         formattedZalo,
         zalo_chat_id ? String(zalo_chat_id).trim() : null,
         level_id,
+        subject_id || null,
         time_slot_id || "",
         teacher_id || null,
         tuition_package_id || null,
