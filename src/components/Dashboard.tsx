@@ -923,12 +923,12 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* KPI Stat 2: Base Tuition & Overrides */}
+          {/* KPI Stat 2: Active Packages & Overrides */}
           <div className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col justify-between">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                <Tag className="w-4 h-4 text-emerald-500" />
-                {t.base_tuition}
+                <Package className="w-4 h-4 text-emerald-500" />
+                Gói học phí & Tùy chỉnh
               </span>
               <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 flex items-center justify-center">
                 <Sparkles className="w-5 h-5" />
@@ -936,7 +936,7 @@ export default function Dashboard() {
             </div>
             <div className="mt-2">
               <div className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-                {formatVND(baseTuition)} <span className="text-sm font-semibold text-slate-400">{t.per_month}</span>
+                {tuitionPackages.length} <span className="text-sm font-semibold text-slate-400">gói áp dụng</span>
               </div>
               <span className="text-xs text-amber-600 dark:text-amber-400 font-bold mt-1 inline-flex items-center gap-1">
                 <Sparkles className="w-3.5 h-3.5" />

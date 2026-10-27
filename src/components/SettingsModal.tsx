@@ -672,8 +672,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               }`}
             >
               <div className="flex items-center gap-2.5">
-                <Coins className="w-4 h-4 shrink-0" />
-                <span>Học phí cơ bản</span>
+                <Clock className="w-4 h-4 shrink-0" />
+                <span>Thời lượng & Sĩ số</span>
               </div>
             </button>
 
@@ -811,39 +811,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
           {/* Right Panel: Scrollable Tab Content */}
           <div className="p-6 overflow-y-auto flex-1 space-y-6">
-          {/* TAB 1: Base Tuition, Capacity & Weekly Duration Mode */}
+          {/* TAB 1: Capacity & Weekly Duration Mode */}
           {activeTab === "general" && (
             <div className="space-y-6 w-full">
-              {/* Base Price Card */}
-              <div className="bg-gradient-to-tr from-indigo-50/70 to-purple-50/50 dark:from-indigo-950/30 dark:to-purple-950/20 p-5 rounded-2xl border border-indigo-100/80 dark:border-indigo-900/40 space-y-3">
-                <div className="flex items-center justify-between">
-                  <label className="block text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-                    <Coins className="w-4 h-4 text-indigo-600" />
-                    Mức Học Phí Cơ Bản Tiêu Chuẩn (Base Price)
-                  </label>
-                  <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300">
-                    Áp dụng toàn cơ sở
-                  </span>
-                </div>
-                <div className="relative">
-                  <input
-                    type="number"
-                    min="0"
-                    step="50000"
-                    value={baseTuition}
-                    onChange={(e) => setBaseTuition(Number(e.target.value) || 0)}
-                    className="w-full px-4 py-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xl font-black text-indigo-600 dark:text-indigo-400 focus:ring-2 focus:ring-indigo-500 outline-none transition"
-                  />
-                  <span className="absolute right-4 top-3.5 text-xs font-bold uppercase tracking-wider text-slate-400">
-                    VNĐ / Tháng
-                  </span>
-                </div>
-                <div className="text-xs text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
-                  <span>Số tiền hiển thị:</span>
-                  <span className="font-black text-slate-900 dark:text-white text-sm">{formatVND(baseTuition)}</span>
-                </div>
-              </div>
-
               {/* DURATION MODE: CHỌN HOẶC THEO TIẾNG HOẶC THEO BUỔI */}
               <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 space-y-4">
                 <div>
