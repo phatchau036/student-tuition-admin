@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
+import { isDayInSlot } from "@/lib/tuition";
 
 // Helper to determine Vietnamese day of week name from YYYY-MM-DD
 function getDayNameVi(dateStr: string): string {
@@ -58,8 +59,12 @@ export async function GET(req: Request) {
       const slotId = String(slot.id);
       const slotDays = String(slot.days || "");
 
-      // Check if this time slot operates on this day of week
-      const isDaySupported = slotDays.includes(dayName) || slotDays.includes("T2 – T7") || slotDays.includes("Thứ 2 – Thứ 7") || slotDays.includes("Cả tuần");
+      // Check if this time slot operates on this day of week using robust day-in-slot parser
+      const isDaySupported = isDayInSlot(dayName, {
+        days: slotDays,
+        from_day: String(slot.from_day || ""),
+        to_day: String(slot.to_day || ""),
+      });
 
       let slotMax = Number(slot.max_students || defaultMaxCapacity);
 

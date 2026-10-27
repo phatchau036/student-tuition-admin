@@ -88,6 +88,7 @@ interface SlotOccupancy {
   slot_id: string;
   slot_name: string;
   time_range: string;
+  days?: string;
   max_capacity: number;
   regular_count: number;
   makeup_count: number;
@@ -95,6 +96,7 @@ interface SlotOccupancy {
   occupancy_rate: number;
   is_full: boolean;
   is_crowded: boolean;
+  is_day_supported: boolean;
 }
 
 export default function ParentPortal() {
@@ -346,10 +348,11 @@ export default function ParentPortal() {
         const res = await fetch(`/api/classes/occupancy?date=${makeupDate}`);
         const json = await res.json();
         if (json.success) {
-          setOccupancySlots(json.data.slots || []);
+          const supportedSlots = (json.data.slots as SlotOccupancy[]).filter((s) => s.is_day_supported);
+          setOccupancySlots(supportedSlots);
           setDayNameVi(json.data.day_name || "");
 
-          const firstNonFull = (json.data.slots as SlotOccupancy[]).find((s) => !s.is_full);
+          const firstNonFull = supportedSlots.find((s) => !s.is_full);
           if (firstNonFull) {
             setSelectedSlotId(firstNonFull.slot_id);
             setMakeupTime(firstNonFull.time_range);
@@ -1206,17 +1209,24 @@ export default function ParentPortal() {
               {/* Slot picker with occupancy status */}
               {makeupDate && (
                 <div className="space-y-2">
-                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                    2. Chọn khung giờ (Hệ thống kiểm tra sĩ số thời gian thực):
-                  </label>
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      2. Chọn khung giờ mở cửa trong ngày ({dayNameVi}):
+                    </label>
+                    {dayNameVi && (
+                      <span className="px-2 py-0.5 rounded-md text-[11px] font-black bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300">
+                        {dayNameVi}
+                      </span>
+                    )}
+                  </div>
 
                   {isLoadingOccupancy ? (
                     <div className="py-4 text-center text-xs text-slate-400">
-                      Đang kiểm tra sĩ số các lớp trong ngày {makeupDate}...
+                      Đang kiểm tra sĩ số các lớp trong {dayNameVi} ({makeupDate})...
                     </div>
                   ) : occupancySlots.length === 0 ? (
-                    <div className="p-3 text-xs text-center text-slate-400 bg-slate-50 rounded-xl">
-                      Không tìm thấy ca học nào cho ngày này.
+                    <div className="p-3 text-xs text-center text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl">
+                      Ngày <strong>{dayNameVi} ({makeupDate})</strong> cơ sở không có ca mở cửa nào phù hợp. Vui lòng chọn một ngày khác!
                     </div>
                   ) : (
                     <div className="space-y-2">

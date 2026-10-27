@@ -126,11 +126,12 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
         const res = await fetch(`/api/classes/occupancy?date=${makeupDate}`);
         const json = await res.json();
         if (json.success) {
-          setDayOccupancy(json.data.slots || []);
+          const supportedSlots = (json.data.slots as SlotOccupancyInfo[]).filter((s) => s.is_day_supported);
+          setDayOccupancy(supportedSlots);
           setDayNameVi(json.data.day_name || "");
           setThresholdPercent(json.data.threshold_percent || 80);
 
-          const firstAvailable = (json.data.slots as SlotOccupancyInfo[]).find((s) => !s.is_full);
+          const firstAvailable = supportedSlots.find((s) => !s.is_full);
           if (firstAvailable) {
             setSelectedSlotId(firstAvailable.slot_id);
             setMakeupTime(firstAvailable.time_range);
@@ -603,8 +604,8 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
                         Vui lòng chọn ngày học bù ở bước 1 để xem các khung giờ và sĩ số
                       </div>
                     ) : dayOccupancy.length === 0 ? (
-                      <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700 text-center text-xs text-slate-400">
-                        Không có khung giờ mở cửa nào trong hệ thống
+                      <div className="p-3.5 bg-amber-50 dark:bg-amber-950/40 rounded-2xl border border-amber-200 dark:border-amber-800 text-center text-xs text-amber-800 dark:text-amber-300 font-medium">
+                        Ngày <strong>{dayNameVi} ({makeupDate})</strong> cơ sở không có ca mở cửa nào phù hợp. Vui lòng chọn ngày khác!
                       </div>
                     ) : (
                       <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
