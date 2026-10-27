@@ -1154,8 +1154,8 @@ export default function Dashboard() {
         </div>
 
         {/* Student Table Listing */}
-        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
+        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm">
+          <div className="overflow-x-auto overflow-y-visible pb-32">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50/80 dark:bg-slate-800/60 border-b border-slate-200/80 dark:border-slate-800 text-[11px] font-black uppercase tracking-wider text-slate-400 whitespace-nowrap">
@@ -1195,10 +1195,11 @@ export default function Dashboard() {
                     </td>
                   </tr>
                 ) : (
-                  filteredStudents.map((student) => {
+                  filteredStudents.map((student, rowIndex) => {
                     const isCustom = Boolean(student.monthly_override);
                     const isByHours = student.duration_mode === "by_hours";
                     const initialChar = student.name ? student.name.trim().charAt(0).toUpperCase() : "H";
+                    const isNearBottom = rowIndex >= filteredStudents.length - 2;
 
                     return (
                       <tr
@@ -1526,7 +1527,7 @@ export default function Dashboard() {
                                   onClick={() => setOpenRowActionId(null)}
                                 />
                                 <div
-                                  className="absolute right-0 top-full mt-1.5 w-52 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl z-50 p-1.5 space-y-0.5 text-left animate-in fade-in zoom-in-95"
+                                  className={`absolute right-0 ${isNearBottom ? "bottom-full mb-1.5" : "top-full mt-1.5"} w-52 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl z-50 p-1.5 space-y-0.5 text-left animate-in fade-in zoom-in-95`}
                                   onClick={(e) => e.stopPropagation()}
                                 >
                                   {/* Nhắc học phí Zalo */}
