@@ -563,6 +563,7 @@ export default function SystemAdminPage() {
         "Đang kích hoạt cờ bảo trì (Maintenance Mode)...",
         "Tất cả người dùng truy cập lúc này sẽ thấy thông báo 'Server Đang Nâng Cấp'...",
         "Đang kéo mã nguồn mới nhất từ kho GitHub (git pull origin main)...",
+        "Đang tự động cài đặt thư viện mới nếu có (npm install)...",
         "Đang tiến hành tối ưu và biên dịch bản build (next build)...",
         "Hệ thống sẽ tự động gỡ cờ bảo trì và khởi động lại dịch vụ ngay sau khi hoàn tất!",
       ]);
