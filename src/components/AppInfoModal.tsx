@@ -363,20 +363,42 @@ export const AppInfoModal: React.FC<AppInfoModalProps> = ({
               </div>
 
               <div className="space-y-4">
-                {/* v2.5.0 */}
+                {/* v2.6.0 */}
                 <div className="p-5 rounded-2xl border-2 border-indigo-200 dark:border-indigo-900/60 bg-indigo-50/20 dark:bg-indigo-950/20 space-y-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <span className="px-2.5 py-1 rounded-xl text-xs font-black bg-indigo-600 text-white">
-                        v2.5.0 (Hiện tại)
+                        v2.6.0 (Hiện tại)
                       </span>
-                      <span className="text-xs font-bold text-slate-500">26/10/2026</span>
+                      <span className="text-xs font-bold text-slate-500">27/10/2026</span>
                     </div>
                     <span className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">
-                      Đa Ngôn Ngữ & Nâng Cấp Tự Động
+                      Nhập/Xuất Excel & Bóc Tách Hóa Đơn & Đa Môn Học
                     </span>
                   </div>
                   <ul className="text-xs text-slate-700 dark:text-slate-300 space-y-1.5 list-disc list-inside">
+                    <li><strong>Nhập Excel thông minh (Smart Column Mapping):</strong> Cho phép kéo thả trực tiếp file Excel bất kỳ của trung tâm, tự động nhận diện cột và đưa học viên vào hệ thống mà không cần sửa file mẫu.</li>
+                    <li><strong>Xuất danh sách học viên ra Excel (.xlsx):</strong> Tự động xuất đầy đủ 19 cột nghiệp vụ kèm học phí, nợ cũ và bóc tách phát sinh chỉ với 1-click.</li>
+                    <li><strong>Quản lý danh mục Bộ Môn linh hoạt:</strong> Tự do thiết lập các môn học (*Piano, Guitar, IELTS, Toán, Vẽ, Võ...*) để phù hợp với mọi mô hình cơ sở đào tạo.</li>
+                    <li><strong>Bóc tách hóa đơn chi tiết (+ Phụ thu / - Giảm trừ):</strong> Cho phép thêm các khoản thu phát sinh (tiền sách, đồng phục) hoặc trừ tiền nghỉ lễ trên cả Dashboard, Cổng phụ huynh và tin nhắn Zalo Bot.</li>
+                    <li><strong>Tự động nhận diện thứ khi xếp học bù:</strong> Chọn ngày học bù sẽ tự tính ra thứ và chỉ hiển thị đúng các ca mở cửa có hoạt động trong ngày đó.</li>
+                  </ul>
+                </div>
+
+                {/* v2.5.0 */}
+                <div className="p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-800/40 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="px-2.5 py-1 rounded-xl text-xs font-black bg-slate-200 text-slate-800 dark:bg-slate-800 dark:text-slate-200">
+                        v2.5.0
+                      </span>
+                      <span className="text-xs font-bold text-slate-500">26/10/2026</span>
+                    </div>
+                    <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                      Đa Ngôn Ngữ & Nâng Cấp Tự Động
+                    </span>
+                  </div>
+                  <ul className="text-xs text-slate-600 dark:text-slate-400 space-y-1.5 list-disc list-inside">
                     <li><strong>Kết nối thông báo Zalo cho Giáo viên & Phụ huynh:</strong> Cung cấp khu vực kết nối trực tiếp trên Cổng Giáo Viên và Cổng Phụ Huynh để nhận tin nhắn lịch học, nhắc học phí và lịch bù qua Zalo Bot.</li>
                     <li><strong>Thông báo đóng học phí & Mã VietQR tự động:</strong> Cổng Phụ Huynh hiển thị rõ trạng thái đóng/nợ học phí, mã VietQR quét nộp tiền tức thì kèm nút &quot;Tôi đã đóng học phí&quot; để ghi nhận ngay lập tức vào hệ thống.</li>
                     <li><strong>Đa ngôn ngữ toàn diện (Full System i18n):</strong> Hỗ trợ 4 ngôn ngữ chuẩn quốc tế (🇻🇳 Tiếng Việt, 🇬🇧 English, 🇨🇳 中文, 🇯🇵 日本語) với chuyển ngữ 1-click tức thì trên toàn giao diện quản trị và cổng phụ huynh.</li>
