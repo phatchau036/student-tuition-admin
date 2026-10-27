@@ -47,7 +47,7 @@ export const AppInfoModal: React.FC<AppInfoModalProps> = ({
   schoolCode = "TT",
 }) => {
   const { showToast } = useToast();
-  const [activeTab, setActiveTab] = useState<"about" | "changelog" | "tpteam_feedback" | "parent_feedbacks" | "upgrade">("about");
+  const [activeTab, setActiveTab] = useState<"about" | "changelog" | "tpteam_feedback" | "parent_feedbacks">("about");
 
   // Tab 3: TpTeam Feedback State
   const [fbTitle, setFbTitle] = useState("");
@@ -65,10 +65,6 @@ export const AppInfoModal: React.FC<AppInfoModalProps> = ({
   const [isLoadingParentFb, setIsLoadingParentFb] = useState(false);
   const [selectedParentFb, setSelectedParentFb] = useState<ParentFeedback | null>(null);
   const [replyNote, setReplyNote] = useState("");
-
-  // Tab 5: 1-Click Upgrade System state
-  const [isUpgrading, setIsUpgrading] = useState(false);
-  const [upgradeLogs, setUpgradeLogs] = useState<string[]>([]);
 
   useEffect(() => {
     if (isOpen) {
@@ -169,34 +165,6 @@ export const AppInfoModal: React.FC<AppInfoModalProps> = ({
     }
   };
 
-  const handleTriggerUpgrade = async () => {
-    try {
-      setIsUpgrading(true);
-      setUpgradeLogs([
-        "Đang kích hoạt chế độ bảo trì toàn hệ thống...",
-        "Tự động kéo bản cập nhật mới nhất từ GitHub (git pull origin main)...",
-        "Tự động kiểm tra và cài đặt thư viện mới (npm install)...",
-        "Tiến hành tối ưu và biên dịch hệ thống (npm run build)...",
-        "Khởi động lại máy chủ và đưa hệ thống vào hoạt động ngay lập tức!",
-      ]);
-
-      const res = await fetch("/api/system/upgrade", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      });
-      const data = await res.json();
-      if (data.success) {
-        showToast(data.message, "success");
-      } else {
-        showToast(data.message || "Kích hoạt nâng cấp thất bại", "error");
-        setIsUpgrading(false);
-      }
-    } catch {
-      showToast("Lỗi kết nối khi gửi yêu cầu nâng cấp", "error");
-      setIsUpgrading(false);
-    }
-  };
-
   if (!isOpen) return null;
 
   return (
@@ -279,18 +247,6 @@ export const AppInfoModal: React.FC<AppInfoModalProps> = ({
           >
             <MessageSquare className="w-4 h-4 text-amber-500" />
             <span>Góp Ý Cho TpTeam</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab("upgrade")}
-            className={`flex items-center gap-2 px-3.5 py-2 text-xs font-bold rounded-xl transition shrink-0 ${
-              activeTab === "upgrade"
-                ? "bg-emerald-600 text-white shadow-sm shadow-emerald-600/25"
-                : "text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40"
-            }`}
-          >
-            <RefreshCw className={`w-4 h-4 ${isUpgrading ? "animate-spin" : ""}`} />
-            <span>1-Click Cập Nhật GitHub</span>
           </button>
         </div>
 
@@ -772,60 +728,6 @@ export const AppInfoModal: React.FC<AppInfoModalProps> = ({
                   ))}
                 </div>
               )}
-            </div>
-          )}
-
-          {/* TAB 5: 1-CLICK CẬP NHẬT TỰ ĐỘNG TỪ GITHUB */}
-          {activeTab === "upgrade" && (
-            <div className="space-y-6 animate-in fade-in duration-200">
-              <div className="p-6 rounded-3xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-                  <div className="space-y-1.5">
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700">
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      <span>Hệ Thống Tự Động Hóa 1-Click</span>
-                    </div>
-                    <h3 className="text-xl font-black text-slate-900 dark:text-white">
-                      Tự Động Nâng Cấp Bản Mới Nhất Từ GitHub
-                    </h3>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xl leading-relaxed">
-                      Bạn chỉ cần bấm nút bên cạnh, hệ thống sẽ tự động thực hiện: Bật màn hình bảo trì -&gt; Tải mã nguồn mới từ GitHub (<code>git pull</code>) -&gt; Tự cài thư viện mới (<code>npm install</code>) -&gt; Biên dịch hệ thống (<code>npm run build</code>) -&gt; Khởi động lại server mượt mà mà không mất dữ liệu học viên!
-                    </p>
-                  </div>
-
-                  <button
-                    type="button"
-                    disabled={isUpgrading}
-                    onClick={handleTriggerUpgrade}
-                    className="px-6 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-lg shadow-emerald-600/30 transition flex items-center justify-center gap-2 shrink-0 disabled:opacity-50"
-                  >
-                    <RefreshCw className={`w-4 h-4 ${isUpgrading ? "animate-spin" : ""}`} />
-                    <span>{isUpgrading ? "Đang Nâng Cấp..." : "Bắt Đầu Nâng Cấp Ngay"}</span>
-                  </button>
-                </div>
-
-                {/* Progress / Status Logs */}
-                <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-2">
-                  <div className="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-300">
-                    <AlertCircle className="w-4 h-4 text-amber-500" />
-                    <span>Tiến trình tự động hóa:</span>
-                  </div>
-                  {upgradeLogs.length > 0 ? (
-                    <div className="space-y-1 font-mono text-xs text-emerald-600 dark:text-emerald-400 pt-1 border-t border-slate-100 dark:border-slate-800">
-                      {upgradeLogs.map((log, idx) => (
-                        <div key={idx} className="flex items-center gap-2">
-                          <span className="text-slate-400">&gt;</span>
-                          <span>{log}</span>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-[11px] text-slate-500">
-                      Bấm nút <strong>&quot;Bắt Đầu Nâng Cấp Ngay&quot;</strong> để kéo toàn bộ tính năng và bản sửa lỗi mới nhất từ máy A về máy chủ này.
-                    </p>
-                  )}
-                </div>
-              </div>
             </div>
           )}
         </div>

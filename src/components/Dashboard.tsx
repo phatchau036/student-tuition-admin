@@ -836,17 +836,6 @@ export default function Dashboard() {
                     <Info className="w-4 h-4 text-indigo-600" />
                     <span>{t.app_info_feedback}</span>
                   </button>
-
-                  <button
-                    onClick={() => {
-                      setIsManagementMenuOpen(false);
-                      setIsAppInfoModalOpen(true);
-                    }}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold rounded-xl text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition text-left"
-                  >
-                    <RefreshCw className="w-4 h-4 text-emerald-600" />
-                    <span>Cập nhật GitHub (1-Click)</span>
-                  </button>
                 </div>
               )}
             </div>
