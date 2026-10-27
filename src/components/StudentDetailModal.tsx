@@ -257,9 +257,24 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                         * Bao gồm nợ cũ: +{formatVND(student.previous_debt_amount)} (Nợ {student.unpaid_months_count} tháng)
                       </span>
                     ) : student.monthly_override ? (
-                      <span className="text-[10px] text-amber-600 font-bold block mt-0.5">
-                        * Đã điều chỉnh riêng tháng này
-                      </span>
+                      <div className="mt-1 space-y-0.5">
+                        <span className="text-[10px] text-amber-600 font-bold block">
+                          * Đã điều chỉnh riêng tháng này
+                        </span>
+                        {(() => {
+                          try {
+                            const items = JSON.parse(student.monthly_override.items_json || "[]");
+                            if (Array.isArray(items) && items.length > 0) {
+                              return items.map((it: any) => (
+                                <span key={it.id} className="text-[10px] text-slate-500 block">
+                                  • {it.type === "add" ? "+" : "-"}{formatVND(it.amount)} ({it.name})
+                                </span>
+                              ));
+                            }
+                          } catch {}
+                          return null;
+                        })()}
+                      </div>
                     ) : null}
                   </div>
 
@@ -319,6 +334,12 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
 
               {/* General info list */}
               <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 space-y-2.5 text-xs">
+                <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
+                  <span className="text-slate-400 font-medium">Môn học đào tạo:</span>
+                  <span className="font-bold text-indigo-600 dark:text-indigo-400">
+                    {student.subject_name || "Chưa phân môn"}
+                  </span>
+                </div>
                 <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
                   <span className="text-slate-400 font-medium">Ngày đăng ký học:</span>
                   <span className="font-bold text-slate-800 dark:text-slate-200">
