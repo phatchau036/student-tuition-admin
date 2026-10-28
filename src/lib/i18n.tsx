@@ -87,6 +87,47 @@ export interface Translations {
   lang_english: string;
   lang_chinese: string;
   lang_japanese: string;
+
+  // New UI Elements
+  branch_operations: string;
+  tuition_packages_custom: string;
+  packages_applied: string;
+  all_tab: string;
+  enrolled_tab: string;
+  unpaid_tab: string;
+  paid_tab: string;
+  reserved_tab: string;
+  search_input_placeholder: string;
+  advanced_filter: string;
+  filter_subject: string;
+  filter_all_subjects: string;
+  filter_teacher: string;
+  filter_level: string;
+  filter_slot: string;
+  no_students_found: string;
+  no_students_hint: string;
+  loading_students: string;
+  monthly_package: string;
+  hours_per_week_unit: string;
+  sessions_per_week_unit: string;
+  flexible_hours_slot: string;
+  past_debt_label: string;
+  reconciliation_paid_badge: string;
+  reconciliation_unpaid_badge: string;
+  action_details: string;
+  action_all: string;
+  action_zalo_reminder: string;
+  action_edit_fee: string;
+  action_makeup: string;
+  action_resume: string;
+  action_reserve: string;
+  action_edit_info: string;
+  action_delete_student: string;
+  excel_import_btn: string;
+  excel_export_btn: string;
+  month_picker_current: string;
+  month_picker_close: string;
+  month_picker_change: string;
 }
 
 export const DICTIONARY: Record<AppLanguage, Translations> = {
@@ -166,6 +207,46 @@ export const DICTIONARY: Record<AppLanguage, Translations> = {
     lang_english: "Tiếng Anh (English)",
     lang_chinese: "Tiếng Trung (中文)",
     lang_japanese: "Tiếng Nhật (日本語)",
+
+    branch_operations: "Nghiệp vụ cơ sở",
+    tuition_packages_custom: "Gói học phí & Tùy chỉnh",
+    packages_applied: "gói áp dụng",
+    all_tab: "Tất cả",
+    enrolled_tab: "Đang học",
+    unpaid_tab: "Cần đóng tiền",
+    paid_tab: "Đã nộp",
+    reserved_tab: "Bảo lưu",
+    search_input_placeholder: "Tìm học sinh, SĐT, mã...",
+    advanced_filter: "Lọc nâng cao",
+    filter_subject: "Môn học đào tạo:",
+    filter_all_subjects: "-- Tất cả bộ môn --",
+    filter_teacher: "Giáo viên:",
+    filter_level: "Level / Trình độ:",
+    filter_slot: "Ca mở cửa:",
+    no_students_found: "Không tìm thấy học sinh nào",
+    no_students_hint: 'Bấm nút "+ Thêm Học Sinh" ở góc trên bên phải để ghi danh học sinh mới vào hệ thống.',
+    loading_students: "Đang tải danh sách học sinh...",
+    monthly_package: "Gói Tháng",
+    hours_per_week_unit: "h/tuần",
+    sessions_per_week_unit: "buổi/tuần",
+    flexible_hours_slot: "Linh hoạt trong ca mở cửa",
+    past_debt_label: "Nợ {months} tháng (+{amount})",
+    reconciliation_paid_badge: "Đã đóng",
+    reconciliation_unpaid_badge: "Cần đóng tiền",
+    action_details: "Chi tiết",
+    action_all: "Tất cả thao tác",
+    action_zalo_reminder: "Nhắc Zalo",
+    action_edit_fee: "Sửa học phí tháng",
+    action_makeup: "Báo nghỉ & học bù",
+    action_resume: "Cho học tiếp",
+    action_reserve: "Chuyển bảo lưu",
+    action_edit_info: "Sửa thông tin",
+    action_delete_student: "Xóa học sinh",
+    excel_import_btn: "Nhập dữ liệu từ Excel (.xlsx)",
+    excel_export_btn: "Xuất danh sách ra Excel (.xlsx)",
+    month_picker_current: "Tháng hiện tại",
+    month_picker_close: "Đóng",
+    month_picker_change: "Thay đổi",
   },
 
   en: {
@@ -244,6 +325,46 @@ export const DICTIONARY: Record<AppLanguage, Translations> = {
     lang_english: "English",
     lang_chinese: "Chinese (中文)",
     lang_japanese: "Japanese (日本語)",
+
+    branch_operations: "Operations",
+    tuition_packages_custom: "Tuition Packages & Custom",
+    packages_applied: "active packages",
+    all_tab: "All",
+    enrolled_tab: "Enrolled",
+    unpaid_tab: "Payment Due",
+    paid_tab: "Paid",
+    reserved_tab: "Reserved",
+    search_input_placeholder: "Search student, phone, code...",
+    advanced_filter: "Advanced Filter",
+    filter_subject: "Training Subject:",
+    filter_all_subjects: "-- All Subjects --",
+    filter_teacher: "Teacher:",
+    filter_level: "Level / Grade:",
+    filter_slot: "Time Slot:",
+    no_students_found: "No students found",
+    no_students_hint: 'Click "+ Add Student" button at the top right to enroll new students.',
+    loading_students: "Loading students list...",
+    monthly_package: "Monthly Plan",
+    hours_per_week_unit: "hrs/week",
+    sessions_per_week_unit: "sessions/week",
+    flexible_hours_slot: "Flexible within shift",
+    past_debt_label: "Overdue {months} months (+{amount})",
+    reconciliation_paid_badge: "Paid",
+    reconciliation_unpaid_badge: "Payment Due",
+    action_details: "Details",
+    action_all: "All Actions",
+    action_zalo_reminder: "Zalo Alert",
+    action_edit_fee: "Edit Monthly Fee",
+    action_makeup: "Absence & Makeup",
+    action_resume: "Resume Studying",
+    action_reserve: "Reserve Status",
+    action_edit_info: "Edit Profile",
+    action_delete_student: "Delete Student",
+    excel_import_btn: "Import Excel (.xlsx)",
+    excel_export_btn: "Export Excel (.xlsx)",
+    month_picker_current: "Current Month",
+    month_picker_close: "Close",
+    month_picker_change: "Change",
   },
 
   zh: {
@@ -322,6 +443,46 @@ export const DICTIONARY: Record<AppLanguage, Translations> = {
     lang_english: "英语 (English)",
     lang_chinese: "中文 (简体)",
     lang_japanese: "日语 (日本語)",
+
+    branch_operations: "校区业务",
+    tuition_packages_custom: "课时套餐与自定学费",
+    packages_applied: "个适用套餐",
+    all_tab: "全部",
+    enrolled_tab: "在读",
+    unpaid_tab: "待缴费",
+    paid_tab: "已缴费",
+    reserved_tab: "休学",
+    search_input_placeholder: "搜索学员姓名、手机或学号...",
+    advanced_filter: "高级筛选",
+    filter_subject: "课程专业:",
+    filter_all_subjects: "-- 全部专业 --",
+    filter_teacher: "任课教师:",
+    filter_level: "学习等级:",
+    filter_slot: "开放课段:",
+    no_students_found: "未找到符合条件的学员",
+    no_students_hint: '请点击右上角 "+ 添加学员" 按钮进行新生入学注册。',
+    loading_students: "正在加载学员列表...",
+    monthly_package: "按月套餐",
+    hours_per_week_unit: "小时/周",
+    sessions_per_week_unit: "次/周",
+    flexible_hours_slot: "开课时段内弹性安排",
+    past_debt_label: "欠费 {months} 个月 (+{amount})",
+    reconciliation_paid_badge: "已缴费",
+    reconciliation_unpaid_badge: "待缴费",
+    action_details: "详情",
+    action_all: "全部操作",
+    action_zalo_reminder: "提醒通知",
+    action_edit_fee: "修改月度学费",
+    action_makeup: "请假与补课",
+    action_resume: "复学",
+    action_reserve: "办理休学",
+    action_edit_info: "修改信息",
+    action_delete_student: "删除学员",
+    excel_import_btn: "从 Excel 导入 (.xlsx)",
+    excel_export_btn: "导出学员花名册 (.xlsx)",
+    month_picker_current: "本月",
+    month_picker_close: "关闭",
+    month_picker_change: "切换",
   },
 
   ja: {
@@ -400,6 +561,46 @@ export const DICTIONARY: Record<AppLanguage, Translations> = {
     lang_english: "英語 (English)",
     lang_chinese: "中国語 (中文)",
     lang_japanese: "日本語",
+
+    branch_operations: "教室業務",
+    tuition_packages_custom: "料金プラン・個別調整",
+    packages_applied: "件の適用プラン",
+    all_tab: "すべて",
+    enrolled_tab: "在籍中",
+    unpaid_tab: "未納・請求",
+    paid_tab: "納入済",
+    reserved_tab: "休会中",
+    search_input_placeholder: "生徒名・電話番号・IDで検索...",
+    advanced_filter: "詳細絞り込み",
+    filter_subject: "コース・科目:",
+    filter_all_subjects: "-- 全科目 --",
+    filter_teacher: "担当講師:",
+    filter_level: "受講レベル:",
+    filter_slot: "開講時間枠:",
+    no_students_found: "生徒が見つかりませんでした",
+    no_students_hint: "右上の「+ 生徒を追加」ボタンをクリックして新規登録してください。",
+    loading_students: "生徒一覧を読み込み中...",
+    monthly_package: "月額プラン",
+    hours_per_week_unit: "時間/週",
+    sessions_per_week_unit: "コマ/週",
+    flexible_hours_slot: "時間枠内で柔軟に受講",
+    past_debt_label: "{months}ヶ月分未納 (+{amount})",
+    reconciliation_paid_badge: "納入済",
+    reconciliation_unpaid_badge: "未納・請求",
+    action_details: "詳細",
+    action_all: "全操作",
+    action_zalo_reminder: "連絡通知",
+    action_edit_fee: "月謝変更",
+    action_makeup: "欠席・補講",
+    action_resume: "復会手続き",
+    action_reserve: "休会手続き",
+    action_edit_info: "情報編集",
+    action_delete_student: "生徒削除",
+    excel_import_btn: "Excelからインポート (.xlsx)",
+    excel_export_btn: "Excelへエクスポート (.xlsx)",
+    month_picker_current: "今月",
+    month_picker_close: "閉じる",
+    month_picker_change: "変更",
   },
 };
 

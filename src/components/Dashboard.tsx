@@ -702,12 +702,14 @@ export default function Dashboard() {
                 onChange={(e) => {
                   const newL = e.target.value as AppLanguage;
                   setLanguage(newL);
+                  const newMonthFmt = newL === "vi" ? "vietnamese" : newL === "zh" ? "chinese" : newL === "ja" ? "japanese" : "english";
+                  setMonthFormat(newMonthFmt);
                   fetch("/api/settings", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
                       app_language: newL,
-                      month_format: newL === "vi" ? "vietnamese" : newL === "zh" ? "chinese" : newL === "ja" ? "japanese" : "english",
+                      month_format: newMonthFmt,
                     }),
                   });
                 }}
@@ -737,10 +739,10 @@ export default function Dashboard() {
                 type="button"
                 onClick={() => setIsManagementMenuOpen(!isManagementMenuOpen)}
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 text-slate-700 dark:text-slate-200 transition shadow-2xs shrink-0"
-                title="Mở menu quản lý trung tâm"
+                title={t.branch_operations}
               >
                 <SlidersHorizontal className="w-4 h-4 text-indigo-500" />
-                <span>Nghiệp vụ cơ sở</span>
+                <span>{t.branch_operations}</span>
                 {totalPendingMakeups > 0 && (
                   <span className="w-4 h-4 rounded-full bg-amber-500 text-white text-[10px] font-black flex items-center justify-center animate-pulse ml-0.5">
                     {totalPendingMakeups}
@@ -784,7 +786,7 @@ export default function Dashboard() {
                     </span>
                     {totalPendingMakeups > 0 && (
                       <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
-                        {totalPendingMakeups} chờ xếp
+                        {totalPendingMakeups}
                       </span>
                     )}
                   </button>
@@ -797,7 +799,7 @@ export default function Dashboard() {
                     className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition text-left"
                   >
                     <History className="w-4 h-4 text-indigo-600" />
-                    <span>{t.status_log} (Bảo lưu & Nghỉ)</span>
+                    <span>{t.status_log}</span>
                   </button>
 
                   <button
@@ -808,7 +810,7 @@ export default function Dashboard() {
                     className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition text-left"
                   >
                     <BarChart3 className="w-4 h-4 text-emerald-600" />
-                    <span>{t.monthly_summary} & Đối soát</span>
+                    <span>{t.monthly_summary}</span>
                   </button>
 
                   <div className="my-1 border-t border-slate-100 dark:border-slate-800" />
@@ -822,7 +824,7 @@ export default function Dashboard() {
                     className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-xl text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition text-left"
                   >
                     <Upload className="w-4 h-4 text-emerald-600" />
-                    <span>Nhập dữ liệu từ Excel (.xlsx)</span>
+                    <span>{t.excel_import_btn}</span>
                   </button>
 
                   {/* Export Excel */}
@@ -835,7 +837,7 @@ export default function Dashboard() {
                     className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-xl text-indigo-700 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition text-left"
                   >
                     <Download className="w-4 h-4 text-indigo-600" />
-                    <span>Xuất danh sách ra Excel (.xlsx)</span>
+                    <span>{t.excel_export_btn}</span>
                   </button>
 
                   <div className="my-1 border-t border-slate-100 dark:border-slate-800" />
@@ -953,7 +955,7 @@ export default function Dashboard() {
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
                 <Package className="w-4 h-4 text-emerald-500" />
-                Gói học phí & Tùy chỉnh
+                {t.tuition_packages_custom}
               </span>
               <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 flex items-center justify-center">
                 <Sparkles className="w-5 h-5" />
@@ -961,7 +963,7 @@ export default function Dashboard() {
             </div>
             <div className="mt-2">
               <div className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-                {tuitionPackages.length} <span className="text-sm font-semibold text-slate-400">gói áp dụng</span>
+                {tuitionPackages.length} <span className="text-sm font-semibold text-slate-400">{t.packages_applied}</span>
               </div>
               <span className="text-xs text-amber-600 dark:text-amber-400 font-bold mt-1 inline-flex items-center gap-1">
                 <Sparkles className="w-3.5 h-3.5" />
@@ -988,7 +990,7 @@ export default function Dashboard() {
                     : "bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300"
                 }`}
               >
-                Tất cả ({students.length})
+                {t.all_tab} ({students.length})
               </button>
 
               <button
@@ -1004,7 +1006,7 @@ export default function Dashboard() {
                 }`}
               >
                 <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                <span>Đang học ({students.filter((s) => (s.status || "studying") === "studying").length})</span>
+                <span>{t.enrolled_tab} ({students.filter((s) => (s.status || "studying") === "studying").length})</span>
               </button>
 
               <button
@@ -1020,7 +1022,7 @@ export default function Dashboard() {
                 }`}
               >
                 <AlertCircle className="w-3.5 h-3.5 text-rose-500" />
-                <span>Cần đóng tiền ({students.filter((s) => s.payment_status === "unpaid").length})</span>
+                <span>{t.unpaid_tab} ({students.filter((s) => s.payment_status === "unpaid").length})</span>
               </button>
 
               <button
@@ -1036,7 +1038,7 @@ export default function Dashboard() {
                 }`}
               >
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-                <span>Đã nộp ({students.filter((s) => s.payment_status === "paid").length})</span>
+                <span>{t.paid_tab} ({students.filter((s) => s.payment_status === "paid").length})</span>
               </button>
 
               <button
@@ -1052,7 +1054,7 @@ export default function Dashboard() {
                 }`}
               >
                 <PauseCircle className="w-3.5 h-3.5 text-amber-500" />
-                <span>Bảo lưu ({students.filter((s) => s.status === "reserved").length})</span>
+                <span>{t.reserved_tab} ({students.filter((s) => s.status === "reserved").length})</span>
               </button>
             </div>
 
@@ -1062,7 +1064,7 @@ export default function Dashboard() {
                 <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-2.5" />
                 <input
                   type="text"
-                  placeholder="Tìm học sinh, SĐT, mã..."
+                  placeholder={t.search_input_placeholder}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full pl-9 pr-8 py-2 text-xs font-semibold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition"
@@ -1088,7 +1090,7 @@ export default function Dashboard() {
                 }`}
               >
                 <Filter className="w-3.5 h-3.5" />
-                <span>Lọc nâng cao</span>
+                <span>{t.advanced_filter}</span>
                 {(selectedTeacherFilter !== "all" || selectedLevelFilter !== "all" || selectedSlotFilter !== "all") && (
                   <span className="w-2 h-2 rounded-full bg-indigo-600" />
                 )}
@@ -1102,14 +1104,14 @@ export default function Dashboard() {
               {/* Filter by Subject */}
               <div>
                 <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">
-                  Môn học đào tạo:
+                  {t.filter_subject}
                 </label>
                 <select
                   value={selectedSubjectFilter}
                   onChange={(e) => setSelectedSubjectFilter(e.target.value)}
                   className="w-full px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 outline-none"
                 >
-                  <option value="all">-- Tất cả bộ môn --</option>
+                  <option value="all">{t.filter_all_subjects}</option>
                   {subjects.map((sub) => (
                     <option key={sub.id} value={sub.id}>
                       {sub.name}
@@ -1121,14 +1123,14 @@ export default function Dashboard() {
               {/* Filter by Teacher */}
               <div>
                 <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">
-                  Giáo viên:
+                  {t.filter_teacher}
                 </label>
                 <select
                   value={selectedTeacherFilter}
                   onChange={(e) => setSelectedTeacherFilter(e.target.value)}
                   className="w-full px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 outline-none"
                 >
-                  <option value="all">-- Tất cả giáo viên --</option>
+                  <option value="all">-- {t.filter_all_teachers} --</option>
                   {teachers.map((tc) => (
                     <option key={tc.id} value={tc.id}>
                       {tc.name}
@@ -1140,14 +1142,14 @@ export default function Dashboard() {
               {/* Filter by Level */}
               <div>
                 <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">
-                  Level / Trình độ:
+                  {t.filter_level}
                 </label>
                 <select
                   value={selectedLevelFilter}
                   onChange={(e) => setSelectedLevelFilter(e.target.value)}
                   className="w-full px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 outline-none"
                 >
-                  <option value="all">-- Tất cả các Level --</option>
+                  <option value="all">-- {t.filter_all_levels} --</option>
                   {levels.map((lvl) => (
                     <option key={lvl.id} value={lvl.id}>
                       {lvl.level_name}
@@ -1159,14 +1161,14 @@ export default function Dashboard() {
               {/* Filter by Slot */}
               <div>
                 <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">
-                  Ca mở cửa:
+                  {t.filter_slot}
                 </label>
                 <select
                   value={selectedSlotFilter}
                   onChange={(e) => setSelectedSlotFilter(e.target.value)}
                   className="w-full px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 outline-none"
                 >
-                  <option value="all">-- Tất cả ca mở cửa --</option>
+                  <option value="all">-- {t.filter_all_slots} --</option>
                   {timeSlots.map((slot) => (
                     <option key={slot.id} value={slot.id}>
                       {formatTimeSlotLabel(slot)}
@@ -1201,7 +1203,7 @@ export default function Dashboard() {
                     <td colSpan={9} className="text-center py-14 text-slate-400">
                       <div className="flex flex-col items-center justify-center gap-2">
                         <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
-                        <span className="font-semibold text-xs">Đang tải danh sách học sinh...</span>
+                        <span className="font-semibold text-xs">{t.loading_students}</span>
                       </div>
                     </td>
                   </tr>
@@ -1212,9 +1214,9 @@ export default function Dashboard() {
                         <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 mb-1">
                           <Users className="w-6 h-6" />
                         </div>
-                        <span className="font-bold text-sm text-slate-700 dark:text-slate-300">Không tìm thấy học sinh nào</span>
+                        <span className="font-bold text-sm text-slate-700 dark:text-slate-300">{t.no_students_found}</span>
                         <p className="text-xs text-slate-400 leading-relaxed">
-                          Bấm nút <strong>&quot;+ Thêm Học Sinh&quot;</strong> ở góc trên bên phải để ghi danh học sinh mới vào hệ thống.
+                          {t.no_students_hint}
                         </p>
                       </div>
                     </td>
@@ -1305,7 +1307,7 @@ export default function Dashboard() {
                               title={`Bảo lưu từ: ${student.status_date || ""}. Bấm để đổi trạng thái`}
                             >
                               <PauseCircle className="w-3 h-3" />
-                              <span>Bảo lưu</span>
+                              <span>{t.status_reserved}</span>
                             </button>
                           ) : student.status === "dropped" ? (
                             <button
@@ -1318,7 +1320,7 @@ export default function Dashboard() {
                               title={`Nghỉ học từ: ${student.status_date || ""}. Bấm để đổi trạng thái`}
                             >
                               <UserX className="w-3 h-3" />
-                              <span>Nghỉ học</span>
+                              <span>{t.status_dropped}</span>
                             </button>
                           ) : (
                             <button
@@ -1331,7 +1333,7 @@ export default function Dashboard() {
                               title="Đang học. Bấm để bảo lưu hoặc nghỉ học"
                             >
                               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                              <span>Đang học</span>
+                              <span>{t.status_studying}</span>
                             </button>
                           )}
                         </td>
@@ -1344,7 +1346,7 @@ export default function Dashboard() {
                               {student.teacher_name}
                             </span>
                           ) : (
-                            <span className="text-xs text-slate-400 font-medium italic">Chưa gán GV</span>
+                            <span className="text-xs text-slate-400 font-medium italic">{t.no_teacher_assigned}</span>
                           )}
                         </td>
 
@@ -1379,19 +1381,19 @@ export default function Dashboard() {
                               </span>
                             ) : (
                               <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 whitespace-nowrap">
-                                Gói Tháng
+                                {t.monthly_package}
                               </span>
                             )}
 
                             {isByHours ? (
                               <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300 flex items-center gap-1 whitespace-nowrap">
                                 <Hourglass className="w-2.5 h-2.5" />
-                                {student.hours_per_week || 3}h/tuần
+                                {student.hours_per_week || 3}{t.hours_per_week_unit}
                               </span>
                             ) : (
                               <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 flex items-center gap-1 whitespace-nowrap">
                                 <Calendar className="w-2.5 h-2.5" />
-                                {student.sessions_per_week || 3} buổi/tuần
+                                {student.sessions_per_week || 3} {t.sessions_per_week_unit}
                               </span>
                             )}
                           </div>
@@ -1399,7 +1401,7 @@ export default function Dashboard() {
                           <div className="text-[10px] text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-0.5 font-medium">
                             <Clock className="w-3 h-3 text-indigo-500 shrink-0" />
                             <span className="truncate max-w-[200px] xl:max-w-xs font-mono" title={student.study_time_detail}>
-                              {student.study_time_detail || "Linh hoạt trong ca mở cửa"}
+                              {student.study_time_detail || t.flexible_hours_slot}
                             </span>
                           </div>
                         </td>
@@ -1445,17 +1447,17 @@ export default function Dashboard() {
                               <div className="mt-1 flex flex-col items-start gap-0.5">
                                 <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-black bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border border-rose-300 dark:border-rose-800 animate-pulse">
                                   <AlertTriangle className="w-3 h-3 text-rose-600" />
-                                  Nợ {student.unpaid_months_count} tháng (+{formatVND(student.previous_debt_amount)})
+                                  {t.past_debt_label.replace("{months}", String(student.unpaid_months_count)).replace("{amount}", formatVND(student.previous_debt_amount))}
                                 </span>
                                 <span className="text-[10px] font-black text-rose-600 dark:text-rose-400">
-                                  Tổng phải nộp: {formatVND(student.total_tuition_due)}
+                                  {t.total_due}: {formatVND(student.total_tuition_due)}
                                 </span>
                               </div>
                             ) : isCustom ? (
                               <div className="mt-0.5 flex flex-col items-start gap-0.5">
                                 <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300">
                                   <Sparkles className="w-2.5 h-2.5" />
-                                  Đã sửa riêng
+                                  {t.custom_override}
                                 </span>
                                 {student.monthly_override?.note && (
                                   <span className="text-[10px] text-slate-500 italic truncate max-w-[120px]">
@@ -1464,7 +1466,7 @@ export default function Dashboard() {
                                 )}
                               </div>
                             ) : (
-                              <span className="text-[10px] font-medium text-slate-400">Chuẩn mặc định</span>
+                              <span className="text-[10px] font-medium text-slate-400">{t.default_standard}</span>
                             )}
                           </div>
                         </td>
@@ -1493,12 +1495,12 @@ export default function Dashboard() {
                               {student.payment_status === "paid" ? (
                                 <>
                                   <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                                  <span>Đã đóng</span>
+                                  <span>{t.reconciliation_paid_badge}</span>
                                 </>
                               ) : (
                                 <>
                                   <AlertCircle className={`w-3.5 h-3.5 ${student.is_overdue ? "text-white" : "text-rose-600"}`} />
-                                  <span>{student.is_overdue ? `Nợ ${student.unpaid_months_count} tháng` : "Cần đóng tiền"}</span>
+                                  <span>{student.is_overdue ? `${t.overdue_badge} ${student.unpaid_months_count}m` : t.reconciliation_unpaid_badge}</span>
                                 </>
                               )}
                             </button>
@@ -1524,7 +1526,7 @@ export default function Dashboard() {
                               title="Xem chi tiết học sinh & hồ sơ"
                             >
                               <Eye className="w-3.5 h-3.5 text-indigo-500" />
-                              <span className="hidden sm:inline">Chi tiết</span>
+                              <span className="hidden sm:inline">{t.action_details}</span>
                             </button>
 
                             {/* Dropdown Action Menu Trigger */}
@@ -1539,7 +1541,7 @@ export default function Dashboard() {
                                   ? "bg-indigo-600 text-white border-indigo-600"
                                   : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
                               }`}
-                              title="Tất cả thao tác"
+                              title={t.action_all}
                             >
                               <MoreHorizontal className="w-4 h-4" />
                             </button>
@@ -1566,7 +1568,7 @@ export default function Dashboard() {
                                     className="w-full flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-xl text-slate-700 dark:text-slate-200 hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-950/50 dark:hover:text-blue-300 transition"
                                   >
                                     <MessageSquare className="w-3.5 h-3.5 text-blue-500" />
-                                    <span>Nhắc Zalo</span>
+                                    <span>{t.action_zalo_reminder}</span>
                                   </button>
 
                                   {/* Sửa học phí tháng */}
@@ -1580,7 +1582,7 @@ export default function Dashboard() {
                                     className="w-full flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-xl text-slate-700 dark:text-slate-200 hover:bg-amber-50 hover:text-amber-700 dark:hover:bg-amber-950/50 dark:hover:text-amber-300 transition"
                                   >
                                     <DollarSign className="w-3.5 h-3.5 text-amber-500" />
-                                    <span>Sửa học phí tháng</span>
+                                    <span>{t.action_edit_fee}</span>
                                   </button>
 
                                   {/* Báo nghỉ / Học bù */}
@@ -1594,7 +1596,7 @@ export default function Dashboard() {
                                     className="w-full flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-xl text-slate-700 dark:text-slate-200 hover:bg-indigo-50 hover:text-indigo-600 dark:hover:bg-indigo-950/50 dark:hover:text-indigo-300 transition"
                                   >
                                     <CalendarCheck className="w-3.5 h-3.5 text-indigo-500" />
-                                    <span>Báo nghỉ & học bù</span>
+                                    <span>{t.action_makeup}</span>
                                   </button>
 
                                   {/* Bảo lưu / Học tiếp */}
@@ -1608,7 +1610,7 @@ export default function Dashboard() {
                                     className="w-full flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
                                   >
                                     <PauseCircle className="w-3.5 h-3.5 text-amber-600" />
-                                    <span>{student.status === "reserved" ? "Cho học tiếp" : "Chuyển bảo lưu"}</span>
+                                    <span>{student.status === "reserved" ? t.action_resume : t.action_reserve}</span>
                                   </button>
 
                                   {/* Chỉnh sửa thông tin */}
@@ -1622,7 +1624,7 @@ export default function Dashboard() {
                                     className="w-full flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
                                   >
                                     <Edit2 className="w-3.5 h-3.5 text-slate-500" />
-                                    <span>Sửa thông tin</span>
+                                    <span>{t.action_edit_info}</span>
                                   </button>
 
                                   <div className="my-1 border-t border-slate-100 dark:border-slate-800" />
@@ -1637,7 +1639,7 @@ export default function Dashboard() {
                                     className="w-full flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-xl text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition"
                                   >
                                     <Trash2 className="w-3.5 h-3.5" />
-                                    <span>Xóa học sinh</span>
+                                    <span>{t.action_delete_student}</span>
                                   </button>
                                 </div>
                               </>

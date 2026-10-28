@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { Calendar, ChevronLeft, ChevronRight } from "lucide-react";
 import { MonthFormat } from "@/lib/types";
 import { formatMonthDisplay } from "@/lib/tuition";
+import { useLanguage } from "@/lib/i18n";
 
 interface MonthPickerProps {
   value: string; // "YYYY-MM"
@@ -18,6 +19,7 @@ export const MonthPicker: React.FC<MonthPickerProps> = ({
   monthFormat = "vietnamese",
   className = "",
 }) => {
+  const { t } = useLanguage();
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -84,7 +86,7 @@ export const MonthPicker: React.FC<MonthPickerProps> = ({
             {formatMonthDisplay(value, monthFormat)}
           </span>
         </span>
-        <span className="text-[10px] text-slate-400 font-semibold">Thay đổi</span>
+        <span className="text-[10px] text-slate-400 font-semibold">{t.month_picker_change || "Thay đổi"}</span>
       </button>
 
       {/* Dropdown Calendar Popup */}
@@ -147,14 +149,14 @@ export const MonthPicker: React.FC<MonthPickerProps> = ({
               }}
               className="text-indigo-600 dark:text-indigo-400 font-bold hover:underline"
             >
-              Tháng hiện tại
+              {t.month_picker_current || "Tháng hiện tại"}
             </button>
             <button
               type="button"
               onClick={() => setIsOpen(false)}
               className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 font-medium"
             >
-              Đóng
+              {t.month_picker_close || "Đóng"}
             </button>
           </div>
         </div>
