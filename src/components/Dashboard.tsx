@@ -2039,6 +2039,7 @@ export default function Dashboard() {
         initialDiscountPresets={discountPresets}
         initialTuitionPackages={tuitionPackages}
         initialSubjects={subjects}
+        schoolId={currentSchool?.id}
       />
 
       {/* Teachers Management Modal */}

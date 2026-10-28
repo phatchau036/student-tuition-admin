@@ -33,7 +33,7 @@ export async function POST(req: Request) {
       // Set cookie for browser
       response.cookies.set("system_auth_token", token, {
         httpOnly: false,
-        secure: process.env.NODE_ENV === "production",
+        secure: false, // Luôn cho phép chạy cả trên HTTP IP Server LAN/VPS lẫn HTTPS
         sameSite: "lax",
         path: "/",
         maxAge: 60 * 60 * 24 * 7, // 7 days

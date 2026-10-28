@@ -92,7 +92,9 @@ interface SlotOccupancy {
   max_capacity: number;
   regular_count: number;
   makeup_count: number;
+  total_count?: number;
   total_occupied: number;
+  remaining_slots?: number;
   occupancy_rate: number;
   is_full: boolean;
   is_crowded: boolean;
@@ -1256,16 +1258,16 @@ export default function ParentPortal() {
                                 </span>
                                 {slot.is_full ? (
                                   <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border border-rose-300 flex items-center gap-1">
-                                    <AlertCircle className="w-3 h-3" /> Hết suất ({slot.total_occupied}/{slot.max_capacity})
+                                    <AlertCircle className="w-3 h-3" /> Hết suất ({slot.total_occupied ?? slot.total_count ?? 0}/{slot.max_capacity})
                                   </span>
                                 ) : slot.is_crowded ? (
                                   <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 flex items-center gap-1">
                                     <AlertTriangle className="w-3 h-3 text-amber-600" />
-                                    Lớp đông ({slot.occupancy_rate}%)
+                                    Lớp đông ({slot.total_occupied ?? slot.total_count ?? 0}/{slot.max_capacity})
                                   </span>
                                 ) : (
                                   <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
-                                    Còn chỗ ({slot.total_occupied}/{slot.max_capacity})
+                                    Còn {Math.max(0, slot.max_capacity - (slot.total_occupied ?? slot.total_count ?? 0))} chỗ ({slot.total_occupied ?? slot.total_count ?? 0}/{slot.max_capacity})
                                   </span>
                                 )}
                               </div>

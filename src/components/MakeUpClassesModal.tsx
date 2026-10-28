@@ -663,11 +663,11 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
                                   </span>
                                 ) : slot.is_crowded ? (
                                   <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
-                                    <AlertTriangle className="w-3 h-3" /> Lớp đông ({slot.occupancy_rate}%)
+                                    <AlertTriangle className="w-3 h-3" /> Lớp đông ({slot.total_count}/{slot.max_capacity})
                                   </span>
                                 ) : (
                                   <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
-                                    Còn {slot.max_capacity - slot.total_count} chỗ
+                                    Còn {Math.max(0, slot.max_capacity - slot.total_count)} chỗ ({slot.total_count}/{slot.max_capacity})
                                   </span>
                                 )}
                               </div>

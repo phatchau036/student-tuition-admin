@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
-import { isDayInSlot } from "@/lib/tuition";
+import { isDayInSlot, parseStudentScheduleSlots } from "@/lib/tuition";
 import { getSchoolIdFromRequest } from "@/lib/authHelper";
 
 // Helper to determine Vietnamese day of week name from YYYY-MM-DD
@@ -60,7 +60,7 @@ export async function GET(req: Request) {
 
     // 4. Get all active students with their registered days, slot & teacher for this school
     const studentsRes = await db.execute({
-      sql: "SELECT id, name, time_slot_id, teacher_id, registered_days FROM students WHERE school_id = ?",
+      sql: "SELECT id, name, time_slot_id, teacher_id, registered_days, study_time_detail, schedule_details_json, status FROM students WHERE school_id = ? AND status != 'dropped'",
       args: [schoolId],
     });
 
@@ -134,12 +134,36 @@ export async function GET(req: Request) {
 
       // Count regular students who study on this slot AND this day
       let regularCount = 0;
+      const slotStartTime = String(slot.start_time || "17:00");
+      const slotEndTime = String(slot.end_time || "20:00");
+      const slotStartH = parseInt(slotStartTime.split(":")[0], 10) || 17;
+      const slotEndH = parseInt(slotEndTime.split(":")[0], 10) || 20;
+
       for (const st of studentsRes.rows) {
+        // Kiểm tra khớp trực tiếp qua time_slot_id
         if (String(st.time_slot_id) === slotId) {
           const regDays = String(st.registered_days || "");
           if (regDays.includes(dayName)) {
             regularCount++;
+            continue;
           }
+        }
+
+        // Hoặc phân tích thông minh qua lịch học study_time_detail / schedule_details_json
+        const parsedSlots = parseStudentScheduleSlots({
+          schedule_details_json: String(st.schedule_details_json || "[]"),
+          study_time_detail: String(st.study_time_detail || ""),
+          registered_days: String(st.registered_days || ""),
+        });
+
+        const isStudyingInThisSlot = parsedSlots.some((ps) => {
+          if (ps.day !== dayName) return false;
+          const pHour = parseInt(ps.hourSlot.replace("h", ""), 10);
+          return pHour >= slotStartH && pHour < slotEndH;
+        });
+
+        if (isStudyingInThisSlot) {
+          regularCount++;
         }
       }
 
@@ -157,6 +181,7 @@ export async function GET(req: Request) {
       const occupancyRate = slotMax > 0 ? Math.round((totalCount / slotMax) * 100) : 0;
       const isFull = totalCount >= slotMax;
       const isCrowded = occupancyRate >= thresholdPercent && !isFull;
+      const remainingSlots = Math.max(0, slotMax - totalCount);
 
       return {
         slot_id: slotId,
@@ -168,6 +193,8 @@ export async function GET(req: Request) {
         regular_count: regularCount,
         makeup_count: makeupCount,
         total_count: totalCount,
+        total_occupied: totalCount, // Đảm bảo trường total_occupied luôn có giá trị số
+        remaining_slots: remainingSlots, // Số chỗ trống còn lại chính xác
         max_capacity: slotMax,
         occupancy_rate: occupancyRate,
         is_crowded: isCrowded,

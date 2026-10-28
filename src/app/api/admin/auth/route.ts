@@ -65,7 +65,7 @@ export async function POST(req: Request) {
 
     response.cookies.set("admin_session_token", token, {
       httpOnly: false,
-      secure: process.env.NODE_ENV === "production",
+      secure: false, // Luôn cho phép chạy cả trên HTTP IP Server LAN/VPS lẫn HTTPS
       sameSite: "lax",
       path: "/",
       maxAge: 60 * 60 * 24 * 7,

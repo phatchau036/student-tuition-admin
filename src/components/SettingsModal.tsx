@@ -82,6 +82,7 @@ interface SettingsModalProps {
   initialDiscountPresets: DiscountOption[];
   initialTuitionPackages?: TuitionPackage[];
   initialSubjects?: Subject[];
+  schoolId?: string;
 }
 
 const WEEKDAYS = [
@@ -124,6 +125,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   initialDiscountPresets,
   initialTuitionPackages = [],
   initialSubjects = [],
+  schoolId,
 }) => {
   const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState<
@@ -324,6 +326,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   };
 
+  // Helper lấy headers có kèm Authorization token & schoolId
+  const getRequestHeaders = (): Record<string, string> => {
+    const token = typeof window !== "undefined" ? localStorage.getItem("admin_token") : null;
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+    if (schoolId) headers["x-school-id"] = schoolId;
+    return headers;
+  };
+
   // Tuition Packages helpers
   const handleCreateOrUpdatePackage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -336,10 +347,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       const isEdit = Boolean(isEditingPkgId);
       const res = await fetch("/api/packages", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getRequestHeaders(),
         body: JSON.stringify({
           action: isEdit ? "update" : "create",
           id: isEditingPkgId,
+          school_id: schoolId || undefined,
           name: newPkgName.trim(),
           amount: Number(newPkgAmount) || 0,
           original_amount: Number(newPkgOriginalAmount || newPkgAmount) || 0,
@@ -355,7 +367,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       if (data.success) {
         showToast(data.message, "success");
         // Reload packages list
-        const pkgRes = await fetch("/api/packages");
+        const query = schoolId ? `?school_id=${schoolId}` : "";
+        const pkgRes = await fetch(`/api/packages${query}`, {
+          headers: getRequestHeaders(),
+        });
         const pkgData = await pkgRes.json();
         if (pkgData.success) {
           setPackages(pkgData.data);
@@ -369,6 +384,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         setNewPkgDiscountValue(0);
         setNewPkgBenefits("");
         setIsEditingPkgId(null);
+        onSaved(); // Cập nhật ngay lên Dashboard để các modal khác và thẻ KPI nhận được gói mới
       } else {
         showToast(data.message || "Lỗi khi lưu gói học phí!", "error");
       }
@@ -381,8 +397,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     try {
       const res = await fetch("/api/packages", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "toggle_active", id: pkgId }),
+        headers: getRequestHeaders(),
+        body: JSON.stringify({ action: "toggle_active", id: pkgId, school_id: schoolId }),
       });
       const data = await res.json();
       if (data.success) {
@@ -390,6 +406,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           prev.map((p) => (p.id === pkgId ? { ...p, is_active: p.is_active === 1 ? 0 : 1 } : p))
         );
         showToast(data.message, "success");
+        onSaved();
       }
     } catch {
       showToast("Lỗi kết nối máy chủ!", "error");
@@ -400,13 +417,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     try {
       const res = await fetch("/api/packages", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "delete", id: pkgId }),
+        headers: getRequestHeaders(),
+        body: JSON.stringify({ action: "delete", id: pkgId, school_id: schoolId }),
       });
       const data = await res.json();
       if (data.success) {
         setPackages((prev) => prev.filter((p) => p.id !== pkgId));
         showToast(data.message, "success");
+        onSaved();
       }
     } catch {
       showToast("Lỗi kết nối máy chủ!", "error");
@@ -586,8 +604,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       setIsSaving(true);
       const res = await fetch("/api/settings", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getRequestHeaders(),
         body: JSON.stringify({
+          school_id: schoolId || undefined,
           base_tuition: Number(baseTuition) || 0,
           duration_mode: durationMode,
           app_language: appLanguage,
