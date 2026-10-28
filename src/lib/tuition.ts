@@ -302,3 +302,143 @@ export function getDayEndTimes(
   return Array.from(times).sort((a, b) => timeToMinutes(a) - timeToMinutes(b));
 }
 
+// Model một buổi học đã phân tích của học sinh để hiển thị lên Sơ đồ ma trận lớp
+export interface ParsedStudentSchedule {
+  day: string;          // "Thứ 2", "Thứ 4", "Thứ 6"...
+  hourSlot: string;     // "17h", "18h", "19h", "09h", "08h"...
+  timeDetail: string;   // "18h30", "17h30 - 19h", "18h - 19h30" hoặc rỗng nếu đúng giờ chuẩn
+  subjectName?: string; // Tên bộ môn nếu có ghi riêng (VD: "Piano", "Guitar")
+}
+
+// Phân tích lịch học chi tiết của học sinh từ schedule_details_json, study_time_detail và registered_days
+export function parseStudentScheduleSlots(student: {
+  schedule_details_json?: string;
+  study_time_detail?: string;
+  registered_days?: string;
+  time_slot_name?: string;
+  time_slot_desc?: string;
+}): ParsedStudentSchedule[] {
+  const results: ParsedStudentSchedule[] = [];
+
+  // Ưu tiên 1: Đọc từ schedule_details_json nếu có dữ liệu hợp lệ
+  if (student.schedule_details_json) {
+    try {
+      const items = JSON.parse(student.schedule_details_json);
+      if (Array.isArray(items) && items.length > 0) {
+        for (const item of items) {
+          if (item.day && item.start_time) {
+            const startHour = parseInt(item.start_time.split(":")[0], 10);
+            const slotHourStr = `${String(startHour).padStart(2, "0")}h`;
+            let timeDetail = "";
+            if (item.start_time.endsWith(":30") || (item.end_time && !item.end_time.endsWith(":00"))) {
+              timeDetail = `${item.start_time} - ${item.end_time}`;
+            }
+            results.push({
+              day: item.day,
+              hourSlot: slotHourStr,
+              timeDetail: timeDetail,
+            });
+          }
+        }
+        if (results.length > 0) return results;
+      }
+    } catch {}
+  }
+
+  // Ưu tiên 2: Phân tích thông minh chuỗi study_time_detail (VD: "T2-4-6 (17h-18h)", "T6 18h-19h30, t7 9h-10h30", "T3-5-7(19-20h)")
+  const rawText = (student.study_time_detail || "").trim();
+  if (rawText) {
+    // Tách các đoạn phân cách bởi dấu phẩy hoặc gạch chéo/dấu gạch |
+    const segments = rawText.split(/[,|;]+/).map((s) => s.trim()).filter(Boolean);
+
+    for (const seg of segments) {
+      // Tìm các ngày thứ có trong đoạn (T2, T3, T4, T5, T6, T7, CN, S7, C7)
+      const daysFound: string[] = [];
+
+      // Kiểm tra dạng khoảng ngày: T2-4-6 hoặc T3-5-7 hoặc T2-4 hoặc T3-5
+      if (/T2[-_ ]*4[-_ ]*6/i.test(seg) || /T2,?\s*4,?\s*6/i.test(seg)) {
+        daysFound.push("Thứ 2", "Thứ 4", "Thứ 6");
+      } else if (/T3[-_ ]*5[-_ ]*7/i.test(seg) || /T3,?\s*5,?\s*7/i.test(seg)) {
+        daysFound.push("Thứ 3", "Thứ 5", "Thứ 7");
+      } else if (/T2[-_ ]*4/i.test(seg) || /T2,?\s*4\b/i.test(seg)) {
+        daysFound.push("Thứ 2", "Thứ 4");
+      } else if (/T3[-_ ]*5/i.test(seg) || /T3,?\s*5\b/i.test(seg)) {
+        daysFound.push("Thứ 3", "Thứ 5");
+      } else {
+        if (/\b(?:T2|Thứ\s*2)\b/i.test(seg)) daysFound.push("Thứ 2");
+        if (/\b(?:T3|Thứ\s*3)\b/i.test(seg)) daysFound.push("Thứ 3");
+        if (/\b(?:T4|Thứ\s*4)\b/i.test(seg)) daysFound.push("Thứ 4");
+        if (/\b(?:T5|Thứ\s*5)\b/i.test(seg)) daysFound.push("Thứ 5");
+        if (/\b(?:T6|Thứ\s*6)\b/i.test(seg)) daysFound.push("Thứ 6");
+        if (/\b(?:T7|Thứ\s*7|S7|C7)\b/i.test(seg)) daysFound.push("Thứ 7");
+        if (/\b(?:CN|Chủ\s*Nhật)\b/i.test(seg)) daysFound.push("Chủ Nhật");
+      }
+
+      // Tìm mốc giờ trong đoạn (VD: 17h, 17h30, 18h, 18:30, 19h, 19-20h, 9h-10h30)
+      let detectedHourSlot = "18h"; // Mặc định nếu không rõ
+      let timeDetail = "";
+
+      const timeMatch = seg.match(/(\d{1,2})\s*(?:h|:)(\d{2})?\s*(?:[-–to]\s*(\d{1,2})\s*(?:h|:)?(\d{2})?)?/i);
+      if (timeMatch) {
+        const startH = parseInt(timeMatch[1], 10);
+        const startM = timeMatch[2] || "";
+        const endH = timeMatch[3] || "";
+        const endM = timeMatch[4] || "";
+
+        if (startH >= 7 && startH <= 21) {
+          detectedHourSlot = `${String(startH).padStart(2, "0")}h`;
+          if (startM && startM !== "00") {
+            timeDetail = `${startH}h${startM}`;
+          }
+          if (endH) {
+            timeDetail = `${startH}h${startM ? startM : ""} - ${endH}h${endM ? endM : ""}`;
+          }
+        }
+      }
+
+      // Kiểm tra có ghi tên nhạc cụ trong đoạn không (VD: "Guitar T2", "Piano ST7")
+      let segSubject = "";
+      if (/guitar/i.test(seg)) segSubject = "Guitar";
+      else if (/piano/i.test(seg)) segSubject = "Piano";
+      else if (/organ/i.test(seg)) segSubject = "Organ";
+      else if (/trống|drum/i.test(seg)) segSubject = "Trống";
+
+      if (daysFound.length > 0) {
+        for (const d of daysFound) {
+          results.push({
+            day: d,
+            hourSlot: detectedHourSlot,
+            timeDetail: timeDetail,
+            subjectName: segSubject,
+          });
+        }
+      }
+    }
+    if (results.length > 0) return results;
+  }
+
+  // Ưu tiên 3: Phân tích từ registered_days nếu có
+  const regDays = (student.registered_days || "").trim();
+  if (regDays) {
+    const daysList = regDays.split(/[,|;]+/).map((d) => d.trim()).filter(Boolean);
+    for (const d of daysList) {
+      results.push({
+        day: d,
+        hourSlot: "18h",
+        timeDetail: "",
+      });
+    }
+  }
+
+  // Nếu vẫn không có, mặc định là Thứ 2 ca 18h
+  if (results.length === 0) {
+    results.push({
+      day: "Thứ 2",
+      hourSlot: "18h",
+      timeDetail: "",
+    });
+  }
+
+  return results;
+}
+

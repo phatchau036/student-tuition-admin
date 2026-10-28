@@ -79,6 +79,7 @@ import { MonthlySummaryModal } from "./MonthlySummaryModal";
 import { AppInfoModal } from "./AppInfoModal";
 import { SmartExcelImportModal } from "./SmartExcelImportModal";
 import { QuickAuditModal } from "./QuickAuditModal";
+import { ClassroomScheduleMatrix } from "./ClassroomScheduleMatrix";
 import { exportStudentsToExcel } from "@/lib/exportExcel";
 import { useLanguage } from "@/lib/i18n";
 import { useTheme } from "@/lib/ThemeContext";
@@ -195,6 +196,9 @@ export default function Dashboard() {
   const [openRowActionId, setOpenRowActionId] = useState<string | null>(null);
   const [isManagementMenuOpen, setIsManagementMenuOpen] = useState(false);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+
+  // Main Dashboard View Mode: "table" (Bảng danh sách) | "schedule_matrix" (Sơ đồ lớp học ma trận theo Thứ & Giờ)
+  const [mainViewMode, setMainViewMode] = useState<"table" | "schedule_matrix">("table");
 
   // Bulk Selection States (Chọn hàng loạt)
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
@@ -1049,7 +1053,46 @@ export default function Dashboard() {
 
         {/* Filter and Search Bar: Modern Executive Toolbar */}
         <div className="bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-3">
-          <div className="flex flex-col lg:flex-row items-center justify-between gap-3">
+          {/* Top Switcher: Bảng Danh Sách vs Sơ Đồ Lớp Học */}
+          <div className="pb-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3 flex-wrap">
+            <div className="p-1 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center text-xs font-bold w-full sm:w-auto">
+              <button
+                type="button"
+                onClick={() => setMainViewMode("table")}
+                className={`flex-1 sm:flex-none px-4 py-2 rounded-xl transition flex items-center justify-center gap-2 cursor-pointer ${
+                  mainViewMode === "table"
+                    ? "bg-indigo-600 text-white shadow-xs"
+                    : "text-slate-600 dark:text-slate-300 hover:text-slate-900"
+                }`}
+              >
+                <Users className="w-4 h-4" />
+                <span>📋 Bảng Danh Sách Học Sinh</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setMainViewMode("schedule_matrix")}
+                className={`flex-1 sm:flex-none px-4 py-2 rounded-xl transition flex items-center justify-center gap-2 cursor-pointer ${
+                  mainViewMode === "schedule_matrix"
+                    ? "bg-indigo-600 text-white shadow-xs"
+                    : "text-slate-600 dark:text-slate-300 hover:text-slate-900"
+                }`}
+              >
+                <CalendarCheck className="w-4 h-4" />
+                <span>📅 Sơ Đồ Lớp Học (Theo Thầy Cô & Giờ)</span>
+              </button>
+            </div>
+
+            {mainViewMode === "schedule_matrix" && (
+              <span className="text-xs font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-3 py-1.5 rounded-xl border border-amber-200 dark:border-amber-900/50 flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Hiển thị phân bổ tự động theo Thứ (T2-CN), Ca giờ (17h-19h) và Giáo viên</span>
+              </span>
+            )}
+          </div>
+
+          {mainViewMode === "table" && (
+            <div className="flex flex-col lg:flex-row items-center justify-between gap-3">
             {/* Quick Status Filter Pills */}
             <div className="flex items-center gap-1.5 overflow-x-auto w-full lg:w-auto pb-1 lg:pb-0 text-xs font-bold scrollbar-none">
               <button
@@ -1171,9 +1214,10 @@ export default function Dashboard() {
               </button>
             </div>
           </div>
+          )}
 
           {/* Advanced Filters Expandable Drawer */}
-          {showAdvancedFilters && (
+          {mainViewMode === "table" && showAdvancedFilters && (
             <div className="pt-3 border-t border-slate-100 dark:border-slate-800 grid grid-cols-1 sm:grid-cols-4 gap-2.5 animate-in fade-in duration-150">
               {/* Filter by Subject */}
               <div>
@@ -1255,7 +1299,8 @@ export default function Dashboard() {
         </div>
 
         {/* Student Table Listing */}
-        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm relative">
+        {mainViewMode === "table" && (
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm relative">
           <div className="overflow-x-auto overflow-y-visible pb-32">
             <table className="w-full text-left border-collapse">
               <thead>
@@ -1750,6 +1795,25 @@ export default function Dashboard() {
             </table>
           </div>
         </div>
+        )}
+
+        {/* Chế độ 2: Sơ Đồ Lớp Học Ma Trận (Theo Thứ, Khung Giờ & Giáo Viên) */}
+        {mainViewMode === "schedule_matrix" && (
+          <ClassroomScheduleMatrix
+            students={students}
+            teachers={teachers}
+            timeSlots={timeSlots}
+            subjects={subjects}
+            onSelectStudent={(st) => {
+              setStudentForDetail(st);
+              setIsDetailModalOpen(true);
+            }}
+            onAddStudentToSlot={(day, time, tcId) => {
+              setStudentToEdit(null);
+              setIsStudentModalOpen(true);
+            }}
+          />
+        )}
 
         {/* Floating Bulk Action Bar (Thanh tác vụ nổi khi tick chọn nhiều học sinh) */}
         {selectedStudentIds.length > 0 && (
