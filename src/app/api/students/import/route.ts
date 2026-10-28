@@ -18,23 +18,46 @@ export async function POST(req: Request) {
       );
     }
 
-    // Get all existing levels & subjects to auto-match by name
+    // Get all existing levels & subjects for this school
     const levelsRes = await db.execute({
-      sql: "SELECT id, level_name FROM level_surcharges WHERE school_id = ?",
+      sql: "SELECT id, level_name FROM level_surcharges WHERE school_id = ? ORDER BY sort_order ASC",
       args: [finalSchoolId],
     });
-    const levels = levelsRes.rows.length > 0 ? levelsRes.rows : (await db.execute("SELECT id, level_name FROM level_surcharges")).rows;
-    const defaultLevel = levels[0]?.id || "";
+    let existingLevels: Array<{ id: string; level_name: string }> = levelsRes.rows.map((r) => ({
+      id: String(r.id),
+      level_name: String(r.level_name),
+    }));
+
+    if (existingLevels.length === 0) {
+      const defaultLvlId = `lvl-${Date.now()}-1`;
+      await db.execute({
+        sql: "INSERT INTO level_surcharges (id, school_id, level_name, surcharge_amount, sort_order) VALUES (?, ?, 'Cơ bản', 0, 1)",
+        args: [defaultLvlId, finalSchoolId],
+      });
+      existingLevels.push({ id: defaultLvlId, level_name: "Cơ bản" });
+    }
 
     const subjectsRes = await db.execute({
-      sql: "SELECT id, name FROM subjects WHERE school_id = ?",
+      sql: "SELECT id, name FROM subjects WHERE school_id = ? ORDER BY created_at ASC",
       args: [finalSchoolId],
     });
-    const subjects = subjectsRes.rows.length > 0 ? subjectsRes.rows : (await db.execute("SELECT id, name FROM subjects")).rows;
+    let existingSubjects: Array<{ id: string; name: string }> = subjectsRes.rows.map((r) => ({
+      id: String(r.id),
+      name: String(r.name),
+    }));
+
+    // Lấy ca học mặc định nếu có
+    const slotsRes = await db.execute({
+      sql: "SELECT id FROM time_slots WHERE school_id = ? AND is_active = 1 LIMIT 1",
+      args: [finalSchoolId],
+    });
+    const defaultSlotId = slotsRes.rows.length > 0 ? String(slotsRes.rows[0].id) : "";
 
     let importedCount = 0;
     let updatedCount = 0;
     let skippedCount = 0;
+    const newLevelsAdded: string[] = [];
+    const newSubjectsAdded: string[] = [];
 
     for (const item of rawStudents) {
       const name = String(item.name || "").trim();
@@ -53,22 +76,60 @@ export async function POST(req: Request) {
         phone = `09${Math.floor(10000000 + Math.random() * 90000000)}`;
       }
 
-      // Match level
-      let matchedLevelId = default_level_id || defaultLevel;
-      if (item.level_name) {
-        const foundLvl = levels.find((l) =>
-          String(l.level_name).toLowerCase().trim() === String(item.level_name).toLowerCase().trim()
+      // Match or Auto-create Level (Tự động nhận diện & thêm mới vào Setting nếu chưa có)
+      let matchedLevelId = default_level_id || existingLevels[0]?.id || "";
+      const rawLevelName = item.level_name ? String(item.level_name).trim() : "";
+
+      if (rawLevelName) {
+        const foundLvl = existingLevels.find(
+          (l) => l.level_name.toLowerCase().trim() === rawLevelName.toLowerCase()
         );
-        if (foundLvl) matchedLevelId = String(foundLvl.id);
+
+        if (foundLvl) {
+          matchedLevelId = foundLvl.id;
+        } else {
+          // Level chưa có trong setting -> Tự động tạo Level mới vào level_surcharges của trường này!
+          const newLevelId = `lvl-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+          const nextSort = existingLevels.length + 1;
+
+          await db.execute({
+            sql: "INSERT INTO level_surcharges (id, school_id, level_name, surcharge_amount, sort_order) VALUES (?, ?, ?, ?, ?)",
+            args: [newLevelId, finalSchoolId, rawLevelName, 0, nextSort],
+          });
+
+          existingLevels.push({ id: newLevelId, level_name: rawLevelName });
+          matchedLevelId = newLevelId;
+          if (!newLevelsAdded.includes(rawLevelName)) {
+            newLevelsAdded.push(rawLevelName);
+          }
+        }
       }
 
-      // Match subject
-      let matchedSubjectId = default_subject_id || null;
-      if (item.subject_name) {
-        const foundSub = subjects.find((s) =>
-          String(s.name).toLowerCase().trim() === String(item.subject_name).toLowerCase().trim()
+      // Match or Auto-create Subject (Tự động nhận diện & thêm mới vào Setting nếu chưa có)
+      let matchedSubjectId = default_subject_id || (existingSubjects[0]?.id || null);
+      const rawSubjectName = item.subject_name ? String(item.subject_name).trim() : "";
+
+      if (rawSubjectName) {
+        const foundSub = existingSubjects.find(
+          (s) => s.name.toLowerCase().trim() === rawSubjectName.toLowerCase()
         );
-        if (foundSub) matchedSubjectId = String(foundSub.id);
+
+        if (foundSub) {
+          matchedSubjectId = foundSub.id;
+        } else {
+          // Bộ môn chưa có trong setting -> Tự động tạo Bộ môn mới vào subjects của trường này!
+          const newSubId = `sub-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+          await db.execute({
+            sql: "INSERT INTO subjects (id, school_id, name, description, color, is_active) VALUES (?, ?, ?, ?, ?, ?)",
+            args: [newSubId, finalSchoolId, rawSubjectName, "Tự động tạo từ danh sách Excel nhập vào", "indigo", 1],
+          });
+
+          existingSubjects.push({ id: newSubId, name: rawSubjectName });
+          matchedSubjectId = newSubId;
+          if (!newSubjectsAdded.includes(rawSubjectName)) {
+            newSubjectsAdded.push(rawSubjectName);
+          }
+        }
       }
 
       // Format start_date
@@ -149,12 +210,22 @@ export async function POST(req: Request) {
       }
     }
 
+    let message = `Nhập dữ liệu hoàn tất: Thêm mới ${importedCount} học viên, cập nhật ${updatedCount} học viên!`;
+    if (newLevelsAdded.length > 0) {
+      message += ` Đã tự động tạo thêm ${newLevelsAdded.length} Level vào Cài đặt: (${newLevelsAdded.join(", ")}).`;
+    }
+    if (newSubjectsAdded.length > 0) {
+      message += ` Đã tự động tạo thêm ${newSubjectsAdded.length} Bộ môn vào Cài đặt: (${newSubjectsAdded.join(", ")}).`;
+    }
+
     return NextResponse.json({
       success: true,
-      message: `Nhập dữ liệu hoàn tất: Thêm mới ${importedCount} học viên, cập nhật ${updatedCount} học viên!`,
+      message,
       imported_count: importedCount,
       updated_count: updatedCount,
       skipped_count: skippedCount,
+      new_levels_added: newLevelsAdded,
+      new_subjects_added: newSubjectsAdded,
     });
   } catch (error: unknown) {
     console.error("Import API Error:", error);

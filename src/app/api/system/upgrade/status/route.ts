@@ -11,6 +11,7 @@ export async function GET(req: Request) {
   const checkGit = url.searchParams.get("check_git") === "1";
 
   const flagPath = join(process.cwd(), ".maintenance");
+  const logPath = join(process.cwd(), "upgrade.log");
   const isMaintenance = existsSync(flagPath);
 
   let maintenanceInfo = null;
@@ -21,12 +22,22 @@ export async function GET(req: Request) {
     } catch {}
   }
 
-  // Nếu chỉ kiểm tra trạng thái bảo trì thông thường (cho MaintenanceGuard gọi 3s/lần)
+  // Đọc nội dung log tiến trình nâng cấp (nếu có)
+  let upgradeLogs: string[] = [];
+  if (existsSync(logPath)) {
+    try {
+      const logContent = readFileSync(logPath, "utf-8");
+      upgradeLogs = logContent.split("\n").filter((l) => l.trim().length > 0);
+    } catch {}
+  }
+
+  // Nếu chỉ kiểm tra trạng thái bảo trì thông thường (cho MaintenanceGuard hoặc trang quản trị gọi định kỳ)
   if (!checkGit) {
     return NextResponse.json({
       success: true,
       maintenance: isMaintenance,
       maintenance_info: maintenanceInfo,
+      upgrade_logs: upgradeLogs,
     });
   }
 

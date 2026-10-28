@@ -505,6 +505,17 @@ export const SmartExcelImportModal: React.FC<SmartExcelImportModalProps> = ({
                 </div>
               </div>
 
+              {/* Thông báo tính năng tự động khởi tạo Level & Bộ môn mới */}
+              <div className="p-3.5 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 text-xs text-emerald-800 dark:text-emerald-300 flex items-start gap-2.5">
+                <Sparkles className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                <div className="space-y-0.5 leading-relaxed">
+                  <span className="font-bold block">Tự động cấu hình danh mục mới vào Cài đặt:</span>
+                  <p className="text-[11px] text-emerald-700 dark:text-emerald-400">
+                    Bất kỳ <strong>Level / Lớp học</strong> nào (ví dụ: <em>Vỡ lòng, Grade 3, Grade 4...</em>) hoặc <strong>Bộ môn</strong> có trong file Excel mà hệ thống chưa có, sẽ được <strong>tự động tạo mới vào Cài đặt (Settings)</strong> ngay khi nhập. Bạn không cần phải tạo trước bằng tay!
+                  </p>
+                </div>
+              </div>
+
               {/* Sample Preview Table */}
               <div className="space-y-2">
                 <span className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">

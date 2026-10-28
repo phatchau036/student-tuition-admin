@@ -595,12 +595,8 @@ export default function SystemAdminPage() {
     try {
       setIsUpgrading(true);
       setUpgradeLogs([
-        "Đang kích hoạt cờ bảo trì (Maintenance Mode)...",
-        "Tất cả người dùng truy cập lúc này sẽ thấy thông báo 'Server Đang Nâng Cấp'...",
-        "Đang kéo mã nguồn mới nhất từ kho GitHub (git pull origin main)...",
-        "Kiểm tra thư viện mới và tối ưu hóa thời gian build...",
-        "Đang tiến hành tối ưu và biên dịch hệ thống (next build)...",
-        "Hệ thống sẽ tự động gỡ cờ bảo trì và khởi động lại dịch vụ ngay sau khi hoàn tất!",
+        "Đang gửi yêu cầu nâng cấp tới máy chủ...",
+        "Kích hoạt cờ bảo trì hệ thống (.maintenance)...",
       ]);
 
       const res = await fetch("/api/system/upgrade", {
@@ -609,7 +605,43 @@ export default function SystemAdminPage() {
       });
       const data = await res.json();
       if (data.success) {
-        showToast(data.message, "success");
+        showToast("Đã kích hoạt nâng cấp! Đang theo dõi tiến trình thời gian thực...", "success");
+
+        // Bắt đầu vòng lặp polling log định kỳ từ upgrade.log
+        let pollCount = 0;
+        let isServerRestarting = false;
+        const pollInterval = setInterval(async () => {
+          pollCount++;
+          try {
+            const statusRes = await fetch("/api/system/upgrade/status");
+            const statusJson = await statusRes.json();
+
+            if (statusJson.upgrade_logs && Array.isArray(statusJson.upgrade_logs)) {
+              setUpgradeLogs(statusJson.upgrade_logs);
+            }
+
+            // Nếu cờ bảo trì đã tắt và đã từng qua bước build
+            if (statusJson.maintenance === false && pollCount > 8) {
+              clearInterval(pollInterval);
+              setIsUpgrading(false);
+              showToast("Nâng cấp hệ thống thành công! Máy chủ đã hoạt động trở lại.", "success");
+              handleCheckUpdate(false);
+            }
+          } catch {
+            // Khi server restart, fetch sẽ tạm thời lỗi -> Đây là dấu hiệu server đang khởi động lại
+            isServerRestarting = true;
+            setUpgradeLogs((prev) => [
+              ...prev,
+              "Máy chủ đang giải phóng cổng và khởi động lại dịch vụ... Đang kết nối lại...",
+            ]);
+          }
+
+          // Dừng sau tối đa 6 phút để tránh chạy vô tận
+          if (pollCount > 120) {
+            clearInterval(pollInterval);
+            setIsUpgrading(false);
+          }
+        }, 3000);
       } else {
         showToast(data.message || "Kích hoạt nâng cấp thất bại", "error");
         setIsUpgrading(false);
