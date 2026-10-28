@@ -406,14 +406,18 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
-    loadStudents(selectedMonth);
-  }, [selectedMonth]);
+    if (currentSchool?.id) {
+      loadStudents(selectedMonth, currentSchool.id);
+    } else {
+      loadStudents(selectedMonth);
+    }
+  }, [selectedMonth, currentSchool]);
 
   // Refresh all
   const handleRefresh = () => {
     loadSettings();
     loadTeachers();
-    loadStudents(selectedMonth);
+    loadStudents(selectedMonth, currentSchool?.id);
   };
 
   // Confirm delete student
@@ -2005,6 +2009,7 @@ export default function Dashboard() {
         discountPresets={discountPresets}
         tuitionPackages={tuitionPackages}
         subjects={subjects}
+        schoolId={currentSchool?.id}
         defaultDurationMode={durationMode}
         defaultSessions={defaultSessions}
         defaultHours={defaultHours}
@@ -2097,6 +2102,7 @@ export default function Dashboard() {
         onSuccess={handleRefresh}
         subjects={subjects}
         levels={levels}
+        schoolId={currentSchool?.id}
       />
     </div>
   );

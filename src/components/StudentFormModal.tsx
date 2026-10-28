@@ -53,6 +53,7 @@ interface StudentFormModalProps {
   discountPresets: DiscountOption[];
   tuitionPackages?: TuitionPackage[];
   subjects?: Subject[];
+  schoolId?: string;
   defaultDurationMode?: "by_hours" | "by_sessions";
   defaultSessions?: number;
   defaultHours?: number;
@@ -90,6 +91,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
   discountPresets,
   tuitionPackages = [],
   subjects = [],
+  schoolId,
   defaultDurationMode = "by_hours",
   defaultSessions = 3,
   defaultHours = 3,
@@ -356,10 +358,16 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
       const url = isEdit ? `/api/students/${studentToEdit?.id}` : "/api/students";
       const method = isEdit ? "PUT" : "POST";
 
+      const token = typeof window !== "undefined" ? localStorage.getItem("admin_token") : null;
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+      if (schoolId) headers["x-school-id"] = schoolId;
+
       const res = await fetch(url, {
         method,
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({
+          school_id: schoolId || undefined,
           name: name.trim(),
           phone: phone.trim(),
           zalo_link: zaloLink.trim(),

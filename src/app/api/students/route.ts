@@ -10,6 +10,8 @@ export async function GET(req: Request) {
     const schoolId = getSchoolIdFromRequest(req);
     const { searchParams } = new URL(req.url);
     const month = searchParams.get("month") || "";
+    const querySchoolId = searchParams.get("school_id") || schoolId;
+    const finalSchoolId = querySchoolId || "school-default";
 
     // Get Base Tuition
     const baseTuitionRes = await db.execute({
@@ -44,7 +46,7 @@ export async function GET(req: Request) {
         WHERE s.school_id = ?
         ORDER BY s.created_at DESC
       `,
-      args: [schoolId],
+      args: [finalSchoolId],
     });
 
     // Fetch overrides for month if provided

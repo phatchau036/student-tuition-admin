@@ -25,6 +25,7 @@ interface SmartExcelImportModalProps {
   onSuccess: () => void;
   subjects: Subject[];
   levels: LevelSurcharge[];
+  schoolId?: string;
 }
 
 interface ColumnMapping {
@@ -43,6 +44,7 @@ export const SmartExcelImportModal: React.FC<SmartExcelImportModalProps> = ({
   onSuccess,
   subjects,
   levels,
+  schoolId,
 }) => {
   const { showToast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -217,13 +219,19 @@ export const SmartExcelImportModal: React.FC<SmartExcelImportModalProps> = ({
         };
       }).filter((s) => s.name.trim() !== "");
 
+      const token = typeof window !== "undefined" ? localStorage.getItem("admin_token") : null;
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+      if (schoolId) headers["x-school-id"] = schoolId;
+
       const res = await fetch("/api/students/import", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({
           students: allMappedStudents,
           default_subject_id: defaultSubjectId || undefined,
           default_level_id: defaultLevelId || undefined,
+          school_id: schoolId || undefined,
         }),
       });
 
