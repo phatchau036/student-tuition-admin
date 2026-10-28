@@ -132,10 +132,10 @@ export async function POST(req: Request) {
 
       // 4. Gói học phí mặc định
       await db.execute({
-        sql: `INSERT INTO tuition_packages (id, school_id, name, amount, cycle_unit, cycle_value, is_active)
+        sql: `INSERT INTO tuition_packages (id, school_id, name, amount, original_amount, cycle_unit, cycle_value, discount_type, discount_value, benefits, is_active)
               VALUES 
-              (?, ?, 'Học phí 1 tháng', 1000000, 'month', 1, 1),
-              (?, ?, 'Gói Khóa 3 tháng (-5%)', 2850000, 'month', 3, 1)`,
+              (?, ?, 'Học phí 1 tháng', 1000000, 1000000, 'month', 1, 'none', 0, '', 1),
+              (?, ?, 'Gói Khóa 3 tháng (-5%)', 2850000, 3000000, 'month', 3, 'percent', 5, 'Tặng 1 buổi học bù', 1)`,
         args: [
           `pkg-${Date.now()}-1`, id,
           `pkg-${Date.now()}-2`, id,

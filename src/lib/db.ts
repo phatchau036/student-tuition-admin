@@ -226,8 +226,12 @@ export async function initDb() {
       school_id TEXT DEFAULT 'school-default',
       name TEXT NOT NULL,
       amount INTEGER NOT NULL DEFAULT 1000000,
+      original_amount INTEGER DEFAULT 1000000,
       cycle_unit TEXT NOT NULL DEFAULT 'month', -- 'month' | 'week'
       cycle_value INTEGER NOT NULL DEFAULT 1, -- 1, 3, 6, 24...
+      discount_type TEXT DEFAULT 'none',
+      discount_value INTEGER DEFAULT 0,
+      benefits TEXT DEFAULT '',
       is_active INTEGER NOT NULL DEFAULT 1,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
@@ -350,6 +354,10 @@ export async function initDb() {
   try { await db.execute("ALTER TABLE teachers ADD COLUMN zalo_link TEXT DEFAULT NULL"); } catch {}
   try { await db.execute("ALTER TABLE student_monthly_tuitions ADD COLUMN items_json TEXT DEFAULT '[]'"); } catch {}
   try { await db.execute("ALTER TABLE makeup_classes ADD COLUMN makeup_teacher_id TEXT DEFAULT NULL"); } catch {}
+  try { await db.execute("ALTER TABLE tuition_packages ADD COLUMN original_amount INTEGER DEFAULT 1000000"); } catch {}
+  try { await db.execute("ALTER TABLE tuition_packages ADD COLUMN discount_type TEXT DEFAULT 'none'"); } catch {}
+  try { await db.execute("ALTER TABLE tuition_packages ADD COLUMN discount_value INTEGER DEFAULT 0"); } catch {}
+  try { await db.execute("ALTER TABLE tuition_packages ADD COLUMN benefits TEXT DEFAULT ''"); } catch {}
 
   // Defaults for settings
   const defaults: [string, string][] = [

@@ -101,8 +101,12 @@ export async function GET(req: Request) {
       school_id: String(row.school_id || schoolId),
       name: String(row.name),
       amount: Number(row.amount),
+      original_amount: Number(row.original_amount || row.amount),
       cycle_unit: String(row.cycle_unit) as "month" | "week",
       cycle_value: Number(row.cycle_value),
+      discount_type: (row.discount_type as "none" | "percent" | "amount") || "none",
+      discount_value: Number(row.discount_value || 0),
+      benefits: String(row.benefits || ""),
       is_active: Number(row.is_active),
       created_at: String(row.created_at || ""),
     }));

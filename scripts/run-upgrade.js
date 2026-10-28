@@ -56,7 +56,8 @@ try {
     for (const pid of pids) {
       if (pid && pid !== String(process.pid)) {
         try {
-          execSync(`taskkill /F /T /PID ${pid}`);
+          // KHÔNG dùng /T vì /T sẽ diệt toàn bộ cây tiến trình con bao gồm cả run-upgrade.js
+          execSync(`taskkill /F /PID ${pid}`);
         } catch {}
       }
     }
@@ -65,19 +66,31 @@ try {
   }
 } catch {}
 
+// Chờ 2 giây để cổng hoàn toàn được hệ điều hành giải phóng
+try {
+  if (isWindows) {
+    execSync("timeout /t 2 /nobreak >nul", { stdio: "ignore" });
+  } else {
+    execSync("sleep 2", { stdio: "ignore" });
+  }
+} catch {}
+
 // 7. Khởi động lại server Next.js chạy độc lập
 console.log("Dang khoi dong lai may chu Next.js...");
+const logPath = path.join(cwd, "upgrade.log");
+const outFd = fs.openSync(logPath, "a");
+
 const child = isWindows
   ? spawn("cmd.exe", ["/c", "npm start"], {
       cwd,
       detached: true,
-      stdio: "ignore",
+      stdio: ["ignore", outFd, outFd],
       windowsHide: true,
     })
   : spawn("npm", ["start"], {
       cwd,
       detached: true,
-      stdio: "ignore",
+      stdio: ["ignore", outFd, outFd],
     });
 
 child.unref();
