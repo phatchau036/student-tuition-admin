@@ -18,6 +18,47 @@ function computeEndMonth(startMonth: string, cycleMonths: number): string {
   return `${y}-${String(m).padStart(2, "0")}`;
 }
 
+// GET /api/payments?student_id=... Lấy danh sách các kỳ thanh toán của học sinh
+export async function GET(req: Request) {
+  try {
+    await initDb();
+    const db = getDb();
+    const url = new URL(req.url);
+    const studentId = url.searchParams.get("student_id");
+
+    if (!studentId) {
+      return NextResponse.json({ success: false, message: "Thiếu mã học sinh!" }, { status: 400 });
+    }
+
+    const res = await db.execute({
+      sql: "SELECT * FROM student_payments WHERE student_id = ? ORDER BY start_period DESC, created_at DESC",
+      args: [studentId],
+    });
+
+    const payments = res.rows.map((row) => ({
+      id: String(row.id),
+      student_id: String(row.student_id),
+      package_id: String(row.package_id || ""),
+      package_name: String(row.package_name || ""),
+      amount: Number(row.amount),
+      paid_date: String(row.paid_date),
+      start_period: String(row.start_period),
+      end_period: String(row.end_period),
+      status: String(row.status) as "paid" | "unpaid",
+      note: String(row.note || ""),
+      created_at: String(row.created_at || ""),
+    }));
+
+    return NextResponse.json({ success: true, data: payments });
+  } catch (error: unknown) {
+    console.error("Payments GET Error:", error);
+    return NextResponse.json(
+      { success: false, message: (error as Error).message || "Internal Server Error" },
+      { status: 500 }
+    );
+  }
+}
+
 export async function POST(req: Request) {
   try {
     await initDb();
@@ -199,6 +240,94 @@ export async function POST(req: Request) {
       return NextResponse.json({
         success: true,
         message: `Đã chuyển trạng thái tháng ${currentMonth} thành "Cần đóng tiền" (các tháng trước vẫn được bảo lưu)!`,
+      });
+    }
+
+    // 3. ĐỐI SOÁT CHUẨN XÁC: SET TRẠNG THÁI CHO NHIỀU THÁNG CỤ THỂ
+    if (action === "set_months_status") {
+      const { paid_months, unpaid_months } = body; // Mảng các tháng dạng ["2026-09", "2026-10", "2026-11"]
+      
+      // Xử lý các tháng được đánh dấu Cần đóng tiền (unpaid)
+      if (Array.isArray(unpaid_months)) {
+        for (const unMonth of unpaid_months) {
+          const activePaymentsRes = await db.execute({
+            sql: `SELECT * FROM student_payments 
+                  WHERE student_id = ? AND ? >= start_period AND ? <= end_period AND status = 'paid'`,
+            args: [student_id, unMonth, unMonth],
+          });
+
+          for (const pay of activePaymentsRes.rows) {
+            const sp = String(pay.start_period);
+            const ep = String(pay.end_period);
+
+            if (sp === ep) {
+              await db.execute({ sql: "DELETE FROM student_payments WHERE id = ?", args: [pay.id] });
+            } else if (unMonth === sp) {
+              const nextStart = getNextMonthStr(unMonth);
+              if (nextStart <= ep) {
+                await db.execute({ sql: "UPDATE student_payments SET start_period = ? WHERE id = ?", args: [nextStart, pay.id] });
+              } else {
+                await db.execute({ sql: "DELETE FROM student_payments WHERE id = ?", args: [pay.id] });
+              }
+            } else if (unMonth === ep) {
+              const prevEnd = getPreviousMonthStr(unMonth);
+              if (prevEnd >= sp) {
+                await db.execute({ sql: "UPDATE student_payments SET end_period = ? WHERE id = ?", args: [prevEnd, pay.id] });
+              } else {
+                await db.execute({ sql: "DELETE FROM student_payments WHERE id = ?", args: [pay.id] });
+              }
+            } else {
+              const prevEnd = getPreviousMonthStr(unMonth);
+              const nextStart = getNextMonthStr(unMonth);
+              await db.execute({ sql: "UPDATE student_payments SET end_period = ? WHERE id = ?", args: [prevEnd, pay.id] });
+              if (nextStart <= ep) {
+                const splitId = `pay-split-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+                await db.execute({
+                  sql: `INSERT INTO student_payments (id, student_id, package_id, package_name, amount, paid_date, start_period, end_period, status, note)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'paid', ?)`,
+                  args: [splitId, pay.student_id, pay.package_id, pay.package_name, pay.amount, pay.paid_date, nextStart, ep, pay.note || ""],
+                });
+              }
+            }
+          }
+        }
+      }
+
+      // Xử lý các tháng được đánh dấu Đã đóng (paid)
+      if (Array.isArray(paid_months)) {
+        const todayStr = new Date().toISOString().slice(0, 10);
+        for (const pMonth of paid_months) {
+          // Kiểm tra xem đã có bản ghi bao phủ tháng này chưa
+          const checkRes = await db.execute({
+            sql: `SELECT id FROM student_payments 
+                  WHERE student_id = ? AND ? >= start_period AND ? <= end_period AND status = 'paid'`,
+            args: [student_id, pMonth, pMonth],
+          });
+
+          if (checkRes.rows.length === 0) {
+            const payId = `pay-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+            await db.execute({
+              sql: `INSERT INTO student_payments (id, student_id, package_id, package_name, amount, paid_date, start_period, end_period, status, note)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'paid', ?)`,
+              args: [
+                payId,
+                student_id,
+                package_id || null,
+                "Đã đối soát",
+                Number(amount) || 1000000,
+                todayStr,
+                pMonth,
+                pMonth,
+                note || "",
+              ],
+            });
+          }
+        }
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: "Cập nhật đối soát các tháng thành công!",
       });
     }
 

@@ -75,6 +75,7 @@ import Link from "next/link";
 import { MonthlySummaryModal } from "./MonthlySummaryModal";
 import { AppInfoModal } from "./AppInfoModal";
 import { SmartExcelImportModal } from "./SmartExcelImportModal";
+import { QuickAuditModal } from "./QuickAuditModal";
 import { exportStudentsToExcel } from "@/lib/exportExcel";
 import { useLanguage } from "@/lib/i18n";
 import { useTheme } from "@/lib/ThemeContext";
@@ -140,6 +141,8 @@ export default function Dashboard() {
   const [isMonthlySummaryModalOpen, setIsMonthlySummaryModalOpen] = useState(false);
   const [isAppInfoModalOpen, setIsAppInfoModalOpen] = useState(false);
   const [isExcelImportModalOpen, setIsExcelImportModalOpen] = useState(false);
+  const [isQuickAuditModalOpen, setIsQuickAuditModalOpen] = useState(false);
+  const [studentForQuickAudit, setStudentForQuickAudit] = useState<Student | null>(null);
 
   // Custom Delete Confirmation Modal state
   const [studentToDelete, setStudentToDelete] = useState<Student | null>(null);
@@ -361,10 +364,10 @@ export default function Dashboard() {
     }
   };
 
-  // Load Students for Selected Month
-  const loadStudents = async (month: string, schoolId?: string) => {
+  // Load Students for Selected Month (Hỗ trợ silent refresh giữ nguyên vị trí cuộn trang)
+  const loadStudents = async (month: string, schoolId?: string, silent: boolean = false) => {
     try {
-      setIsLoading(true);
+      if (!silent) setIsLoading(true);
       const targetSchoolId = schoolId || currentSchool?.id || "";
       const schoolParam = targetSchoolId ? `&school_id=${targetSchoolId}` : "";
       const res = await fetch(`/api/students?month=${month}${schoolParam}`, {
@@ -380,7 +383,7 @@ export default function Dashboard() {
     } catch {
       showToast("Lỗi kết nối khi tải học sinh", "error");
     } finally {
-      setIsLoading(false);
+      if (!silent) setIsLoading(false);
     }
   };
 
@@ -439,7 +442,7 @@ export default function Dashboard() {
       const data = await res.json();
       if (data.success) {
         showToast(data.message, "success");
-        loadStudents(selectedMonth);
+        loadStudents(selectedMonth, undefined, true);
       } else {
         showToast(data.message || "Không thể cập nhật đối soát!", "error");
       }
@@ -1471,26 +1474,23 @@ export default function Dashboard() {
                           </div>
                         </td>
 
-                        {/* Đối Soát Phí: Checkbox / Toggle Đã đóng hoặc Cần đóng tiền */}
+                        {/* Đối Soát Phí: Bấm để mở bảng Đối soát nhanh (Chọn Đã đóng / Chưa đóng & Tick chọn từng tháng) */}
                         <td className="py-3 px-3 text-center whitespace-nowrap">
                           <div className="inline-flex flex-col items-center gap-1">
                             <button
                               type="button"
-                              onClick={() => handleToggleStudentReconciliation(student)}
-                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-extrabold border transition shadow-2xs ${
+                              onClick={() => {
+                                setStudentForQuickAudit(student);
+                                setIsQuickAuditModalOpen(true);
+                              }}
+                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-extrabold border transition shadow-2xs hover:scale-105 active:scale-95 cursor-pointer ${
                                 student.payment_status === "paid"
                                   ? "bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800"
                                   : student.is_overdue
                                   ? "bg-rose-600 text-white border-rose-700 hover:bg-rose-700 shadow-sm animate-pulse"
                                   : "bg-rose-50 text-rose-700 border-rose-300 hover:bg-rose-100 dark:bg-rose-950/50 dark:text-rose-300 dark:border-rose-800"
                               }`}
-                              title={
-                                student.payment_status === "paid"
-                                  ? "Bấm để chuyển về Chưa đóng"
-                                  : student.is_overdue
-                                  ? `Cảnh báo: Học sinh nợ liên tiếp ${student.unpaid_months_count} tháng! Tổng cần thu: ${formatVND(student.total_tuition_due)}`
-                                  : "Bấm để xác nhận Đã đóng học phí"
-                              }
+                              title="Bấm để mở bảng đối soát học phí chi tiết (chọn Đã đóng/Chưa đóng hoặc tick từng tháng)"
                             >
                               {student.payment_status === "paid" ? (
                                 <>
@@ -1794,12 +1794,23 @@ export default function Dashboard() {
         onReconciliationToggle={handleToggleStudentReconciliation}
       />
 
-      {/* Change Status Modal (Bảo lưu / Nghỉ học / Học tiếp) */}
+      {/* Change Status Modal (Bảo lưu / Nghỉ học / Học tiếp - Silent update không bị nhảy trang) */}
       <ChangeStatusModal
         isOpen={isChangeStatusModalOpen}
         onClose={() => setIsChangeStatusModalOpen(false)}
         student={studentForStatusChange}
-        onSaved={() => loadStudents(selectedMonth)}
+        onSaved={() => loadStudents(selectedMonth, undefined, true)}
+      />
+
+      {/* Quick Audit Modal (Đối soát nhanh: Chọn Đã đóng/Chưa đóng hoặc tick từng tháng) */}
+      <QuickAuditModal
+        isOpen={isQuickAuditModalOpen}
+        onClose={() => setIsQuickAuditModalOpen(false)}
+        student={studentForQuickAudit}
+        selectedMonth={selectedMonth}
+        monthFormat={monthFormat}
+        tuitionPackages={tuitionPackages}
+        onSuccess={() => loadStudents(selectedMonth, undefined, true)}
       />
 
       {/* Status Log Modal (Nhật ký tổng biến động học sinh) */}
