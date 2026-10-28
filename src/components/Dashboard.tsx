@@ -70,6 +70,9 @@ import {
   FileSpreadsheet,
   Download,
   Upload,
+  CheckSquare,
+  Square,
+  UserCheck,
 } from "lucide-react";
 import Link from "next/link";
 import { MonthlySummaryModal } from "./MonthlySummaryModal";
@@ -192,6 +195,16 @@ export default function Dashboard() {
   const [openRowActionId, setOpenRowActionId] = useState<string | null>(null);
   const [isManagementMenuOpen, setIsManagementMenuOpen] = useState(false);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+
+  // Bulk Selection States (Chọn hàng loạt)
+  const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
+  const [isBulkOperating, setIsBulkOperating] = useState(false);
+  const [bulkConfirmModal, setBulkConfirmModal] = useState<{
+    isOpen: boolean;
+    action: "delete" | "reserve" | "drop" | "resume";
+    title: string;
+    description: string;
+  } | null>(null);
 
   // Check IP restriction & Admin Auth on mount
   useEffect(() => {
@@ -491,6 +504,60 @@ export default function Dashboard() {
   const totalPendingMakeups = useMemo(() => {
     return students.reduce((sum, s) => sum + (s.pending_makeups_count || 0), 0);
   }, [students]);
+
+  // Bulk Selection Helpers
+  const isAllFilteredSelected = useMemo(() => {
+    if (filteredStudents.length === 0) return false;
+    return filteredStudents.every((s) => selectedStudentIds.includes(s.id));
+  }, [filteredStudents, selectedStudentIds]);
+
+  const handleToggleSelectAll = () => {
+    if (isAllFilteredSelected) {
+      // Bỏ chọn tất cả học sinh đang hiển thị
+      const filteredIdSet = new Set(filteredStudents.map((s) => s.id));
+      setSelectedStudentIds((prev) => prev.filter((id) => !filteredIdSet.has(id)));
+    } else {
+      // Chọn tất cả học sinh đang hiển thị
+      const allFilteredIds = filteredStudents.map((s) => s.id);
+      setSelectedStudentIds((prev) => [...new Set([...prev, ...allFilteredIds])]);
+    }
+  };
+
+  const handleToggleSelectStudent = (studentId: string) => {
+    setSelectedStudentIds((prev) =>
+      prev.includes(studentId) ? prev.filter((id) => id !== studentId) : [...prev, studentId]
+    );
+  };
+
+  const handleExecuteBulkAction = async (action: "delete" | "reserve" | "drop" | "resume") => {
+    if (selectedStudentIds.length === 0) return;
+    try {
+      setIsBulkOperating(true);
+      const res = await fetch("/api/students/bulk-action", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action,
+          student_ids: selectedStudentIds,
+          effective_date: new Date().toISOString().slice(0, 10),
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        showToast(data.message, "success");
+        setSelectedStudentIds([]);
+        setBulkConfirmModal(null);
+        loadStudents(selectedMonth, undefined, true);
+      } else {
+        showToast(data.message || "Thao tác hàng loạt thất bại!", "error");
+      }
+    } catch {
+      showToast("Lỗi kết nối máy chủ!", "error");
+    } finally {
+      setIsBulkOperating(false);
+    }
+  };
 
   // 0. IP Blocked: If school enabled IP restriction and client IP is not in whitelist -> Web Error
   if (ipStatus.checked && !ipStatus.allowed) {
@@ -1184,12 +1251,22 @@ export default function Dashboard() {
         </div>
 
         {/* Student Table Listing */}
-        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm">
+        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm relative">
           <div className="overflow-x-auto overflow-y-visible pb-32">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50/80 dark:bg-slate-800/60 border-b border-slate-200/80 dark:border-slate-800 text-[11px] font-black uppercase tracking-wider text-slate-400 whitespace-nowrap">
-                  <th className="py-3 px-3 sm:px-4">{t.col_student}</th>
+                  {/* Select All Checkbox Column */}
+                  <th className="py-3 px-3 sm:px-4 w-10 text-center">
+                    <input
+                      type="checkbox"
+                      checked={isAllFilteredSelected}
+                      onChange={handleToggleSelectAll}
+                      className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                      title={isAllFilteredSelected ? "Bỏ chọn tất cả" : "Chọn tất cả học sinh đang hiển thị"}
+                    />
+                  </th>
+                  <th className="py-3 px-2 sm:px-3">{t.col_student}</th>
                   <th className="py-3 px-2.5">{t.col_status}</th>
                   <th className="py-3 px-2.5">{t.col_teacher}</th>
                   <th className="py-3 px-2.5">{t.col_level_surcharge}</th>
@@ -1203,7 +1280,7 @@ export default function Dashboard() {
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 text-sm">
                 {isLoading ? (
                   <tr>
-                    <td colSpan={9} className="text-center py-14 text-slate-400">
+                    <td colSpan={10} className="text-center py-14 text-slate-400">
                       <div className="flex flex-col items-center justify-center gap-2">
                         <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
                         <span className="font-semibold text-xs">{t.loading_students}</span>
@@ -1212,7 +1289,7 @@ export default function Dashboard() {
                   </tr>
                 ) : filteredStudents.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="text-center py-14 text-slate-400">
+                    <td colSpan={10} className="text-center py-14 text-slate-400">
                       <div className="flex flex-col items-center justify-center gap-2 max-w-sm mx-auto">
                         <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 mb-1">
                           <Users className="w-6 h-6" />
@@ -1230,14 +1307,29 @@ export default function Dashboard() {
                     const isByHours = student.duration_mode === "by_hours";
                     const initialChar = student.name ? student.name.trim().charAt(0).toUpperCase() : "H";
                     const isNearBottom = rowIndex >= filteredStudents.length - 2;
+                    const isSelected = selectedStudentIds.includes(student.id);
 
                     return (
                       <tr
                         key={student.id}
-                        className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition group"
+                        className={`transition group ${
+                          isSelected
+                            ? "bg-indigo-50/60 dark:bg-indigo-950/40"
+                            : "hover:bg-slate-50/70 dark:hover:bg-slate-800/40"
+                        }`}
                       >
+                        {/* Checkbox Column */}
+                        <td className="py-3 px-3 sm:px-4 text-center">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => handleToggleSelectStudent(student.id)}
+                            className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                          />
+                        </td>
+
                         {/* Student Name, Avatar & Phone */}
-                        <td className="py-3 px-3 sm:px-4">
+                        <td className="py-3 px-2 sm:px-3">
                           <div className="flex items-center gap-2.5">
                             <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-500 to-indigo-600 text-white font-black text-xs flex items-center justify-center shrink-0 shadow-xs">
                               {initialChar}
@@ -1654,7 +1746,167 @@ export default function Dashboard() {
             </table>
           </div>
         </div>
+
+        {/* Floating Bulk Action Bar (Thanh tác vụ nổi khi tick chọn nhiều học sinh) */}
+        {selectedStudentIds.length > 0 && (
+          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-slate-900/95 dark:bg-slate-800/95 text-white border border-slate-700/80 rounded-2xl shadow-2xl backdrop-blur-md px-4 py-3 flex items-center gap-3 sm:gap-4 animate-in fade-in slide-in-from-bottom-5 duration-200">
+            <div className="flex items-center gap-2 pr-3 border-r border-slate-700">
+              <span className="w-6 h-6 rounded-lg bg-indigo-600 text-white font-black text-xs flex items-center justify-center">
+                {selectedStudentIds.length}
+              </span>
+              <span className="text-xs font-bold text-slate-200 hidden sm:inline">
+                Đã chọn {selectedStudentIds.length} học sinh
+              </span>
+            </div>
+
+            {/* Quick Bulk Actions */}
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              {/* Bảo lưu hàng loạt */}
+              <button
+                type="button"
+                onClick={() =>
+                  setBulkConfirmModal({
+                    isOpen: true,
+                    action: "reserve",
+                    title: "Bảo lưu hàng loạt",
+                    description: `Bạn có chắc muốn chuyển ${selectedStudentIds.length} học sinh đã chọn sang trạng thái BẢO LƯU?`,
+                  })
+                }
+                className="px-3 py-1.5 text-xs font-bold rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 transition flex items-center gap-1.5 cursor-pointer"
+              >
+                <PauseCircle className="w-3.5 h-3.5" />
+                <span>Bảo Lưu</span>
+              </button>
+
+              {/* Nghỉ học hàng loạt */}
+              <button
+                type="button"
+                onClick={() =>
+                  setBulkConfirmModal({
+                    isOpen: true,
+                    action: "drop",
+                    title: "Nghỉ học hàng loạt",
+                    description: `Bạn có chắc muốn chuyển ${selectedStudentIds.length} học sinh đã chọn sang trạng thái NGHỈ HỌC?`,
+                  })
+                }
+                className="px-3 py-1.5 text-xs font-bold rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 transition flex items-center gap-1.5 cursor-pointer"
+              >
+                <UserX className="w-3.5 h-3.5" />
+                <span>Nghỉ Học</span>
+              </button>
+
+              {/* Học tiếp hàng loạt */}
+              <button
+                type="button"
+                onClick={() =>
+                  setBulkConfirmModal({
+                    isOpen: true,
+                    action: "resume",
+                    title: "Học tiếp hàng loạt",
+                    description: `Bạn có chắc muốn kích hoạt ${selectedStudentIds.length} học sinh đã chọn trở lại trạng thái ĐANG HỌC?`,
+                  })
+                }
+                className="px-3 py-1.5 text-xs font-bold rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 transition flex items-center gap-1.5 cursor-pointer"
+              >
+                <UserCheck className="w-3.5 h-3.5" />
+                <span>Học Tiếp</span>
+              </button>
+
+              {/* Xóa hàng loạt */}
+              <button
+                type="button"
+                onClick={() =>
+                  setBulkConfirmModal({
+                    isOpen: true,
+                    action: "delete",
+                    title: "Xóa học sinh hàng loạt",
+                    description: `CẢNH BÁO: Bạn có chắc chắn muốn XÓA VĨNH VIỄN ${selectedStudentIds.length} học sinh đã chọn khỏi hệ thống? Dữ liệu lịch học và học phí liên quan cũng sẽ bị xóa sạch!`,
+                  })
+                }
+                className="px-3 py-1.5 text-xs font-bold rounded-xl bg-rose-600 hover:bg-rose-700 text-white shadow-xs transition flex items-center gap-1.5 cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Xóa Hàng Loạt</span>
+              </button>
+            </div>
+
+            {/* Bỏ chọn tất cả */}
+            <button
+              type="button"
+              onClick={() => setSelectedStudentIds([])}
+              className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition ml-1"
+              title="Bỏ chọn tất cả"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
       </main>
+
+      {/* Modal Xác Nhận Thao Tác Hàng Loạt (Bulk Confirm Modal) */}
+      {bulkConfirmModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4 animate-in fade-in zoom-in-95">
+            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mx-auto ${
+              bulkConfirmModal.action === "delete"
+                ? "bg-rose-100 text-rose-600 dark:bg-rose-950/60 dark:text-rose-400"
+                : bulkConfirmModal.action === "reserve"
+                ? "bg-amber-100 text-amber-600 dark:bg-amber-950/60 dark:text-amber-400"
+                : "bg-indigo-100 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400"
+            }`}>
+              {bulkConfirmModal.action === "delete" ? (
+                <Trash2 className="w-6 h-6" />
+              ) : bulkConfirmModal.action === "reserve" ? (
+                <PauseCircle className="w-6 h-6" />
+              ) : (
+                <UserCheck className="w-6 h-6" />
+              )}
+            </div>
+
+            <div className="text-center space-y-1">
+              <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                {bulkConfirmModal.title}
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                {bulkConfirmModal.description}
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 pt-2">
+              <button
+                type="button"
+                disabled={isBulkOperating}
+                onClick={() => setBulkConfirmModal(null)}
+                className="flex-1 py-2.5 text-xs font-bold rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition"
+              >
+                Hủy bỏ
+              </button>
+
+              <button
+                type="button"
+                disabled={isBulkOperating}
+                onClick={() => handleExecuteBulkAction(bulkConfirmModal.action)}
+                className={`flex-1 py-2.5 text-xs font-bold rounded-xl text-white shadow-md transition disabled:opacity-50 flex items-center justify-center gap-1.5 ${
+                  bulkConfirmModal.action === "delete"
+                    ? "bg-rose-600 hover:bg-rose-700 shadow-rose-600/30"
+                    : bulkConfirmModal.action === "reserve"
+                    ? "bg-amber-600 hover:bg-amber-700 shadow-amber-600/30"
+                    : "bg-indigo-600 hover:bg-indigo-700 shadow-indigo-600/30"
+                }`}
+              >
+                {isBulkOperating ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Đang xử lý...</span>
+                  </>
+                ) : (
+                  <span>Xác Nhận Thực Hiện</span>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Custom Delete Confirmation Modal */}
       {studentToDelete && (
