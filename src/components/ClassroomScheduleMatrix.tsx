@@ -101,41 +101,22 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
   onAddStudentToSlot,
   onOpenConsultation,
 }) => {
-  // Mode: "week_grid" (Lưới 7 Ngày Chuẩn) | "single_day" (Xem Chi Tiết Từng Thứ) | "teacher_centric" (Theo Giáo Viên)
-  const [viewMode, setViewMode] = useState<"week_grid" | "single_day" | "teacher_centric">("week_grid");
-  const [activeDay, setActiveDay] = useState<string>("Thứ 2");
-  const [selectedTeacherTab, setSelectedTeacherTab] = useState<string>("all");
-
-  // Filters & Search
-  const [selectedSubjectFilter, setSelectedSubjectFilter] = useState<string>("all");
-  const [selectedTeacherFilter, setSelectedTeacherFilter] = useState<string>("all");
-  const [selectedPaymentStatusFilter, setSelectedPaymentStatusFilter] = useState<"all" | "paid" | "unpaid">("all");
-  const [searchQuery, setSearchQuery] = useState<string>("");
-  const [hideEmptyHours, setHideEmptyHours] = useState<boolean>(false);
-
-  // Side Drawer xem toàn bộ học sinh trong 1 ca (dành cho ô đông > 3 học sinh)
-  const [drawerSlot, setDrawerSlot] = useState<{
-    day: string;
-    hour: string;
-    entries: StudentSlotEntry[];
-  } | null>(null);
-  const [drawerSearch, setDrawerSearch] = useState<string>("");
-
-  // Hover preview student popover
-  const [hoveredStudent, setHoveredStudent] = useState<{
-    student: Student;
-    timeDetail: string;
-    subjectName: string;
-    x: number;
-    y: number;
-  } | null>(null);
-
-  // Xác định Thứ hôm nay để highlight cột trực quan
+  // Xác định Thứ hôm nay để highlight cột trực quan & gán mặc định
   const todayName = useMemo(() => {
     const dayIndex = new Date().getDay();
     const map = ["Chủ Nhật", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7"];
     return map[dayIndex];
   }, []);
+
+  // Mode: "week_grid" (Lưới 7 Ngày Chuẩn) | "single_day" (Xem Chi Tiết Từng Thứ) | "teacher_centric" (Theo Giáo Viên)
+  const [viewMode, setViewMode] = useState<"week_grid" | "single_day" | "teacher_centric">("week_grid");
+  // Mặc định ưu tiên chọn Thứ của Hôm Nay trước
+  const [activeDay, setActiveDay] = useState<string>(() => {
+    const dayIndex = new Date().getDay();
+    const map = ["Chủ Nhật", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7"];
+    return map[dayIndex] || "Thứ 2";
+  });
+  const [selectedTeacherTab, setSelectedTeacherTab] = useState<string>("all");
 
   // Lọc danh sách giáo viên đang hoạt động
   const activeTeachers = useMemo(() => {
@@ -352,7 +333,10 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
 
             <button
               type="button"
-              onClick={() => setViewMode("single_day")}
+              onClick={() => {
+                setViewMode("single_day");
+                setActiveDay(todayName);
+              }}
               className={`flex-1 sm:flex-none px-3.5 py-1.5 rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer ${
                 viewMode === "single_day"
                   ? "bg-indigo-600 text-white shadow-xs"
