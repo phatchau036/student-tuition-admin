@@ -250,6 +250,7 @@ export async function GET(req: Request) {
         registered_days: String(row.registered_days || ""),
         study_time_detail: String(row.study_time_detail || ""),
         schedule_details_json: String(row.schedule_details_json || "[]"),
+        schedule_preset_name: String(row.schedule_preset_name || ""),
         pending_makeups_count: Math.max(0, Math.ceil((walletMap[String(row.id)] || 0) / 90)), // Backward compat: quy đổi phút sang "buổi tương đương"
         balance_minutes: walletMap[String(row.id)] || 0,
         available_minutes: (walletMap[String(row.id)] || 0) - (scheduledMakeupMap[String(row.id)] || 0),
@@ -304,6 +305,7 @@ export async function POST(req: Request) {
       registered_days,
       study_time_detail,
       schedule_details_json,
+      schedule_preset_name,
       is_discount_enabled,
       discount_percent,
       discount_reason,
@@ -330,10 +332,10 @@ export async function POST(req: Request) {
     await db.execute({
       sql: `INSERT INTO students (
               id, school_id, student_code, name, phone, zalo_link, zalo_chat_id, level_id, subject_id, time_slot_id, teacher_id, tuition_package_id,
-              start_date, duration_mode, sessions_per_week, hours_per_week, registered_days, study_time_detail, schedule_details_json,
+              start_date, duration_mode, sessions_per_week, hours_per_week, registered_days, study_time_detail, schedule_details_json, schedule_preset_name,
               is_discount_enabled, discount_percent, discount_reason
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       args: [
         id,
         targetSchoolId,
@@ -354,6 +356,7 @@ export async function POST(req: Request) {
         registered_days || "",
         study_time_detail || "",
         schedule_details_json || "[]",
+        schedule_preset_name ? String(schedule_preset_name).trim() : "",
         is_discount_enabled ? 1 : 0,
         Number(discount_percent) || 0,
         discount_reason ? String(discount_reason).trim() : "",

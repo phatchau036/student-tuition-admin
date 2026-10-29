@@ -68,6 +68,7 @@ interface StudentData {
   hours_per_week: number;
   registered_days: string;
   schedule_details_json?: string;
+  schedule_preset_name?: string;
   study_time_detail?: string;
   tuition_package_name?: string;
   is_discount_enabled?: number;
@@ -785,7 +786,10 @@ export default function ParentPortal() {
 
                   <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 text-xs text-slate-700 dark:text-slate-300 space-y-1">
                     <p className="font-semibold text-slate-900 dark:text-white">
-                      Các ngày học: {activeStudent.registered_days || "Chưa chọn lịch"}
+                      Kiểu lịch:{" "}
+                      <span className="text-indigo-600 dark:text-indigo-400 font-bold">
+                        {activeStudent.schedule_preset_name || activeStudent.registered_days || "Chưa chọn lịch"}
+                      </span>
                     </p>
                     {activeStudent.study_time_detail && (
                       <p className="text-[11px] text-slate-500 dark:text-slate-400">{activeStudent.study_time_detail}</p>

@@ -128,6 +128,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
   const [selectedDays, setSelectedDays] = useState<string[]>(["Thứ 2", "Thứ 4", "Thứ 6"]);
   const [sessionHours, setSessionHours] = useState<number>(1.5); // Thời lượng mỗi buổi theo kiểu lịch
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
+  const [selectedPresetName, setSelectedPresetName] = useState<string>("");
 
   // If by_hours: Schedule items with flexible hours per day
   const [targetHours, setTargetHours] = useState<number>(defaultHours);
@@ -171,9 +172,12 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
       setSessionHours(computedSessionH);
 
       const matchedPreset = schedulePresets.find(
-        (p) => p.days.length === regDays.length && p.days.every((d) => regDays.includes(d))
+        (p) =>
+          (studentToEdit.schedule_preset_name && p.name === studentToEdit.schedule_preset_name) ||
+          (p.days.length === regDays.length && p.days.every((d) => regDays.includes(d)))
       );
       setSelectedPresetId(matchedPreset?.id || null);
+      setSelectedPresetName(studentToEdit.schedule_preset_name || matchedPreset?.name || "");
 
       try {
         if (studentToEdit.schedule_details_json && studentToEdit.schedule_details_json !== "[]") {
@@ -216,6 +220,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
 
       if (defaultPreset && !initialDay) {
         setSelectedPresetId(defaultPreset.id);
+        setSelectedPresetName(defaultPreset.name);
         const days = defaultPreset.days && defaultPreset.days.length > 0 ? defaultPreset.days : ["Thứ 2", "Thứ 4", "Thứ 6"];
         setSelectedDays(days);
         setSessionsPerWeek(days.length);
@@ -297,6 +302,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
 
   const handleApplyPreset = (preset: SchedulePreset) => {
     setSelectedPresetId(preset.id);
+    setSelectedPresetName(preset.name);
     const days = preset.days && preset.days.length > 0 ? preset.days : ["Thứ 2"];
     setSelectedDays(days);
     setSessionsPerWeek(days.length);
@@ -394,6 +400,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
           registered_days: finalRegisteredDays,
           study_time_detail: finalStudyTimeDetail,
           schedule_details_json: JSON.stringify(autoItems),
+          schedule_preset_name: selectedPresetName || (schedulePresets.find((p) => p.id === selectedPresetId)?.name) || "",
           is_discount_enabled: isDiscountEnabled ? 1 : 0,
           discount_percent: isDiscountEnabled ? Number(discountPercent) || 0 : 0,
           discount_reason: isDiscountEnabled ? discountReason.trim() : "",

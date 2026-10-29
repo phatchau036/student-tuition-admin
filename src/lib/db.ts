@@ -182,6 +182,7 @@ export async function initDb() {
       registered_days TEXT DEFAULT 'Thứ 2, Thứ 4, Thứ 6',
       study_time_detail TEXT DEFAULT '18:00 - 19:00',
       schedule_details_json TEXT DEFAULT '[]',
+      schedule_preset_name TEXT DEFAULT '',
       is_discount_enabled INTEGER NOT NULL DEFAULT 0,
       discount_percent REAL NOT NULL DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -430,6 +431,8 @@ export async function initDb() {
   try { await db.execute("ALTER TABLE students ADD COLUMN sessions_per_week INTEGER DEFAULT 3"); } catch {}
   try { await db.execute("ALTER TABLE students ADD COLUMN hours_per_week REAL DEFAULT 3"); } catch {}
   try { await db.execute("ALTER TABLE students ADD COLUMN study_time_detail TEXT DEFAULT '18:00 - 19:00'"); } catch {}
+  try { await db.execute("ALTER TABLE students ADD COLUMN schedule_details_json TEXT DEFAULT '[]'"); } catch {}
+  try { await db.execute("ALTER TABLE students ADD COLUMN schedule_preset_name TEXT DEFAULT ''"); } catch {}
   try { await db.execute("ALTER TABLE students ADD COLUMN is_discount_enabled INTEGER NOT NULL DEFAULT 0"); } catch {}
   try { await db.execute("ALTER TABLE students ADD COLUMN discount_percent REAL NOT NULL DEFAULT 0"); } catch {}
   try { await db.execute("ALTER TABLE students ADD COLUMN created_at TEXT DEFAULT NULL"); } catch {}

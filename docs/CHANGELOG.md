@@ -9,11 +9,12 @@
 ### [v2.8.0] - 2026-10-30
 - **⭐ HỆ THỐNG CÁC KIỂU LỊCH HỌC & MA TRẬN TỰ TÍNH THỜI LƯỢNG (Schedule Presets & Auto Matrix):**
   - **Chuẩn hóa duy nhất 1 hình thức quản lý lịch học:** Loại bỏ hoàn toàn Hình thức 1 (Theo tổng số tiếng / tuần nhập tay mù mờ), chuyển đổi 100% sang hình thức quản lý theo **Kiểu Lịch Học Cơ Sở & Ma Trận Thời Lượng**.
+  - **Hiển thị trực quan Tên Kiểu Lịch Học (Thứ chẵn, Thứ lẻ, Cuối tuần...) trên bảng Học Sinh:** Cột *Gói & Lịch Học* tại `Dashboard.tsx` có huy hiệu nhận diện kiểu lịch riêng biệt (`[📅 Thứ chẵn (2-4-6)]`, `[📅 Cuối tuần (T7-CN)]`...), kèm hàm nhận diện thông minh `detectStudentPresetName` áp dụng ngay cho cả học sinh cũ và mới.
   - Cho phép cơ sở tạo không giới hạn các "Kiểu Lịch Học" (Preset): tự đặt tên kiểu (ví dụ: *Thứ chẵn 2-4-6*, *Thứ lẻ 3-5-7*, *Cuối tuần T7-CN*), chọn các ngày trong tuần và thời lượng 1 buổi (ví dụ: 1.5 tiếng/buổi).
   - Tích hợp trực tiếp vào `SettingsModal.tsx` với card ma trận tính toán tự động: $\text{Số buổi} \times \text{Số tiếng/buổi} = \text{Tổng tiếng/tuần}$ (và quy đổi phút/tuần).
-  - Nâng cấp `StudentFormModal.tsx`: Bỏ switch tabs hình thức 1/2, hiển thị trực quan thanh chọn nhanh kiểu lịch mẫu cơ sở (hoặc tùy biến thứ và số tiếng/buổi). Hệ thống tự tính ngay tổng thời lượng tuần mà không cần tính nhẩm.
+  - Nâng cấp `StudentFormModal.tsx`: Chọn trực tiếp theo Kiểu Lịch Học từ Cài Đặt (không cần nhập tay thứ hay số tiếng), tự động tính ma trận tuần.
   - Tự động sinh `schedule_details_json` đồng bộ hoàn hảo sang Ma Trận Xếp Lịch `ClassroomScheduleMatrix` và hệ thống Ví Giờ Học.
-  - Setting mới: `schedule_presets` (chuỗi JSON danh sách `SchedulePreset[]`) trong bảng `settings`. Mặc định hệ thống gán `duration_mode = 'by_sessions'`.
+  - Thêm cột `schedule_preset_name` vào bảng `students` và key `schedule_presets` trong bảng `settings`. Mặc định hệ thống gán `duration_mode = 'by_sessions'`.
 
 ### [v2.7.0] - 2026-10-29
 - **⭐ VÍ GIỜ HỌC (Hour Wallet System):** Thay đổi nền tảng cơ chế học bù — bỏ đếm "suất bù", chuyển sang số dư phút trong ví:

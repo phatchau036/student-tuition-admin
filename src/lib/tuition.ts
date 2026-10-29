@@ -825,4 +825,73 @@ export function generateUpcomingStudentSchedule(
   return results;
 }
 
+/* =========================================================================
+ * NHẬN DIỆN THÔNG MINH TÊN KIỂU LỊCH HỌC (SCHEDULE PRESET DETECTOR)
+ * ========================================================================= */
+export function detectStudentPresetName(
+  student: {
+    schedule_preset_name?: string;
+    registered_days?: string;
+    study_time_detail?: string;
+    schedule_details_json?: string;
+  },
+  presets: Array<{ id: string; name: string; days?: string[] }> = []
+): string {
+  if (student.schedule_preset_name && student.schedule_preset_name.trim()) {
+    return student.schedule_preset_name.trim();
+  }
+
+  // Thu thập danh sách ngày học từ registered_days hoặc schedule_details_json
+  let days: string[] = [];
+  if (student.registered_days && student.registered_days.trim()) {
+    days = student.registered_days.split(",").map((d) => d.trim()).filter(Boolean);
+  }
+  if (days.length === 0 && student.schedule_details_json) {
+    try {
+      const items = JSON.parse(student.schedule_details_json);
+      if (Array.isArray(items)) {
+        days = Array.from(new Set(items.map((i: any) => String(i.day || "")).filter(Boolean)));
+      }
+    } catch {}
+  }
+
+  // So khớp với danh sách presets đã cấu hình trong Cài Đặt
+  if (presets.length > 0 && days.length > 0) {
+    const matched = presets.find((p) => {
+      const pDays = Array.isArray(p.days) ? p.days : [];
+      if (pDays.length !== days.length) return false;
+      return pDays.every((pd) => days.some((d) => d.toLowerCase() === pd.toLowerCase()));
+    });
+    if (matched) return matched.name;
+  }
+
+  // Phân tích văn bản từ study_time_detail & registered_days
+  const combined = `${student.registered_days || ""} ${student.study_time_detail || ""}`.toLowerCase();
+
+  if (/t2[-_ ]*4[-_ ]*6/i.test(combined) || (combined.includes("thứ 2") && combined.includes("thứ 4") && combined.includes("thứ 6"))) {
+    const evenPreset = presets.find((p) => p.name.toLowerCase().includes("chẵn") || p.name.includes("2-4-6"));
+    return evenPreset ? evenPreset.name : "Thứ chẵn (2-4-6)";
+  }
+
+  if (/t3[-_ ]*5[-_ ]*7/i.test(combined) || (combined.includes("thứ 3") && combined.includes("thứ 5") && combined.includes("thứ 7"))) {
+    const oddPreset = presets.find((p) => p.name.toLowerCase().includes("lẻ") || p.name.includes("3-5-7"));
+    return oddPreset ? oddPreset.name : "Thứ lẻ (3-5-7)";
+  }
+
+  if ((combined.includes("thứ 7") || combined.includes("t7")) && (combined.includes("chủ nhật") || combined.includes("cn"))) {
+    const weekendPreset = presets.find((p) => p.name.toLowerCase().includes("cuối tuần") || p.name.includes("t7-cn"));
+    return weekendPreset ? weekendPreset.name : "Cuối tuần (T7-CN)";
+  }
+
+  if (combined.includes("linh hoạt")) {
+    return "Linh hoạt";
+  }
+
+  if (days.length > 0) {
+    return days.map((d) => d.replace("Thứ ", "T").replace("Chủ Nhật", "CN")).join("-");
+  }
+
+  return "";
+}
+
 

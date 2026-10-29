@@ -25,6 +25,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       registered_days,
       study_time_detail,
       schedule_details_json,
+      schedule_preset_name,
       is_discount_enabled,
       discount_percent,
       discount_reason,
@@ -40,7 +41,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     await db.execute({
       sql: `UPDATE students 
             SET name = ?, phone = ?, zalo_link = ?, zalo_chat_id = ?, level_id = ?, subject_id = ?, time_slot_id = ?, teacher_id = ?, tuition_package_id = ?,
-                start_date = ?, duration_mode = ?, sessions_per_week = ?, hours_per_week = ?, registered_days = ?, study_time_detail = ?, schedule_details_json = ?,
+                start_date = ?, duration_mode = ?, sessions_per_week = ?, hours_per_week = ?, registered_days = ?, study_time_detail = ?, schedule_details_json = ?, schedule_preset_name = ?,
                 is_discount_enabled = ?, discount_percent = ?, discount_reason = ?
             WHERE id = ?`,
       args: [
@@ -60,6 +61,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         registered_days || "",
         study_time_detail || "",
         schedule_details_json || "[]",
+        schedule_preset_name !== undefined ? String(schedule_preset_name).trim() : "",
         is_discount_enabled ? 1 : 0,
         Number(discount_percent) || 0,
         discount_reason ? String(discount_reason).trim() : "",

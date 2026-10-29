@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { Student, TimeSlot, LevelSurcharge, DiscountOption, Teacher, MonthFormat, TuitionPackage, Subject, StudentStatus, SchedulePreset } from "@/lib/types";
-import { formatVND, formatMonthDisplay, getCurrentMonthStr, formatTimeSlotLabel } from "@/lib/tuition";
+import { formatVND, formatMonthDisplay, getCurrentMonthStr, formatTimeSlotLabel, detectStudentPresetName } from "@/lib/tuition";
 import { useToast } from "@/components/Toast";
 import { SettingsModal } from "@/components/SettingsModal";
 import { StudentFormModal } from "@/components/StudentFormModal";
@@ -1436,6 +1436,7 @@ export default function Dashboard() {
                   filteredStudents.map((student) => {
                     const isCustom = Boolean(student.monthly_override);
                     const isByHours = student.duration_mode === "by_hours";
+                    const presetLabel = detectStudentPresetName(student, schedulePresets);
                     const initialChar = student.name ? student.name.trim().charAt(0).toUpperCase() : "H";
                     const isSelected = selectedStudentIds.includes(student.id);
 
@@ -1632,17 +1633,19 @@ export default function Dashboard() {
                               </span>
                             )}
 
-                            {isByHours ? (
-                              <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300 flex items-center gap-1 whitespace-nowrap">
-                                <Hourglass className="w-2.5 h-2.5" />
-                                {student.hours_per_week || 3}{t.hours_per_week_unit}
-                              </span>
-                            ) : (
-                              <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 flex items-center gap-1 whitespace-nowrap">
-                                <Calendar className="w-2.5 h-2.5" />
-                                {student.sessions_per_week || 3} {t.sessions_per_week_unit}
+                            {/* Tên Kiểu Lịch Học (Thứ chẵn, Thứ lẻ, Cuối tuần...) */}
+                            {presetLabel && (
+                              <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-indigo-50 text-indigo-700 dark:bg-indigo-950/70 dark:text-indigo-300 flex items-center gap-1 whitespace-nowrap border border-indigo-200/80 dark:border-indigo-800/60 shadow-2xs">
+                                <Calendar className="w-2.5 h-2.5 text-indigo-600 dark:text-indigo-400" />
+                                {presetLabel}
                               </span>
                             )}
+
+                            {/* Số tiếng / tuần */}
+                            <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 flex items-center gap-1 whitespace-nowrap">
+                              <Hourglass className="w-2.5 h-2.5 text-slate-500" />
+                              {student.hours_per_week || 3}{t.hours_per_week_unit}
+                            </span>
                           </div>
 
                           <div className="text-[10px] text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-0.5 font-medium">

@@ -365,9 +365,13 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                 <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
                   <span className="text-slate-400 font-medium">Hình thức học:</span>
                   <span className="font-bold text-slate-800 dark:text-slate-200">
-                    {student.duration_mode === "by_hours"
-                      ? `${student.hours_per_week || 3} tiếng / tuần`
-                      : `${student.sessions_per_week || 3} buổi / tuần`}
+                    {student.hours_per_week || 3} tiếng / tuần ({student.sessions_per_week || 3} buổi)
+                  </span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
+                  <span className="text-slate-400 font-medium">Kiểu lịch học:</span>
+                  <span className="font-bold text-indigo-600 dark:text-indigo-400 text-right">
+                    {student.schedule_preset_name || student.registered_days || "Chưa chọn kiểu"}
                   </span>
                 </div>
                 <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">

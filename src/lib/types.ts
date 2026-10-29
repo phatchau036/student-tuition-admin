@@ -303,6 +303,7 @@ export interface Student {
   registered_days: string;   // e.g. "Thứ 7, Chủ Nhật"
   study_time_detail?: string;// e.g. "T7: 09:00-10:30 (1.5h) | CN: 09:00-10:30 (1.5h)"
   schedule_details_json?: string; // Danh sách chi tiết JSON ScheduleItem[]
+  schedule_preset_name?: string; // Tên kiểu lịch học cơ sở (ví dụ: "Thứ chẵn (2-4-6)", "Thứ lẻ (3-5-7)", "Cuối tuần")
 
   is_discount_enabled: number; // 1 or 0
   discount_percent: number;    // e.g. 10

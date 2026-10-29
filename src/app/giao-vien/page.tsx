@@ -63,6 +63,7 @@ interface Student {
   registered_days: string;
   study_time_detail?: string;
   schedule_details_json?: string;
+  schedule_preset_name?: string;
   is_makeup?: boolean;
 }
 
@@ -607,9 +608,9 @@ export default function TeacherPortal() {
                         <Clock className="w-3.5 h-3.5 text-blue-600 shrink-0" />
                         <span className="font-semibold text-slate-900 dark:text-white">Lịch học:</span>
                         <span>
-                          {st.duration_mode === "by_hours"
-                            ? `${st.hours_per_week}h/tuần (${st.registered_days || "Chưa chọn ngày"})`
-                            : `${st.sessions_per_week} buổi/tuần (${st.registered_days || "Chưa chọn ngày"})`}
+                          {st.schedule_preset_name
+                            ? `${st.schedule_preset_name} • ${st.hours_per_week || 3}h/tuần`
+                            : `${st.hours_per_week || 3}h/tuần (${st.registered_days || "Chưa chọn ngày"})`}
                         </span>
                       </div>
 
