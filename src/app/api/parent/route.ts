@@ -74,6 +74,47 @@ export async function POST(req: Request) {
       const now = new Date();
       const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 
+      // ⭐ VÍ GIỜ HỌC: Sổ cái ví giờ của các học sinh đăng nhập lần này
+      const allStudentIds = studentsRes.rows.map((r) => String(r.id));
+      const walletMap: Record<string, number> = {};
+      const scheduledMakeupMap: Record<string, number> = {};
+      const walletLedgerMap: Record<string, Array<{ type: string; minutes: number; note: string; created_at: string }>> = {};
+      if (allStudentIds.length > 0) {
+        const placeholders = allStudentIds.map(() => "?").join(",");
+        const walletRes = await db.execute({
+          sql: `SELECT student_id, COALESCE(SUM(minutes), 0) as balance FROM hour_ledger WHERE student_id IN (${placeholders}) GROUP BY student_id`,
+          args: allStudentIds,
+        });
+        for (const row of walletRes.rows) {
+          walletMap[String(row.student_id)] = Number(row.balance || 0);
+        }
+
+        const schedRes = await db.execute({
+          sql: `SELECT student_id, COALESCE(SUM(planned_minutes), 0) as scheduled FROM lessons WHERE student_id IN (${placeholders}) AND kind = 'makeup' AND status = 'scheduled' GROUP BY student_id`,
+          args: allStudentIds,
+        });
+        for (const row of schedRes.rows) {
+          scheduledMakeupMap[String(row.student_id)] = Number(row.scheduled || 0);
+        }
+
+        const ledgerRes = await db.execute({
+          sql: `SELECT student_id, type, minutes, note, created_at FROM hour_ledger
+                WHERE student_id IN (${placeholders})
+                ORDER BY created_at DESC LIMIT 30`,
+          args: allStudentIds,
+        });
+        for (const row of ledgerRes.rows) {
+          const sid = String(row.student_id);
+          if (!walletLedgerMap[sid]) walletLedgerMap[sid] = [];
+          walletLedgerMap[sid].push({
+            type: String(row.type),
+            minutes: Number(row.minutes),
+            note: String(row.note || ""),
+            created_at: String(row.created_at || ""),
+          });
+        }
+      }
+
       const studentsData = [];
 
       for (const st of studentsRes.rows) {
@@ -186,6 +227,15 @@ export async function POST(req: Request) {
           is_override: Boolean(override),
           override_note: override ? String(override.note || "") : "",
           override_items_json: override?.items_json ? String(override.items_json) : "[]",
+          // ⭐ VÍ GIỜ HỌC: số dư ví giờ từ sổ cái hour_ledger
+          balance_minutes: walletMap[studentId] || 0,
+          available_minutes: (walletMap[studentId] || 0) - (scheduledMakeupMap[studentId] || 0),
+          wallet_ledger: (walletLedgerMap[studentId] || []).map((l) => ({
+            type: String(l.type),
+            minutes: Number(l.minutes),
+            note: String(l.note || ""),
+            created_at: String(l.created_at || ""),
+          })),
           makeups: makeupsRes.rows.map((m) => ({
             id: String(m.id),
             absence_date: String(m.absence_date),

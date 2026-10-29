@@ -81,6 +81,22 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
   const [makeupTime, setMakeupTime] = useState<string>("");
   const [makeupNote, setMakeupNote] = useState<string>("");
 
+  // ⭐ VÍ GIỜ HỌC: thời lượng bù + số dư ví của học sinh đang xếp
+  const [makeupMinutes, setMakeupMinutes] = useState<number>(60);
+  const [walletData, setWalletData] = useState<{ balance_minutes: number; available_minutes: number } | null>(null);
+
+  // Helper format phút -> "7h30" (không import từ tuition để modal gọn)
+  const fmtMinutesUtil = (total: number): string => {
+    const sign = total < 0 ? "-" : "";
+    const abs = Math.abs(Math.round(total));
+    if (abs === 0) return "0 phút";
+    const h = Math.floor(abs / 60);
+    const m = abs % 60;
+    if (h === 0) return `${sign}${m} phút`;
+    if (m === 0) return `${sign}${h}h`;
+    return `${sign}${h}h${String(m).padStart(2, "0")}`;
+  };
+
   // Custom Delete Confirm state
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -135,6 +151,38 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
       loadMakeups();
     }
   }, [isOpen, selectedStudentFilter, initialStudentId, schoolId]);
+
+  // ⭐ VÍ GIỜ HỌC: tải số dư ví của học sinh đang được xếp bù
+  useEffect(() => {
+    if (!schedulingItem) {
+      setWalletData(null);
+      setMakeupMinutes(60);
+      return;
+    }
+    const loadWallet = async () => {
+      try {
+        const res = await fetch(
+          `/api/wallet?action=get_wallet&student_id=${schedulingItem.student_id}&page=1&page_size=1`,
+          { headers: getHeaders() }
+        );
+        const json = await res.json();
+        if (json.success) {
+          setWalletData({
+            balance_minutes: json.data.balance_minutes,
+            available_minutes: json.data.available_minutes,
+          });
+          // Tự chọn thời lượng hợp lý: mặc định 60, nếu khả dụng < 60 thì chọn bội 30 lớn nhất còn lại
+          const avail = json.data.available_minutes || 0;
+          if (avail < 60) {
+            setMakeupMinutes(Math.max(30, Math.floor(avail / 30) * 30) || 30);
+          }
+        }
+      } catch {
+        console.error("Failed to load wallet:");
+      }
+    };
+    loadWallet();
+  }, [schedulingItem]);
 
   useEffect(() => {
     if (!makeupDate) {
@@ -230,19 +278,28 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
       showToast("Khung giờ này đã hết suất! Vui lòng chọn khung giờ khác.", "error");
       return;
     }
+    if (walletData && walletData.available_minutes < makeupMinutes) {
+      showToast(
+        `Số dư khả dụng không đủ! Hiện còn ${fmtMinutesUtil(walletData.available_minutes)}, cần ${fmtMinutesUtil(makeupMinutes)}.`,
+        "error"
+      );
+      return;
+    }
 
     try {
       setIsSubmitting(true);
-      const res = await fetch("/api/makeups", {
+      // ⭐ VÍ GIỜ HỌC: gọi API wallet schedule_makeup (trừ phút từ ví, idempotent)
+      const startTime = (makeupTime || selectedSlot?.time_range || "18:00 - 19:00").split("-")[0]?.trim() || "18:00";
+      const res = await fetch("/api/wallet", {
         method: "POST",
         headers: getHeaders(),
         body: JSON.stringify({
           action: "schedule_makeup",
-          makeup_id: schedulingItem.id,
-          makeup_date: makeupDate,
-          makeup_time: makeupTime || selectedSlot?.time_range || "18:00 - 19:00",
-          makeup_slot_id: selectedSlotId || null,
-          time_slot_id: selectedSlotId || null,
+          student_id: schedulingItem.student_id,
+          date: makeupDate,
+          start_time: startTime,
+          minutes: makeupMinutes,
+          slot_id: selectedSlotId || null,
           note: makeupNote.trim(),
         }),
       });
@@ -254,6 +311,7 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
         setMakeupDate("");
         setSelectedSlotId("");
         setMakeupNote("");
+        setWalletData(null);
         await loadMakeups();
         onRefresh();
       } else {
@@ -593,8 +651,8 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
                 />
               </div>
 
-              <div className="p-3.5 bg-amber-50 dark:bg-amber-950/40 rounded-2xl border border-amber-200 dark:border-amber-800/60 text-xs text-amber-900 dark:text-amber-200 font-medium">
-                ⭐ Học sinh sẽ được tự động cộng <strong>+1 buổi học bù</strong>. Có thể xếp bù vào bất kỳ ngày nào trong tuần, tuần sau hoặc sang tháng sau tùy ý.
+              <div className="p-3.5 bg-indigo-50 dark:bg-indigo-950/40 rounded-2xl border border-indigo-200 dark:border-indigo-800/60 text-xs text-indigo-900 dark:text-indigo-200 font-medium">
+                ⏱️ **Ví Giờ Học:** Giờ của buổi nghỉ vẫn nằm trong ví để xếp học bù (không mất giờ). Có thể chia nhỏ tùy ý — ví dụ 30 phút hôm nay + 30 phút ngày mai.
               </div>
 
               <div className="flex justify-end gap-2 pt-2">
@@ -744,6 +802,50 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
                     )}
                   </div>
 
+                  {/* ⭐ VÍ GIỜ HỌC: Chọn thời lượng bù (bội số 30 phút, trừ từ ví) */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">
+                        3. Thời lượng học bù
+                      </label>
+                      {walletData && (
+                        <span className={`text-[11px] font-black ${walletData.available_minutes < 60 ? "text-rose-600" : "text-emerald-600"}`}>
+                          Còn: {fmtMinutesUtil(walletData.available_minutes)}
+                        </span>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-4 gap-1.5">
+                      {[30, 60, 90, 120].map((min) => {
+                        const isPicked = makeupMinutes === min;
+                        const overBalance = walletData ? walletData.available_minutes < min : false;
+                        return (
+                          <button
+                            key={min}
+                            type="button"
+                            disabled={overBalance}
+                            onClick={() => setMakeupMinutes(min)}
+                            className={`py-2 rounded-xl text-xs font-black border transition cursor-pointer ${
+                              isPicked
+                                ? "bg-indigo-600 text-white border-indigo-600 shadow-xs"
+                                : overBalance
+                                ? "bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-300 dark:text-slate-700 cursor-not-allowed"
+                                : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-indigo-400"
+                            }`}
+                          >
+                            {min}'
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {walletData && (
+                      <p className={`text-[11px] mt-1.5 font-semibold ${walletData.available_minutes - makeupMinutes < 0 ? "text-rose-500" : "text-slate-500"}`}>
+                        Sau khi xếp còn lại:{" "}
+                        <strong>{fmtMinutesUtil(walletData.available_minutes - makeupMinutes)}</strong>
+                        {walletData.available_minutes - makeupMinutes < 0 && " (vượt số dư!)"}
+                      </p>
+                    )}
+                  </div>
+
                   <div>
                     <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block mb-1.5">
                       Giờ học bù cụ thể
@@ -780,10 +882,17 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
                     </button>
                     <button
                       type="submit"
-                      disabled={isSubmitting || !makeupDate || !selectedSlotId}
+                      disabled={
+                        isSubmitting ||
+                        !makeupDate ||
+                        !selectedSlotId ||
+                        (walletData ? walletData.available_minutes < makeupMinutes : false)
+                      }
                       className="px-5 py-2.5 text-xs font-black uppercase tracking-wider text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-md shadow-indigo-600/25 transition disabled:opacity-50 cursor-pointer"
                     >
-                      {isSubmitting ? "Đang lưu..." : "Xác Nhận Lịch Học Bù"}
+                      {isSubmitting
+                        ? "Đang lưu..."
+                        : `Xác Nhận Bù ${fmtMinutesUtil(makeupMinutes)}`}
                     </button>
                   </div>
                 </form>

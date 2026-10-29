@@ -81,6 +81,7 @@ import { AppInfoModal } from "./AppInfoModal";
 import { SmartExcelImportModal } from "./SmartExcelImportModal";
 import { QuickAuditModal } from "./QuickAuditModal";
 import { ClassroomScheduleMatrix } from "./ClassroomScheduleMatrix";
+import { HourWalletModal } from "./HourWalletModal";
 import { ScheduleAvailabilityModal } from "./ScheduleAvailabilityModal";
 import { exportStudentsToExcel } from "@/lib/exportExcel";
 import { useLanguage } from "@/lib/i18n";
@@ -126,6 +127,8 @@ export default function Dashboard() {
   const [isTeacherModalOpen, setIsTeacherModalOpen] = useState(false);
   const [isMakeupModalOpen, setIsMakeupModalOpen] = useState(false);
   const [selectedStudentForMakeup, setSelectedStudentForMakeup] = useState<string | undefined>(undefined);
+  const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
+  const [selectedStudentForWallet, setSelectedStudentForWallet] = useState<Student | null>(null);
 
   const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
   const [studentToEdit, setStudentToEdit] = useState<Student | null>(null);
@@ -914,6 +917,31 @@ export default function Dashboard() {
                     <span>{t.status_log}</span>
                   </button>
 
+                  {/* ⭐ VÍ GIỜ HỌC: Quản lý ví giờ của học sinh */}
+                  <button
+                    onClick={() => {
+                      setIsManagementMenuOpen(false);
+                      // Mở ví của học sinh đầu tiên theo filter (hoặc search trong modal bằng select)
+                      const target =
+                        filteredStudents.find((s) => (s.available_minutes ?? 0) !== 0) || filteredStudents[0] || students[0];
+                      if (target) {
+                        setSelectedStudentForWallet(target);
+                        setIsWalletModalOpen(true);
+                      } else {
+                        showToast("Chưa có học sinh nào trong cơ sở!", "error");
+                      }
+                    }}
+                    className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold rounded-xl text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition text-left"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-indigo-600" />
+                      <span>⏱️ Ví Giờ Học</span>
+                    </span>
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
+                      {filteredStudents.filter((s) => Number(s.available_minutes ?? 0) > 0).length} ví
+                    </span>
+                  </button>
+
                   <button
                     onClick={() => {
                       setIsManagementMenuOpen(false);
@@ -1463,8 +1491,8 @@ export default function Dashboard() {
                                   return (
                                     <button
                                       onClick={() => {
-                                        setSelectedStudentForMakeup(student.id);
-                                        setIsMakeupModalOpen(true);
+                                        setSelectedStudentForWallet(student);
+                                        setIsWalletModalOpen(true);
                                       }}
                                       className={`px-1.5 py-0.5 rounded-full text-[9px] font-black transition shadow-2xs whitespace-nowrap ${
                                         isNegative
@@ -1473,9 +1501,9 @@ export default function Dashboard() {
                                           ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200 dark:bg-emerald-950 dark:text-emerald-300"
                                           : "bg-amber-100 text-amber-800 hover:bg-amber-200 dark:bg-amber-950 dark:text-amber-300"
                                       }`}
-                                      title={`Ví giờ khả dụng: ${label} (bấm để xếp lịch học bù)`}
+                                      title={`Ví giờ khả dụng: ${label} (bấm để mở Ví Giờ Học & xếp bù)`}
                                     >
-                                      {isNegative ? `Âm ${label}` : `Còn ${label}`}
+                                      ⏱️ {isNegative ? `Âm ${label}` : `Còn ${label}`}
                                     </button>
                                   );
                                 })()}
@@ -2176,6 +2204,20 @@ export default function Dashboard() {
         onRefresh={handleRefresh}
       />
 
+      {/* ⭐ VÍ GIỜ HỌC: Modal quản lý ví giờ của học sinh */}
+      <HourWalletModal
+        isOpen={isWalletModalOpen}
+        onClose={() => setIsWalletModalOpen(false)}
+        student={selectedStudentForWallet}
+        schoolId={currentSchool?.id}
+        onOpenMakeup={(studentId) => {
+          setIsWalletModalOpen(false);
+          setSelectedStudentForMakeup(studentId);
+          setIsMakeupModalOpen(true);
+        }}
+        onRefresh={handleRefresh}
+      />
+
       {/* Student Form Modal (Create / Edit) */}
       <StudentFormModal
         isOpen={isStudentModalOpen}
@@ -2235,6 +2277,11 @@ export default function Dashboard() {
           setIsZaloModalOpen(true);
         }}
         onReconciliationToggle={handleToggleStudentReconciliation}
+        onOpenWallet={(st) => {
+          setIsDetailModalOpen(false);
+          setSelectedStudentForWallet(st);
+          setIsWalletModalOpen(true);
+        }}
       />
 
       {/* Change Status Modal (Bảo lưu / Nghỉ học / Học tiếp - Silent update không bị nhảy trang) */}

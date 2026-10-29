@@ -32,6 +32,7 @@ interface StudentDetailModalProps {
   onOpenStatusChange: (student: Student) => void;
   onOpenZaloReminder: (student: Student) => void;
   onReconciliationToggle: (student: Student) => void;
+  onOpenWallet?: (student: Student) => void;
 }
 
 export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
@@ -42,6 +43,7 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
   onOpenStatusChange,
   onOpenZaloReminder,
   onReconciliationToggle,
+  onOpenWallet,
 }) => {
   const [statusLogs, setStatusLogs] = useState<StudentStatusLog[]>([]);
   const [isLoadingLogs, setIsLoadingLogs] = useState(false);
@@ -458,6 +460,37 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
 
           {activeTab === "schedule" && (
             <div className="space-y-3">
+              {/* ⭐ VÍ GIỜ HỌC: Card số dư ví giờ */}
+              <div className="p-4 rounded-2xl bg-linear-to-br from-indigo-600 to-indigo-700 text-white shadow-md shadow-indigo-600/20 flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-indigo-200 flex items-center gap-1.5">
+                    ⏱️ Ví Giờ Học
+                  </p>
+                  <p className="text-2xl font-black mt-0.5">
+                    {(() => {
+                      const avail = Number(student.available_minutes ?? 0);
+                      const abs = Math.abs(avail);
+                      const h = Math.floor(abs / 60);
+                      const m = abs % 60;
+                      const label = avail === 0 ? "0 phút" : h > 0 ? `${h}h${m > 0 ? String(m).padStart(2, "0") : ""}` : `${m} phút`;
+                      return `${avail < 0 ? "-" : ""}${label}`;
+                    })()}
+                  </p>
+                  <p className="text-[10px] text-indigo-200 mt-0.5">
+                    Số dư khả dụng (đã trừ bù đã xếp)
+                  </p>
+                </div>
+                {onOpenWallet && (
+                  <button
+                    type="button"
+                    onClick={() => onOpenWallet(student)}
+                    className="px-3 py-1.5 text-xs font-black rounded-xl bg-white/15 hover:bg-white/25 backdrop-blur-md text-white transition cursor-pointer shrink-0 border border-white/20"
+                  >
+                    Xem sổ cái →
+                  </button>
+                )}
+              </div>
+
               <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
                 Chi tiết các buổi học trong tuần:
               </span>

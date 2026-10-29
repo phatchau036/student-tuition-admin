@@ -82,6 +82,9 @@ interface StudentData {
   is_override: boolean;
   override_note?: string;
   override_items_json?: string;
+  balance_minutes?: number;
+  available_minutes?: number;
+  wallet_ledger?: Array<{ type: string; minutes: number; note: string; created_at: string }>;
   makeups: MakeupItem[];
 }
 
@@ -322,7 +325,7 @@ export default function ParentPortal() {
       });
       const data = await res.json();
       if (data.success) {
-        showToast("Đã báo nghỉ thành công! Quý phụ huynh đã được cộng 1 suất học bù.", "success");
+        showToast("Đã báo nghỉ thành công! Giờ học vẫn nằm trong Ví Giờ để xếp lịch bù.", "success");
         setIsReportModalOpen(false);
         setAbsenceDate("");
         setAbsenceReason("");
@@ -664,9 +667,20 @@ export default function ParentPortal() {
                     <p className="font-bold mt-0.5">{activeStudent.teacher_name}</p>
                   </div>
                   <div className="bg-white/10 rounded-xl p-2.5 backdrop-blur-xs">
-                    <p className="text-emerald-100 text-[11px]">Suất học bù khả dụng:</p>
-                    <p className="font-extrabold text-amber-300 mt-0.5">
-                      {activeStudent.makeups.filter((m) => m.status === "pending").length} buổi
+                    <p className="text-emerald-100 text-[11px]">⏱️ Ví giờ còn lại:</p>
+                    <p
+                      className={`font-extrabold mt-0.5 ${
+                        (activeStudent.available_minutes ?? 0) < 0 ? "text-rose-300" : "text-amber-300"
+                      }`}
+                    >
+                      {(() => {
+                        const avail = Number(activeStudent.available_minutes ?? 0);
+                        const abs = Math.abs(avail);
+                        const h = Math.floor(abs / 60);
+                        const m = abs % 60;
+                        const label = avail === 0 ? "0 phút" : h > 0 ? `${h}h${m > 0 ? String(m).padStart(2, "0") : ""}` : `${m} phút`;
+                        return avail < 0 ? `Âm ${label}` : label;
+                      })()}
                     </p>
                   </div>
                 </div>
@@ -751,10 +765,56 @@ export default function ParentPortal() {
                       className="w-full py-2.5 px-3 rounded-xl bg-amber-500 hover:bg-amber-600 active:scale-[0.99] text-white font-bold text-xs flex items-center justify-center gap-2 transition shadow-xs"
                     >
                       <CalendarCheck className="w-4 h-4" />
-                      <span>Báo Nghỉ Học (Tự Động Tạo Suất Học Bù)</span>
+                      <span>Báo Nghỉ Học (Giờ Vẫn Còn Trong Ví)</span>
                     </button>
                   </div>
                 </div>
+
+                {/* ⭐ VÍ GIỜ HỌC: Lịch sử ví giờ (3 dòng gần nhất) */}
+                {activeStudent.wallet_ledger && activeStudent.wallet_ledger.length > 0 && (
+                  <div className="space-y-2">
+                    <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                      <Sparkles className="w-4 h-4 text-indigo-500" />
+                      <span>Lịch Sử Ví Giờ</span>
+                    </h3>
+                    <div className="space-y-1.5">
+                      {activeStudent.wallet_ledger.slice(0, 3).map((entry, idx) => (
+                        <div
+                          key={idx}
+                          className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 flex items-center justify-between gap-2 text-xs"
+                        >
+                          <div className="min-w-0">
+                            <p className="font-bold text-slate-800 dark:text-slate-200 truncate">
+                              {entry.type === "GRANT"
+                                ? "Cấp giờ khi đóng tiền"
+                                : entry.type === "CONSUME"
+                                ? "Học / trừ giờ"
+                                : entry.type === "ADJUST"
+                                ? "Điều chỉnh từ trung tâm"
+                                : entry.type === "EXPIRE"
+                                ? "Giờ hết hạn"
+                                : entry.type}
+                            </p>
+                            {entry.note && <p className="text-[11px] text-slate-400 truncate">{entry.note}</p>}
+                          </div>
+                          <span
+                            className={`font-mono font-black shrink-0 ${
+                              entry.minutes >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500"
+                            }`}
+                          >
+                            {entry.minutes > 0 ? "+" : ""}
+                            {(() => {
+                              const abs = Math.abs(entry.minutes);
+                              const h = Math.floor(abs / 60);
+                              const m = abs % 60;
+                              return h > 0 ? `${h}h${m > 0 ? String(m).padStart(2, "0") : ""}` : `${m}p`;
+                            })()}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* Makeups Section */}
                 <div className="space-y-3">
@@ -1124,7 +1184,7 @@ export default function ParentPortal() {
             </div>
 
             <p className="text-xs text-slate-500">
-              Quý phụ huynh chọn ngày bé xin phép nghỉ. Hệ thống sẽ tự động lưu lại 1 buổi học bù để quý vị chọn lịch bù sau.
+              Quý phụ huynh chọn ngày bé xin phép nghỉ. Giờ của buổi học đó <strong className="text-indigo-600 dark:text-indigo-400">vẫn nằm trong Ví Giờ</strong> để xếp lịch học bù sau — không mất giờ!
             </p>
 
             <form onSubmit={handleReportAbsence} className="space-y-4">
