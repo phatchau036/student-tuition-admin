@@ -269,11 +269,11 @@ export async function POST(req: Request) {
         schedule_presets !== undefined
           ? JSON.stringify(
               Array.isArray(schedule_presets)
-                ? schedule_presets.map((p: any, idx: number) => ({
+                ? schedule_presets.map((p: SchedulePreset, idx: number) => ({
                     id: String(p.id || `preset-${Date.now()}-${idx}`),
                     name: String(p.name || `Kiểu lịch ${idx + 1}`).trim(),
                     days: Array.isArray(p.days)
-                      ? p.days.map((d: any) => String(d).trim()).filter(Boolean)
+                      ? p.days.map((d: string) => String(d).trim()).filter(Boolean)
                       : ["Thứ 2", "Thứ 4", "Thứ 6"],
                     hours_per_session: Number(p.hours_per_session) > 0 ? Number(p.hours_per_session) : 1.5,
                     default_start_time: p.default_start_time ? String(p.default_start_time).trim() : "18:00",

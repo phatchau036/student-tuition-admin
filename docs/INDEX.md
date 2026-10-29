@@ -87,3 +87,4 @@ Mỗi khi Main Agent hoặc Subagent nhận được yêu cầu từ người d�
 | 2026-10-29 | Nâng cấp toàn diện ma trận xếp lịch `ClassroomScheduleMatrix` | `ui-builder` | Hoàn thành lưới 7 cột đồng bộ, chip rộng, Side Drawer, thanh công cụ 2 tầng |
 | 2026-10-29 | Tối ưu đóng Side Drawer khi click bên ngoài backdrop hoặc phím ESC | `ui-builder` | Đã triển khai và push GitHub |
 | 2026-10-29 | Nâng cấp sáng tạo: Thẻ 1 dòng 28px, Cross-highlighting, Vạch Bây giờ, Chế độ Điểm Nóng | `ui-builder` | Đã hoàn thiện và kiểm thử sạch lỗi biên dịch |
+| 2026-10-30 | ⭐ Hệ thống Kiểu Lịch Học & Ma Trận Tính Thời Lượng tự động (`schedule_presets`) | Main Agent | Hoàn thành: Cài đặt Hình Thức 2 + Form học sinh chọn nhanh kiểu mẫu, build sạch 100% |

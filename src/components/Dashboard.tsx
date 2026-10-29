@@ -57,7 +57,6 @@ import {
   PauseCircle,
   UserX,
   CreditCard,
-  Eye,
   BarChart3,
   QrCode,
   Info,
@@ -1406,7 +1405,7 @@ export default function Dashboard() {
                   <th className="py-2.5 px-2 text-center hidden xl:table-cell w-[6%]">{t.col_discount}</th>
                   <th className="py-2.5 px-3 w-[16%] xl:w-[14%]">{t.col_tuition} {formatMonthDisplay(selectedMonth, monthFormat)}</th>
                   <th className="py-2.5 px-3 text-center hidden md:table-cell w-[17%] xl:w-[12%]">{t.col_reconciliation}</th>
-                  <th className="py-2.5 px-3 text-right w-[13%] xl:w-[10%]">{t.col_actions}</th>
+                  <th className="py-2.5 px-3 text-right w-[9%] xl:w-[6%]">{t.col_actions}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 text-sm">
@@ -1443,7 +1442,13 @@ export default function Dashboard() {
                     return (
                       <tr
                         key={student.id}
-                        className={`transition group ${
+                        onClick={(e) => {
+                          // Bấm vào hàng để mở hồ sơ chi tiết; bỏ qua khi bấm vào nút/link/checkbox có tác vụ riêng
+                          if ((e.target as HTMLElement).closest("button, a, input")) return;
+                          setStudentForDetail(student);
+                          setIsDetailModalOpen(true);
+                        }}
+                        className={`transition cursor-pointer group ${
                           isSelected
                             ? "bg-indigo-50/60 dark:bg-indigo-950/40"
                             : "hover:bg-slate-50/70 dark:hover:bg-slate-800/40"
@@ -1754,20 +1759,6 @@ export default function Dashboard() {
                         {/* Consolidated Modern Action Column */}
                         <td className="py-2 px-3 text-right overflow-hidden">
                           <div className="inline-flex items-center gap-1.5 relative">
-                            {/* Primary Action: Xem Chi Tiết */}
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setStudentForDetail(student);
-                                setIsDetailModalOpen(true);
-                              }}
-                              className="px-2.5 py-1 text-xs font-bold rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition flex items-center gap-1"
-                              title="Xem chi tiết học sinh & hồ sơ"
-                            >
-                              <Eye className="w-3.5 h-3.5 text-indigo-500" />
-                              <span className="hidden lg:inline">{t.action_details}</span>
-                            </button>
-
                             {/* Dropdown Action Menu Trigger */}
                             <button
                               type="button"
@@ -2237,6 +2228,7 @@ export default function Dashboard() {
         discountPresets={discountPresets}
         tuitionPackages={tuitionPackages}
         subjects={subjects}
+        schedulePresets={schedulePresets}
         schoolId={currentSchool?.id}
         defaultDurationMode={durationMode}
         defaultSessions={defaultSessions}

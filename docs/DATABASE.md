@@ -74,6 +74,7 @@ schools (Cơ sở / Trường học)
 - `max_students_per_slot`: Sĩ số tối đa mặc định 1 ca (mặc định: `10`).
 - `crowded_threshold_percent`: Ngưỡng cảnh báo lớp đông (mặc định: `80`%).
 - `capacity_mode`: Chế độ tính sĩ số (`by_slot` hoặc `by_teacher`).
+- `schedule_presets`: JSON danh sách các Kiểu Lịch Học mẫu cơ sở (`SchedulePreset[]`), gồm tên kiểu, các ngày thứ trong tuần và số tiếng/buổi để tự tính ma trận thời lượng.
 - `app_language`: Ngôn ngữ hiển thị (`vi`, `en`, `zh`, `ja`).
 - `reconciliation_mode`: Chế độ đối soát (`manual` hoặc `auto`).
 - `sepay_prefix`: Tiền tố gạch nợ ngân hàng (mặc định: `HP`).

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Student, LevelSurcharge, TimeSlot, DiscountOption, Teacher, ScheduleItem, TuitionPackage, Subject } from "@/lib/types";
+import { Student, LevelSurcharge, TimeSlot, DiscountOption, Teacher, ScheduleItem, TuitionPackage, Subject, SchedulePreset } from "@/lib/types";
 import {
   calculateStandardTuition,
   applyDiscount,
@@ -53,6 +53,7 @@ interface StudentFormModalProps {
   discountPresets: DiscountOption[];
   tuitionPackages?: TuitionPackage[];
   subjects?: Subject[];
+  schedulePresets?: SchedulePreset[];
   schoolId?: string;
   defaultDurationMode?: "by_hours" | "by_sessions";
   defaultSessions?: number;
@@ -94,6 +95,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
   discountPresets,
   tuitionPackages = [],
   subjects = [],
+  schedulePresets = [],
   schoolId,
   defaultDurationMode = "by_hours",
   defaultSessions = 3,
@@ -123,6 +125,8 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
   const [sessionsPerWeek, setSessionsPerWeek] = useState<number>(defaultSessions);
   const [fixedSessionTime, setFixedSessionTime] = useState<string>(defaultStudyTime);
   const [selectedDays, setSelectedDays] = useState<string[]>(["Thứ 2", "Thứ 4", "Thứ 6"]);
+  const [sessionHours, setSessionHours] = useState<number>(1.5); // Thời lượng mỗi buổi theo kiểu lịch
+  const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
 
   // If by_hours: Schedule items with flexible hours per day
   const [targetHours, setTargetHours] = useState<number>(defaultHours);
@@ -155,6 +159,21 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
       setSessionsPerWeek(studentToEdit.sessions_per_week || 3);
       setTargetHours(studentToEdit.hours_per_week || 3);
 
+      const regDays = studentToEdit.registered_days
+        ? studentToEdit.registered_days.split(",").map((d) => d.trim()).filter(Boolean)
+        : ["Thứ 2", "Thứ 4", "Thứ 6"];
+      setSelectedDays(regDays);
+
+      const computedSessionH = regDays.length > 0 && studentToEdit.hours_per_week
+        ? Math.round((Number(studentToEdit.hours_per_week) / regDays.length) * 10) / 10
+        : 1.5;
+      setSessionHours(computedSessionH);
+
+      const matchedPreset = schedulePresets.find(
+        (p) => p.days.length === regDays.length && p.days.every((d) => regDays.includes(d))
+      );
+      setSelectedPresetId(matchedPreset?.id || null);
+
       try {
         if (studentToEdit.schedule_details_json && studentToEdit.schedule_details_json !== "[]") {
           const parsed = JSON.parse(studentToEdit.schedule_details_json);
@@ -162,16 +181,12 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
             setScheduleItems(parsed);
           }
         } else {
-          const days = studentToEdit.registered_days
-            ? studentToEdit.registered_days.split(",").map((d) => d.trim()).filter(Boolean)
-            : ["Thứ 7", "Chủ Nhật"];
-          setSelectedDays(days);
-          const items: ScheduleItem[] = days.map((d, i) => ({
+          const items: ScheduleItem[] = regDays.map((d, i) => ({
             id: String(i + 1),
             day: d,
             start_time: "09:00",
             end_time: "10:30",
-            hours: 1.5,
+            hours: computedSessionH,
           }));
           setScheduleItems(items);
         }
@@ -195,22 +210,54 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
       setTuitionPackageId(tuitionPackages[0]?.id || "");
       setStartDate(new Date().toISOString().slice(0, 10)); // Mặc định vào ngày hiện tại
       setDurationMode(defaultDurationMode);
-      setSessionsPerWeek(defaultSessions);
-      setTargetHours(defaultHours);
 
-      const targetDay = initialDay || "Thứ 2";
-      setSelectedDays([targetDay]);
+      const defaultPreset = schedulePresets.find((p) => p.is_default) || schedulePresets[0];
 
-      const startH = initialStartTime || "18:00";
-      const startParts = startH.split(":").map(Number);
-      const endHNum = (startParts[0] || 18) + 1;
-      const endH = `${String(endHNum).padStart(2, "0")}:${String(startParts[1] || 0).padStart(2, "0")}`;
-      const defaultTimeStr = `${startH} - ${endH}`;
-      setFixedSessionTime(initialStartTime ? defaultTimeStr : defaultStudyTime);
+      if (defaultPreset && !initialDay) {
+        setSelectedPresetId(defaultPreset.id);
+        const days = defaultPreset.days && defaultPreset.days.length > 0 ? defaultPreset.days : ["Thứ 2", "Thứ 4", "Thứ 6"];
+        setSelectedDays(days);
+        setSessionsPerWeek(days.length);
+        const hPerSession = defaultPreset.hours_per_session || 1.5;
+        setSessionHours(hPerSession);
+        const calcHours = Math.round(days.length * hPerSession * 10) / 10;
+        setTargetHours(calcHours);
 
-      setScheduleItems([
-        { id: "1", day: targetDay, start_time: startH, end_time: endH, hours: 1 },
-      ]);
+        const startH = defaultPreset.default_start_time || "18:00";
+        const [sH, sM] = startH.split(":").map(Number);
+        const endMinutesTotal = (sH || 18) * 60 + (sM || 0) + Math.round(hPerSession * 60);
+        const eH = Math.floor(endMinutesTotal / 60);
+        const eM = endMinutesTotal % 60;
+        const endH = `${String(eH).padStart(2, "0")}:${String(eM).padStart(2, "0")}`;
+        const timeStr = `${startH} - ${endH}`;
+        setFixedSessionTime(timeStr);
+
+        const items: ScheduleItem[] = days.map((d, i) => ({
+          id: String(i + 1),
+          day: d,
+          start_time: startH,
+          end_time: endH,
+          hours: hPerSession,
+        }));
+        setScheduleItems(items);
+      } else {
+        setSessionsPerWeek(defaultSessions);
+        setTargetHours(defaultHours);
+
+        const targetDay = initialDay || "Thứ 2";
+        setSelectedDays([targetDay]);
+
+        const startH = initialStartTime || "18:00";
+        const startParts = startH.split(":").map(Number);
+        const endHNum = (startParts[0] || 18) + 1;
+        const endH = `${String(endHNum).padStart(2, "0")}:${String(startParts[1] || 0).padStart(2, "0")}`;
+        const defaultTimeStr = `${startH} - ${endH}`;
+        setFixedSessionTime(initialStartTime ? defaultTimeStr : defaultStudyTime);
+
+        setScheduleItems([
+          { id: "1", day: targetDay, start_time: startH, end_time: endH, hours: 1 },
+        ]);
+      }
       setIsDiscountEnabled(false);
       setDiscountPercent(0);
       setDiscountReason("");
@@ -228,6 +275,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
     initialTeacherId,
     initialDay,
     initialStartTime,
+    schedulePresets,
   ]);
 
   // Total hours from schedule items
@@ -312,12 +360,45 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
     setScheduleItems(scheduleItems.filter((i) => i.id !== id));
   };
 
+  const handleApplyPreset = (preset: SchedulePreset) => {
+    setSelectedPresetId(preset.id);
+    const days = preset.days && preset.days.length > 0 ? preset.days : ["Thứ 2"];
+    setSelectedDays(days);
+    setSessionsPerWeek(days.length);
+    const hPerSession = preset.hours_per_session || 1.5;
+    setSessionHours(hPerSession);
+
+    const startH = preset.default_start_time || "18:00";
+    const [sH, sM] = startH.split(":").map(Number);
+    const endMinutesTotal = (sH || 18) * 60 + (sM || 0) + Math.round(hPerSession * 60);
+    const eH = Math.floor(endMinutesTotal / 60);
+    const eM = endMinutesTotal % 60;
+    const endH = `${String(eH).padStart(2, "0")}:${String(eM).padStart(2, "0")}`;
+    setFixedSessionTime(`${startH} - ${endH}`);
+
+    // Tự động sinh scheduleItems tương ứng
+    const newItems: ScheduleItem[] = days.map((day, idx) => ({
+      id: String(idx + 1),
+      day,
+      start_time: startH,
+      end_time: endH,
+      hours: hPerSession,
+    }));
+    setScheduleItems(newItems);
+  };
+
   const toggleDayFixed = (day: string) => {
+    setSelectedPresetId(null);
+    let newDays: string[];
     if (selectedDays.includes(day)) {
-      setSelectedDays(selectedDays.filter((d) => d !== day));
+      newDays = selectedDays.filter((d) => d !== day);
     } else {
-      setSelectedDays([...selectedDays, day]);
+      newDays = [...selectedDays, day].sort(
+        (a, b) => ALL_DAYS.indexOf(a) - ALL_DAYS.indexOf(b)
+      );
     }
+    setSelectedDays(newDays);
+    setSessionsPerWeek(newDays.length);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -363,10 +444,25 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
         .map((i) => `${i.day}: ${i.start_time}-${i.end_time} (${i.hours}h)`)
         .join(" | ");
     } else {
-      finalSessions = sessionsPerWeek;
-      finalHours = sessionsPerWeek * 1;
+      finalSessions = selectedDays.length;
+      finalHours = Math.round(selectedDays.length * sessionHours * 10) / 10;
       finalRegisteredDays = selectedDays.join(", ");
       finalStudyTimeDetail = fixedSessionTime.trim() || "18:00 - 19:00";
+
+      // Tự động đồng bộ schedule_details_json để ma trận xếp lớp nhận diện chính xác
+      const [startPart, endPart] = (finalStudyTimeDetail.includes("-")
+        ? finalStudyTimeDetail.split("-")
+        : ["18:00", "19:30"]
+      ).map((s) => s.trim());
+
+      const autoItems: ScheduleItem[] = selectedDays.map((d, idx) => ({
+        id: String(idx + 1),
+        day: d,
+        start_time: startPart || "18:00",
+        end_time: endPart || "19:30",
+        hours: sessionHours,
+      }));
+      setScheduleItems(autoItems);
     }
 
     try {
@@ -890,41 +986,56 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
               </div>
             )}
 
-            {/* HÌNH THỨC 2: THEO SỐ BUỔI CỐ ĐỊNH / TUẦN */}
+            {/* HÌNH THỨC 2: THEO SỐ BUỔI CỐ ĐỊNH / KIỂU LỊCH HỌC */}
             {durationMode === "by_sessions" && (
-              <div className="space-y-3 pt-1">
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                      Số buổi / tuần:
-                    </label>
-                    <input
-                      type="number"
-                      min="1"
-                      max="7"
-                      value={sessionsPerWeek}
-                      onChange={(e) => setSessionsPerWeek(Number(e.target.value) || 1)}
-                      className="w-full px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900"
-                    />
+              <div className="space-y-3.5 pt-1">
+                {/* Chọn nhanh theo Kiểu Lịch Mẫu của Cơ Sở */}
+                {schedulePresets.length > 0 && (
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
+                        Chọn nhanh kiểu lịch học mẫu của cơ sở:
+                      </span>
+                      <span className="text-[10px] text-indigo-600 font-bold flex items-center gap-1">
+                        <Sparkles className="w-3 h-3" /> Tự động điền ngày & giờ
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {schedulePresets.map((preset) => {
+                        const isSelected = selectedPresetId === preset.id;
+                        const calcTotalH = Math.round((preset.days?.length || 0) * (preset.hours_per_session || 1.5) * 10) / 10;
+                        return (
+                          <button
+                            type="button"
+                            key={preset.id}
+                            onClick={() => handleApplyPreset(preset)}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+                              isSelected
+                                ? "bg-indigo-600 text-white shadow-xs ring-2 ring-indigo-600/30"
+                                : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200/80 border border-transparent hover:border-slate-300"
+                            }`}
+                          >
+                            <span>{preset.name}</span>
+                            <span
+                              className={`text-[10px] px-1.5 py-0.2 rounded-md ${
+                                isSelected
+                                  ? "bg-white/20 text-white"
+                                  : "bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-300 font-mono"
+                              }`}
+                            >
+                              {calcTotalH}h/tuần
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
+                )}
 
-                  <div>
-                    <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                      Giờ học mỗi buổi:
-                    </label>
-                    <input
-                      type="text"
-                      value={fixedSessionTime}
-                      onChange={(e) => setFixedSessionTime(e.target.value)}
-                      placeholder="18:00 - 19:00"
-                      className="w-full px-3 py-1.5 text-xs font-semibold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900"
-                    />
-                  </div>
-                </div>
-
+                {/* Chọn các ngày học cố định */}
                 <div>
                   <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1.5">
-                    Chọn các ngày học cố định trong tuần:
+                    Các ngày học trong tuần ({selectedDays.length} ngày đã chọn):
                   </label>
                   <div className="flex flex-wrap gap-1.5">
                     {ALL_DAYS.map((day) => {
@@ -944,6 +1055,64 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                         </button>
                       );
                     })}
+                  </div>
+                </div>
+
+                {/* Cấu hình thời lượng mỗi buổi & Giờ học chi tiết */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                      Thời lượng mỗi buổi:
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        min="0.5"
+                        max="8"
+                        step="0.5"
+                        value={sessionHours}
+                        onChange={(e) => {
+                          setSelectedPresetId(null);
+                          setSessionHours(Number(e.target.value) || 1);
+                        }}
+                        className="w-20 px-3 py-1.5 text-xs font-bold text-center rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900"
+                      />
+                      <span className="text-xs font-bold text-slate-500">tiếng / buổi</span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                      Khung giờ vào lớp mỗi buổi:
+                    </label>
+                    <input
+                      type="text"
+                      value={fixedSessionTime}
+                      onChange={(e) => setFixedSessionTime(e.target.value)}
+                      placeholder="18:00 - 19:30"
+                      className="w-full px-3 py-1.5 text-xs font-semibold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900"
+                    />
+                  </div>
+                </div>
+
+                {/* Thẻ Ma Trận Tính Toán Tự Động */}
+                <div className="p-3 rounded-2xl bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-200/80 dark:border-indigo-900/50 flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] font-black uppercase tracking-wider text-indigo-700 dark:text-indigo-300 block">
+                      Ma trận tính toán thời lượng tự động:
+                    </span>
+                    <div className="text-xs font-bold text-slate-800 dark:text-slate-100 mt-0.5">
+                      {selectedDays.length} buổi × {sessionHours}h/buổi ={" "}
+                      <span className="text-sm font-black text-indigo-600 dark:text-indigo-400">
+                        {Math.round(selectedDays.length * sessionHours * 10) / 10} tiếng / tuần
+                      </span>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-[10px] font-mono text-slate-500 block">Quy đổi:</span>
+                    <span className="text-xs font-black text-indigo-700 dark:text-indigo-300 font-mono">
+                      {Math.round(selectedDays.length * sessionHours * 60)} phút / tuần
+                    </span>
                   </div>
                 </div>
               </div>
