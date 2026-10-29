@@ -41,6 +41,7 @@ interface ClassroomScheduleMatrixProps {
   subjects: Subject[];
   onSelectStudent: (student: Student) => void;
   onAddStudentToSlot?: (day: string, time: string, teacherId?: string, subjectId?: string) => void;
+  onOpenConsultation?: () => void;
 }
 
 // Các thứ trong tuần chuẩn
@@ -86,6 +87,7 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
   subjects,
   onSelectStudent,
   onAddStudentToSlot,
+  onOpenConsultation,
 }) => {
   // Mode: "week_horizontal" (Dàn ngang toàn tuần) | "single_day" (Chọn xem chi tiết từng thứ) | "teacher_centric" (Xem theo từng giáo viên)
   const [viewMode, setViewMode] = useState<"week_horizontal" | "single_day" | "teacher_centric">("week_horizontal");
@@ -711,6 +713,18 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
                 </option>
               ))}
             </select>
+          )}
+
+          {/* Nút Kết Luận Ca Trống & Tư Vấn Nhanh */}
+          {onOpenConsultation && (
+            <button
+              type="button"
+              onClick={onOpenConsultation}
+              className="px-3.5 py-1.5 text-xs font-black rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white shadow-xs flex items-center gap-1.5 transition cursor-pointer active:scale-95 shrink-0"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Kết Luận Ca Trống</span>
+            </button>
           )}
 
           {/* Nút In Sơ Đồ Lớp Học */}

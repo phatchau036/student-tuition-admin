@@ -80,6 +80,7 @@ import { AppInfoModal } from "./AppInfoModal";
 import { SmartExcelImportModal } from "./SmartExcelImportModal";
 import { QuickAuditModal } from "./QuickAuditModal";
 import { ClassroomScheduleMatrix } from "./ClassroomScheduleMatrix";
+import { ScheduleAvailabilityModal } from "./ScheduleAvailabilityModal";
 import { exportStudentsToExcel } from "@/lib/exportExcel";
 import { useLanguage } from "@/lib/i18n";
 import { useTheme } from "@/lib/ThemeContext";
@@ -152,6 +153,7 @@ export default function Dashboard() {
   const [isExcelImportModalOpen, setIsExcelImportModalOpen] = useState(false);
   const [isQuickAuditModalOpen, setIsQuickAuditModalOpen] = useState(false);
   const [studentForQuickAudit, setStudentForQuickAudit] = useState<Student | null>(null);
+  const [isAvailabilityModalOpen, setIsAvailabilityModalOpen] = useState(false);
 
   // Custom Delete Confirmation Modal state
   const [studentToDelete, setStudentToDelete] = useState<Student | null>(null);
@@ -1089,10 +1091,20 @@ export default function Dashboard() {
             </div>
 
             {mainViewMode === "schedule_matrix" && (
-              <span className="text-xs font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-3 py-1.5 rounded-xl border border-amber-200 dark:border-amber-900/50 flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>Hiển thị phân bổ tự động theo Thứ (T2-CN), Ca giờ (17h-19h) và Giáo viên</span>
-              </span>
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => setIsAvailabilityModalOpen(true)}
+                  className="text-xs font-black px-4 py-2 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white shadow-md shadow-amber-500/25 flex items-center gap-2 transition cursor-pointer active:scale-95"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  <span>⚡ Kết Luận Ca Trống & Tư Vấn Nhanh</span>
+                </button>
+                <span className="text-xs font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 hidden sm:inline-flex items-center gap-1.5">
+                  <CalendarCheck className="w-3.5 h-3.5 text-indigo-500" />
+                  <span>Phân bổ tự động theo Thứ (T2-CN), Ca giờ và Thầy Cô</span>
+                </span>
+              </div>
             )}
           </div>
 
@@ -1818,6 +1830,7 @@ export default function Dashboard() {
               setSlotPrefill({ day, time, teacherId: tcId });
               setIsStudentModalOpen(true);
             }}
+            onOpenConsultation={() => setIsAvailabilityModalOpen(true)}
           />
         )}
 
@@ -2186,6 +2199,21 @@ export default function Dashboard() {
         levels={levels}
         teachers={teachers}
         schoolId={currentSchool?.id}
+      />
+
+      {/* Schedule Availability Consultation Modal (Kết luận ca trống & Mẫu tin nhắn tư vấn Zalo phụ huynh) */}
+      <ScheduleAvailabilityModal
+        isOpen={isAvailabilityModalOpen}
+        onClose={() => setIsAvailabilityModalOpen(false)}
+        students={students}
+        teachers={teachers}
+        timeSlots={timeSlots}
+        subjects={subjects}
+        onSelectSlotToEnroll={(day, time, tcId, subId) => {
+          setStudentToEdit(null);
+          setSlotPrefill({ day, time, teacherId: tcId });
+          setIsStudentModalOpen(true);
+        }}
       />
     </div>
   );
