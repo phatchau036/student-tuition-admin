@@ -713,10 +713,6 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
                         const entries = getSlotFilteredEntries(dayName, hour);
                         const totalInSlot = entries.length;
 
-                        // Hiển thị 4 thẻ 1 dòng siêu gọn, phần còn lại gom thành nút "+N khác"
-                        const visibleEntries = entries.slice(0, 4);
-                        const remainingCount = totalInSlot - 4;
-
                         return (
                           <td
                             key={dayName}
@@ -740,13 +736,13 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
                               </div>
                             )}
 
-                            {/* Danh sách thẻ học sinh dạng 1 dòng siêu gọn (h-7: 28px) */}
-                            <div className="space-y-1 min-h-[90px] flex flex-col justify-start">
+                            {/* Danh sách thẻ học sinh trải dài toàn bộ (không bị giới hạn hay ẩn đi) */}
+                            <div className="space-y-1 min-h-[85px] flex flex-col justify-start">
                               {totalInSlot === 0 ? (
                                 /* Ô Trống Sạch Sẽ */
                                 <div
                                   onClick={() => onAddStudentToSlot?.(dayName, hourLabel)}
-                                  className="h-full min-h-[85px] rounded-xl flex flex-col items-center justify-center text-slate-300 dark:text-slate-700 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50/40 dark:hover:bg-slate-800/40 transition cursor-pointer border border-transparent hover:border-dashed hover:border-indigo-300 dark:hover:border-indigo-700/60 group/empty"
+                                  className="h-full min-h-[80px] rounded-xl flex flex-col items-center justify-center text-slate-300 dark:text-slate-700 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50/40 dark:hover:bg-slate-800/40 transition cursor-pointer border border-transparent hover:border-dashed hover:border-indigo-300 dark:hover:border-indigo-700/60 group/empty"
                                 >
                                   <Plus className="w-4 h-4 opacity-0 group-hover/empty:opacity-100 transition-opacity transform group-hover/empty:scale-110" />
                                   <span className="text-[10px] font-bold opacity-0 group-hover/empty:opacity-100 transition-opacity mt-0.5">
@@ -754,94 +750,82 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
                                   </span>
                                 </div>
                               ) : (
-                                <>
-                                  {visibleEntries.map(({ student, timeDetail, subjectName, teacherId }) => {
-                                    const isUnassigned = teacherId === "unassigned" || !student.teacher_id;
-                                    const isOverdue = Boolean(student.is_overdue);
-                                    const isHighlighted = hoveredStudentId && hoveredStudentId === student.id;
-                                    const isDimmed = hoveredStudentId && hoveredStudentId !== student.id;
+                                entries.map(({ student, timeDetail, subjectName, teacherId }) => {
+                                  const isUnassigned = teacherId === "unassigned" || !student.teacher_id;
+                                  const isOverdue = Boolean(student.is_overdue);
+                                  const isHighlighted = hoveredStudentId && hoveredStudentId === student.id;
+                                  const isDimmed = hoveredStudentId && hoveredStudentId !== student.id;
 
-                                    return (
-                                      <div
-                                        key={student.id}
-                                        onClick={() => onSelectStudent(student)}
-                                        onMouseEnter={(e) => {
-                                          setHoveredStudentId(student.id);
-                                          const rect = e.currentTarget.getBoundingClientRect();
-                                          setHoveredStudent({
-                                            student,
-                                            timeDetail,
-                                            subjectName,
-                                            x: rect.right + 10,
-                                            y: rect.top,
-                                          });
-                                        }}
-                                        onMouseLeave={() => {
-                                          setHoveredStudentId(null);
-                                          setHoveredStudent(null);
-                                        }}
-                                        className={`h-7 px-2 rounded-lg border flex items-center justify-between gap-1 text-left cursor-pointer transition-all duration-150 relative ${getSubjectBorderClass(
-                                          subjectName
-                                        )} border-l-[3.5px] ${
-                                          isHighlighted
-                                            ? "ring-2 ring-indigo-500 bg-indigo-50/95 dark:bg-indigo-950 shadow-md scale-[1.02] z-10 border-indigo-300 font-bold"
-                                            : isDimmed
-                                            ? "opacity-35 scale-[0.98]"
-                                            : isUnassigned
-                                            ? "bg-amber-50/70 dark:bg-amber-950/20 border-dashed border-amber-300/80 dark:border-amber-700/80 hover:border-amber-400"
-                                            : "bg-white dark:bg-slate-800/90 border-slate-200/90 dark:border-slate-700/80 hover:border-indigo-400 hover:shadow-2xs"
-                                        }`}
-                                      >
-                                        {/* Tên học sinh */}
-                                        <div className="flex items-center gap-1 min-w-0">
-                                          <span
-                                            className="font-bold text-[11px] text-slate-800 dark:text-slate-100 truncate"
-                                            title={`${student.name} (${subjectName})`}
-                                          >
-                                            {student.name}
-                                          </span>
-                                          {isOverdue && (
-                                            <span
-                                              className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse shrink-0"
-                                              title="Nợ học phí quá hạn"
-                                            />
-                                          )}
-                                        </div>
+                                  // Chỉ hiện mốc giờ khi lệch với giờ chuẩn của ca (ví dụ 18:30 trong ca 18:00)
+                                  const isCustomTime = Boolean(
+                                    timeDetail &&
+                                      !timeDetail.startsWith(`${hourLabel}`) &&
+                                      !timeDetail.startsWith(`${hour.replace("h", "")}:00`) &&
+                                      timeDetail !== hourLabel
+                                  );
 
-                                        {/* Thông tin phụ: Giờ học nếu lệch / Nhãn Chờ GV */}
-                                        <div className="flex items-center gap-1 shrink-0">
-                                          {timeDetail ? (
-                                            <span className="font-mono text-[9px] font-bold text-amber-700 dark:text-amber-400 bg-amber-100/80 dark:bg-amber-950/60 px-1 py-0.2 rounded leading-tight">
-                                              {timeDetail.split("-")[0]?.trim() || timeDetail}
-                                            </span>
-                                          ) : isUnassigned ? (
-                                            <span className="text-[8.5px] font-extrabold text-amber-700 dark:text-amber-400 bg-amber-100/60 dark:bg-amber-950/40 px-1 rounded">
-                                              Chờ GV
-                                            </span>
-                                          ) : null}
-                                        </div>
-                                      </div>
-                                    );
-                                  })}
-
-                                  {/* Nút Thu Gọn Xem Thêm Khi Ô Có Quá 4 Học Sinh */}
-                                  {remainingCount > 0 && (
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        setDrawerSlot({
-                                          day: dayName,
-                                          hour,
-                                          entries,
-                                        })
-                                      }
-                                      className="w-full h-6 px-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/50 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 font-extrabold text-[10px] text-center transition cursor-pointer border border-indigo-200/70 dark:border-indigo-800 flex items-center justify-center gap-1 active:scale-95 shadow-2xs"
+                                  return (
+                                    <div
+                                      key={student.id}
+                                      onClick={() => onSelectStudent(student)}
+                                      onMouseEnter={(e) => {
+                                        setHoveredStudentId(student.id);
+                                        const rect = e.currentTarget.getBoundingClientRect();
+                                        setHoveredStudent({
+                                          student,
+                                          timeDetail,
+                                          subjectName,
+                                          x: rect.right + 10,
+                                          y: rect.top,
+                                        });
+                                      }}
+                                      onMouseLeave={() => {
+                                        setHoveredStudentId(null);
+                                        setHoveredStudent(null);
+                                      }}
+                                      className={`h-7 px-2 rounded-lg border flex items-center justify-between gap-1 text-left cursor-pointer transition-all duration-150 relative ${getSubjectBorderClass(
+                                        subjectName
+                                      )} border-l-[3.5px] ${
+                                        isHighlighted
+                                          ? "ring-2 ring-indigo-500 bg-indigo-50/95 dark:bg-indigo-950 shadow-md scale-[1.02] z-10 border-indigo-300 font-bold"
+                                          : isDimmed
+                                          ? "opacity-35 scale-[0.98]"
+                                          : isUnassigned
+                                          ? "bg-amber-50/70 dark:bg-amber-950/20 border-dashed border-amber-300/80 dark:border-amber-700/80 hover:border-amber-400"
+                                          : "bg-white dark:bg-slate-800/90 border-slate-200/90 dark:border-slate-700/80 hover:border-indigo-400 hover:shadow-2xs"
+                                      }`}
                                     >
-                                      <span>+{remainingCount} khác</span>
-                                      <ChevronRight className="w-3 h-3" />
-                                    </button>
-                                  )}
-                                </>
+                                      {/* Tên học sinh */}
+                                      <div className="flex items-center gap-1 min-w-0">
+                                        <span
+                                          className="font-bold text-[11px] text-slate-800 dark:text-slate-100 truncate"
+                                          title={`${student.name} (${subjectName})`}
+                                        >
+                                          {student.name}
+                                        </span>
+                                        {isOverdue && (
+                                          <span
+                                            className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse shrink-0"
+                                            title="Nợ học phí quá hạn"
+                                          />
+                                        )}
+                                      </div>
+
+                                      {/* Thông tin phụ: Giờ học nếu lệch / Nhãn Chờ GV */}
+                                      <div className="flex items-center gap-1 shrink-0">
+                                        {isCustomTime ? (
+                                          <span className="font-mono text-[9px] font-bold text-amber-700 dark:text-amber-400 bg-amber-100/80 dark:bg-amber-950/60 px-1 py-0.2 rounded leading-tight">
+                                            {timeDetail.split("-")[0]?.trim() || timeDetail}
+                                          </span>
+                                        ) : isUnassigned ? (
+                                          <span className="text-[8.5px] font-extrabold text-amber-700 dark:text-amber-400 bg-amber-100/60 dark:bg-amber-950/40 px-1 rounded">
+                                            Chờ GV
+                                          </span>
+                                        ) : null}
+                                      </div>
+                                    </div>
+                                  );
+                                })
                               )}
                             </div>
                           </td>
