@@ -13,12 +13,16 @@ export async function GET(req: Request) {
     const querySchoolId = searchParams.get("school_id") || schoolId;
     const finalSchoolId = querySchoolId || "school-default";
 
-    // Get Base Tuition
+    // Get Base Tuition (Nếu chưa cấu hình hoặc = 0 thì lấy từ gói tháng 1m hoặc mặc định 1.000.000đ)
     const baseTuitionRes = await db.execute({
       sql: "SELECT value FROM settings WHERE key = ?",
       args: ["base_tuition"],
     });
-    const baseTuition = baseTuitionRes.rows.length > 0 ? Number(baseTuitionRes.rows[0].value) : 0;
+    let baseTuition = baseTuitionRes.rows.length > 0 ? Number(baseTuitionRes.rows[0].value) : 0;
+    if (baseTuition <= 0) {
+      const defaultPkgRes = await db.execute("SELECT amount FROM tuition_packages WHERE cycle_unit = 'month' AND cycle_value = 1 LIMIT 1");
+      baseTuition = defaultPkgRes.rows.length > 0 ? Number(defaultPkgRes.rows[0].amount) : 1000000;
+    }
 
     // Get All Students belonging to this school
     const studentsRes = await db.execute({

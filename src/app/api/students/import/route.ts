@@ -53,6 +53,13 @@ export async function POST(req: Request) {
     });
     const defaultSlotId = slotsRes.rows.length > 0 ? String(slotsRes.rows[0].id) : "";
 
+    // Lấy gói học phí mặc định (Theo tháng) nếu có
+    const defaultPkgRes = await db.execute({
+      sql: "SELECT id FROM tuition_packages WHERE (school_id = ? OR school_id = 'school-default') AND cycle_unit = 'month' AND cycle_value = 1 LIMIT 1",
+      args: [finalSchoolId],
+    });
+    const defaultPackageId = defaultPkgRes.rows.length > 0 ? String(defaultPkgRes.rows[0].id) : null;
+
     let importedCount = 0;
     let updatedCount = 0;
     let skippedCount = 0;
@@ -183,12 +190,12 @@ export async function POST(req: Request) {
         const id = `stu-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
         await db.execute({
           sql: `INSERT INTO students (
-                  id, school_id, student_code, name, phone, zalo_link, level_id, subject_id, time_slot_id,
+                  id, school_id, student_code, name, phone, zalo_link, level_id, subject_id, time_slot_id, tuition_package_id,
                   start_date, duration_mode, sessions_per_week, hours_per_week, registered_days,
                   study_time_detail, schedule_details_json, is_discount_enabled, discount_percent,
                   discount_reason, status_note, status
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, '', ?, 'by_hours', 2, 3, '', ?, '[]', ?, ?, ?, ?, 'studying')`,
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, '', ?, ?, 'by_hours', 2, 3, '', ?, '[]', ?, ?, ?, ?, 'studying')`,
           args: [
             id,
             finalSchoolId,
@@ -198,6 +205,7 @@ export async function POST(req: Request) {
             formattedZalo,
             matchedLevelId,
             matchedSubjectId,
+            defaultPackageId,
             startDateStr,
             item.study_time_detail || "",
             item.discount_percent ? 1 : 0,

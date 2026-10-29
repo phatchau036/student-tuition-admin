@@ -15,7 +15,11 @@ export async function GET(req: Request) {
       settingsMap[String(row.key)] = String(row.value);
     }
 
-    const baseTuition = Number(settingsMap["base_tuition"] || 0);
+    let baseTuition = Number(settingsMap["base_tuition"] || 0);
+    if (baseTuition <= 0) {
+      const defaultPkgRes = await db.execute("SELECT amount FROM tuition_packages WHERE cycle_unit = 'month' AND cycle_value = 1 LIMIT 1");
+      baseTuition = defaultPkgRes.rows.length > 0 ? Number(defaultPkgRes.rows[0].amount) : 1000000;
+    }
     const durationMode = (settingsMap["duration_mode"] as "by_hours" | "by_sessions") || "by_hours";
     const appLanguage = (settingsMap["app_language"] as "vi" | "en" | "zh" | "ja") || "vi";
     const monthFormat = (settingsMap["month_format"] as "vietnamese" | "english" | "chinese" | "japanese" | "number") || "vietnamese";

@@ -361,7 +361,7 @@ export async function initDb() {
 
   // Defaults for settings
   const defaults: [string, string][] = [
-    ["base_tuition", "0"],
+    ["base_tuition", "1000000"],
     ["duration_mode", "by_hours"],
     ["default_hours_per_week", "3"],
     ["default_sessions_per_week", "3"],
@@ -384,8 +384,25 @@ export async function initDb() {
         sql: "INSERT INTO settings (key, value) VALUES (?, ?)",
         args: [key, val],
       });
+    } else if (key === "base_tuition" && (check.rows[0].value === "0" || !check.rows[0].value)) {
+      // Tự động khôi phục mức học phí chuẩn 1.000.000đ nếu đang bị set = 0
+      await db.execute({
+        sql: "UPDATE settings SET value = '1000000' WHERE key = 'base_tuition'",
+      });
     }
   }
+
+  // Tự động gán gói học phí chuẩn (Theo tháng) cho những học sinh chưa có gói học phí
+  try {
+    const pkg1mCheck = await db.execute("SELECT id FROM tuition_packages WHERE cycle_unit = 'month' AND cycle_value = 1 LIMIT 1");
+    if (pkg1mCheck.rows.length > 0) {
+      const defaultPkgId = String(pkg1mCheck.rows[0].id);
+      await db.execute({
+        sql: "UPDATE students SET tuition_package_id = ? WHERE tuition_package_id IS NULL OR tuition_package_id = ''",
+        args: [defaultPkgId],
+      });
+    }
+  } catch {}
 }
 
 export async function clearAllData() {
