@@ -55,3 +55,4 @@ Mỗi màn hình dữ liệu hoặc bảng danh sách phải xử lý đủ 4 tr
 | 2026-10-29 | Glassmorphism Card Tokens | Hoàn thiện v2.6.0 | `ui-builder` |
 | 2026-10-29 | Bảng màu huy hiệu trạng thái & sĩ số | Chuẩn hóa toàn hệ thống | `ui-builder` |
 | 2026-10-29 | Redesign Ma Trận Lưới Xếp Lịch 7 Ngày (`ClassroomScheduleMatrix`) | Lưới 7 cột cố định, hàng thẳng hàng, chip rộng, nút +N học viên, Side Drawer, Header pastel, Thanh công cụ 2 tầng | `ui-builder` |
+| 2026-10-29 | Nâng cấp Sáng tạo Thẻ 1 dòng 28px & Hiệu ứng tương tác | Thẻ 28px viền màu bộ môn, vạch thời gian thực Bây giờ, Cross-highlighting học viên toàn tuần, Chế độ Điểm Nóng (Hotspot), sửa badge CN | `ui-builder` |

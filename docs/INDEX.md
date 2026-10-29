@@ -86,3 +86,4 @@ Mỗi khi Main Agent hoặc Subagent nhận được yêu cầu từ người d�
 | 2026-10-29 | Khởi tạo và gom toàn bộ tài liệu kỹ thuật vào thư mục `docs/` | Main Agent | Hoàn thành cấu trúc gọn gàng, đồng bộ chuẩn xác v2.6.0 |
 | 2026-10-29 | Nâng cấp toàn diện ma trận xếp lịch `ClassroomScheduleMatrix` | `ui-builder` | Hoàn thành lưới 7 cột đồng bộ, chip rộng, Side Drawer, thanh công cụ 2 tầng |
 | 2026-10-29 | Tối ưu đóng Side Drawer khi click bên ngoài backdrop hoặc phím ESC | `ui-builder` | Đã triển khai và push GitHub |
+| 2026-10-29 | Nâng cấp sáng tạo: Thẻ 1 dòng 28px, Cross-highlighting, Vạch Bây giờ, Chế độ Điểm Nóng | `ui-builder` | Đã hoàn thiện và kiểm thử sạch lỗi biên dịch |
