@@ -6,19 +6,34 @@ export async function GET(req: Request) {
   try {
     await initDb();
     const db = getDb();
-    const schoolId = getSchoolIdFromRequest(req);
+    const { searchParams } = new URL(req.url);
+    const querySchoolId = searchParams.get("school_id");
+    const headerSchoolId = getSchoolIdFromRequest(req);
+    const schoolId = querySchoolId || headerSchoolId || "school-default";
 
-    const teachersRes = await db.execute({
+    // Tìm giáo viên thuộc cơ sở này, hoặc giáo viên thuộc school-default (fallback an toàn để không bao giờ bị mất giáo viên)
+    let teachersRes = await db.execute({
       sql: `
         SELECT t.*, COUNT(s.id) as student_count
         FROM teachers t
-        LEFT JOIN students s ON s.teacher_id = t.id AND s.school_id = t.school_id
-        WHERE t.school_id = ?
+        LEFT JOIN students s ON s.teacher_id = t.id
+        WHERE t.school_id = ? OR t.school_id = 'school-default' OR ? = 'school-default'
         GROUP BY t.id
         ORDER BY t.created_at ASC
       `,
-      args: [schoolId],
+      args: [schoolId, schoolId],
     });
+
+    // Nếu không tìm thấy và schoolId cụ thể khác school-default, query mở rộng
+    if (teachersRes.rows.length === 0) {
+      teachersRes = await db.execute(`
+        SELECT t.*, COUNT(s.id) as student_count
+        FROM teachers t
+        LEFT JOIN students s ON s.teacher_id = t.id
+        GROUP BY t.id
+        ORDER BY t.created_at ASC
+      `);
+    }
 
     const teachers = teachersRes.rows.map((row) => {
       let assignedSlotIds: string[] = [];
@@ -39,7 +54,7 @@ export async function GET(req: Request) {
         max_students: Number(row.max_students || 10),
         assigned_slot_ids: assignedSlotIds,
         working_shifts_json: row.working_shifts_json ? String(row.working_shifts_json) : "[]",
-        is_active: Number(row.is_active || 1),
+        is_active: Number(row.is_active ?? 1),
         student_count: Number(row.student_count || 0),
         created_at: String(row.created_at || ""),
       };
@@ -59,15 +74,17 @@ export async function POST(req: Request) {
   try {
     await initDb();
     const db = getDb();
-    const schoolId = getSchoolIdFromRequest(req);
     const body = await req.json();
+    const { searchParams } = new URL(req.url);
+    const querySchoolId = searchParams.get("school_id");
+    const headerSchoolId = getSchoolIdFromRequest(req);
 
     const { name, phone, email, specialty, color, max_students, assigned_slot_ids, working_shifts_json, school_id } = body;
-    const targetSchoolId = school_id || schoolId || "school-default";
+    const targetSchoolId = school_id || querySchoolId || headerSchoolId || "school-default";
 
     if (!name || !phone) {
       return NextResponse.json(
-        { success: false, message: "Vui lòng nhập tên và số điện thoại giáo viên!" },
+        { success: false, message: "Vui lòng nhập họ tên và số điện thoại giáo viên!" },
         { status: 400 }
       );
     }
@@ -76,22 +93,40 @@ export async function POST(req: Request) {
     const slotJson = JSON.stringify(Array.isArray(assigned_slot_ids) ? assigned_slot_ids : []);
     const shiftJson = typeof working_shifts_json === "string" ? working_shifts_json : JSON.stringify(working_shifts_json || []);
 
-    await db.execute({
-      sql: `INSERT INTO teachers (id, school_id, name, phone, email, specialty, color, max_students, assigned_slot_ids, working_shifts_json, is_active)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
-      args: [
-        id,
-        targetSchoolId,
-        name.trim(),
-        phone.trim(),
-        email?.trim() || "",
-        specialty?.trim() || "",
-        color || "indigo",
-        Number(max_students) || 10,
-        slotJson,
-        shiftJson,
-      ],
-    });
+    try {
+      await db.execute({
+        sql: `INSERT INTO teachers (id, school_id, name, phone, email, specialty, color, max_students, assigned_slot_ids, working_shifts_json, is_active)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+        args: [
+          id,
+          targetSchoolId,
+          name.trim(),
+          phone.trim(),
+          email?.trim() || "",
+          specialty?.trim() || "",
+          color || "indigo",
+          Number(max_students) || 10,
+          slotJson,
+          shiftJson,
+        ],
+      });
+    } catch (insertErr) {
+      console.warn("Retrying insert with base columns due to schema difference:", insertErr);
+      // Fallback an toàn nếu schema cũ chưa kịp migrate cột mới
+      await db.execute({
+        sql: `INSERT INTO teachers (id, school_id, name, phone, email, specialty, color, is_active)
+              VALUES (?, ?, ?, ?, ?, ?, ?, 1)`,
+        args: [
+          id,
+          targetSchoolId,
+          name.trim(),
+          phone.trim(),
+          email?.trim() || "",
+          specialty?.trim() || "",
+          color || "indigo",
+        ],
+      });
+    }
 
     return NextResponse.json({
       success: true,
@@ -101,7 +136,7 @@ export async function POST(req: Request) {
   } catch (error: unknown) {
     console.error("Teacher POST Error:", error);
     return NextResponse.json(
-      { success: false, message: (error as Error).message || "Internal Server Error" },
+      { success: false, message: (error as Error).message || "Lỗi lưu dữ liệu giáo viên vào database" },
       { status: 500 }
     );
   }

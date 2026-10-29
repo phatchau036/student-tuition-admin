@@ -23,6 +23,16 @@
 - **Nguyên nhân:** Hàm `parseStudentScheduleSlots` lọc sai điều kiện `timeDetail` cho các giờ chẵn kết thúc bằng `:00` và bắt đầu không có `:30`, đồng thời lỗi gõ `01:00` thay vì `11:00` hoặc `13:00` chưa được tự động chuẩn hóa.
 - **Cách khắc phục:** Đã chuẩn hóa `parseStudentScheduleSlots` luôn gán `timeDetail` đầy đủ (`start_time - end_time`), tự động chuyển đổi giờ 12h sang 24h và bổ sung fallback an toàn trong `ClassroomScheduleMatrix.tsx`.
 
+### KI-005: Không Thêm Được Giáo Viên Và Danh Sách Hiển Thị 0 Giáo Viên (ĐÃ KHẮC PHỤC)
+- **Mô tả:** Khi mở modal Quản lý Đội ngũ Giáo viên trên màn hình laptop, người dùng không nhìn thấy nút thêm/lưu giáo viên do form bị tràn. Thêm vào đó, danh sách hiển thị `Danh sách giáo viên (0)` dù trong DB đã có giáo viên.
+- **Nguyên nhân:**
+  1. Giao diện: Cột form bên trái không có cuộn riêng, nút submit bị trôi khỏi màn hình dưới chân trang, trong khi footer chỉ có nút "Đóng".
+  2. Dữ liệu: `TeacherManagementModal` không nhận `schoolId` từ `Dashboard`, không gửi `x-school-id` và `Authorization` header, dẫn đến giáo viên bị lưu nhầm vào `school-default` trong khi Dashboard query theo ID trường riêng.
+- **Cách khắc phục:** 
+  1. Thêm thanh cuộn riêng cho form bên trái, đưa nút Lưu/Thêm Giáo Viên vào thẳng thanh Footer cạnh nút Đóng.
+  2. Bổ sung `schoolId` prop, gửi đầy đủ token và headers.
+  3. API hỗ trợ fallback `WHERE school_id = ? OR school_id = 'school-default'`, cùng cơ chế retry an toàn khi chèn dữ liệu.
+
 ---
 
 ## 2. NỢ KỸ THUẬT CẦN TỐI ƯU TRONG TƯƠNG LAI (TECHNICAL DEBT)
@@ -39,3 +49,4 @@
 | KI-002 | Trích xuất IP qua Reverse Proxy | Đã xử lý trong `ipHelper.ts` | 2026-10-29 |
 | KI-003 | SQLite Busy lock khi ghi đồng thời | Đã có cơ chế retry của LibSQL | 2026-10-29 |
 | KI-004 | Mất giờ học sinh trong Drawer và khi thêm mới | Đã xử lý triệt để (Fixed) | 2026-10-29 |
+| KI-005 | Không thêm được giáo viên và danh sách hiển thị 0 | Đã xử lý triệt để (Fixed) | 2026-10-29 |

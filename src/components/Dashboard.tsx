@@ -2067,6 +2067,7 @@ export default function Dashboard() {
         onClose={() => setIsTeacherModalOpen(false)}
         teachers={teachers}
         timeSlots={timeSlots}
+        schoolId={currentSchool?.id}
         onRefresh={handleRefresh}
       />
 

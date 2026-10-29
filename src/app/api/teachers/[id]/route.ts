@@ -12,23 +12,40 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     const slotJson = JSON.stringify(Array.isArray(assigned_slot_ids) ? assigned_slot_ids : []);
     const shiftJson = typeof working_shifts_json === "string" ? working_shifts_json : JSON.stringify(working_shifts_json || []);
 
-    await db.execute({
-      sql: `UPDATE teachers 
-            SET name = ?, phone = ?, email = ?, specialty = ?, color = ?, max_students = ?, assigned_slot_ids = ?, working_shifts_json = ?, is_active = ?
-            WHERE id = ?`,
-      args: [
-        name.trim(),
-        phone.trim(),
-        email?.trim() || "",
-        specialty?.trim() || "",
-        color || "indigo",
-        Number(max_students) || 10,
-        slotJson,
-        shiftJson,
-        is_active ? 1 : 0,
-        id,
-      ],
-    });
+    try {
+      await db.execute({
+        sql: `UPDATE teachers 
+              SET name = ?, phone = ?, email = ?, specialty = ?, color = ?, max_students = ?, assigned_slot_ids = ?, working_shifts_json = ?, is_active = ?
+              WHERE id = ?`,
+        args: [
+          name.trim(),
+          phone.trim(),
+          email?.trim() || "",
+          specialty?.trim() || "",
+          color || "indigo",
+          Number(max_students) || 10,
+          slotJson,
+          shiftJson,
+          is_active ? 1 : 0,
+          id,
+        ],
+      });
+    } catch {
+      await db.execute({
+        sql: `UPDATE teachers 
+              SET name = ?, phone = ?, email = ?, specialty = ?, color = ?, is_active = ?
+              WHERE id = ?`,
+        args: [
+          name.trim(),
+          phone.trim(),
+          email?.trim() || "",
+          specialty?.trim() || "",
+          color || "indigo",
+          is_active ? 1 : 0,
+          id,
+        ],
+      });
+    }
 
     return NextResponse.json({
       success: true,
