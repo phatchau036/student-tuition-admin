@@ -116,6 +116,38 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
     return list;
   }, [teachers, selectedTeacherFilter]);
 
+  // Danh sách các mốc giờ thực tế xuất hiện theo từng ngày (tự động mở rộng từ ca đăng ký và dữ liệu học sinh)
+  const dayHoursMap = useMemo(() => {
+    const map: Record<string, string[]> = {};
+    for (const d of DAYS_OF_WEEK) {
+      const isWeekend = d === "Thứ 7" || d === "Chủ Nhật";
+      const baseHours = isWeekend ? ["08h", "09h", "10h", "17h", "18h", "19h"] : ["17h", "18h", "19h", "20h"];
+      const hourSet = new Set<string>(baseHours);
+
+      // Thêm các giờ từ timeSlots của cơ sở
+      timeSlots.forEach((slot) => {
+        if (slot.start_time) {
+          const h = parseInt(slot.start_time.split(":")[0], 10);
+          if (!isNaN(h)) hourSet.add(`${String(h).padStart(2, "0")}h`);
+        }
+      });
+
+      // Thêm các giờ thực tế mà học sinh đang học
+      students.forEach((st) => {
+        if (st.status === "dropped") return;
+        const slots = parseStudentScheduleSlots(st, teachers);
+        slots.forEach((s) => {
+          if (s.day === d && s.hourSlot) {
+            hourSet.add(s.hourSlot);
+          }
+        });
+      });
+
+      map[d] = Array.from(hourSet).sort((a, b) => parseInt(a, 10) - parseInt(b, 10));
+    }
+    return map;
+  }, [students, timeSlots, teachers]);
+
   // Map học sinh vào ma trận 5 chiều: matrixData[day][hourSlot][teacherId] = StudentSlotEntry[]
   const matrixData = useMemo(() => {
     const data: Record<
@@ -136,7 +168,7 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
     // Khởi tạo khung
     for (const d of DAYS_OF_WEEK) {
       data[d] = {};
-      const hours = d === "Thứ 7" || d === "Chủ Nhật" ? WEEKEND_HOURS : DEFAULT_HOURS;
+      const hours = dayHoursMap[d] || (d === "Thứ 7" || d === "Chủ Nhật" ? WEEKEND_HOURS : DEFAULT_HOURS);
       for (const h of hours) {
         data[d][h] = {};
         for (const tc of teachers) {
@@ -150,15 +182,24 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
     for (const st of students) {
       if (st.status === "dropped") continue;
 
-      const parsedSlots = parseStudentScheduleSlots(st);
-      const studentTeacherId = st.teacher_id || "unassigned";
+      const parsedSlots = parseStudentScheduleSlots(st, teachers);
 
       for (const slot of parsedSlots) {
         const d = slot.day;
         const h = slot.hourSlot;
+        // Ưu tiên giáo viên gán trong hồ sơ, nếu chưa có thì lấy giáo viên tự động nhận diện từ ghi chú/lịch học
+        const resolvedTeacherId = st.teacher_id || slot.detectedTeacherId || "unassigned";
 
-        if (data[d] && data[d][h]) {
-          const targetTeacherId = data[d][h][studentTeacherId] ? studentTeacherId : "unassigned";
+        if (data[d]) {
+          if (!data[d][h]) {
+            data[d][h] = {};
+            for (const tc of teachers) {
+              data[d][h][tc.id] = [];
+            }
+            data[d][h]["unassigned"] = [];
+          }
+
+          const targetTeacherId = data[d][h][resolvedTeacherId] ? resolvedTeacherId : "unassigned";
           const subName = slot.subjectName || st.subject_name || "Piano";
 
           data[d][h][targetTeacherId].push({
@@ -171,7 +212,7 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
     }
 
     return data;
-  }, [students, teachers]);
+  }, [students, teachers, dayHoursMap]);
 
   // Bộ lọc tìm kiếm & trạng thái học sinh trong ma trận
   const isStudentMatched = (st: Student) => {
@@ -226,7 +267,7 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
 
   // Render một cột ngày hoàn chỉnh (chuẩn hoá hiển thị card học sinh & thanh mốc giờ)
   const renderDayColumn = (dayName: string, isFullWidth: boolean = false) => {
-    const hours = dayName === "Thứ 7" || dayName === "Chủ Nhật" ? WEEKEND_HOURS : DEFAULT_HOURS;
+    const hours = dayHoursMap[dayName] || (dayName === "Thứ 7" || dayName === "Chủ Nhật" ? WEEKEND_HOURS : DEFAULT_HOURS);
 
     // Tính tổng sĩ số và chưa đóng của ngày này
     let dayTotalStudents = 0;

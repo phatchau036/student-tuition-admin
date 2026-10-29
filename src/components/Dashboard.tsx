@@ -2184,6 +2184,7 @@ export default function Dashboard() {
         onSuccess={handleRefresh}
         subjects={subjects}
         levels={levels}
+        teachers={teachers}
         schoolId={currentSchool?.id}
       />
     </div>

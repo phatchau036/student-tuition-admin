@@ -8,7 +8,7 @@ export async function POST(req: Request) {
     const db = getDb();
     const targetSchoolId = getSchoolIdFromRequest(req);
     const body = await req.json();
-    const { students: rawStudents, default_subject_id, default_level_id, school_id } = body;
+    const { students: rawStudents, default_subject_id, default_level_id, default_teacher_id, school_id } = body;
     const finalSchoolId = school_id || targetSchoolId || "school-default";
 
     if (!Array.isArray(rawStudents) || rawStudents.length === 0) {
@@ -46,6 +46,16 @@ export async function POST(req: Request) {
       name: String(r.name),
     }));
 
+    // Get all existing teachers for this school
+    const teachersRes = await db.execute({
+      sql: "SELECT id, name FROM teachers WHERE school_id = ? OR school_id = 'school-default'",
+      args: [finalSchoolId],
+    });
+    const existingTeachers: Array<{ id: string; name: string }> = teachersRes.rows.map((r) => ({
+      id: String(r.id),
+      name: String(r.name),
+    }));
+
     // Lấy ca học mặc định nếu có
     const slotsRes = await db.execute({
       sql: "SELECT id FROM time_slots WHERE school_id = ? AND is_active = 1 LIMIT 1",
@@ -65,6 +75,22 @@ export async function POST(req: Request) {
     let skippedCount = 0;
     const newLevelsAdded: string[] = [];
     const newSubjectsAdded: string[] = [];
+
+    // Helper khớp giáo viên từ tên
+    const matchTeacherId = (rawTeacherName: string): string | null => {
+      if (!rawTeacherName) return default_teacher_id || null;
+      const clean = rawTeacherName.toLowerCase().trim();
+      for (const tc of existingTeachers) {
+        const tcName = tc.name.toLowerCase().trim();
+        if (clean === tcName) return tc.id;
+        const words = tcName.split(/\s+/).filter((w) => !["thầy", "cô"].includes(w));
+        const mainName = words[words.length - 1];
+        if (tcName.length >= 2 && clean.includes(tcName)) return tc.id;
+        if (mainName && mainName.length >= 3 && clean.includes(mainName)) return tc.id;
+        if ((mainName === "phonk" || mainName === "phong") && (clean.includes("phong") || clean.includes("phonk"))) return tc.id;
+      }
+      return default_teacher_id || null;
+    };
 
     for (const item of rawStudents) {
       const name = String(item.name || "").trim();
@@ -152,6 +178,9 @@ export async function POST(req: Request) {
         }
       }
 
+      // Khớp giáo viên phụ trách từ cột teacher hoặc từ ghi chú
+      const matchedTeacherId = matchTeacherId(item.teacher_name || item.note || item.study_time_detail || "");
+
       const formattedZalo = `https://zalo.me/${phone}`;
       const studentCode = item.student_code
         ? String(item.student_code).trim()
@@ -169,6 +198,7 @@ export async function POST(req: Request) {
         await db.execute({
           sql: `UPDATE students 
                 SET name = ?, level_id = COALESCE(?, level_id), subject_id = COALESCE(?, subject_id),
+                    teacher_id = COALESCE(?, teacher_id),
                     study_time_detail = COALESCE(?, study_time_detail), start_date = COALESCE(?, start_date),
                     status_note = CASE WHEN ? != '' THEN ? ELSE status_note END
                 WHERE id = ? AND school_id = ?`,
@@ -176,6 +206,7 @@ export async function POST(req: Request) {
             name,
             matchedLevelId || null,
             matchedSubjectId || null,
+            matchedTeacherId || null,
             item.study_time_detail || null,
             startDateStr || null,
             item.note || "",
@@ -190,12 +221,12 @@ export async function POST(req: Request) {
         const id = `stu-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
         await db.execute({
           sql: `INSERT INTO students (
-                  id, school_id, student_code, name, phone, zalo_link, level_id, subject_id, time_slot_id, tuition_package_id,
+                  id, school_id, student_code, name, phone, zalo_link, level_id, subject_id, teacher_id, time_slot_id, tuition_package_id,
                   start_date, duration_mode, sessions_per_week, hours_per_week, registered_days,
                   study_time_detail, schedule_details_json, is_discount_enabled, discount_percent,
                   discount_reason, status_note, status
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, '', ?, ?, 'by_hours', 2, 3, '', ?, '[]', ?, ?, ?, ?, 'studying')`,
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, '', ?, ?, 'by_hours', 2, 3, '', ?, '[]', ?, ?, ?, ?, 'studying')`,
           args: [
             id,
             finalSchoolId,
@@ -205,6 +236,7 @@ export async function POST(req: Request) {
             formattedZalo,
             matchedLevelId,
             matchedSubjectId,
+            matchedTeacherId || null,
             defaultPackageId,
             startDateStr,
             item.study_time_detail || "",

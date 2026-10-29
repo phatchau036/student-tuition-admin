@@ -2,7 +2,7 @@
 
 import React, { useState, useRef } from "react";
 import * as XLSX from "xlsx";
-import { Subject, LevelSurcharge } from "@/lib/types";
+import { Subject, LevelSurcharge, Teacher } from "@/lib/types";
 import { useToast } from "@/components/Toast";
 import {
   FileSpreadsheet,
@@ -17,6 +17,7 @@ import {
   BookOpen,
   Eye,
   RefreshCw,
+  GraduationCap,
 } from "lucide-react";
 
 interface SmartExcelImportModalProps {
@@ -25,6 +26,7 @@ interface SmartExcelImportModalProps {
   onSuccess: () => void;
   subjects: Subject[];
   levels: LevelSurcharge[];
+  teachers?: Teacher[];
   schoolId?: string;
 }
 
@@ -33,6 +35,7 @@ interface ColumnMapping {
   phone: string;
   level: string;
   subject: string;
+  teacher: string;
   startDate: string;
   studyTime: string;
   note: string;
@@ -44,6 +47,7 @@ export const SmartExcelImportModal: React.FC<SmartExcelImportModalProps> = ({
   onSuccess,
   subjects,
   levels,
+  teachers = [],
   schoolId,
 }) => {
   const { showToast } = useToast();
@@ -62,6 +66,7 @@ export const SmartExcelImportModal: React.FC<SmartExcelImportModalProps> = ({
     phone: "",
     level: "",
     subject: "",
+    teacher: "",
     startDate: "",
     studyTime: "",
     note: "",
@@ -69,6 +74,7 @@ export const SmartExcelImportModal: React.FC<SmartExcelImportModalProps> = ({
 
   const [defaultSubjectId, setDefaultSubjectId] = useState<string>("");
   const [defaultLevelId, setDefaultLevelId] = useState<string>(levels[0]?.id || "");
+  const [defaultTeacherId, setDefaultTeacherId] = useState<string>("");
   const [isImporting, setIsImporting] = useState(false);
 
   if (!isOpen) return null;
@@ -132,6 +138,7 @@ export const SmartExcelImportModal: React.FC<SmartExcelImportModalProps> = ({
       phone: "",
       level: "",
       subject: "",
+      teacher: "",
       startDate: "",
       studyTime: "",
       note: "",
@@ -150,6 +157,9 @@ export const SmartExcelImportModal: React.FC<SmartExcelImportModalProps> = ({
       }
       if (!newMap.subject && (lower.includes("môn") || lower.includes("nhạc cụ") || lower.includes("khóa học"))) {
         newMap.subject = col;
+      }
+      if (!newMap.teacher && (lower.includes("giáo viên") || lower.includes("thầy") || lower.includes("cô") || lower.includes("teacher") || lower.includes("gv"))) {
+        newMap.teacher = col;
       }
       if (!newMap.startDate && (lower.includes("ngày bắt đầu") || lower.includes("bắt đầu") || lower.includes("ngày vào") || lower.includes("ngày học"))) {
         newMap.startDate = col;
@@ -186,6 +196,7 @@ export const SmartExcelImportModal: React.FC<SmartExcelImportModalProps> = ({
       phone: getVal(mapping.phone),
       level_name: getVal(mapping.level),
       subject_name: getVal(mapping.subject),
+      teacher_name: getVal(mapping.teacher),
       start_date: getVal(mapping.startDate),
       study_time_detail: getVal(mapping.studyTime),
       note: getVal(mapping.note),
@@ -213,6 +224,7 @@ export const SmartExcelImportModal: React.FC<SmartExcelImportModalProps> = ({
           phone: getVal(mapping.phone),
           level_name: getVal(mapping.level),
           subject_name: getVal(mapping.subject),
+          teacher_name: getVal(mapping.teacher),
           start_date: getVal(mapping.startDate),
           study_time_detail: getVal(mapping.studyTime),
           note: getVal(mapping.note),
@@ -231,6 +243,7 @@ export const SmartExcelImportModal: React.FC<SmartExcelImportModalProps> = ({
           students: allMappedStudents,
           default_subject_id: defaultSubjectId || undefined,
           default_level_id: defaultLevelId || undefined,
+          default_teacher_id: defaultTeacherId || undefined,
           school_id: schoolId || undefined,
         }),
       });
@@ -436,7 +449,26 @@ export const SmartExcelImportModal: React.FC<SmartExcelImportModalProps> = ({
                   </select>
                 </div>
 
-                {/* 5. Ngày bắt đầu */}
+                {/* 5. Giáo viên phụ trách */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Cột Giáo viên phụ trách:
+                  </label>
+                  <select
+                    value={mapping.teacher}
+                    onChange={(e) => setMapping({ ...mapping, teacher: e.target.value })}
+                    className="w-full px-3 py-2 text-xs font-bold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white outline-none"
+                  >
+                    <option value="">-- Tự động nhận diện hoặc Gán sẵn --</option>
+                    {columns.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* 6. Ngày bắt đầu */}
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                     Cột Ngày bắt đầu học:
@@ -455,7 +487,7 @@ export const SmartExcelImportModal: React.FC<SmartExcelImportModalProps> = ({
                   </select>
                 </div>
 
-                {/* 6. Giờ học / Ca học */}
+                {/* 7. Giờ học / Ca học */}
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                     Cột Khung giờ / Lịch học:
@@ -476,17 +508,17 @@ export const SmartExcelImportModal: React.FC<SmartExcelImportModalProps> = ({
               </div>
 
               {/* Default Fallbacks */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 rounded-2xl bg-slate-100 dark:bg-slate-800 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3.5 rounded-2xl bg-slate-100 dark:bg-slate-800 text-xs">
                 <div>
                   <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">
-                    Gán Môn học mặc định cho danh sách này:
+                    Môn học mặc định:
                   </label>
                   <select
                     value={defaultSubjectId}
                     onChange={(e) => setDefaultSubjectId(e.target.value)}
                     className="w-full px-3 py-1.5 font-bold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white outline-none"
                   >
-                    <option value="">-- Theo cột môn học ở trên --</option>
+                    <option value="">-- Theo file Excel --</option>
                     {subjects.map((sub) => (
                       <option key={sub.id} value={sub.id}>
                         {sub.name}
@@ -497,7 +529,7 @@ export const SmartExcelImportModal: React.FC<SmartExcelImportModalProps> = ({
 
                 <div>
                   <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">
-                    Gán Level mặc định (nếu trong file trống):
+                    Level mặc định:
                   </label>
                   <select
                     value={defaultLevelId}
@@ -507,6 +539,24 @@ export const SmartExcelImportModal: React.FC<SmartExcelImportModalProps> = ({
                     {levels.map((lvl) => (
                       <option key={lvl.id} value={lvl.id}>
                         {lvl.level_name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">
+                    Giáo viên mặc định:
+                  </label>
+                  <select
+                    value={defaultTeacherId}
+                    onChange={(e) => setDefaultTeacherId(e.target.value)}
+                    className="w-full px-3 py-1.5 font-bold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white outline-none"
+                  >
+                    <option value="">-- Tự động theo file --</option>
+                    {teachers.map((tc) => (
+                      <option key={tc.id} value={tc.id}>
+                        {tc.name}
                       </option>
                     ))}
                   </select>
