@@ -526,34 +526,34 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
           {/* Ngày đăng ký học (Start Date) với nút Vào hiện tại ngay */}
           <div className="p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-              <div>
+              <div className="min-w-0 flex-1">
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
                   Ngày bắt đầu đăng ký học
                 </label>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
                   Thời điểm học sinh chính thức bắt đầu theo học tại trung tâm
                 </p>
               </div>
 
-              <div className="flex items-center gap-2">
-                <div className="relative flex-1 sm:w-44">
-                  <CalendarDays className="w-4 h-4 text-indigo-500 absolute left-3 top-2.5" />
+              <div className="flex items-center gap-2 shrink-0">
+                <div className="relative w-36 sm:w-40">
+                  <CalendarDays className="w-4 h-4 text-indigo-500 absolute left-2.5 top-2.5 pointer-events-none" />
                   <input
                     type="date"
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
-                    className="w-full pl-9 pr-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none transition"
+                    className="w-full pl-8 pr-2 py-1.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none transition"
                   />
                 </div>
 
                 <button
                   type="button"
                   onClick={() => setStartDate(new Date().toISOString().slice(0, 10))}
-                  className="px-3 py-1.5 text-xs font-black rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white shadow-xs transition flex items-center gap-1 shrink-0"
-                  title="Chọn ngay ngày hôm nay"
+                  className="px-3 py-1.5 text-xs font-black rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white shadow-xs transition flex items-center gap-1.5 shrink-0 cursor-pointer"
+                  title="Chọn ngày hôm nay"
                 >
                   <Sparkles className="w-3.5 h-3.5" />
-                  <span>Hôm nay (Hiện tại ngay)</span>
+                  <span>Hôm nay</span>
                 </button>
               </div>
             </div>
