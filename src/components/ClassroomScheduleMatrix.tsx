@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { Student, Teacher, TimeSlot, Subject } from "@/lib/types";
 import { parseStudentScheduleSlots } from "@/lib/tuition";
 import {
@@ -132,6 +132,19 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
     entries: StudentSlotEntry[];
   } | null>(null);
   const [drawerSearch, setDrawerSearch] = useState<string>("");
+
+  // Bấm phím ESC để đóng Drawer
+  useEffect(() => {
+    if (!drawerSlot) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setDrawerSlot(null);
+        setDrawerSearch("");
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [drawerSlot]);
 
   // Hover preview student popover
   const [hoveredStudent, setHoveredStudent] = useState<{
@@ -994,8 +1007,17 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
           SIDE DRAWER: XEM TOÀN BỘ DANH SÁCH HỌC VIÊN TRONG Ô CA HỌC ĐÔNG
           ========================================================================= */}
       {drawerSlot && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="w-full max-w-md bg-white dark:bg-slate-900 h-full shadow-2xl p-6 flex flex-col border-l border-slate-200 dark:border-slate-800 animate-in slide-in-from-right duration-200">
+        <div
+          onClick={() => {
+            setDrawerSlot(null);
+            setDrawerSearch("");
+          }}
+          className="fixed inset-0 z-50 flex justify-end bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-150 cursor-pointer"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md bg-white dark:bg-slate-900 h-full shadow-2xl p-6 flex flex-col border-l border-slate-200 dark:border-slate-800 animate-in slide-in-from-right duration-200 cursor-default"
+          >
             {/* Header Drawer */}
             <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
               <div>
