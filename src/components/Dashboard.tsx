@@ -127,6 +127,11 @@ export default function Dashboard() {
 
   const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
   const [studentToEdit, setStudentToEdit] = useState<Student | null>(null);
+  const [slotPrefill, setSlotPrefill] = useState<{
+    day?: string;
+    time?: string;
+    teacherId?: string;
+  }>({});
 
   const [isMonthlyModalOpen, setIsMonthlyModalOpen] = useState(false);
   const [studentForMonthly, setStudentForMonthly] = useState<Student | null>(null);
@@ -1810,6 +1815,7 @@ export default function Dashboard() {
             }}
             onAddStudentToSlot={(day, time, tcId) => {
               setStudentToEdit(null);
+              setSlotPrefill({ day, time, teacherId: tcId });
               setIsStudentModalOpen(true);
             }}
           />
@@ -2064,7 +2070,10 @@ export default function Dashboard() {
       {/* Student Form Modal (Create / Edit) */}
       <StudentFormModal
         isOpen={isStudentModalOpen}
-        onClose={() => setIsStudentModalOpen(false)}
+        onClose={() => {
+          setIsStudentModalOpen(false);
+          setSlotPrefill({});
+        }}
         onSaved={handleRefresh}
         studentToEdit={studentToEdit}
         baseTuition={baseTuition}
@@ -2079,6 +2088,9 @@ export default function Dashboard() {
         defaultSessions={defaultSessions}
         defaultHours={defaultHours}
         defaultStudyTime={defaultStudyTime}
+        initialTeacherId={slotPrefill.teacherId}
+        initialDay={slotPrefill.day}
+        initialStartTime={slotPrefill.time}
       />
 
       {/* Monthly Tuition Override Modal */}

@@ -58,6 +58,9 @@ interface StudentFormModalProps {
   defaultSessions?: number;
   defaultHours?: number;
   defaultStudyTime?: string;
+  initialTeacherId?: string;
+  initialDay?: string;
+  initialStartTime?: string;
 }
 
 const ALL_DAYS = [
@@ -96,6 +99,9 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
   defaultSessions = 3,
   defaultHours = 3,
   defaultStudyTime = "18:00 - 19:00",
+  initialTeacherId,
+  initialDay,
+  initialStartTime,
 }) => {
   const { showToast } = useToast();
 
@@ -185,17 +191,25 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
       setLevelId(levels[0]?.id || "");
       setSubjectId(subjects[0]?.id || "");
       setTimeSlotId(timeSlots[0]?.id || "");
-      setTeacherId(teachers[0]?.id || "");
+      setTeacherId(initialTeacherId || teachers[0]?.id || "");
       setTuitionPackageId(tuitionPackages[0]?.id || "");
       setStartDate(new Date().toISOString().slice(0, 10)); // Mặc định vào ngày hiện tại
       setDurationMode(defaultDurationMode);
       setSessionsPerWeek(defaultSessions);
       setTargetHours(defaultHours);
-      setSelectedDays(["Thứ 2", "Thứ 4", "Thứ 6"]);
-      setFixedSessionTime(defaultStudyTime);
+
+      const targetDay = initialDay || "Thứ 2";
+      setSelectedDays([targetDay]);
+
+      const startH = initialStartTime || "18:00";
+      const startParts = startH.split(":").map(Number);
+      const endHNum = (startParts[0] || 18) + 1;
+      const endH = `${String(endHNum).padStart(2, "0")}:${String(startParts[1] || 0).padStart(2, "0")}`;
+      const defaultTimeStr = `${startH} - ${endH}`;
+      setFixedSessionTime(initialStartTime ? defaultTimeStr : defaultStudyTime);
+
       setScheduleItems([
-        { id: "1", day: "Thứ 7", start_time: "09:00", end_time: "10:30", hours: 1.5 },
-        { id: "2", day: "Chủ Nhật", start_time: "09:00", end_time: "10:30", hours: 1.5 },
+        { id: "1", day: targetDay, start_time: startH, end_time: endH, hours: 1 },
       ]);
       setIsDiscountEnabled(false);
       setDiscountPercent(0);
@@ -211,6 +225,9 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
     defaultSessions,
     defaultHours,
     defaultStudyTime,
+    initialTeacherId,
+    initialDay,
+    initialStartTime,
   ]);
 
   // Total hours from schedule items
