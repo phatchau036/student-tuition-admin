@@ -6,6 +6,7 @@ import {
   User,
   GraduationCap,
   Calendar,
+  CalendarDays,
   Clock,
   DollarSign,
   CalendarCheck,
@@ -32,7 +33,7 @@ import {
   Copy,
 } from "lucide-react";
 import Link from "next/link";
-import { formatVND, formatMonthDisplay } from "@/lib/tuition";
+import { formatVND, formatMonthDisplay, parseRegisteredDaysToWeekdays } from "@/lib/tuition";
 import { MonthFormat, AppLanguage } from "@/lib/types";
 import { useLanguage } from "@/lib/i18n";
 import { useTheme } from "@/lib/ThemeContext";
@@ -66,6 +67,7 @@ interface StudentData {
   sessions_per_week: number;
   hours_per_week: number;
   registered_days: string;
+  schedule_details_json?: string;
   study_time_detail?: string;
   tuition_package_name?: string;
   is_discount_enabled?: number;
@@ -120,6 +122,16 @@ export default function ParentPortal() {
   const [absenceDate, setAbsenceDate] = useState("");
   const [absenceReason, setAbsenceReason] = useState("");
   const [isSubmittingAbsence, setIsSubmittingAbsence] = useState(false);
+
+  // ⭐ BÁO NGHỈ MỚI: Danh sách buổi học sắp tới (từ lịch cố định, 14 ngày tới)
+  interface UpcomingLesson {
+    date: string; // YYYY-MM-DD
+    dayName: string; // Thứ 2, Thứ 7...
+    timeRange: string; // 17:00 - 18:30
+    isPast: boolean;
+  }
+  const [upcomingLessons, setUpcomingLessons] = useState<UpcomingLesson[]>([]);
+  const [selectedLessonDate, setSelectedLessonDate] = useState<string>("");
 
   // Makeup scheduling modal
   const [schedulingItem, setSchedulingItem] = useState<MakeupItem | null>(null);
@@ -227,6 +239,82 @@ export default function ParentPortal() {
 
   const activeStudent = students[activeStudentIndex] || null;
 
+  // ⭐ BÁO NGHỈ MỚI: Build danh sách buổi học sắp tới (14 ngày tới) từ lịch cố định
+  // Ưu tiên schedule_details_json (có giờ cụ thể từng ngày), fallback registered_days + study_time_detail
+  useEffect(() => {
+    if (!isReportModalOpen || !activeStudent) {
+      setUpcomingLessons([]);
+      setSelectedLessonDate("");
+      return;
+    }
+
+    const weekdayNameMap: Record<number, string> = {
+      2: "Thứ 2",
+      3: "Thứ 3",
+      4: "Thứ 4",
+      5: "Thứ 5",
+      6: "Thứ 6",
+      7: "Thứ 7",
+      8: "Chủ Nhật",
+    };
+
+    // Parse lịch chi tiết từng ngày từ schedule_details_json: [{day: "Thứ 2", start_time: "17:00", end_time: "18:30"}, ...]
+    const detailMap: Record<string, { start: string; end: string }> = {};
+    try {
+      const items = JSON.parse(activeStudent.schedule_details_json || "[]");
+      if (Array.isArray(items)) {
+        for (const it of items) {
+          if (it.day && it.start_time && it.end_time) {
+            detailMap[String(it.day).trim()] = { start: String(it.start_time), end: String(it.end_time) };
+          }
+        }
+      }
+    } catch {}
+
+    // Parse giờ mặc định từ study_time_detail nếu lịch chi tiết trống
+    let fallbackTime = "";
+    const rangeMatch = (activeStudent.study_time_detail || "").match(
+      /(\d{1,2}[h:]\d{0,2})\s*[-–]\s*(\d{1,2}[h:]\d{0,2})/
+    );
+    if (rangeMatch) {
+      const norm = (t: string) => {
+        const m = t.match(/(\d{1,2})[h:]?(\d{2})?/);
+        if (!m) return "";
+        return `${String(m[1]).padStart(2, "0")}:${m[2] || "00"}`;
+      };
+      fallbackTime = `${norm(rangeMatch[1])} - ${norm(rangeMatch[2])}`;
+    }
+
+    // Parse registered_days thành mảng thứ số (2..8) — tái sử dụng hàm chuẩn từ tuition.ts
+    const regDaysText = (activeStudent.registered_days || "").trim();
+    const weekdays = parseRegisteredDaysToWeekdays(regDaysText);
+
+    // Duyệt 14 ngày tới (bắt đầu hôm nay), gom các buổi trùng thứ học
+    const lessons: UpcomingLesson[] = [];
+    const today = new Date();
+    const todayIso = today.toISOString().slice(0, 10);
+    for (let i = 0; i < 14; i++) {
+      const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() + i);
+      const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      const weekdayNum = d.getDay() === 0 ? 8 : d.getDay() + 1;
+
+      if (!weekdays.includes(weekdayNum)) continue;
+      const dayName = weekdayNameMap[weekdayNum];
+
+      const detail = detailMap[dayName];
+      const timeRange = detail ? `${detail.start} - ${detail.end}` : fallbackTime || "Theo ca mở cửa";
+
+      lessons.push({
+        date: iso,
+        dayName,
+        timeRange,
+        isPast: iso < todayIso,
+      });
+    }
+
+    setUpcomingLessons(lessons);
+  }, [isReportModalOpen, activeStudent]);
+
   // Refresh student data
   const refreshStudentData = async () => {
     if (phoneNumber) {
@@ -306,8 +394,13 @@ export default function ParentPortal() {
   // Handle report absence
   const handleReportAbsence = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!activeStudent || !absenceDate) {
-      showToast("Vui lòng chọn ngày muốn báo nghỉ!", "error");
+    if (!activeStudent || !selectedLessonDate) {
+      showToast("Vui lòng chọn buổi học cần nghỉ trong danh sách!", "error");
+      return;
+    }
+    const chosenLesson = upcomingLessons.find((l) => l.date === selectedLessonDate);
+    if (chosenLesson?.isPast) {
+      showToast("Không thể báo nghỉ cho buổi đã qua!", "error");
       return;
     }
 
@@ -319,7 +412,7 @@ export default function ParentPortal() {
         body: JSON.stringify({
           action: "report_absence",
           student_id: activeStudent.id,
-          absence_date: absenceDate,
+          absence_date: selectedLessonDate,
           absence_reason: absenceReason.trim(),
         }),
       });
@@ -327,7 +420,7 @@ export default function ParentPortal() {
       if (data.success) {
         showToast("Đã báo nghỉ thành công! Giờ học vẫn nằm trong Ví Giờ để xếp lịch bù.", "success");
         setIsReportModalOpen(false);
-        setAbsenceDate("");
+        setSelectedLessonDate("");
         setAbsenceReason("");
         refreshStudentData();
       } else {
@@ -1166,71 +1259,152 @@ export default function ParentPortal() {
         )}
       </main>
 
-      {/* Modal: Báo nghỉ học */}
-      {isReportModalOpen && (
+      {/* Modal: Báo nghỉ học — Chọn buổi từ lịch sắp tới */}
+      {isReportModalOpen && activeStudent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-sm p-6 space-y-4 shadow-2xl">
-            <div className="flex items-center justify-between">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-md shadow-2xl flex flex-col max-h-[90vh] overflow-hidden animate-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/70 dark:bg-slate-950/40 shrink-0">
               <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 <CalendarCheck className="w-5 h-5 text-amber-600" />
                 <span>Báo Nghỉ Học</span>
               </h3>
               <button
                 onClick={() => setIsReportModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 text-lg font-bold"
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition"
               >
                 ✕
               </button>
             </div>
 
-            <p className="text-xs text-slate-500">
-              Quý phụ huynh chọn ngày bé xin phép nghỉ. Giờ của buổi học đó <strong className="text-indigo-600 dark:text-indigo-400">vẫn nằm trong Ví Giờ</strong> để xếp lịch học bù sau — không mất giờ!
-            </p>
+            {/* Body: Scrollable */}
+            <div className="p-5 overflow-y-auto flex-1 space-y-4">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Chọn <strong className="text-slate-700 dark:text-slate-200">buổi học cần nghỉ</strong> trong lịch sắp tới của{" "}
+                <strong className="text-emerald-700 dark:text-emerald-400">{activeStudent.name}</strong>. Giờ của buổi đó{" "}
+                <strong className="text-indigo-600 dark:text-indigo-400">vẫn nằm trong Ví Giờ</strong> để xếp lịch học bù — không mất giờ!
+              </p>
 
-            <form onSubmit={handleReportAbsence} className="space-y-4">
+              {/* Danh sách buổi học sắp tới */}
+              {upcomingLessons.length === 0 ? (
+                <div className="p-6 text-center rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 text-slate-400 text-xs space-y-2">
+                  <CalendarDays className="w-8 h-8 mx-auto text-slate-300 dark:text-slate-700" />
+                  <p>Chưa tìm thấy buổi học nào trong 14 ngày tới.</p>
+                  <p className="text-[11px]">Vui lòng liên hệ trung tâm để cập nhật lịch học.</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">
+                    Lịch học 14 ngày tới ({upcomingLessons.length} buổi)
+                  </span>
+                  {upcomingLessons.map((lesson) => {
+                    const isSelected = selectedLessonDate === lesson.date;
+                    const isDisabled = lesson.isPast;
+                    // Format hiển thị ngày: "Hôm nay · 30/10", "Thứ 7 · 01/11"
+                    const [y, m, d] = lesson.date.split("-").map(Number);
+                    const dateLabel = `${String(d).padStart(2, "0")}/${String(m).padStart(2, "0")}`;
+                    const todayIso = new Date().toISOString().slice(0, 10);
+                    const dayPrefix = lesson.date === todayIso ? "Hôm nay" : lesson.dayName;
+
+                    return (
+                      <button
+                        key={lesson.date}
+                        type="button"
+                        disabled={isDisabled}
+                        onClick={() => setSelectedLessonDate(isSelected ? "" : lesson.date)}
+                        className={`w-full p-3 rounded-2xl border text-left transition flex items-center justify-between gap-3 ${
+                          isDisabled
+                            ? "opacity-45 bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 cursor-not-allowed"
+                            : isSelected
+                            ? "bg-amber-50 dark:bg-amber-950/40 border-amber-500 ring-2 ring-amber-500/20 cursor-pointer active:scale-[0.99]"
+                            : "bg-white dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 hover:border-amber-300 cursor-pointer active:scale-[0.99]"
+                        }`}
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          {/* Radio circle */}
+                          <div
+                            className={`w-4.5 h-4.5 w-[18px] h-[18px] rounded-full border-2 flex items-center justify-center shrink-0 transition ${
+                              isSelected
+                                ? "border-amber-500 bg-amber-500"
+                                : isDisabled
+                                ? "border-slate-200 dark:border-slate-700"
+                                : "border-slate-300 dark:border-slate-600"
+                            }`}
+                          >
+                            {isSelected && <div className="w-1.5 h-1.5 bg-white rounded-full" />}
+                          </div>
+
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span
+                                className={`font-bold text-sm ${
+                                  isDisabled ? "text-slate-400" : "text-slate-900 dark:text-white"
+                                }`}
+                              >
+                                {dayPrefix} · {dateLabel}
+                              </span>
+                              {lesson.date === todayIso && (
+                                <span className="px-1.5 py-0.2 rounded text-[9px] font-black bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+                                  HÔM NAY
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[11px] text-slate-500 dark:text-slate-400 font-mono mt-0.5">
+                              {lesson.timeRange}
+                            </p>
+                          </div>
+                        </div>
+
+                        {isDisabled ? (
+                          <span className="text-[10px] font-bold text-slate-400 shrink-0">Đã qua</span>
+                        ) : isSelected ? (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-500 text-white shrink-0">
+                            Chọn nghỉ
+                          </span>
+                        ) : null}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Lý do xin nghỉ */}
               <div>
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Ngày xin nghỉ *
-                </label>
-                <input
-                  type="date"
-                  required
-                  value={absenceDate}
-                  onChange={(e) => setAbsenceDate(e.target.value)}
-                  className="w-full px-3 py-2 text-sm rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                  Lý do xin nghỉ
+                  Lý do xin nghỉ (không bắt buộc)
                 </label>
                 <input
                   type="text"
-                  placeholder="Nhập lý do xin nghỉ học..."
+                  placeholder="VD: Bé ốm, đi họ họ hàng..."
                   value={absenceReason}
                   onChange={(e) => setAbsenceReason(e.target.value)}
-                  className="w-full px-3 py-2 text-sm rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500"
+                  className="w-full px-3 py-2 text-sm rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none"
                 />
               </div>
+            </div>
 
-              <div className="flex items-center justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setIsReportModalOpen(false)}
-                  className="px-4 py-2 text-xs font-semibold rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
-                >
-                  Hủy
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmittingAbsence}
-                  className="px-4 py-2 text-xs font-bold rounded-xl bg-amber-600 hover:bg-amber-700 text-white shadow-md shadow-amber-600/30 disabled:opacity-50"
-                >
-                  {isSubmittingAbsence ? "Đang lưu..." : "Xác Nhận Báo Nghỉ"}
-                </button>
-              </div>
-            </form>
+            {/* Footer */}
+            <div className="px-5 py-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-2 bg-slate-50/70 dark:bg-slate-950/40 shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsReportModalOpen(false)}
+                className="px-4 py-2 text-xs font-semibold rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 text-slate-700 transition cursor-pointer"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={handleReportAbsence}
+                disabled={isSubmittingAbsence || !selectedLessonDate}
+                className="px-5 py-2.5 text-xs font-bold rounded-xl bg-amber-600 hover:bg-amber-700 active:scale-95 text-white shadow-md shadow-amber-600/30 disabled:opacity-50 cursor-pointer transition"
+              >
+                {isSubmittingAbsence
+                  ? "Đang lưu..."
+                  : selectedLessonDate
+                  ? "Xác Nhận Báo Nghỉ"
+                  : "Chọn buổi học trước"}
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -212,6 +212,7 @@ export async function POST(req: Request) {
           hours_per_week: Number(st.hours_per_week || 3),
           registered_days: String(st.registered_days || ""),
           study_time_detail: String(st.study_time_detail || ""),
+          schedule_details_json: String(st.schedule_details_json || "[]"),
           tuition_package_name: st.tuition_package_name ? String(st.tuition_package_name) : undefined,
           is_discount_enabled: Number(st.is_discount_enabled || 0),
           discount_percent: Number(st.discount_percent || 0),

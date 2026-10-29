@@ -1383,11 +1383,11 @@ export default function Dashboard() {
         {mainViewMode === "table" && (
           <div key="table_view" className="animate-in fade-in duration-200 ease-out bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm relative">
           <div className="overflow-x-auto overflow-y-visible pb-32">
-            <table className="w-full text-left border-collapse">
+            <table className="w-full min-w-[760px] md:min-w-0 table-fixed text-left border-collapse">
               <thead>
-                <tr className="bg-slate-50/80 dark:bg-slate-800/60 border-b border-slate-200/80 dark:border-slate-800 text-[11px] font-black uppercase tracking-wider text-slate-400 whitespace-nowrap">
+                <tr className="bg-slate-50/80 dark:bg-slate-800/60 border-b border-slate-200/80 dark:border-slate-800 text-[11px] font-black uppercase tracking-wider text-slate-400">
                   {/* Select All Checkbox Column */}
-                  <th className="py-3 px-3 sm:px-4 w-10 text-center">
+                  <th className="py-2.5 px-3 sm:px-4 w-10 text-center">
                     <input
                       type="checkbox"
                       checked={isAllFilteredSelected}
@@ -1396,15 +1396,15 @@ export default function Dashboard() {
                       title={isAllFilteredSelected ? "Bỏ chọn tất cả" : "Chọn tất cả học sinh đang hiển thị"}
                     />
                   </th>
-                  <th className="py-3 px-2 sm:px-3">{t.col_student}</th>
-                  <th className="py-3 px-2.5">{t.col_status}</th>
-                  <th className="py-3 px-2.5">{t.col_teacher}</th>
-                  <th className="py-3 px-2.5">{t.col_level_surcharge}</th>
-                  <th className="py-3 px-3">{t.col_package_schedule}</th>
-                  <th className="py-3 px-2 text-center">{t.col_discount}</th>
-                  <th className="py-3 px-3">{t.col_tuition} {formatMonthDisplay(selectedMonth, monthFormat)}</th>
-                  <th className="py-3 px-3 text-center">{t.col_reconciliation}</th>
-                  <th className="py-3 px-3 text-right">{t.col_actions}</th>
+                  <th className="py-2.5 px-2 sm:px-3 w-[26%] xl:w-[18%]">{t.col_student}</th>
+                  <th className="py-2.5 px-2.5 w-[14%] xl:w-[8%]">{t.col_status}</th>
+                  <th className="py-2.5 px-2.5 hidden lg:table-cell w-[10%] xl:w-[9%]">{t.col_teacher}</th>
+                  <th className="py-2.5 px-2.5 hidden xl:table-cell w-[8%]">{t.col_level_surcharge}</th>
+                  <th className="py-2.5 px-3 w-[20%] xl:w-[15%]">{t.col_package_schedule}</th>
+                  <th className="py-2.5 px-2 text-center hidden xl:table-cell w-[6%]">{t.col_discount}</th>
+                  <th className="py-2.5 px-3 w-[16%] xl:w-[12%]">{t.col_tuition} {formatMonthDisplay(selectedMonth, monthFormat)}</th>
+                  <th className="py-2.5 px-3 text-center hidden md:table-cell w-[17%] xl:w-[13%]">{t.col_reconciliation}</th>
+                  <th className="py-2.5 px-3 text-right w-[13%] xl:w-[10%]">{t.col_actions}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 text-sm">
@@ -1448,7 +1448,7 @@ export default function Dashboard() {
                         }`}
                       >
                         {/* Checkbox Column */}
-                        <td className="py-3 px-3 sm:px-4 text-center">
+                        <td className="py-2 px-3 sm:px-4 text-center">
                           <input
                             type="checkbox"
                             checked={isSelected}
@@ -1458,14 +1458,14 @@ export default function Dashboard() {
                         </td>
 
                         {/* Student Name, Avatar & Phone */}
-                        <td className="py-3 px-2 sm:px-3">
+                        <td className="py-2 px-2 sm:px-3 overflow-hidden">
                           <div className="flex items-center gap-2.5">
                             <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-500 to-indigo-600 text-white font-black text-xs flex items-center justify-center shrink-0 shadow-xs">
                               {initialChar}
                             </div>
                             <div className="min-w-0">
                               <div className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5 flex-wrap">
-                                <span className="font-mono text-[10px] px-1.5 py-0.2 rounded font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700" title="Mã học sinh đối soát SePay">
+                                <span className="shrink-0 font-mono text-[10px] px-1.5 py-0.2 rounded font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700" title="Mã học sinh đối soát SePay">
                                   {student.student_code || `HS${student.id.slice(-4).toUpperCase()}`}
                                 </span>
                                 <button
@@ -1514,7 +1514,7 @@ export default function Dashboard() {
                                   {student.phone}
                                 </span>
                                 {student.start_date && (
-                                  <span className="text-[10px] font-medium text-slate-400 dark:text-slate-500 whitespace-nowrap flex items-center gap-0.5" title="Ngày bắt đầu nhập học">
+                                  <span className="hidden xl:flex text-[10px] font-medium text-slate-400 dark:text-slate-500 whitespace-nowrap items-center gap-0.5" title="Ngày bắt đầu nhập học">
                                     • Bắt đầu: {student.start_date}
                                   </span>
                                 )}
@@ -1535,7 +1535,7 @@ export default function Dashboard() {
                         </td>
 
                         {/* Status (Đang học / Bảo lưu / Nghỉ học) */}
-                        <td className="py-3 px-2.5 whitespace-nowrap">
+                        <td className="py-2 px-2.5 overflow-hidden">
                           {student.status === "reserved" ? (
                             <button
                               type="button"
@@ -1579,11 +1579,11 @@ export default function Dashboard() {
                         </td>
 
                         {/* Teacher */}
-                        <td className="py-3 px-2.5 whitespace-nowrap">
+                        <td className="py-2 px-2.5 hidden lg:table-cell overflow-hidden">
                           {student.teacher_name && student.teacher_name !== "Chưa gán GV" ? (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-bold rounded-lg bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-900/50">
-                              <GraduationCap className="w-3 h-3 text-indigo-600 dark:text-indigo-400" />
-                              {student.teacher_name}
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-bold rounded-lg bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-900/50 max-w-full">
+                              <GraduationCap className="w-3 h-3 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                              <span className="truncate">{student.teacher_name}</span>
                             </span>
                           ) : (
                             <span className="text-xs text-slate-400 font-medium italic">{t.no_teacher_assigned}</span>
@@ -1591,12 +1591,12 @@ export default function Dashboard() {
                         </td>
 
                         {/* Level & Subject & Surcharge */}
-                        <td className="py-3 px-2.5 whitespace-nowrap">
+                        <td className="py-2 px-2.5 hidden xl:table-cell overflow-hidden">
                           <div className="flex flex-col items-start gap-1">
                             {student.subject_name && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-black uppercase rounded-md bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
-                                <BookOpen className="w-2.5 h-2.5" />
-                                {student.subject_name}
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-black uppercase rounded-md bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 max-w-full">
+                                <BookOpen className="w-2.5 h-2.5 shrink-0" />
+                                <span className="truncate">{student.subject_name}</span>
                               </span>
                             )}
                             <span className="inline-block px-2 py-0.5 text-xs font-bold rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
@@ -1611,7 +1611,7 @@ export default function Dashboard() {
                         </td>
 
                         {/* Package & Weekly Schedule */}
-                        <td className="py-3 px-3">
+                        <td className="py-2 px-3">
                           <div className="flex items-center gap-1.5 flex-wrap">
                             {/* Package badge */}
                             {student.tuition_package_name ? (
@@ -1640,14 +1640,14 @@ export default function Dashboard() {
 
                           <div className="text-[10px] text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-0.5 font-medium">
                             <Clock className="w-3 h-3 text-indigo-500 shrink-0" />
-                            <span className="truncate max-w-[200px] xl:max-w-xs font-mono" title={student.study_time_detail}>
+                            <span className="truncate max-w-full font-mono" title={student.study_time_detail}>
                               {student.study_time_detail || t.flexible_hours_slot}
                             </span>
                           </div>
                         </td>
 
                         {/* Discount */}
-                        <td className="py-3 px-2 text-center whitespace-nowrap">
+                        <td className="py-2 px-2 text-center hidden xl:table-cell overflow-hidden">
                           {student.is_discount_enabled && student.discount_percent > 0 ? (
                             <div className="flex flex-col items-center">
                               <span
@@ -1657,7 +1657,7 @@ export default function Dashboard() {
                                 -{student.discount_percent}%
                               </span>
                               {student.discount_reason && (
-                                <span className="text-[9px] text-slate-400 dark:text-slate-500 font-medium truncate max-w-[90px] mt-0.5" title={student.discount_reason}>
+                                <span className="text-[9px] text-slate-400 dark:text-slate-500 font-medium truncate max-w-full mt-0.5" title={student.discount_reason}>
                                   {student.discount_reason}
                                 </span>
                               )}
@@ -1668,8 +1668,8 @@ export default function Dashboard() {
                         </td>
 
                         {/* Monthly Tuition */}
-                        <td className="py-3 px-3 whitespace-nowrap">
-                          <div className="flex flex-col">
+                        <td className="py-2 px-3 overflow-hidden">
+                          <div className="flex flex-col min-w-0">
                             <span
                               className={`text-sm font-black ${
                                 student.is_overdue
@@ -1684,12 +1684,12 @@ export default function Dashboard() {
 
                             {/* CỘNG DỒN NỢ CŨ VÀ ĐÁNH DẤU NỢ QUÁ 1 THÁNG */}
                             {student.is_overdue && student.previous_debt_amount ? (
-                              <div className="mt-1 flex flex-col items-start gap-0.5">
-                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-black bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border border-rose-300 dark:border-rose-800 animate-pulse">
-                                  <AlertTriangle className="w-3 h-3 text-rose-600" />
-                                  {t.past_debt_label.replace("{months}", String(student.unpaid_months_count)).replace("{amount}", formatVND(student.previous_debt_amount))}
+                              <div className="mt-1 flex flex-col items-start gap-0.5 min-w-0">
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-black bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border border-rose-300 dark:border-rose-800 animate-pulse max-w-full" title={t.past_debt_label.replace("{months}", String(student.unpaid_months_count)).replace("{amount}", formatVND(student.previous_debt_amount))}>
+                                  <AlertTriangle className="w-3 h-3 text-rose-600 shrink-0" />
+                                  <span className="truncate">{t.past_debt_label.replace("{months}", String(student.unpaid_months_count)).replace("{amount}", formatVND(student.previous_debt_amount))}</span>
                                 </span>
-                                <span className="text-[10px] font-black text-rose-600 dark:text-rose-400">
+                                <span className="text-[10px] font-black text-rose-600 dark:text-rose-400 truncate max-w-full" title={`${t.total_due}: ${formatVND(student.total_tuition_due)}`}>
                                   {t.total_due}: {formatVND(student.total_tuition_due)}
                                 </span>
                               </div>
@@ -1700,7 +1700,7 @@ export default function Dashboard() {
                                   {t.custom_override}
                                 </span>
                                 {student.monthly_override?.note && (
-                                  <span className="text-[10px] text-slate-500 italic truncate max-w-[120px]">
+                                  <span className="text-[10px] text-slate-500 italic truncate max-w-full" title={student.monthly_override.note}>
                                     &ldquo;{student.monthly_override.note}&rdquo;
                                   </span>
                                 )}
@@ -1712,8 +1712,8 @@ export default function Dashboard() {
                         </td>
 
                         {/* Đối Soát Phí: Bấm để mở bảng Đối soát nhanh (Chọn Đã đóng / Chưa đóng & Tick chọn từng tháng) */}
-                        <td className="py-3 px-3 text-center whitespace-nowrap">
-                          <div className="inline-flex flex-col items-center gap-1">
+                        <td className="py-2 px-3 text-center hidden md:table-cell overflow-hidden">
+                          <div className="inline-flex flex-col items-center gap-1 max-w-full">
                             <button
                               type="button"
                               onClick={() => {
@@ -1742,7 +1742,7 @@ export default function Dashboard() {
                               )}
                             </button>
                             {student.payment_period_desc && (
-                              <span className="text-[9px] text-slate-400 font-mono">
+                              <span className="text-[9px] text-slate-400 font-mono truncate max-w-full" title={student.payment_period_desc}>
                                 {student.payment_period_desc}
                               </span>
                             )}
@@ -1750,7 +1750,7 @@ export default function Dashboard() {
                         </td>
 
                         {/* Consolidated Modern Action Column */}
-                        <td className="py-3 px-3 text-right whitespace-nowrap">
+                        <td className="py-2 px-3 text-right overflow-hidden">
                           <div className="inline-flex items-center gap-1.5 relative">
                             {/* Primary Action: Xem Chi Tiết */}
                             <button
@@ -1763,7 +1763,7 @@ export default function Dashboard() {
                               title="Xem chi tiết học sinh & hồ sơ"
                             >
                               <Eye className="w-3.5 h-3.5 text-indigo-500" />
-                              <span className="hidden sm:inline">{t.action_details}</span>
+                              <span className="hidden lg:inline">{t.action_details}</span>
                             </button>
 
                             {/* Dropdown Action Menu Trigger */}
