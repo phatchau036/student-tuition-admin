@@ -411,19 +411,33 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
       <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-3xl p-3 shadow-xs space-y-2.5">
         {/* TẦNG 1: Chuyển Chế Độ Xem + Tóm Tắt KPI + Nút Thao Tác Nhanh */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-          {/* Nhóm nút chuyển chế độ xem */}
-          <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-800/80 rounded-2xl text-xs font-bold w-full sm:w-auto">
+          {/* Nhóm nút chuyển chế độ xem với viên thuốc trượt mềm mại (iOS Segmented Style) */}
+          <div className="relative p-1 bg-slate-100 dark:bg-slate-800/80 rounded-2xl text-xs font-bold w-full sm:w-[420px] flex items-center select-none">
+            {/* Sliding Pill Indicator */}
+            <div
+              className="absolute top-1 bottom-1 rounded-xl bg-indigo-600 shadow-sm transition-all duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] pointer-events-none"
+              style={{
+                left:
+                  viewMode === "week_grid"
+                    ? "4px"
+                    : viewMode === "single_day"
+                    ? "calc(33.333% + 2px)"
+                    : "calc(66.666%)",
+                width: "calc(33.333% - 4px)",
+              }}
+            />
+
             <button
               type="button"
               onClick={() => setViewMode("week_grid")}
-              className={`flex-1 sm:flex-none px-3.5 py-1.5 rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer ${
+              className={`relative z-10 flex-1 px-3 py-1.5 rounded-xl transition-colors duration-200 flex items-center justify-center gap-1.5 cursor-pointer ${
                 viewMode === "week_grid"
-                  ? "bg-indigo-600 text-white shadow-xs"
+                  ? "text-white font-black"
                   : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
               }`}
             >
               <LayoutGrid className="w-3.5 h-3.5" />
-              <span>Lưới 7 Ngày Tuần</span>
+              <span>Lưới 7 Ngày</span>
             </button>
 
             <button
@@ -432,27 +446,27 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
                 setViewMode("single_day");
                 setActiveDay(todayName);
               }}
-              className={`flex-1 sm:flex-none px-3.5 py-1.5 rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer ${
+              className={`relative z-10 flex-1 px-3 py-1.5 rounded-xl transition-colors duration-200 flex items-center justify-center gap-1.5 cursor-pointer ${
                 viewMode === "single_day"
-                  ? "bg-indigo-600 text-white shadow-xs"
+                  ? "text-white font-black"
                   : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
               }`}
             >
               <Columns className="w-3.5 h-3.5" />
-              <span>Xem Theo Thứ</span>
+              <span>Theo Thứ</span>
             </button>
 
             <button
               type="button"
               onClick={() => setViewMode("teacher_centric")}
-              className={`flex-1 sm:flex-none px-3.5 py-1.5 rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer ${
+              className={`relative z-10 flex-1 px-3 py-1.5 rounded-xl transition-colors duration-200 flex items-center justify-center gap-1.5 cursor-pointer ${
                 viewMode === "teacher_centric"
-                  ? "bg-indigo-600 text-white shadow-xs"
+                  ? "text-white font-black"
                   : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
               }`}
             >
               <GraduationCap className="w-3.5 h-3.5" />
-              <span>Theo Giáo Viên</span>
+              <span>Theo GV</span>
             </button>
           </div>
 
@@ -598,12 +612,9 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
 
       {/* =========================================================================
           CHẾ ĐỘ 1: MA TRẬN LƯỚI 7 NGÀY TOÀN TUẦN (HERO TIMETABLE GRID)
-          - 7 Cột chia đều nhau, vừa vặn 100% màn hình, không cuộn ngang trên Desktop
-          - Cột giờ tinh gọn nằm ở ngoài cùng bên trái, các hàng thẳng hàng nhau 100%
-          - Chip rộng, không cắt chữ, ô > 3 học sinh hiển thị "+N nữa" mở Drawer
           ========================================================================= */}
       {viewMode === "week_grid" && (
-        <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-3xl overflow-hidden shadow-sm">
+        <div key="week_grid" className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-3xl overflow-hidden shadow-sm animate-in fade-in duration-200 ease-out">
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-left table-fixed min-w-[960px]">
               {/* HEADER 7 NGÀY */}
@@ -844,22 +855,22 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
           CHẾ ĐỘ 2: XEM CHI TIẾT THEO TỪNG THỨ (SINGLE DAY VIEW)
           ========================================================================= */}
       {viewMode === "single_day" && (
-        <div className="space-y-4">
+        <div key="single_day" className="animate-in fade-in duration-200 ease-out space-y-4">
           {/* Day selection tabs */}
           <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
             {DAYS_OF_WEEK.map((d) => {
               const isActive = activeDay === d;
               const isToday = d === todayName;
-              const stats = dayStatsMap[d] || { total: 0, unpaid: 0 };
+              const stats = dayStatsMap[d] || { total: 0, unpaid: 0, unassigned: 0 };
 
               return (
                 <button
                   key={d}
                   type="button"
                   onClick={() => setActiveDay(d)}
-                  className={`px-4 py-2.5 rounded-2xl text-xs font-extrabold transition-all whitespace-nowrap cursor-pointer flex items-center gap-2 ${
+                  className={`px-4 py-2.5 rounded-2xl text-xs font-extrabold transition-all duration-200 ease-out whitespace-nowrap cursor-pointer flex items-center gap-2 active:scale-95 ${
                     isActive
-                      ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/25 scale-102"
+                      ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/25 scale-[1.03]"
                       : "bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/60"
                   }`}
                 >
@@ -878,7 +889,7 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
           </div>
 
           {/* Chi tiết ca học trong ngày đã chọn */}
-          <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-3xl p-4 shadow-sm space-y-4">
+          <div key={activeDay} className="animate-in fade-in slide-in-from-right-3 duration-250 ease-out bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-3xl p-4 shadow-sm space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
               <div className="flex items-center gap-2">
                 <Calendar className="w-5 h-5 text-indigo-600" />
@@ -975,16 +986,16 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
           CHẾ ĐỘ 3: THEO DÕI THEO GIÁO VIÊN (TEACHER-CENTRIC VIEW)
           ========================================================================= */}
       {viewMode === "teacher_centric" && (
-        <div className="space-y-4">
+        <div key="teacher_centric" className="animate-in fade-in duration-200 ease-out space-y-4">
           {/* Tab chọn Giáo Viên */}
           <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
             <button
               type="button"
               onClick={() => setSelectedTeacherTab("all")}
-              className={`px-4 py-2 rounded-2xl text-xs font-extrabold transition whitespace-nowrap cursor-pointer ${
+              className={`px-4 py-2 rounded-2xl text-xs font-extrabold transition-all duration-200 ease-out whitespace-nowrap cursor-pointer active:scale-95 ${
                 selectedTeacherTab === "all"
-                  ? "bg-indigo-600 text-white shadow-md"
-                  : "bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300"
+                  ? "bg-indigo-600 text-white shadow-md scale-[1.03]"
+                  : "bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50"
               }`}
             >
               Tất cả Giáo Viên ({teachers.length})
@@ -994,10 +1005,10 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
                 key={tc.id}
                 type="button"
                 onClick={() => setSelectedTeacherTab(tc.id)}
-                className={`px-4 py-2 rounded-2xl text-xs font-extrabold transition whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
+                className={`px-4 py-2 rounded-2xl text-xs font-extrabold transition-all duration-200 ease-out whitespace-nowrap cursor-pointer flex items-center gap-1.5 active:scale-95 ${
                   selectedTeacherTab === tc.id
-                    ? "bg-indigo-600 text-white shadow-md"
-                    : "bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300"
+                    ? "bg-indigo-600 text-white shadow-md scale-[1.03]"
+                    : "bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50"
                 }`}
               >
                 <span>{tc.name}</span>
@@ -1007,7 +1018,7 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
           </div>
 
           {/* Bảng danh sách các ca dạy của giáo viên đã chọn */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div key={selectedTeacherTab} className="animate-in fade-in duration-200 ease-out grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {teachers
               .filter((t) => selectedTeacherTab === "all" || t.id === selectedTeacherTab)
               .map((tc) => {

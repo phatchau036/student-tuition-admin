@@ -1081,15 +1081,24 @@ export default function Dashboard() {
 
         {/* Filter and Search Bar: Modern Executive Toolbar */}
         <div className="bg-white dark:bg-slate-900 p-4 sm:p-5 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-3">
-          {/* Top Switcher: Bảng Danh Sách vs Sơ Đồ Lớp Học */}
+          {/* Top Switcher: Bảng Danh Sách vs Sơ Đồ Lớp Học với viên thuốc trượt mềm mại */}
           <div className="pb-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3 flex-wrap">
-            <div className="p-1 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center text-xs font-bold w-full sm:w-auto">
+            <div className="relative p-1 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center text-xs font-bold w-full sm:w-[480px] overflow-hidden select-none">
+              {/* Sliding Pill Background Indicator */}
+              <div
+                className="absolute top-1 bottom-1 rounded-xl bg-indigo-600 shadow-sm transition-all duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] pointer-events-none"
+                style={{
+                  left: mainViewMode === "table" ? "4px" : "calc(50% + 2px)",
+                  width: "calc(50% - 6px)",
+                }}
+              />
+
               <button
                 type="button"
                 onClick={() => setMainViewMode("table")}
-                className={`flex-1 sm:flex-none px-4 py-2 rounded-xl transition flex items-center justify-center gap-2 cursor-pointer ${
+                className={`relative z-10 flex-1 px-4 py-2 rounded-xl transition-colors duration-200 flex items-center justify-center gap-2 cursor-pointer ${
                   mainViewMode === "table"
-                    ? "bg-indigo-600 text-white shadow-xs"
+                    ? "text-white font-black"
                     : "text-slate-600 dark:text-slate-300 hover:text-slate-900"
                 }`}
               >
@@ -1100,9 +1109,9 @@ export default function Dashboard() {
               <button
                 type="button"
                 onClick={() => setMainViewMode("schedule_matrix")}
-                className={`flex-1 sm:flex-none px-4 py-2 rounded-xl transition flex items-center justify-center gap-2 cursor-pointer ${
+                className={`relative z-10 flex-1 px-4 py-2 rounded-xl transition-colors duration-200 flex items-center justify-center gap-2 cursor-pointer ${
                   mainViewMode === "schedule_matrix"
-                    ? "bg-indigo-600 text-white shadow-xs"
+                    ? "text-white font-black"
                     : "text-slate-600 dark:text-slate-300 hover:text-slate-900"
                 }`}
               >
@@ -1338,7 +1347,7 @@ export default function Dashboard() {
 
         {/* Student Table Listing */}
         {mainViewMode === "table" && (
-          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm relative">
+          <div key="table_view" className="animate-in fade-in duration-200 ease-out bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm relative">
           <div className="overflow-x-auto overflow-y-visible pb-32">
             <table className="w-full text-left border-collapse">
               <thead>
@@ -1876,22 +1885,24 @@ export default function Dashboard() {
 
         {/* Chế độ 2: Sơ Đồ Lớp Học Ma Trận (Theo Thứ, Khung Giờ & Giáo Viên) */}
         {mainViewMode === "schedule_matrix" && (
-          <ClassroomScheduleMatrix
-            students={students}
-            teachers={teachers}
-            timeSlots={timeSlots}
-            subjects={subjects}
-            onSelectStudent={(st) => {
-              setStudentForDetail(st);
-              setIsDetailModalOpen(true);
-            }}
-            onAddStudentToSlot={(day, time, tcId) => {
-              setStudentToEdit(null);
-              setSlotPrefill({ day, time, teacherId: tcId });
-              setIsStudentModalOpen(true);
-            }}
-            onOpenConsultation={() => setIsAvailabilityModalOpen(true)}
-          />
+          <div key="schedule_matrix_view" className="animate-in fade-in duration-200 ease-out">
+            <ClassroomScheduleMatrix
+              students={students}
+              teachers={teachers}
+              timeSlots={timeSlots}
+              subjects={subjects}
+              onSelectStudent={(st) => {
+                setStudentForDetail(st);
+                setIsDetailModalOpen(true);
+              }}
+              onAddStudentToSlot={(day, time, tcId) => {
+                setStudentToEdit(null);
+                setSlotPrefill({ day, time, teacherId: tcId });
+                setIsStudentModalOpen(true);
+              }}
+              onOpenConsultation={() => setIsAvailabilityModalOpen(true)}
+            />
+          </div>
         )}
 
         {/* Floating Bulk Action Bar (Thanh tác vụ nổi khi tick chọn nhiều học sinh) */}
