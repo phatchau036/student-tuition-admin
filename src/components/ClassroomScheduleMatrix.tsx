@@ -118,6 +118,30 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
   });
   const [selectedTeacherTab, setSelectedTeacherTab] = useState<string>("all");
 
+  // Filters & Search
+  const [selectedSubjectFilter, setSelectedSubjectFilter] = useState<string>("all");
+  const [selectedTeacherFilter, setSelectedTeacherFilter] = useState<string>("all");
+  const [selectedPaymentStatusFilter, setSelectedPaymentStatusFilter] = useState<"all" | "paid" | "unpaid">("all");
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [hideEmptyHours, setHideEmptyHours] = useState<boolean>(false);
+
+  // Side Drawer xem toàn bộ học sinh trong 1 ca (dành cho ô đông > 3 học sinh)
+  const [drawerSlot, setDrawerSlot] = useState<{
+    day: string;
+    hour: string;
+    entries: StudentSlotEntry[];
+  } | null>(null);
+  const [drawerSearch, setDrawerSearch] = useState<string>("");
+
+  // Hover preview student popover
+  const [hoveredStudent, setHoveredStudent] = useState<{
+    student: Student;
+    timeDetail: string;
+    subjectName: string;
+    x: number;
+    y: number;
+  } | null>(null);
+
   // Lọc danh sách giáo viên đang hoạt động
   const activeTeachers = useMemo(() => {
     let list = teachers.filter((t) => t.is_active !== 0);
