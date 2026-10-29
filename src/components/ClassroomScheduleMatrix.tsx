@@ -806,7 +806,9 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
                                 <span className={`font-bold px-1 rounded ${subBadge.bg} ${subBadge.text}`}>
                                   {subjectName}
                                 </span>
-                                <span>{teacherName || "Chưa gán GV"}</span>
+                                <span className="font-mono font-bold text-amber-700 dark:text-amber-400">
+                                  {timeDetail || hourLabel}
+                                </span>
                               </div>
                             </div>
                           );
@@ -1068,11 +1070,10 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
 
                       <div className="mt-1.5 flex items-center justify-between text-[11px] text-slate-400">
                         <span>SĐT: {student.phone || "---"}</span>
-                        {timeDetail && (
-                          <span className="font-mono font-bold text-amber-600">
-                            {timeDetail}
-                          </span>
-                        )}
+                        {/* Luôn hiển thị giờ học, nếu timeDetail rỗng thì lấy từ study_time_detail hoặc giờ của ca */}
+                        <span className="font-mono font-bold text-amber-700 dark:text-amber-400 bg-amber-100/80 dark:bg-amber-950/60 px-1.5 py-0.5 rounded text-[10px]">
+                          {timeDetail || student.study_time_detail || formatHourLabel(drawerSlot.hour)}
+                        </span>
                       </div>
                     </div>
                   );

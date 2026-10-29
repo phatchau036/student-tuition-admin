@@ -357,10 +357,29 @@ export function parseStudentScheduleSlots(
           if (item.day && item.start_time) {
             const startHour = parseInt(item.start_time.split(":")[0], 10);
             const slotHourStr = `${String(startHour).padStart(2, "0")}h`;
+            let start = item.start_time.trim();
+            let end = (item.end_time || "").trim();
             let timeDetail = "";
-            if (item.start_time.endsWith(":30") || (item.end_time && !item.end_time.endsWith(":00"))) {
-              timeDetail = `${item.start_time} - ${item.end_time}`;
+
+            if (start && end) {
+              const [sH, sM] = start.split(":").map(Number);
+              let [eH, eM] = end.split(":").map(Number);
+              // Tự động chuẩn hóa giờ: ví dụ 09:30 - 01:00 gõ thiếu số 1 thành 11:00, hoặc giờ chiều 1h => 13:00
+              if (eH < sH) {
+                if (sH >= 8 && sH <= 11 && eH === 1) {
+                  eH = 11;
+                } else if (eH <= 5) {
+                  eH += 12;
+                }
+                end = `${String(eH).padStart(2, "0")}:${String(eM || 0).padStart(2, "0")}`;
+              }
+              timeDetail = `${start} - ${end}`;
+            } else if (start) {
+              const [sH, sM] = start.split(":").map(Number);
+              const eH = sH + 1;
+              timeDetail = `${start} - ${String(eH).padStart(2, "0")}:${String(sM || 0).padStart(2, "0")}`;
             }
+
             results.push({
               day: item.day,
               hourSlot: slotHourStr,
@@ -418,14 +437,18 @@ export function parseStudentScheduleSlots(
 
       if (rangeMatch) {
         const startH = parseInt(rangeMatch[1], 10);
-        const startM = rangeMatch[2] || rangeMatch[3] || "";
+        const startM = rangeMatch[2] || rangeMatch[3] || "00";
         const endH = parseInt(rangeMatch[4], 10);
-        const endM = rangeMatch[5] || rangeMatch[6] || "";
+        const endM = rangeMatch[5] || rangeMatch[6] || "00";
 
         if (startH >= 6 && startH <= 22) {
           detectedHourSlot = `${String(startH).padStart(2, "0")}h`;
-          const startStr = `${startH}h${startM && startM !== "00" ? startM : ""}`;
-          const endStr = `${endH}h${endM && endM !== "00" ? endM : ""}`;
+          let endHourNum = endH;
+          if (endHourNum < startH && endHourNum <= 5) {
+            endHourNum += 12;
+          }
+          const startStr = `${String(startH).padStart(2, "0")}:${startM}`;
+          const endStr = `${String(endHourNum).padStart(2, "0")}:${endM}`;
           timeDetail = `${startStr} - ${endStr}`;
         }
       } else {
@@ -433,12 +456,13 @@ export function parseStudentScheduleSlots(
         const singleMatch = cleanTime.match(/(\d{1,2})(?:\s*h\s*(\d{2})?|\s*:\s*(\d{2}))/i);
         if (singleMatch) {
           const startH = parseInt(singleMatch[1], 10);
-          const startM = singleMatch[2] || singleMatch[3] || "";
+          const startM = singleMatch[2] || singleMatch[3] || "00";
           if (startH >= 6 && startH <= 22) {
             detectedHourSlot = `${String(startH).padStart(2, "0")}h`;
-            if (startM && startM !== "00") {
-              timeDetail = `${startH}h${startM}`;
-            }
+            const endH = startH + 1;
+            const startStr = `${String(startH).padStart(2, "0")}:${startM}`;
+            const endStr = `${String(endH).padStart(2, "0")}:${startM}`;
+            timeDetail = `${startStr} - ${endStr}`;
           }
         }
       }
@@ -476,10 +500,11 @@ export function parseStudentScheduleSlots(
     const daysList = regDays.split(/[,|;]+/).map((d) => d.trim()).filter(Boolean);
     for (const d of daysList) {
       const isWeekend = d.includes("7") || d.toLowerCase().includes("nhật");
+      const defaultStartH = isWeekend ? 9 : 18;
       results.push({
         day: d.startsWith("Thứ") || d === "Chủ Nhật" ? d : `Thứ ${d.replace(/\D/g, "")}`,
         hourSlot: isWeekend ? "09h" : "18h",
-        timeDetail: "",
+        timeDetail: `${String(defaultStartH).padStart(2, "0")}:00 - ${String(defaultStartH + 1).padStart(2, "0")}:00`,
         detectedTeacherId: detectedTeacherFromNote,
       });
     }
@@ -490,7 +515,7 @@ export function parseStudentScheduleSlots(
     results.push({
       day: "Thứ 2",
       hourSlot: "18h",
-      timeDetail: "",
+      timeDetail: "18:00 - 19:00",
       detectedTeacherId: detectedTeacherFromNote,
     });
   }
@@ -571,10 +596,19 @@ export function parseStudyTimeToSchedule(raw?: string): {
       const endH = parseInt(rangeMatch[4], 10);
       const endM = rangeMatch[5] || rangeMatch[6] || "00";
 
-      start_time = `${String(startH).padStart(2, "0")}:${String(startM).padStart(2, "0")}`;
-      end_time = `${String(endH).padStart(2, "0")}:${String(endM).padStart(2, "0")}`;
+      let endHourVal = endH;
+      if (endHourVal < startH) {
+        if (startH >= 8 && startH <= 11 && endHourVal === 1) {
+          endHourVal = 11;
+        } else if (endHourVal <= 5) {
+          endHourVal += 12;
+        }
+      }
 
-      const diffMin = endH * 60 + parseInt(endM, 10) - (startH * 60 + parseInt(startM, 10));
+      start_time = `${String(startH).padStart(2, "0")}:${String(startM).padStart(2, "0")}`;
+      end_time = `${String(endHourVal).padStart(2, "0")}:${String(endM).padStart(2, "0")}`;
+
+      const diffMin = endHourVal * 60 + parseInt(endM, 10) - (startH * 60 + parseInt(startM, 10));
       hours = Math.max(0.5, Math.round((diffMin / 60) * 10) / 10);
     } else {
       const singleMatch = cleanTime.match(/(\d{1,2})(?:\s*h\s*(\d{2})?|\s*:\s*(\d{2}))/i);
