@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
+import { grantHoursForPeriodUtil } from "@/lib/wallet";
 
 // Helper: Tính toán tháng kết thúc từ chu kỳ
 function computeEndMonth(startMonth: string, cycleMonths: number): string {
@@ -221,6 +222,9 @@ export async function POST(req: Request) {
           `Tự động đối soát qua SePay (${gateway} - Mã GD: ${referenceCode || code || txIdStr})`,
         ],
       });
+
+      // ⭐ VÍ GIỜ HỌC: Cấp giờ vào ví cho toàn bộ chu kỳ đã thanh toán (idempotent, không chặn webhook)
+      await grantHoursForPeriodUtil(matchedStudent.id, startPeriod, endPeriod);
 
       return NextResponse.json({
         success: true,

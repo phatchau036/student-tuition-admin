@@ -6,6 +6,17 @@
 
 ## 1. LỊCH SỬ PHIÊN BẢN (CHANGELOG)
 
+### [v2.7.0] - 2026-10-29
+- **⭐ VÍ GIỜ HỌC (Hour Wallet System):** Thay đổi nền tảng cơ chế học bù — bỏ đếm "suất bù", chuyển sang số dư phút trong ví:
+  - Cấp giờ tự động khi đóng tiền theo công thức chu kỳ tháng (`4 tuần + 2 ngày = 13 buổi × 90 phút`), tự xử lý em vào giữa tháng và ngày nghỉ lễ.
+  - Trừ giờ theo **phút học thật** khi điểm danh (không trừ theo buổi). Nghỉ có phép giữ nguyên giờ để bù, chia nhỏ tùy ý (30 phút hôm nay + 30 phút ngày mai).
+  - Sổ cái `hour_ledger` là nguồn sự thật duy nhất, idempotent theo `ref_type + ref_id` — chạy lại không bao giờ ghi đôi.
+  - **Setting mới:** Admin tự cấu hình "1 buổi học = X phút" (45/60/90/120...) trong Cài đặt → Học phí & Thời lượng.
+  - API mới `/api/wallet` (9 actions): cấp giờ, điểm danh, báo nghỉ, xếp bù kiểm soát số dư khả dụng, hủy bù, điều chỉnh tay, xem sổ cái phân trang.
+  - Hook tự động cấp giờ tại cả 2 điểm đóng tiền: Dashboard đối soát + SePay Webhook.
+  - Dashboard: badge "Nợ X buổi bù" → **"Còn 7h30"** (xanh lá ≥ 3h, vàng < 3h, đỏ nhấp nháy khi âm).
+  - Migration an toàn: `node scripts/migrate-hour-wallet.js --dry-run` — chuyển suất bù cũ thành ADJUST, lịch bù cũ thành lessons, cấp bù GRANT cho tháng đã đóng.
+
 ### [v2.6.0] - 2026-10-29
 - **Tối ưu hóa ma trận xếp lịch:** Hoàn thiện `ClassroomScheduleMatrix.tsx` hỗ trợ lưới ca học động và phát hiện xung đột giờ học của học sinh.
 - **Tự động nhận diện giờ học thông minh từ Excel:** Cải tiến thuật toán bóc tách chuỗi thời gian tự do thành các bản ghi `ScheduleItem[]` chuẩn xác.

@@ -329,6 +329,77 @@ export async function initDb() {
     );
   `);
 
+  // 15. Student Plans Table (Kế hoạch học: thứ học + thời lượng mỗi buổi — "1 buổi = bao nhiêu phút")
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS student_plans (
+      id TEXT PRIMARY KEY,
+      student_id TEXT NOT NULL UNIQUE,
+      weekdays_json TEXT NOT NULL DEFAULT '[2,4,6]',   -- 2..7 = Thứ 2..Thứ 7, 8 = Chủ Nhật
+      minutes_per_session INTEGER NOT NULL DEFAULT 90, -- ⭐ Admin set 1 buổi = X phút (theo từng em)
+      subject_id TEXT,
+      start_date TEXT,
+      active INTEGER NOT NULL DEFAULT 1,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+
+  // 16. Billing Cycles Table (Chu kỳ tháng được cấp giờ)
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS billing_cycles (
+      id TEXT PRIMARY KEY,
+      student_id TEXT NOT NULL,
+      cycle_month TEXT NOT NULL,              -- 'YYYY-MM'
+      start_date TEXT NOT NULL,               -- YYYY-MM-DD (UTC)
+      end_date_exclusive TEXT NOT NULL,       -- YYYY-MM-DD (ngày 1 tháng sau)
+      full_weeks INTEGER NOT NULL DEFAULT 0,
+      leftover_days INTEGER NOT NULL DEFAULT 0,
+      planned_sessions INTEGER NOT NULL DEFAULT 0,
+      granted_minutes INTEGER NOT NULL DEFAULT 0,
+      paid_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      created_by TEXT,
+      UNIQUE(student_id, cycle_month)
+    );
+  `);
+
+  // 17. Hour Ledger Table (Sổ cái giờ — NGUỒN SỰ THẬT DUY NHẤT của số dư ví giờ)
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS hour_ledger (
+      id TEXT PRIMARY KEY,
+      student_id TEXT NOT NULL,
+      cycle_id TEXT,
+      type TEXT NOT NULL,                     -- GRANT | CONSUME | REFUND | ADJUST | EXPIRE
+      minutes INTEGER NOT NULL,               -- CÓ DẤU: GRANT +, CONSUME −, ADJUST ±, EXPIRE −
+      ref_type TEXT,                          -- payment | lesson | makeup | adjust | expire (idempotency)
+      ref_id TEXT,                            -- ID tham chiếu (UNIQUE theo ref_type+ref_id)
+      note TEXT,
+      created_by TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+  await db.execute(`CREATE INDEX IF NOT EXISTS idx_ledger_ref ON hour_ledger(ref_type, ref_id);`);
+  await db.execute(`CREATE INDEX IF NOT EXISTS idx_ledger_student ON hour_ledger(student_id, created_at);`);
+
+  // 18. Lessons Table (Buổi học thực tế & ngoại lệ — buổi cố định suy ra từ student_plans)
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS lessons (
+      id TEXT PRIMARY KEY,
+      student_id TEXT NOT NULL,
+      date TEXT NOT NULL,                     -- YYYY-MM-DD
+      start_time TEXT NOT NULL,               -- HH:MM
+      planned_minutes INTEGER NOT NULL DEFAULT 90,
+      actual_minutes INTEGER,                 -- Ghi khi điểm danh (mặc định = planned)
+      slot_id TEXT,
+      subject_id TEXT,
+      kind TEXT NOT NULL DEFAULT 'regular',   -- regular | makeup
+      status TEXT NOT NULL DEFAULT 'scheduled', -- scheduled | attended | absent_excused | absent_unexcused | cancelled
+      reason TEXT,
+      created_by TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(student_id, date, start_time)
+    );
+  `);
+  await db.execute(`CREATE INDEX IF NOT EXISTS idx_lessons_date ON lessons(date, status);`);
+
   // Migrations for school_id & ip restriction
   try { await db.execute("ALTER TABLE schools ADD COLUMN ip_restriction_enabled INTEGER DEFAULT 0"); } catch {}
   try { await db.execute("ALTER TABLE schools ADD COLUMN allowed_ips TEXT DEFAULT ''"); } catch {}
@@ -372,6 +443,10 @@ export async function initDb() {
     ["app_language", "vi"],
     ["reconciliation_mode", "manual"],
     ["sepay_prefix", "HP"],
+    ["default_minutes_per_session", "90"], // ⭐ Ví Giờ: 1 buổi học mặc định = 90 phút (admin chỉnh được)
+    ["deduct_unexcused", "true"],           // Nghỉ không phép vẫn trừ giờ như đã học
+    ["min_chunk_minutes", "30"],            // Bội số nhỏ nhất khi xếp bù
+    ["carry_over_expire_days", ""],         // Rỗng = giờ dư không bao giờ hết hạn
   ];
 
   for (const [key, val] of defaults) {

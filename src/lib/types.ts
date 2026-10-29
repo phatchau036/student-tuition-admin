@@ -320,6 +320,10 @@ export interface Student {
   monthly_override?: StudentMonthlyTuition | null;
   current_tuition?: number;
   standard_tuition?: number;
+
+  // ⭐ VÍ GIỜ HỌC (HOUR WALLET): Số dư tính bằng phút (sổ cái hour_ledger)
+  balance_minutes?: number;    // Tổng số dư ví (CÓ THỂ ÂM)
+  available_minutes?: number;  // = balance − tổng phút bù đã xếp chưa học
 }
 
 export interface DayOccupancy {

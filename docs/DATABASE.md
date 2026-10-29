@@ -248,3 +248,16 @@ Mọi thay đổi database bắt buộc phải tuân theo 2 quy tắc sau:
 | v2.4.0 | 2026-10-25 | Bổ sung `sepay_transactions`, `tuition_packages`, `student_payments`, `parent_feedbacks`, `system_feedbacks` |
 | v2.5.0 | 2026-10-26 | Bổ sung `student_status_logs`, thêm `working_shifts_json` vào `teachers`, `ip_restriction_enabled` vào `schools` |
 | v2.6.0 | 2026-10-29 | Bổ sung `subjects`, hoàn thiện `schedule_details_json` và tối ưu `initDb()` |
+| v2.7.0 | 2026-10-29 | ⭐ **VÍ GIỜ HỌC (Hour Wallet):** Bổ sung 4 bảng `student_plans` (thứ học + phút/buổi), `billing_cycles` (chu kỳ cấp giờ UNIQUE theo tháng), `hour_ledger` (sổ cái — nguồn sự thật số dư, idempotent theo ref_type+ref_id), `lessons` (buổi học thực tế, UNIQUE theo student+date+time). Settings mới: `default_minutes_per_session` (90), `deduct_unexcused` (true), `min_chunk_minutes` (30), `carry_over_expire_days` (rỗng) |
+
+### 5.1. Chi tiết hệ thống Ví Giờ Học (v2.7.0)
+
+**Nguyên tắc:** Số dư = `SUM(minutes)` từ `hour_ledger`. Mọi thay đổi = 1 dòng sổ cái mới (GRANT +, CONSUME −, ADJUST ±, EXPIRE −). Không bao giờ UPDATE số dư trực tiếp. Mọi ghi sổ idempotent theo cặp `ref_type + ref_id` (UNIQUE index).
+
+**Công thức cấp giờ:** `calcCycleGrant(start, endExclusive, weekdays, minutesPerSession, closedDates)` — tuần đủ × số buổi + ngày lẻ trùng thứ học − ngày nghỉ lễ. Unit test: `node scripts/test-hour-wallet.js` (10/10 PASS).
+
+**Điểm hook cấp giờ:** `POST /api/payments` (action `mark_paid`, `set_months_status`) + SePay webhook → gọi `grantHoursForPeriod` cho từng tháng trong khoảng đã đóng.
+
+**API mới:** `/api/wallet` — `preview_cycle`, `grant_cycle`, `mark_attendance`, `report_absence` (không trừ giờ), `schedule_makeup` (trừ số dư khả dụng, check sĩ số + trùng giờ + bội 30 phút), `cancel_makeup` (không hoàn giờ), `adjust_hours`, `report_unexcused` (trừ giờ theo config), `get_wallet` (sổ cái phân trang).
+
+**Migration:** `node scripts/migrate-hour-wallet.js --dry-run` (xem trước) → bỏ `--dry-run` để thực thi. Idempotent chạy lại an toàn. Chuyển suất bù cũ → ADJUST, lịch bù cũ → lessons.

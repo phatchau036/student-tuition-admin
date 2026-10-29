@@ -71,6 +71,7 @@ interface SettingsModalProps {
   initialSepayAccountNumber?: string;
   initialSepayBankName?: string;
   initialSepayPrefix?: string;
+  initialDefaultMinutesPerSession?: number;
   initialZaloReminderMode?: ZaloReminderMode;
   initialZaloBotToken?: string;
   initialZaloBotName?: string;
@@ -114,6 +115,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   initialSepayAccountNumber = "",
   initialSepayBankName = "",
   initialSepayPrefix = "HP",
+  initialDefaultMinutesPerSession = 90,
   initialZaloReminderMode = "manual",
   initialZaloBotToken = "",
   initialZaloBotName = "",
@@ -159,6 +161,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [sepayAccountNumber, setSepayAccountNumber] = useState<string>(initialSepayAccountNumber);
   const [sepayBankName, setSepayBankName] = useState<string>(initialSepayBankName);
   const [sepayPrefix, setSepayPrefix] = useState<string>(initialSepayPrefix);
+  const [defaultMinutesPerSession, setDefaultMinutesPerSession] = useState<number>(initialDefaultMinutesPerSession);
   const [isSimulatingSepay, setIsSimulatingSepay] = useState(false);
   const [testTransferAmount, setTestTransferAmount] = useState<number>(1000000);
   const [testContent, setTestContent] = useState<string>("");
@@ -260,6 +263,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setSepayAccountNumber(initialSepayAccountNumber || "");
     setSepayBankName(initialSepayBankName || "");
     setSepayPrefix(initialSepayPrefix || "HP");
+    setDefaultMinutesPerSession(initialDefaultMinutesPerSession || 90);
     setZaloReminderMode(initialZaloReminderMode || "manual");
     setZaloBotToken(initialZaloBotToken || "");
     setZaloBotName(initialZaloBotName || "");
@@ -618,6 +622,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           crowded_threshold_percent: Number(crowdedThreshold) || 80,
           capacity_mode: capacityMode,
           reconciliation_mode: reconciliationMode,
+          default_minutes_per_session: Number(defaultMinutesPerSession) || 90,
           sepay_api_key: sepayApiKey.trim(),
           sepay_account_number: sepayAccountNumber.trim(),
           sepay_bank_name: sepayBankName.trim(),
@@ -1061,6 +1066,47 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       />
                       <span className="absolute right-3 top-2 text-xs text-slate-400 font-bold">%</span>
                     </div>
+                  </div>
+                </div>
+
+                {/* ⭐ VÍ GIỜ HỌC: Thời lượng 1 buổi học mặc định */}
+                <div className="pt-3 mt-3 border-t border-slate-200 dark:border-slate-800">
+                  <label className="text-xs font-black text-indigo-700 dark:text-indigo-400 uppercase tracking-wider block mb-1.5 flex items-center gap-1.5">
+                    ⏱️ Ví Giờ Học — Thời lượng 1 buổi mặc định
+                  </label>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-2">
+                    Số phút được cấp vào ví khi học sinh đóng tiền 1 buổi học. Giờ trừ theo phút học thật (điểm danh).
+                  </p>
+                  <div className="relative max-w-xs">
+                    <input
+                      type="number"
+                      min="15"
+                      max="480"
+                      step="5"
+                      value={defaultMinutesPerSession}
+                      onChange={(e) => setDefaultMinutesPerSession(Number(e.target.value) || 90)}
+                      className="w-full px-3 py-2 text-sm font-bold rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50/40 dark:bg-slate-900 text-indigo-700 dark:text-indigo-400 outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                    <span className="absolute right-3 top-2 text-xs text-indigo-400 font-bold">phút / buổi</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                    {[45, 60, 90, 120].map((min) => (
+                      <button
+                        key={min}
+                        type="button"
+                        onClick={() => setDefaultMinutesPerSession(min)}
+                        className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition cursor-pointer ${
+                          defaultMinutesPerSession === min
+                            ? "bg-indigo-600 text-white border-indigo-600"
+                            : "bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-indigo-400"
+                        }`}
+                      >
+                        {min} phút
+                      </button>
+                    ))}
+                    <span className="text-[10px] text-slate-400 ml-1">
+                      = {(defaultMinutesPerSession / 60).toFixed(defaultMinutesPerSession % 60 === 0 ? 0 : 1)} tiếng/buổi
+                    </span>
                   </div>
                 </div>
               </div>

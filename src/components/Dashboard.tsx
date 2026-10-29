@@ -177,6 +177,7 @@ export default function Dashboard() {
   const [defaultHours, setDefaultHours] = useState<number>(3);
   const [defaultSessions, setDefaultSessions] = useState<number>(3);
   const [defaultStudyTime, setDefaultStudyTime] = useState<string>("18:00 - 19:00");
+  const [defaultMinutesPerSession, setDefaultMinutesPerSession] = useState<number>(90);
   const [maxStudents, setMaxStudents] = useState<number>(10);
   const [crowdedThreshold, setCrowdedThreshold] = useState<number>(80);
   const [capacityMode, setCapacityMode] = useState<"by_slot" | "by_teacher">("by_slot");
@@ -367,6 +368,7 @@ export default function Dashboard() {
         setDefaultHours(json.data.default_hours_per_week || 3);
         setDefaultSessions(json.data.default_sessions_per_week || 3);
         setDefaultStudyTime(json.data.default_study_time || "18:00 - 19:00");
+        setDefaultMinutesPerSession(Number(json.data.default_minutes_per_session) || 90);
         setMaxStudents(json.data.max_students_per_slot || 10);
         setCrowdedThreshold(json.data.crowded_threshold_percent || 80);
         setCapacityMode(json.data.capacity_mode || "by_slot");
@@ -537,8 +539,12 @@ export default function Dashboard() {
     return filteredStudents.filter((s) => Boolean(s.monthly_override)).length;
   }, [filteredStudents]);
 
+  // ⭐ VÍ GIỜ HỌC: Đếm học sinh cần xử lý (số dư âm hoặc chưa có ví giờ vì chưa đóng tháng)
   const totalPendingMakeups = useMemo(() => {
-    return students.reduce((sum, s) => sum + (s.pending_makeups_count || 0), 0);
+    return students.filter((s) => {
+      const avail = Number(s.available_minutes ?? 0);
+      return avail < 0; // Số dư khả dụng âm = đã học/xếp bù quá số giờ được cấp
+    }).length;
   }, [students]);
 
   // Bulk Selection Helpers
@@ -1445,18 +1451,34 @@ export default function Dashboard() {
                                 >
                                   {student.name}
                                 </button>
-                                {(student.pending_makeups_count || 0) > 0 && (
-                                  <button
-                                    onClick={() => {
-                                      setSelectedStudentForMakeup(student.id);
-                                      setIsMakeupModalOpen(true);
-                                    }}
-                                    className="px-1.5 py-0.5 rounded-full text-[9px] font-black bg-amber-100 text-amber-800 hover:bg-amber-200 transition shadow-2xs whitespace-nowrap"
-                                    title="Bấm để xếp lịch học bù"
-                                  >
-                                    Nợ {student.pending_makeups_count} buổi bù
-                                  </button>
-                                )}
+                                {(() => {
+                                  // ⭐ VÍ GIỜ HỌC: Hiển thị số dư ví giờ dạng "Còn 7h30"
+                                  const avail = Number(student.available_minutes ?? 0);
+                                  if (avail === 0) return null;
+                                  const isNegative = avail < 0;
+                                  const abs = Math.abs(avail);
+                                  const h = Math.floor(abs / 60);
+                                  const m = abs % 60;
+                                  const label = h > 0 ? `${h}h${m > 0 ? String(m).padStart(2, "0") : ""}` : `${m} phút`;
+                                  return (
+                                    <button
+                                      onClick={() => {
+                                        setSelectedStudentForMakeup(student.id);
+                                        setIsMakeupModalOpen(true);
+                                      }}
+                                      className={`px-1.5 py-0.5 rounded-full text-[9px] font-black transition shadow-2xs whitespace-nowrap ${
+                                        isNegative
+                                          ? "bg-rose-600 text-white animate-pulse hover:bg-rose-700"
+                                          : avail >= 180
+                                          ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200 dark:bg-emerald-950 dark:text-emerald-300"
+                                          : "bg-amber-100 text-amber-800 hover:bg-amber-200 dark:bg-amber-950 dark:text-amber-300"
+                                      }`}
+                                      title={`Ví giờ khả dụng: ${label} (bấm để xếp lịch học bù)`}
+                                    >
+                                      {isNegative ? `Âm ${label}` : `Còn ${label}`}
+                                    </button>
+                                  );
+                                })()}
                               </div>
                               <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                                 <span className="font-mono text-[11px] font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1 whitespace-nowrap">
@@ -2121,6 +2143,7 @@ export default function Dashboard() {
         initialSepayAccountNumber={sepayAccountNumber}
         initialSepayBankName={sepayBankName}
         initialSepayPrefix={sepayPrefix}
+        initialDefaultMinutesPerSession={defaultMinutesPerSession}
         initialZaloReminderMode={zaloReminderMode as any}
         initialZaloBotToken={zaloBotToken}
         initialZaloBotName={zaloBotName}

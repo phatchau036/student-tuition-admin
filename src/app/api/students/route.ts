@@ -112,16 +112,27 @@ export async function GET(req: Request) {
       allOverridesMap[`${row.student_id}_${row.month}`] = Number(row.amount);
     }
 
-    // Fetch pending makeup classes count for each student
-    const makeupsRes = await db.execute(`
-      SELECT student_id, COUNT(*) as pending_count
-      FROM makeup_classes
-      WHERE status = 'pending'
+    // ⭐ VÍ GIỜ HỌC: Số dư ví giờ từ sổ cái hour_ledger (nguồn sự thật duy nhất)
+    const walletRes = await db.execute(`
+      SELECT student_id, COALESCE(SUM(minutes), 0) as balance
+      FROM hour_ledger
       GROUP BY student_id
     `);
-    const pendingMakeupsMap: Record<string, number> = {};
-    for (const row of makeupsRes.rows) {
-      pendingMakeupsMap[String(row.student_id)] = Number(row.pending_count || 0);
+    const walletMap: Record<string, number> = {};
+    for (const row of walletRes.rows) {
+      walletMap[String(row.student_id)] = Number(row.balance || 0);
+    }
+
+    // Tổng phút học bù đã xếp nhưng chưa học (trừ vào số dư khả dụng)
+    const scheduledMakeupRes = await db.execute(`
+      SELECT student_id, COALESCE(SUM(planned_minutes), 0) as scheduled
+      FROM lessons
+      WHERE kind = 'makeup' AND status = 'scheduled'
+      GROUP BY student_id
+    `);
+    const scheduledMakeupMap: Record<string, number> = {};
+    for (const row of scheduledMakeupRes.rows) {
+      scheduledMakeupMap[String(row.student_id)] = Number(row.scheduled || 0);
     }
 
     const students = studentsRes.rows.map((row) => {
@@ -239,7 +250,9 @@ export async function GET(req: Request) {
         registered_days: String(row.registered_days || ""),
         study_time_detail: String(row.study_time_detail || ""),
         schedule_details_json: String(row.schedule_details_json || "[]"),
-        pending_makeups_count: pendingMakeupsMap[String(row.id)] || 0,
+        pending_makeups_count: Math.max(0, Math.ceil((walletMap[String(row.id)] || 0) / 90)), // Backward compat: quy đổi phút sang "buổi tương đương"
+        balance_minutes: walletMap[String(row.id)] || 0,
+        available_minutes: (walletMap[String(row.id)] || 0) - (scheduledMakeupMap[String(row.id)] || 0),
         is_discount_enabled: Number(row.is_discount_enabled || 0),
         discount_percent: Number(row.discount_percent || 0),
         discount_reason: String(row.discount_reason || ""),
