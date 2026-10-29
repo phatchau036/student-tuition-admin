@@ -29,6 +29,7 @@ import {
   Plus,
   Trash2,
   CheckCircle2,
+  Check,
   X,
   Hourglass,
   Tag,
@@ -294,72 +295,6 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
         discountPercent
       );
 
-  // Helpers for schedule items in by_hours mode
-  const handleAddScheduleItem = () => {
-    // Pick the first day that has open slots, or default to Thứ 2
-    const firstOpenDay = ALL_DAYS.find((d) => getSlotsForDay(d, timeSlots).length > 0) || "Thứ 2";
-    const availableStartTimes = getDayStartTimes(firstOpenDay, timeSlots);
-    const defaultStart = availableStartTimes[0] || "17:00";
-    const availableEndTimes = getDayEndTimes(firstOpenDay, defaultStart, timeSlots);
-    const defaultEnd = availableEndTimes[1] || availableEndTimes[0] || "18:30";
-
-    const newItem: ScheduleItem = {
-      id: `${Date.now()}`,
-      day: firstOpenDay,
-      start_time: defaultStart,
-      end_time: defaultEnd,
-      hours: calculateDurationHours(defaultStart, defaultEnd),
-    };
-    setScheduleItems([...scheduleItems, newItem]);
-  };
-
-  const handleUpdateScheduleItem = (id: string, field: keyof ScheduleItem, val: any) => {
-    setScheduleItems((prev) =>
-      prev.map((item) => {
-        if (item.id !== id) return item;
-        const updated = { ...item, [field]: val };
-
-        // When day changes, auto update start and end times to match the operating hours of that new day
-        if (field === "day") {
-          const newDayStarts = getDayStartTimes(val, timeSlots);
-          const newStart = newDayStarts.includes(updated.start_time)
-            ? updated.start_time
-            : newDayStarts[0] || "17:00";
-          const newDayEnds = getDayEndTimes(val, newStart, timeSlots);
-          const newEnd = newDayEnds.includes(updated.end_time)
-            ? updated.end_time
-            : newDayEnds[1] || newDayEnds[0] || "18:30";
-
-          updated.start_time = newStart;
-          updated.end_time = newEnd;
-          updated.hours = calculateDurationHours(newStart, newEnd);
-          return updated;
-        }
-
-        // When start_time changes, ensure end_time is valid within the day
-        if (field === "start_time") {
-          const validEnds = getDayEndTimes(updated.day, val, timeSlots);
-          if (!validEnds.includes(updated.end_time)) {
-            updated.end_time = validEnds[1] || validEnds[0] || "18:30";
-          }
-          updated.hours = calculateDurationHours(val, updated.end_time);
-          return updated;
-        }
-
-        if (field === "end_time") {
-          updated.hours = calculateDurationHours(updated.start_time, val);
-          return updated;
-        }
-
-        return updated;
-      })
-    );
-  };
-
-  const handleRemoveScheduleItem = (id: string) => {
-    setScheduleItems(scheduleItems.filter((i) => i.id !== id));
-  };
-
   const handleApplyPreset = (preset: SchedulePreset) => {
     setSelectedPresetId(preset.id);
     const days = preset.days && preset.days.length > 0 ? preset.days : ["Thứ 2"];
@@ -385,20 +320,6 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
       hours: hPerSession,
     }));
     setScheduleItems(newItems);
-  };
-
-  const toggleDayFixed = (day: string) => {
-    setSelectedPresetId(null);
-    let newDays: string[];
-    if (selectedDays.includes(day)) {
-      newDays = selectedDays.filter((d) => d !== day);
-    } else {
-      newDays = [...selectedDays, day].sort(
-        (a, b) => ALL_DAYS.indexOf(a) - ALL_DAYS.indexOf(b)
-      );
-    }
-    setSelectedDays(newDays);
-    setSessionsPerWeek(newDays.length);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -744,130 +665,112 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
             </div>
           </div>
 
-          {/* DURATION CONFIGURATION (KIỂU LỊCH HỌC & MA TRẬN TỰ TÍNH) */}
+          {/* DURATION CONFIGURATION (KIỂU LỊCH HỌC & MA TRẬN TỰ TÍNH THEO SETTING) */}
           <div className="p-4.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40 space-y-4">
-            <div>
-              <span className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-indigo-600" />
-                Cấu Hình Kiểu Lịch Học & Ma Trận Thời Lượng
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5">
+              <div>
+                <span className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-indigo-600" />
+                  Kiểu Lịch Học Áp Dụng (Theo Cấu Hình Cơ Sở)
+                </span>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                  Chọn 1 trong các kiểu lịch mà cơ sở đã thiết lập. Ngày học và thời lượng buổi được áp dụng tự động.
+                </p>
+              </div>
+              <span className="self-start sm:self-auto text-[10px] text-indigo-600 dark:text-indigo-400 font-bold flex items-center gap-1 bg-indigo-50 dark:bg-indigo-950/60 px-2 py-0.5 rounded-md border border-indigo-200/60 dark:border-indigo-900/40">
+                <Sparkles className="w-3 h-3" /> Chuẩn hóa từ Cài Đặt
               </span>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                Chọn kiểu lịch mẫu của cơ sở hoặc linh hoạt chọn ngày học và số tiếng mỗi buổi để hệ thống tính ma trận tự động.
-              </p>
             </div>
 
-            <div className="space-y-3.5 pt-1">
-              {/* Chọn nhanh theo Kiểu Lịch Mẫu của Cơ Sở */}
-              {schedulePresets.length > 0 && (
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
-                      Chọn nhanh kiểu lịch học mẫu của cơ sở:
-                    </span>
-                    <span className="text-[10px] text-indigo-600 font-bold flex items-center gap-1">
-                      <Sparkles className="w-3 h-3" /> Tự động điền ngày & giờ
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {schedulePresets.map((preset) => {
-                      const isSelected = selectedPresetId === preset.id;
-                      const calcTotalH = Math.round((preset.days?.length || 0) * (preset.hours_per_session || 1.5) * 10) / 10;
-                      return (
-                        <button
-                          type="button"
-                          key={preset.id}
-                          onClick={() => handleApplyPreset(preset)}
-                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
-                            isSelected
-                              ? "bg-indigo-600 text-white shadow-xs ring-2 ring-indigo-600/30"
-                              : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200/80 border border-transparent hover:border-slate-300"
-                          }`}
-                        >
-                          <span>{preset.name}</span>
+            {/* Danh sách các kiểu lịch học dạng Cards để chọn trực tiếp */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 pt-1">
+              {(schedulePresets && schedulePresets.length > 0
+                ? schedulePresets
+                : [
+                    { id: "preset-even", name: "Thứ chẵn (2-4-6)", days: ["Thứ 2", "Thứ 4", "Thứ 6"], hours_per_session: 1.5, default_start_time: "18:00", is_default: true },
+                    { id: "preset-odd", name: "Thứ lẻ (3-5-7)", days: ["Thứ 3", "Thứ 5", "Thứ 7"], hours_per_session: 1.5, default_start_time: "18:00", is_default: false },
+                    { id: "preset-weekend", name: "Cuối tuần (T7-CN)", days: ["Thứ 7", "Chủ Nhật"], hours_per_session: 2.0, default_start_time: "09:00", is_default: false },
+                  ]
+              ).map((preset) => {
+                const isSelected = selectedPresetId === preset.id;
+                const calcTotalH = Math.round((preset.days?.length || 0) * (preset.hours_per_session || 1.5) * 10) / 10;
+                return (
+                  <div
+                    key={preset.id}
+                    onClick={() => handleApplyPreset(preset)}
+                    className={`p-3.5 rounded-2xl border-2 transition cursor-pointer flex flex-col justify-between ${
+                      isSelected
+                        ? "border-indigo-600 bg-indigo-50/80 dark:bg-indigo-950/40 shadow-xs ring-2 ring-indigo-600/20"
+                        : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-700"
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-xs font-black text-slate-900 dark:text-white truncate">
+                          {preset.name}
+                        </span>
+                        {isSelected ? (
+                          <div className="w-4 h-4 rounded-full bg-indigo-600 text-white flex items-center justify-center shrink-0">
+                            <Check className="w-3 h-3 stroke-[3]" />
+                          </div>
+                        ) : (
+                          preset.is_default && (
+                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 shrink-0">
+                              Mặc định
+                            </span>
+                          )
+                        )}
+                      </div>
+
+                      {/* Badges các ngày trong tuần của kiểu này */}
+                      <div className="flex flex-wrap gap-1 my-2">
+                        {(preset.days || []).map((d) => (
                           <span
-                            className={`text-[10px] px-1.5 py-0.2 rounded-md ${
+                            key={d}
+                            className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${
                               isSelected
-                                ? "bg-white/20 text-white"
-                                : "bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-300 font-mono"
+                                ? "bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 font-bold"
+                                : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
                             }`}
                           >
-                            {calcTotalH}h/tuần
+                            {d}
                           </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
+                        ))}
+                      </div>
 
-              {/* Chọn các ngày học cố định */}
+                      <div className="text-[11px] font-bold text-slate-600 dark:text-slate-300">
+                        {preset.days?.length || 0} buổi × {preset.hours_per_session}h ={" "}
+                        <strong className="text-indigo-600 dark:text-indigo-400 font-black">{calcTotalH}h / tuần</strong>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Khung giờ vào lớp & Ma trận chi tiết */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
               <div>
-                <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1.5">
-                  Các ngày học trong tuần ({selectedDays.length} ngày đã chọn):
+                <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 block mb-1">
+                  Khung giờ vào lớp mỗi buổi:
                 </label>
-                <div className="flex flex-wrap gap-1.5">
-                  {ALL_DAYS.map((day) => {
-                    const isChecked = selectedDays.includes(day);
-                    return (
-                      <button
-                        type="button"
-                        key={day}
-                        onClick={() => toggleDayFixed(day)}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition ${
-                          isChecked
-                            ? "bg-indigo-600 text-white shadow-xs"
-                            : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100"
-                        }`}
-                      >
-                        {day}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Cấu hình thời lượng mỗi buổi & Giờ học chi tiết */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                    Thời lượng mỗi buổi:
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="number"
-                      min="0.5"
-                      max="8"
-                      step="0.5"
-                      value={sessionHours}
-                      onChange={(e) => {
-                        setSelectedPresetId(null);
-                        setSessionHours(Number(e.target.value) || 1);
-                      }}
-                      className="w-20 px-3 py-1.5 text-xs font-bold text-center rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900"
-                    />
-                    <span className="text-xs font-bold text-slate-500">tiếng / buổi</span>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                    Khung giờ vào lớp mỗi buổi:
-                  </label>
-                  <input
-                    type="text"
-                    value={fixedSessionTime}
-                    onChange={(e) => setFixedSessionTime(e.target.value)}
-                    placeholder="18:00 - 19:30"
-                    className="w-full px-3 py-1.5 text-xs font-semibold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900"
-                  />
-                </div>
+                <input
+                  type="text"
+                  value={fixedSessionTime}
+                  onChange={(e) => setFixedSessionTime(e.target.value)}
+                  placeholder="18:00 - 19:30"
+                  className="w-full px-3 py-2 text-xs font-bold font-mono rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+                <span className="text-[10px] text-slate-400 mt-0.5 block">
+                  Đã tự động tính theo kiểu lịch ({sessionHours}h/buổi), có thể điều chỉnh giờ nếu ca học lệch
+                </span>
               </div>
 
               {/* Thẻ Ma Trận Tính Toán Tự Động */}
               <div className="p-3 rounded-2xl bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-200/80 dark:border-indigo-900/50 flex items-center justify-between">
                 <div>
                   <span className="text-[10px] font-black uppercase tracking-wider text-indigo-700 dark:text-indigo-300 block">
-                    Ma trận tính toán thời lượng tự động:
+                    Ma trận thời lượng tự động:
                   </span>
                   <div className="text-xs font-bold text-slate-800 dark:text-slate-100 mt-0.5">
                     {selectedDays.length} buổi × {sessionHours}h/buổi ={" "}
@@ -875,6 +778,9 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                       {Math.round(selectedDays.length * sessionHours * 10) / 10} tiếng / tuần
                     </span>
                   </div>
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400 block mt-0.5">
+                    Ngày học: {selectedDays.join(", ") || "Chưa chọn"}
+                  </span>
                 </div>
                 <div className="text-right">
                   <span className="text-[10px] font-mono text-slate-500 block">Quy đổi:</span>
