@@ -172,6 +172,15 @@ export interface MonthlyReconciliationSummary {
   sepay_matched_revenue: number; // Tổng tiền SePay đối soát
 }
 
+export interface SchedulePreset {
+  id: string; // "preset-even", "preset-odd", hoặc uuid
+  name: string; // Tên kiểu: "Thứ chẵn", "Thứ lẻ", "Cuối tuần", v.v.
+  days: string[]; // e.g. ["Thứ 2", "Thứ 4", "Thứ 6"]
+  hours_per_session: number; // e.g. 1.5 tiếng/buổi
+  default_start_time?: string; // Giờ vào lớp mặc định, e.g. "18:00"
+  is_default?: boolean; // Kiểu mặc định khi tạo học sinh
+}
+
 export interface SystemSettings {
   base_tuition: number; // Base price in VNĐ
   duration_mode: "by_hours" | "by_sessions"; // Chế độ: HOẶC theo tiếng HOẶC theo buổi
@@ -184,6 +193,8 @@ export interface SystemSettings {
   crowded_threshold_percent: number; // Ngưỡng cảnh báo lớp đông (Mặc định: 80%)
   capacity_mode?: CapacityMode; // 'by_slot' (Tính theo ca mở cửa) | 'by_teacher' (Tính theo ca/sĩ số của Giáo Viên)
   reconciliation_mode?: ReconciliationMode; // 'manual' | 'auto'
+  default_minutes_per_session?: number; // Ví Giờ Học: số phút chuẩn 1 buổi (mặc định 90)
+  schedule_presets?: SchedulePreset[]; // Danh sách các kiểu lịch học cơ sở (Hình thức 2)
   
   // Cấu hình SePay Webhook
   sepay_api_key?: string; // API Key cấu hình tại SePay Webhook

@@ -421,6 +421,18 @@ export async function initDb() {
   try { await db.execute("ALTER TABLE students ADD COLUMN start_date TEXT DEFAULT NULL"); } catch {}
   try { await db.execute("ALTER TABLE students ADD COLUMN discount_reason TEXT DEFAULT ''"); } catch {}
   try { await db.execute("ALTER TABLE students ADD COLUMN subject_id TEXT DEFAULT NULL"); } catch {}
+  try { await db.execute("ALTER TABLE students ADD COLUMN level_id TEXT DEFAULT NULL"); } catch {}
+  // self-heal cho DB tạo trước khi mở rộng schema bảng students
+  try { await db.execute("ALTER TABLE students ADD COLUMN phone TEXT NOT NULL DEFAULT ''"); } catch {}
+  try { await db.execute("ALTER TABLE students ADD COLUMN zalo_link TEXT DEFAULT NULL"); } catch {}
+  try { await db.execute("ALTER TABLE students ADD COLUMN teacher_id TEXT DEFAULT NULL"); } catch {}
+  try { await db.execute("ALTER TABLE students ADD COLUMN duration_mode TEXT DEFAULT 'by_hours'"); } catch {}
+  try { await db.execute("ALTER TABLE students ADD COLUMN sessions_per_week INTEGER DEFAULT 3"); } catch {}
+  try { await db.execute("ALTER TABLE students ADD COLUMN hours_per_week REAL DEFAULT 3"); } catch {}
+  try { await db.execute("ALTER TABLE students ADD COLUMN study_time_detail TEXT DEFAULT '18:00 - 19:00'"); } catch {}
+  try { await db.execute("ALTER TABLE students ADD COLUMN is_discount_enabled INTEGER NOT NULL DEFAULT 0"); } catch {}
+  try { await db.execute("ALTER TABLE students ADD COLUMN discount_percent REAL NOT NULL DEFAULT 0"); } catch {}
+  try { await db.execute("ALTER TABLE students ADD COLUMN created_at TEXT DEFAULT NULL"); } catch {}
   try { await db.execute("ALTER TABLE teachers ADD COLUMN zalo_chat_id TEXT DEFAULT NULL"); } catch {}
   try { await db.execute("ALTER TABLE teachers ADD COLUMN zalo_link TEXT DEFAULT NULL"); } catch {}
   try { await db.execute("ALTER TABLE student_monthly_tuitions ADD COLUMN items_json TEXT DEFAULT '[]'"); } catch {}
@@ -447,6 +459,11 @@ export async function initDb() {
     ["deduct_unexcused", "true"],           // Nghỉ không phép vẫn trừ giờ như đã học
     ["min_chunk_minutes", "30"],            // Bội số nhỏ nhất khi xếp bù
     ["carry_over_expire_days", ""],         // Rỗng = giờ dư không bao giờ hết hạn
+    ["schedule_presets", JSON.stringify([
+      { id: "preset-even", name: "Thứ chẵn (2-4-6)", days: ["Thứ 2", "Thứ 4", "Thứ 6"], hours_per_session: 1.5, default_start_time: "18:00", is_default: true },
+      { id: "preset-odd", name: "Thứ lẻ (3-5-7)", days: ["Thứ 3", "Thứ 5", "Thứ 7"], hours_per_session: 1.5, default_start_time: "18:00", is_default: false },
+      { id: "preset-weekend", name: "Cuối tuần (T7-CN)", days: ["Thứ 7", "Chủ Nhật"], hours_per_session: 2.0, default_start_time: "09:00", is_default: false },
+    ])],
   ];
 
   for (const [key, val] of defaults) {

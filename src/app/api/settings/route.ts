@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
 import { getSchoolIdFromRequest } from "@/lib/authHelper";
+import { SchedulePreset } from "@/lib/types";
 
 export async function GET(req: Request) {
   try {
@@ -43,6 +44,21 @@ export async function GET(req: Request) {
     const sepayAccountNumber = settingsMap["sepay_account_number"] || "";
     const sepayBankName = settingsMap["sepay_bank_name"] || "";
     const sepayPrefix = settingsMap["sepay_prefix"] || "HP";
+
+    // Schedule Presets (Kiểu lịch học cơ sở)
+    let schedulePresets: SchedulePreset[] = [
+      { id: "preset-even", name: "Thứ chẵn (2-4-6)", days: ["Thứ 2", "Thứ 4", "Thứ 6"], hours_per_session: 1.5, default_start_time: "18:00", is_default: true },
+      { id: "preset-odd", name: "Thứ lẻ (3-5-7)", days: ["Thứ 3", "Thứ 5", "Thứ 7"], hours_per_session: 1.5, default_start_time: "18:00", is_default: false },
+      { id: "preset-weekend", name: "Cuối tuần (T7-CN)", days: ["Thứ 7", "Chủ Nhật"], hours_per_session: 2.0, default_start_time: "09:00", is_default: false },
+    ];
+    if (settingsMap["schedule_presets"]) {
+      try {
+        const parsed = JSON.parse(settingsMap["schedule_presets"]);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          schedulePresets = parsed;
+        }
+      } catch {}
+    }
 
     // 2. Get Time Slots for this school
     let timeSlotsRes = await db.execute({
@@ -178,6 +194,7 @@ export async function GET(req: Request) {
         discount_presets: discountPresets,
         tuition_packages: tuitionPackages,
         subjects: subjects,
+        schedule_presets: schedulePresets,
       },
     });
   } catch (error: unknown) {
@@ -221,6 +238,7 @@ export async function POST(req: Request) {
       time_slots,
       level_surcharges,
       discount_presets,
+      schedule_presets,
     } = body;
 
     // 1. Update Settings Key-Values
@@ -247,6 +265,23 @@ export async function POST(req: Request) {
       zalo_oa_secret_key: zalo_oa_secret_key !== undefined ? String(zalo_oa_secret_key) : undefined,
       zalo_access_token: zalo_access_token !== undefined ? String(zalo_access_token) : undefined,
       zalo_template_id: zalo_template_id !== undefined ? String(zalo_template_id) : undefined,
+      schedule_presets:
+        schedule_presets !== undefined
+          ? JSON.stringify(
+              Array.isArray(schedule_presets)
+                ? schedule_presets.map((p: any, idx: number) => ({
+                    id: String(p.id || `preset-${Date.now()}-${idx}`),
+                    name: String(p.name || `Kiểu lịch ${idx + 1}`).trim(),
+                    days: Array.isArray(p.days)
+                      ? p.days.map((d: any) => String(d).trim()).filter(Boolean)
+                      : ["Thứ 2", "Thứ 4", "Thứ 6"],
+                    hours_per_session: Number(p.hours_per_session) > 0 ? Number(p.hours_per_session) : 1.5,
+                    default_start_time: p.default_start_time ? String(p.default_start_time).trim() : "18:00",
+                    is_default: Boolean(p.is_default),
+                  }))
+                : []
+            )
+          : undefined,
     };
 
     for (const [key, val] of Object.entries(keysToUpdate)) {
