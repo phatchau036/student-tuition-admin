@@ -498,3 +498,116 @@ export function parseStudentScheduleSlots(
   return results;
 }
 
+// Chuyển đổi thông minh chuỗi "Giờ vào lớp" từ Excel thành cấu trúc lịch học chuẩn của hệ thống
+export function parseStudyTimeToSchedule(raw?: string): {
+  registered_days: string;
+  sessions_per_week: number;
+  hours_per_week: number;
+  schedule_details_json: string;
+} | null {
+  if (!raw || typeof raw !== "string") return null;
+  const str = raw.trim();
+  if (!str || str.toLowerCase().includes("linh hoạt")) return null;
+
+  let rawClauses: string[] = [];
+  if (/[|;]/.test(str)) {
+    rawClauses = str.split(/[|;]+/).map((s) => s.trim()).filter(Boolean);
+  } else {
+    rawClauses = str
+      .split(/\)\s*,\s*(?=[A-Za-zÀ-ỹ0-9])/)
+      .map((s, idx, arr) => {
+        let res = s.trim();
+        if (idx < arr.length - 1 && !res.endsWith(")")) res += ")";
+        return res;
+      })
+      .filter(Boolean);
+  }
+
+  const scheduleItems: Array<{
+    id: string;
+    day: string;
+    start_time: string;
+    end_time: string;
+    hours: number;
+  }> = [];
+  const daysSet = new Set<string>();
+  let totalHours = 0;
+
+  for (const seg of rawClauses) {
+    const days: string[] = [];
+    if (/T2[-_ ]*4[-_ ]*6/i.test(seg) || /T2,?\s*4,?\s*6/i.test(seg)) {
+      days.push("Thứ 2", "Thứ 4", "Thứ 6");
+    } else if (/T3[-_ ]*5[-_ ]*7/i.test(seg) || /T3,?\s*5,?\s*7/i.test(seg)) {
+      days.push("Thứ 3", "Thứ 5", "Thứ 7");
+    } else if (/T2[-_ ]*4/i.test(seg) || /T2,?\s*4\b/i.test(seg)) {
+      days.push("Thứ 2", "Thứ 4");
+    } else if (/T3[-_ ]*5/i.test(seg) || /T3,?\s*5\b/i.test(seg)) {
+      days.push("Thứ 3", "Thứ 5");
+    } else {
+      if (/(?:T2|Thứ\s*2)\b/i.test(seg)) days.push("Thứ 2");
+      if (/(?:T3|Thứ\s*3)\b/i.test(seg)) days.push("Thứ 3");
+      if (/(?:T4|Thứ\s*4)\b/i.test(seg)) days.push("Thứ 4");
+      if (/(?:T5|Thứ\s*5)\b/i.test(seg)) days.push("Thứ 5");
+      if (/(?:T6|Thứ\s*6)\b/i.test(seg)) days.push("Thứ 6");
+      if (/(?:T7|Thứ\s*7|S7|C7)\b/i.test(seg)) days.push("Thứ 7");
+      if (/(?:CN|Chủ\s*Nhật)\b/i.test(seg)) days.push("Chủ Nhật");
+    }
+
+    let cleanTime = seg.replace(/T[2-7][-_ ]*[2-7][-_ ]*[2-7]?/gi, " ");
+    cleanTime = cleanTime.replace(/(?:Thứ\s*[2-7]|Chủ\s*Nhật|CN|T[2-7]|S7|C7)\s*[:\s-]*/gi, " ");
+    cleanTime = cleanTime.replace(/\(\s*\d+(?:\.\d+)?\s*(?:h|tiếng|phút|p)\s*\)/gi, " ");
+
+    let start_time = "18:00";
+    let end_time = "19:30";
+    let hours = 1.5;
+
+    const rangeMatch = cleanTime.match(
+      /(\d{1,2})(?:\s*h\s*(\d{2})?|\s*:\s*(\d{2}))?\s*[-–to~]\s*(\d{1,2})(?:\s*h\s*(\d{2})?|\s*:\s*(\d{2}))?/i
+    );
+
+    if (rangeMatch) {
+      const startH = parseInt(rangeMatch[1], 10);
+      const startM = rangeMatch[2] || rangeMatch[3] || "00";
+      const endH = parseInt(rangeMatch[4], 10);
+      const endM = rangeMatch[5] || rangeMatch[6] || "00";
+
+      start_time = `${String(startH).padStart(2, "0")}:${String(startM).padStart(2, "0")}`;
+      end_time = `${String(endH).padStart(2, "0")}:${String(endM).padStart(2, "0")}`;
+
+      const diffMin = endH * 60 + parseInt(endM, 10) - (startH * 60 + parseInt(startM, 10));
+      hours = Math.max(0.5, Math.round((diffMin / 60) * 10) / 10);
+    } else {
+      const singleMatch = cleanTime.match(/(\d{1,2})(?:\s*h\s*(\d{2})?|\s*:\s*(\d{2}))/i);
+      if (singleMatch) {
+        const startH = parseInt(singleMatch[1], 10);
+        const startM = singleMatch[2] || singleMatch[3] || "00";
+        const endH = startH + 1;
+        start_time = `${String(startH).padStart(2, "0")}:${String(startM).padStart(2, "0")}`;
+        end_time = `${String(endH).padStart(2, "0")}:${String(startM).padStart(2, "0")}`;
+        hours = 1;
+      }
+    }
+
+    for (const d of days) {
+      daysSet.add(d);
+      scheduleItems.push({
+        id: String(scheduleItems.length + 1),
+        day: d,
+        start_time,
+        end_time,
+        hours,
+      });
+      totalHours += hours;
+    }
+  }
+
+  if (scheduleItems.length === 0) return null;
+
+  return {
+    registered_days: Array.from(daysSet).join(", "),
+    sessions_per_week: scheduleItems.length,
+    hours_per_week: Math.round(totalHours * 10) / 10,
+    schedule_details_json: JSON.stringify(scheduleItems),
+  };
+}
+

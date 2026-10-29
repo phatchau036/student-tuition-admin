@@ -563,6 +563,35 @@ export const SmartExcelImportModal: React.FC<SmartExcelImportModalProps> = ({
                 </div>
               </div>
 
+              {/* Hướng dẫn định dạng "Giờ vào lớp" để tự động xếp lịch */}
+              <div className="p-4 rounded-2xl bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-850/60 text-xs text-amber-900 dark:text-amber-200 space-y-2">
+                <div className="flex items-center gap-2 font-black text-amber-950 dark:text-amber-300">
+                  <Sparkles className="w-4 h-4 text-amber-600" />
+                  <span>Hướng Dẫn Định Dạng Cột &quot;Giờ Vào Lớp&quot; Để Tự Động Xếp Lịch:</span>
+                </div>
+                <p className="text-[11.5px] leading-relaxed text-amber-900/90 dark:text-amber-300/90">
+                  Hệ thống hỗ trợ tự động bóc tách ngày thứ, giờ học, thời lượng và giáo viên khi bạn ghi theo các mẫu sau trong file Excel:
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 font-mono text-[11px] pt-1">
+                  <div className="p-2 rounded-xl bg-white/80 dark:bg-slate-900/80 border border-amber-200/60">
+                    <span className="font-bold text-indigo-600 dark:text-indigo-400">T2, T4 (18h-19h30)</span>
+                    <span className="block text-[10px] text-slate-500 font-sans mt-0.5">➔ Tự động xếp T2, T4 ca 18:00 - 19:30</span>
+                  </div>
+                  <div className="p-2 rounded-xl bg-white/80 dark:bg-slate-900/80 border border-amber-200/60">
+                    <span className="font-bold text-indigo-600 dark:text-indigo-400">T3, T5, T7 (19h-20h)</span>
+                    <span className="block text-[10px] text-slate-500 font-sans mt-0.5">➔ Tự động xếp T3, T5, T7 ca 19:00 - 20:00</span>
+                  </div>
+                  <div className="p-2 rounded-xl bg-white/80 dark:bg-slate-900/80 border border-amber-200/60">
+                    <span className="font-bold text-indigo-600 dark:text-indigo-400">T7 (9h30-11h), CN (9h30-11h)</span>
+                    <span className="block text-[10px] text-slate-500 font-sans mt-0.5">➔ Tự động xếp ca sáng cuối tuần 9:30</span>
+                  </div>
+                  <div className="p-2 rounded-xl bg-white/80 dark:bg-slate-900/80 border border-amber-200/60">
+                    <span className="font-bold text-indigo-600 dark:text-indigo-400">T2, T4 (18h-19h30) Cô Điệp</span>
+                    <span className="block text-[10px] text-slate-500 font-sans mt-0.5">➔ Tự động gán Cô Điệp phụ trách</span>
+                  </div>
+                </div>
+              </div>
+
               {/* Thông báo tính năng tự động khởi tạo Level & Bộ môn mới */}
               <div className="p-3.5 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 text-xs text-emerald-800 dark:text-emerald-300 flex items-start gap-2.5">
                 <Sparkles className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
 import { getSchoolIdFromRequest } from "@/lib/authHelper";
+import { parseStudyTimeToSchedule } from "@/lib/tuition";
 
 export async function POST(req: Request) {
   try {
@@ -181,6 +182,13 @@ export async function POST(req: Request) {
       // Khớp giáo viên phụ trách từ cột teacher hoặc từ ghi chú
       const matchedTeacherId = matchTeacherId(item.teacher_name || item.note || item.study_time_detail || "");
 
+      // Tự động phân tích chuỗi giờ học sang cấu trúc lịch học chuẩn của hệ thống
+      const parsedSchedule = parseStudyTimeToSchedule(item.study_time_detail);
+      const regDays = parsedSchedule?.registered_days || "";
+      const sessionsPerWeek = parsedSchedule?.sessions_per_week || 2;
+      const hoursPerWeek = parsedSchedule?.hours_per_week || 3;
+      const scheduleDetailsJson = parsedSchedule?.schedule_details_json || "[]";
+
       const formattedZalo = `https://zalo.me/${phone}`;
       const studentCode = item.student_code
         ? String(item.student_code).trim()
@@ -200,6 +208,10 @@ export async function POST(req: Request) {
                 SET name = ?, level_id = COALESCE(?, level_id), subject_id = COALESCE(?, subject_id),
                     teacher_id = COALESCE(?, teacher_id),
                     study_time_detail = COALESCE(?, study_time_detail), start_date = COALESCE(?, start_date),
+                    registered_days = CASE WHEN ? != '' THEN ? ELSE registered_days END,
+                    sessions_per_week = CASE WHEN ? > 0 THEN ? ELSE sessions_per_week END,
+                    hours_per_week = CASE WHEN ? > 0 THEN ? ELSE hours_per_week END,
+                    schedule_details_json = CASE WHEN ? != '[]' THEN ? ELSE schedule_details_json END,
                     status_note = CASE WHEN ? != '' THEN ? ELSE status_note END
                 WHERE id = ? AND school_id = ?`,
           args: [
@@ -209,6 +221,14 @@ export async function POST(req: Request) {
             matchedTeacherId || null,
             item.study_time_detail || null,
             startDateStr || null,
+            regDays,
+            regDays,
+            sessionsPerWeek,
+            sessionsPerWeek,
+            hoursPerWeek,
+            hoursPerWeek,
+            scheduleDetailsJson,
+            scheduleDetailsJson,
             item.note || "",
             item.note || "",
             existingId,
@@ -226,7 +246,7 @@ export async function POST(req: Request) {
                   study_time_detail, schedule_details_json, is_discount_enabled, discount_percent,
                   discount_reason, status_note, status
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, '', ?, ?, 'by_hours', 2, 3, '', ?, '[]', ?, ?, ?, ?, 'studying')`,
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, '', ?, ?, 'by_hours', ?, ?, ?, ?, ?, ?, ?, ?, ?, 'studying')`,
           args: [
             id,
             finalSchoolId,
@@ -239,7 +259,11 @@ export async function POST(req: Request) {
             matchedTeacherId || null,
             defaultPackageId,
             startDateStr,
+            sessionsPerWeek,
+            hoursPerWeek,
+            regDays,
             item.study_time_detail || "",
+            scheduleDetailsJson,
             item.discount_percent ? 1 : 0,
             Number(item.discount_percent || 0),
             item.discount_reason || "",
