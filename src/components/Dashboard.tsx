@@ -2121,6 +2121,7 @@ export default function Dashboard() {
         isOpen={isChangeStatusModalOpen}
         onClose={() => setIsChangeStatusModalOpen(false)}
         student={studentForStatusChange}
+        schoolId={currentSchool?.id}
         onSaved={() => loadStudents(selectedMonth, undefined, true)}
       />
 
@@ -2140,6 +2141,9 @@ export default function Dashboard() {
         isOpen={isStatusLogModalOpen}
         onClose={() => setIsStatusLogModalOpen(false)}
         selectedMonth={selectedMonth}
+        monthFormat={monthFormat}
+        schoolId={currentSchool?.id}
+        onRefreshData={() => loadStudents(selectedMonth, undefined, true)}
       />
 
       {/* Monthly Summary Modal (Tổng Kết Báo Cáo Học Phí & SePay) */}

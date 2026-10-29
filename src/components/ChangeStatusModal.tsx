@@ -10,6 +10,7 @@ interface ChangeStatusModalProps {
   onClose: () => void;
   student: Student | null;
   onSaved: () => void;
+  schoolId?: string;
 }
 
 export const ChangeStatusModal: React.FC<ChangeStatusModalProps> = ({
@@ -17,6 +18,7 @@ export const ChangeStatusModal: React.FC<ChangeStatusModalProps> = ({
   onClose,
   student,
   onSaved,
+  schoolId,
 }) => {
   const { showToast } = useToast();
   const [actionType, setActionType] = useState<"reserve" | "drop" | "resume">("reserve");
@@ -43,15 +45,21 @@ export const ChangeStatusModal: React.FC<ChangeStatusModalProps> = ({
 
     try {
       setIsSubmitting(true);
+      const token = typeof window !== "undefined" ? localStorage.getItem("admin_token") : null;
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+      if (schoolId) headers["x-school-id"] = schoolId;
+
       const res = await fetch("/api/students/status", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({
           student_id: student.id,
           action_type: actionType,
           effective_date: effectiveDate,
           return_date: actionType === "reserve" ? returnDate : undefined,
           reason: reason.trim(),
+          school_id: schoolId || undefined,
         }),
       });
 
