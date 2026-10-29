@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
-import { Student, TimeSlot, LevelSurcharge, DiscountOption, Teacher, MonthFormat, TuitionPackage, Subject, StudentStatus } from "@/lib/types";
+import { Student, TimeSlot, LevelSurcharge, DiscountOption, Teacher, MonthFormat, TuitionPackage, Subject, StudentStatus, SchedulePreset } from "@/lib/types";
 import { formatVND, formatMonthDisplay, getCurrentMonthStr, formatTimeSlotLabel } from "@/lib/tuition";
 import { useToast } from "@/components/Toast";
 import { SettingsModal } from "@/components/SettingsModal";
@@ -171,6 +171,7 @@ export default function Dashboard() {
   const [discountPresets, setDiscountPresets] = useState<DiscountOption[]>([]);
   const [tuitionPackages, setTuitionPackages] = useState<TuitionPackage[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [schedulePresets, setSchedulePresets] = useState<SchedulePreset[]>([]);
   const [currentSchool, setCurrentSchool] = useState<{ id: string; name: string; code: string } | null>(null);
 
   // Settings
@@ -380,6 +381,7 @@ export default function Dashboard() {
         setDiscountPresets(json.data.discount_presets);
         setTuitionPackages(json.data.tuition_packages || []);
         setSubjects(json.data.subjects || []);
+        setSchedulePresets(json.data.schedule_presets || []);
         setReconciliationMode(json.data.reconciliation_mode || "manual");
         setZaloReminderMode(json.data.zalo_reminder_mode || "manual");
         setZaloBotToken(json.data.zalo_bot_token || "");
@@ -1398,12 +1400,12 @@ export default function Dashboard() {
                   </th>
                   <th className="py-2.5 px-2 sm:px-3 w-[26%] xl:w-[18%]">{t.col_student}</th>
                   <th className="py-2.5 px-2.5 w-[14%] xl:w-[8%]">{t.col_status}</th>
-                  <th className="py-2.5 px-2.5 hidden lg:table-cell w-[10%] xl:w-[9%]">{t.col_teacher}</th>
-                  <th className="py-2.5 px-2.5 hidden xl:table-cell w-[8%]">{t.col_level_surcharge}</th>
+                  <th className="py-2.5 px-2.5 hidden lg:table-cell w-[10%] xl:w-[8%]">{t.col_teacher}</th>
+                  <th className="py-2.5 px-2.5 hidden xl:table-cell w-[8%] xl:w-[7%]">{t.col_level_surcharge}</th>
                   <th className="py-2.5 px-3 w-[20%] xl:w-[15%]">{t.col_package_schedule}</th>
                   <th className="py-2.5 px-2 text-center hidden xl:table-cell w-[6%]">{t.col_discount}</th>
-                  <th className="py-2.5 px-3 w-[16%] xl:w-[12%]">{t.col_tuition} {formatMonthDisplay(selectedMonth, monthFormat)}</th>
-                  <th className="py-2.5 px-3 text-center hidden md:table-cell w-[17%] xl:w-[13%]">{t.col_reconciliation}</th>
+                  <th className="py-2.5 px-3 w-[16%] xl:w-[14%]">{t.col_tuition} {formatMonthDisplay(selectedMonth, monthFormat)}</th>
+                  <th className="py-2.5 px-3 text-center hidden md:table-cell w-[17%] xl:w-[12%]">{t.col_reconciliation}</th>
                   <th className="py-2.5 px-3 text-right w-[13%] xl:w-[10%]">{t.col_actions}</th>
                 </tr>
               </thead>
@@ -2180,6 +2182,7 @@ export default function Dashboard() {
         initialDiscountPresets={discountPresets}
         initialTuitionPackages={tuitionPackages}
         initialSubjects={subjects}
+        initialSchedulePresets={schedulePresets}
         schoolId={currentSchool?.id}
       />
 
