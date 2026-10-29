@@ -6,19 +6,32 @@ export async function GET(req: Request) {
   try {
     await initDb();
     const db = getDb();
-    const schoolId = getSchoolIdFromRequest(req);
     const { searchParams } = new URL(req.url);
+    const querySchoolId = searchParams.get("school_id");
+    const headerSchoolId = getSchoolIdFromRequest(req);
+    const schoolId = querySchoolId || headerSchoolId || "";
     const studentId = searchParams.get("student_id");
 
     let query = `
-      SELECT m.*, s.name as student_name, s.phone as student_phone, s.registered_days, s.study_time_detail,
-             tc.name as teacher_name
+      SELECT m.*, 
+             s.name as student_name, 
+             s.phone as student_phone, 
+             s.school_id as student_school_id,
+             s.registered_days, 
+             s.study_time_detail,
+             COALESCE(tc.name, 'Chưa phân công') as teacher_name
       FROM makeup_classes m
-      JOIN students s ON m.student_id = s.id
+      LEFT JOIN students s ON m.student_id = s.id
       LEFT JOIN teachers tc ON s.teacher_id = tc.id
-      WHERE s.school_id = ?
+      WHERE 1=1
     `;
-    const args: any[] = [schoolId];
+    const args: any[] = [];
+
+    // Nếu có schoolId và khác "all", lọc các bản ghi thuộc schoolId hoặc student chưa gán school_id (fallback trường mặc định)
+    if (schoolId && schoolId !== "all") {
+      query += ` AND (s.school_id = ? OR s.school_id IS NULL OR s.school_id = '' OR s.school_id = 'school-default')`;
+      args.push(schoolId);
+    }
 
     if (studentId) {
       query += " AND m.student_id = ?";
@@ -31,7 +44,7 @@ export async function GET(req: Request) {
     const makeups = res.rows.map((row) => ({
       id: String(row.id),
       student_id: String(row.student_id),
-      student_name: String(row.student_name || ""),
+      student_name: String(row.student_name || "Học viên"),
       student_phone: String(row.student_phone || ""),
       teacher_name: row.teacher_name ? String(row.teacher_name) : "Chưa phân công",
       absence_date: String(row.absence_date || ""),
@@ -60,7 +73,20 @@ export async function POST(req: Request) {
     const db = getDb();
     const body = await req.json();
 
-    const { action, student_id, absence_date, absence_reason, makeup_id, makeup_date, makeup_time, makeup_slot_id, note } = body;
+    const {
+      action,
+      student_id,
+      absence_date,
+      absence_reason,
+      makeup_id,
+      makeup_date,
+      makeup_time,
+      makeup_slot_id,
+      time_slot_id,
+      note,
+    } = body;
+
+    const targetSlotId = makeup_slot_id || time_slot_id;
 
     // 1. Action: Báo nghỉ (Tạo buổi cần bù mới)
     if (action === "report_absence") {
@@ -95,7 +121,7 @@ export async function POST(req: Request) {
       }
 
       // Check slot capacity if slot is provided (Enforce strictly based on capacity mode)
-      if (makeup_slot_id) {
+      if (targetSlotId) {
         // Get settings
         const settingsRes = await db.execute("SELECT key, value FROM settings");
         const settingsMap: Record<string, string> = {};
@@ -136,7 +162,7 @@ export async function POST(req: Request) {
             } catch {}
 
             const worksOnSlot =
-              assignedSlots.includes(makeup_slot_id) ||
+              assignedSlots.includes(targetSlotId) ||
               shifts.some((s: any) => s.day === dayName);
 
             if (worksOnSlot) {
@@ -151,7 +177,7 @@ export async function POST(req: Request) {
         } else {
           const slotCheck = await db.execute({
             sql: "SELECT max_students FROM time_slots WHERE id = ?",
-            args: [makeup_slot_id],
+            args: [targetSlotId],
           });
           if (slotCheck.rows.length > 0) {
             maxCapacity = Number(slotCheck.rows[0].max_students || defaultMaxCapacity);
@@ -161,7 +187,7 @@ export async function POST(req: Request) {
         // Count regular students on this slot & day
         const regularStudentsRes = await db.execute({
           sql: "SELECT id, registered_days FROM students WHERE time_slot_id = ?",
-          args: [makeup_slot_id],
+          args: [targetSlotId],
         });
         let regularCount = 0;
         for (const st of regularStudentsRes.rows) {
@@ -172,8 +198,8 @@ export async function POST(req: Request) {
 
         // Count current booked makeups
         const currentMakeups = await db.execute({
-          sql: "SELECT COUNT(*) as count FROM makeup_classes WHERE makeup_date = ? AND makeup_slot_id = ? AND id != ? AND status IN ('scheduled', 'completed')",
-          args: [makeup_date, makeup_slot_id, makeup_id],
+          sql: "SELECT COUNT(*) as count FROM makeup_classes WHERE makeup_date = ? AND (makeup_slot_id = ? OR makeup_slot_id IS NULL) AND id != ? AND status IN ('scheduled', 'completed')",
+          args: [makeup_date, targetSlotId, makeup_id],
         });
         const makeupBooked = Number(currentMakeups.rows[0].count || 0);
 
@@ -190,7 +216,7 @@ export async function POST(req: Request) {
         sql: `UPDATE makeup_classes 
               SET makeup_date = ?, makeup_time = ?, makeup_slot_id = ?, note = ?, status = 'scheduled'
               WHERE id = ?`,
-        args: [makeup_date, makeup_time || "", makeup_slot_id || null, note || "", makeup_id],
+        args: [makeup_date, makeup_time || "", targetSlotId || null, note || "", makeup_id],
       });
 
       return NextResponse.json({

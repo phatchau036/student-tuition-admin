@@ -49,6 +49,7 @@ interface MakeupItem {
 
 interface StudentData {
   id: string;
+  school_id?: string;
   student_code?: string;
   name: string;
   phone: string;
@@ -347,7 +348,8 @@ export default function ParentPortal() {
     const fetchOccupancy = async () => {
       try {
         setIsLoadingOccupancy(true);
-        const res = await fetch(`/api/classes/occupancy?date=${makeupDate}`);
+        const schoolQuery = activeStudent?.school_id ? `&school_id=${activeStudent.school_id}` : "";
+        const res = await fetch(`/api/classes/occupancy?date=${makeupDate}${schoolQuery}`);
         const json = await res.json();
         if (json.success) {
           const supportedSlots = (json.data.slots as SlotOccupancy[]).filter((s) => s.is_day_supported);

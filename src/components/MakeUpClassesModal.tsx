@@ -22,6 +22,7 @@ import {
   CheckCircle2,
   AlertCircle,
   Phone,
+  RefreshCw,
 } from "lucide-react";
 
 interface SlotOccupancyInfo {
@@ -47,6 +48,7 @@ interface MakeUpClassesModalProps {
   students: Student[];
   timeSlots: TimeSlot[];
   initialStudentId?: string;
+  schoolId?: string;
   onRefresh: () => void;
 }
 
@@ -56,6 +58,7 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
   students,
   timeSlots,
   initialStudentId,
+  schoolId,
   onRefresh,
 }) => {
   const { showToast } = useToast();
@@ -63,6 +66,7 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
   const [activeTab, setActiveTab] = useState<"list" | "report">("list");
   const [makeups, setMakeups] = useState<MakeUpClass[]>([]);
   const [selectedStudentFilter, setSelectedStudentFilter] = useState<string>(initialStudentId || "all");
+  const [isLoadingList, setIsLoadingList] = useState(false);
 
   // Report absence form state
   const [reportStudentId, setReportStudentId] = useState<string>(initialStudentId || (students[0]?.id ?? ""));
@@ -87,19 +91,38 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
   const [dayNameVi, setDayNameVi] = useState("");
   const [thresholdPercent, setThresholdPercent] = useState(80);
 
+  // Request Headers có token và schoolId
+  const getHeaders = () => {
+    const token = typeof window !== "undefined" ? localStorage.getItem("admin_token") : null;
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+    if (schoolId) headers["x-school-id"] = schoolId;
+    return headers;
+  };
+
   const loadMakeups = async () => {
     try {
-      const url =
-        selectedStudentFilter === "all"
-          ? "/api/makeups"
-          : `/api/makeups?student_id=${selectedStudentFilter}`;
-      const res = await fetch(url);
+      setIsLoadingList(true);
+      const params = new URLSearchParams();
+      if (selectedStudentFilter && selectedStudentFilter !== "all") {
+        params.set("student_id", selectedStudentFilter);
+      }
+      if (schoolId) {
+        params.set("school_id", schoolId);
+      }
+
+      const url = `/api/makeups?${params.toString()}`;
+      const res = await fetch(url, {
+        headers: getHeaders(),
+      });
       const json = await res.json();
       if (json.success) {
-        setMakeups(json.data);
+        setMakeups(json.data || []);
       }
     } catch (err) {
-      console.error(err);
+      console.error("Failed to load makeups:", err);
+    } finally {
+      setIsLoadingList(false);
     }
   };
 
@@ -111,7 +134,7 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
       }
       loadMakeups();
     }
-  }, [isOpen, selectedStudentFilter, initialStudentId]);
+  }, [isOpen, selectedStudentFilter, initialStudentId, schoolId]);
 
   useEffect(() => {
     if (!makeupDate) {
@@ -123,7 +146,10 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
     const fetchOccupancy = async () => {
       try {
         setIsLoadingOccupancy(true);
-        const res = await fetch(`/api/classes/occupancy?date=${makeupDate}`);
+        const schoolQuery = schoolId ? `&school_id=${schoolId}` : "";
+        const res = await fetch(`/api/classes/occupancy?date=${makeupDate}${schoolQuery}`, {
+          headers: getHeaders(),
+        });
         const json = await res.json();
         if (json.success) {
           const supportedSlots = (json.data.slots as SlotOccupancyInfo[]).filter((s) => s.is_day_supported);
@@ -148,7 +174,7 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
     };
 
     fetchOccupancy();
-  }, [makeupDate]);
+  }, [makeupDate, schoolId]);
 
   const handleReportAbsence = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -165,7 +191,7 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
       setIsSubmitting(true);
       const res = await fetch("/api/makeups", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getHeaders(),
         body: JSON.stringify({
           action: "report_absence",
           student_id: reportStudentId,
@@ -180,7 +206,7 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
         setAbsenceDate("");
         setAbsenceReason("");
         setActiveTab("list");
-        loadMakeups();
+        await loadMakeups();
         onRefresh();
       } else {
         showToast(json.message || "Báo nghỉ thất bại!", "error");
@@ -209,13 +235,14 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
       setIsSubmitting(true);
       const res = await fetch("/api/makeups", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getHeaders(),
         body: JSON.stringify({
           action: "schedule_makeup",
           makeup_id: schedulingItem.id,
           makeup_date: makeupDate,
           makeup_time: makeupTime || selectedSlot?.time_range || "18:00 - 19:00",
           makeup_slot_id: selectedSlotId || null,
+          time_slot_id: selectedSlotId || null,
           note: makeupNote.trim(),
         }),
       });
@@ -227,7 +254,7 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
         setMakeupDate("");
         setSelectedSlotId("");
         setMakeupNote("");
-        loadMakeups();
+        await loadMakeups();
         onRefresh();
       } else {
         showToast(json.message || "Lỗi xếp lịch!", "error");
@@ -243,13 +270,31 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
     try {
       const res = await fetch("/api/makeups", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getHeaders(),
         body: JSON.stringify({ action: "complete", makeup_id: id }),
       });
       const json = await res.json();
       if (json.success) {
         showToast(json.message, "success");
-        loadMakeups();
+        await loadMakeups();
+        onRefresh();
+      }
+    } catch {
+      showToast("Lỗi kết nối máy chủ!", "error");
+    }
+  };
+
+  const handleResetPending = async (id: string) => {
+    try {
+      const res = await fetch("/api/makeups", {
+        method: "POST",
+        headers: getHeaders(),
+        body: JSON.stringify({ action: "reset_pending", makeup_id: id }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        showToast(json.message, "success");
+        await loadMakeups();
         onRefresh();
       }
     } catch {
@@ -263,14 +308,14 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
       setIsDeleting(true);
       const res = await fetch("/api/makeups", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getHeaders(),
         body: JSON.stringify({ action: "delete", makeup_id: deleteConfirmId }),
       });
       const json = await res.json();
       if (json.success) {
         showToast(json.message, "success");
         setDeleteConfirmId(null);
-        loadMakeups();
+        await loadMakeups();
         onRefresh();
       }
     } catch {
@@ -292,27 +337,41 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
               <CalendarCheck className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-lg font-black text-slate-900 dark:text-white tracking-tight">
-                Quản Lý Báo Nghỉ & Đăng Ký Học Bù
+              <h2 className="text-lg font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
+                <span>Quản Lý Báo Nghỉ & Đăng Ký Học Bù</span>
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Tự động kiểm tra sĩ số lớp đông (&ge;{thresholdPercent}%) và khóa lịch khi kín chỗ
+                Tự động đồng bộ báo nghỉ từ Cổng Phụ Huynh và khóa lịch khi kín chỗ (&ge;{thresholdPercent}%)
               </p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => {
+                loadMakeups();
+                onRefresh();
+              }}
+              disabled={isLoadingList}
+              className="p-2 rounded-xl text-slate-500 hover:text-indigo-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition flex items-center gap-1 text-xs font-bold cursor-pointer"
+              title="Đồng bộ danh sách mới nhất từ phụ huynh"
+            >
+              <RefreshCw className={`w-4 h-4 ${isLoadingList ? "animate-spin text-indigo-600" : ""}`} />
+              <span className="hidden sm:inline">Làm mới</span>
+            </button>
+            <button
+              onClick={onClose}
+              className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Tab Selection */}
         <div className="flex border-b border-slate-200/80 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/20 px-6 py-2.5 gap-2">
           <button
             onClick={() => setActiveTab("list")}
-            className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl transition ${
+            className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl transition cursor-pointer ${
               activeTab === "list"
                 ? "bg-indigo-600 text-white shadow-sm shadow-indigo-600/25"
                 : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
@@ -324,7 +383,7 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
 
           <button
             onClick={() => setActiveTab("report")}
-            className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl transition ${
+            className={`flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl transition cursor-pointer ${
               activeTab === "report"
                 ? "bg-indigo-600 text-white shadow-sm shadow-indigo-600/25"
                 : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
@@ -347,7 +406,7 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
                   <select
                     value={selectedStudentFilter}
                     onChange={(e) => setSelectedStudentFilter(e.target.value)}
-                    className="px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 outline-none"
+                    className="px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 outline-none cursor-pointer"
                   >
                     <option value="all">Tất cả học sinh ({students.length})</option>
                     {students.map((s) => (
@@ -425,7 +484,7 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
                             setSelectedSlotId("");
                             setMakeupNote("");
                           }}
-                          className="px-3.5 py-1.5 text-xs font-black text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-xs transition flex items-center gap-1.5"
+                          className="px-3.5 py-1.5 text-xs font-black text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-xs transition flex items-center gap-1.5 cursor-pointer"
                         >
                           <Calendar className="w-3.5 h-3.5" />
                           <span>Xếp lịch bù</span>
@@ -442,13 +501,20 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
                               setSelectedSlotId(item.makeup_slot_id || "");
                               setMakeupNote(item.note || "");
                             }}
-                            className="px-3 py-1.5 text-xs font-bold text-slate-700 dark:text-slate-200 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 rounded-xl transition"
+                            className="px-3 py-1.5 text-xs font-bold text-slate-700 dark:text-slate-200 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 rounded-xl transition cursor-pointer"
                           >
                             Đổi lịch
                           </button>
                           <button
+                            onClick={() => handleResetPending(item.id)}
+                            className="px-2.5 py-1.5 text-xs font-semibold text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-xl transition cursor-pointer"
+                            title="Đưa về trạng thái chờ xếp lại"
+                          >
+                            <RotateCcw className="w-3.5 h-3.5" />
+                          </button>
+                          <button
                             onClick={() => handleCompleteMakeup(item.id)}
-                            className="px-3 py-1.5 text-xs font-black text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-xs transition flex items-center gap-1.5"
+                            className="px-3.5 py-1.5 text-xs font-black text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-xs transition flex items-center gap-1.5 cursor-pointer"
                           >
                             <CheckCircle className="w-3.5 h-3.5" />
                             <span>Đã học</span>
@@ -458,7 +524,7 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
 
                       <button
                         onClick={() => setDeleteConfirmId(item.id)}
-                        className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl transition"
+                        className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl transition cursor-pointer"
                         title="Xóa lượt báo nghỉ"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -469,7 +535,7 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
 
                 {makeups.length === 0 && (
                   <div className="text-center py-16 text-slate-400 text-xs">
-                    Hiện chưa có buổi báo nghỉ hay học bù nào. Bấm <strong>&quot;+ Báo Nghỉ Một Buổi&quot;</strong> để tạo mới.
+                    Hiện chưa có buổi báo nghỉ hay học bù nào. Bấm <strong>&quot;+ Báo Nghỉ Một Buổi&quot;</strong> để tạo mới hoặc đợi phụ huynh báo qua Web Phụ Huynh.
                   </div>
                 )}
               </div>
@@ -491,7 +557,7 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
                   required
                   value={reportStudentId}
                   onChange={(e) => setReportStudentId(e.target.value)}
-                  className="w-full px-3.5 py-2.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-3.5 py-2.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
                 >
                   {students.map((s) => (
                     <option key={s.id} value={s.id}>
@@ -535,14 +601,14 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setActiveTab("list")}
-                  className="px-4 py-2 text-xs font-bold text-slate-600 hover:text-slate-800 rounded-xl"
+                  className="px-4 py-2 text-xs font-bold text-slate-600 hover:text-slate-800 rounded-xl cursor-pointer"
                 >
                   Hủy bỏ
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-5 py-2.5 text-xs font-black uppercase tracking-wider text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-md shadow-indigo-600/25 transition disabled:opacity-50"
+                  className="px-5 py-2.5 text-xs font-black uppercase tracking-wider text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-md shadow-indigo-600/25 transition disabled:opacity-50 cursor-pointer"
                 >
                   {isSubmitting ? "Đang ghi nhận..." : "Xác nhận báo nghỉ"}
                 </button>
@@ -561,7 +627,7 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
                   </h4>
                   <button
                     onClick={() => setSchedulingItem(null)}
-                    className="text-slate-400 hover:text-slate-600 p-1"
+                    className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -708,14 +774,14 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
                     <button
                       type="button"
                       onClick={() => setSchedulingItem(null)}
-                      className="px-4 py-2 text-xs font-bold text-slate-600 hover:text-slate-800 rounded-xl"
+                      className="px-4 py-2 text-xs font-bold text-slate-600 hover:text-slate-800 rounded-xl cursor-pointer"
                     >
                       Hủy bỏ
                     </button>
                     <button
                       type="submit"
                       disabled={isSubmitting || !makeupDate || !selectedSlotId}
-                      className="px-5 py-2.5 text-xs font-black uppercase tracking-wider text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-md shadow-indigo-600/25 transition disabled:opacity-50"
+                      className="px-5 py-2.5 text-xs font-black uppercase tracking-wider text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-md shadow-indigo-600/25 transition disabled:opacity-50 cursor-pointer"
                     >
                       {isSubmitting ? "Đang lưu..." : "Xác Nhận Lịch Học Bù"}
                     </button>
@@ -727,7 +793,7 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
 
           {/* Delete Confirm Modal */}
           {deleteConfirmId && (
-            <div className="fixed inset-0 z-60 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="fixed inset-0 z-70 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
               <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4 animate-in fade-in zoom-in-95">
                 <div className="w-12 h-12 rounded-2xl bg-rose-50 dark:bg-rose-950/50 text-rose-600 flex items-center justify-center mx-auto">
                   <Trash2 className="w-6 h-6" />
@@ -744,7 +810,7 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
                   <button
                     type="button"
                     onClick={() => setDeleteConfirmId(null)}
-                    className="flex-1 py-2.5 text-xs font-bold rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 transition"
+                    className="flex-1 py-2.5 text-xs font-bold rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 transition cursor-pointer"
                   >
                     Hủy bỏ
                   </button>
@@ -752,7 +818,7 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
                     type="button"
                     disabled={isDeleting}
                     onClick={handleConfirmDelete}
-                    className="flex-1 py-2.5 text-xs font-bold rounded-xl bg-rose-600 hover:bg-rose-700 text-white shadow-md shadow-rose-600/30 transition disabled:opacity-50"
+                    className="flex-1 py-2.5 text-xs font-bold rounded-xl bg-rose-600 hover:bg-rose-700 text-white shadow-md shadow-rose-600/30 transition disabled:opacity-50 cursor-pointer"
                   >
                     {isDeleting ? "Đang xóa..." : "Xác nhận xóa"}
                   </button>

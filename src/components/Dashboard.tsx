@@ -2064,6 +2064,7 @@ export default function Dashboard() {
         students={students}
         timeSlots={timeSlots}
         initialStudentId={selectedStudentForMakeup}
+        schoolId={currentSchool?.id}
         onRefresh={handleRefresh}
       />
 

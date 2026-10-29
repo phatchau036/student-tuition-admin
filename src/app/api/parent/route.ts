@@ -153,6 +153,7 @@ export async function POST(req: Request) {
 
         studentsData.push({
           id: studentId,
+          school_id: String(st.school_id || ""),
           student_code: st.student_code ? String(st.student_code) : `HS${studentId.slice(-4).toUpperCase()}`,
           name: String(st.name),
           phone: String(st.phone),
