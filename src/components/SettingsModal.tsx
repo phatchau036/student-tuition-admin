@@ -833,45 +833,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           {/* TAB 1: Capacity & Weekly Duration Mode */}
           {activeTab === "general" && (
             <div className="space-y-6 w-full">
-              {/* Mức Học Phí Cơ Bản Tiêu Chuẩn (Base Tuition Fee) */}
-              <div className="bg-gradient-to-tr from-indigo-50/80 via-white to-purple-50/60 dark:from-indigo-950/40 dark:via-slate-900 dark:to-purple-950/20 p-5 rounded-2xl border-2 border-indigo-200/80 dark:border-indigo-900/60 space-y-3.5 shadow-xs">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <label className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
-                      <Coins className="w-4 h-4 text-indigo-600" />
-                      <span>Mức Học Phí Cơ Bản Tiêu Chuẩn (Base Price)</span>
-                    </label>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                      Được áp dụng làm gốc học phí chuẩn cho toàn bộ học sinh khi chưa chọn gói riêng
-                    </p>
-                  </div>
-                  <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300">
-                    Áp dụng toàn cơ sở
-                  </span>
-                </div>
-
-                <div className="relative">
-                  <input
-                    type="number"
-                    min="0"
-                    step="50000"
-                    value={baseTuition}
-                    onChange={(e) => setBaseTuition(Number(e.target.value) || 0)}
-                    className="w-full px-4 py-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xl font-black text-indigo-600 dark:text-indigo-400 focus:ring-2 focus:ring-indigo-500 outline-none transition"
-                  />
-                  <span className="absolute right-4 top-3.5 text-xs font-bold uppercase tracking-wider text-slate-400">
-                    VNĐ / Tháng
-                  </span>
-                </div>
-
-                <div className="text-xs text-slate-600 dark:text-slate-400 flex items-center gap-2">
-                  <span>Số tiền hiển thị:</span>
-                  <span className="font-black text-slate-900 dark:text-white text-sm bg-indigo-50 dark:bg-slate-800 px-2 py-0.5 rounded-lg border border-indigo-100 dark:border-slate-700">
-                    {formatVND(baseTuition)}
-                  </span>
-                </div>
-              </div>
-
               {/* DURATION MODE: CHỌN HOẶC THEO TIẾNG HOẶC THEO BUỔI */}
               <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 space-y-4">
                 <div>
