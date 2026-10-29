@@ -723,3 +723,106 @@ export function parseStudyTimeToSchedule(raw?: string): {
   };
 }
 
+/* =========================================================================
+ * BẢNG LỊCH HỌC CÒN LẠI (UPCOMING SCHEDULE GENERATOR)
+ * Tự động phân tích lịch học cố định & sinh danh sách các buổi học còn lại
+ * từ hôm nay đến N ngày tới (kèm trạng thái đã báo nghỉ / đã bù)
+ * ========================================================================= */
+
+export interface UpcomingLessonSession {
+  id: string;            // unique: "2026-10-31_09:30"
+  date: string;          // "2026-10-31" (YYYY-MM-DD)
+  dayName: string;       // "Thứ 7"
+  timeRange: string;     // "09:30 - 11:00"
+  subjectName: string;   // "Piano"
+  teacherName?: string;
+  isToday: boolean;
+  isPast: boolean;
+  isReported: boolean;   // Đã báo nghỉ buổi này chưa
+  makeupItem?: {
+    id: string;
+    absence_date: string;
+    status: string;      // 'pending' | 'scheduled' | 'completed'
+    makeup_date?: string;
+    makeup_time?: string;
+    absence_reason?: string;
+  };
+}
+
+const VI_WEEKDAYS = ["Chủ Nhật", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7"];
+
+export function generateUpcomingStudentSchedule(
+  student: {
+    schedule_details_json?: string;
+    study_time_detail?: string;
+    registered_days?: string;
+    subject_name?: string;
+    teacher_name?: string;
+    makeups?: Array<{
+      id: string;
+      absence_date: string;
+      status: string;
+      makeup_date?: string;
+      makeup_time?: string;
+      absence_reason?: string;
+    }>;
+  },
+  daysAhead: number = 30,
+  availableTeachers: Array<{ id: string; name: string }> = []
+): UpcomingLessonSession[] {
+  const parsedSlots = parseStudentScheduleSlots(student, availableTeachers);
+  if (parsedSlots.length === 0) return [];
+
+  // Gom các slot theo thứ
+  const slotsByDay: Record<string, ParsedStudentSchedule[]> = {};
+  for (const slot of parsedSlots) {
+    if (!slotsByDay[slot.day]) slotsByDay[slot.day] = [];
+    slotsByDay[slot.day].push(slot);
+  }
+
+  // Map các buổi đã báo nghỉ trước đó theo ngày
+  const makeupsMap = new Map<string, any>();
+  if (Array.isArray(student.makeups)) {
+    for (const m of student.makeups) {
+      if (m.absence_date && m.status !== "cancelled") {
+        makeupsMap.set(m.absence_date, m);
+      }
+    }
+  }
+
+  const results: UpcomingLessonSession[] = [];
+  const now = new Date();
+  const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+
+  for (let i = 0; i < daysAhead; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + i);
+    const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    const dayName = VI_WEEKDAYS[d.getDay()];
+
+    const slots = slotsByDay[dayName];
+    if (!slots || slots.length === 0) continue;
+
+    for (const slot of slots) {
+      const timeRange = slot.timeDetail || (slot.hourSlot ? `${slot.hourSlot.replace("h", "")}:00` : "18:00 - 19:00");
+      const subName = slot.subjectName || student.subject_name || "Piano";
+      const existingMakeup = makeupsMap.get(iso);
+
+      results.push({
+        id: `${iso}_${timeRange.split("-")[0]?.trim() || "00:00"}`,
+        date: iso,
+        dayName,
+        timeRange,
+        subjectName: subName,
+        teacherName: student.teacher_name,
+        isToday: iso === todayIso,
+        isPast: iso < todayIso,
+        isReported: Boolean(existingMakeup),
+        makeupItem: existingMakeup || undefined,
+      });
+    }
+  }
+
+  return results;
+}
+
+

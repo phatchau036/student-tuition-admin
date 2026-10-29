@@ -154,7 +154,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   // State
   const [baseTuition, setBaseTuition] = useState<number>(initialBaseTuition);
-  const [durationMode, setDurationMode] = useState<"by_hours" | "by_sessions">(initialDurationMode);
+  const [durationMode, setDurationMode] = useState<"by_hours" | "by_sessions">("by_sessions");
   const [appLanguage, setAppLanguage] = useState<AppLanguage>(initialAppLanguage);
   const [monthFormat, setMonthFormat] = useState<MonthFormat>(initialMonthFormat);
   const [defaultHours, setDefaultHours] = useState<number>(initialDefaultHours);
@@ -752,7 +752,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         body: JSON.stringify({
           school_id: schoolId || undefined,
           base_tuition: Number(baseTuition) || 0,
-          duration_mode: durationMode,
+          duration_mode: "by_sessions",
           app_language: appLanguage,
           month_format: monthFormat,
           default_hours_per_week: Number(defaultHours) || 3,
@@ -979,396 +979,292 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           {/* TAB 1: Capacity & Weekly Duration Mode */}
           {activeTab === "general" && (
             <div className="space-y-6 w-full">
-              {/* DURATION MODE: CHỌN HOẶC THEO TIẾNG HOẶC THEO BUỔI */}
+              {/* QUẢN LÝ THỜI LƯỢNG & KIỂU LỊCH HỌC CƠ SỞ (MA TRẬN TÍNH TOÁN TỰ ĐỘNG) */}
               <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 space-y-4">
-                <div>
-                  <h4 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
-                    <Calendar className="w-4 h-4 text-indigo-600" />
-                    Chế Độ Quản Lý Thời Lượng Học (Chọn 1 trong 2 hình thức)
-                  </h4>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                    Cấu hình quy chuẩn học tập mặc định khi đăng ký học sinh mới.
-                  </p>
-                </div>
-
-                {/* Two Option Cards */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                  {/* Option 1: Theo số tiếng */}
-                  <div
-                    onClick={() => setDurationMode("by_hours")}
-                    className={`p-4.5 rounded-2xl border-2 transition cursor-pointer flex flex-col justify-between ${
-                      durationMode === "by_hours"
-                        ? "border-indigo-600 bg-indigo-50/40 dark:bg-indigo-950/30 shadow-xs"
-                        : "border-slate-200 dark:border-slate-700/80 bg-slate-50/50 dark:bg-slate-800/40 hover:border-slate-300"
-                    }`}
-                  >
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-[11px] font-black uppercase tracking-wider text-indigo-600">
-                          Hình Thức 1
-                        </span>
-                        {durationMode === "by_hours" && (
-                          <div className="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center">
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                          </div>
-                        )}
-                      </div>
-                      <div className="text-sm font-bold text-slate-900 dark:text-white">
-                        Theo Tổng Số Tiếng / Tuần
-                      </div>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-                        Linh hoạt số buổi trong tuần (ví dụ: học dồn 3 tiếng Thứ 7 hoặc chia 1.5h Thứ 7 + 1.5h Chủ Nhật).
-                      </p>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <Calendar className="w-4 h-4 text-indigo-600" />
+                      <h4 className="text-sm font-black text-slate-900 dark:text-white">
+                        Chế Độ Quản Lý Thời Lượng & Kiểu Lịch Học Cơ Sở
+                      </h4>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300">
+                        {schedulePresets.length} kiểu lịch
+                      </span>
                     </div>
-
-                    {durationMode === "by_hours" && (
-                      <div className="mt-3.5 pt-3 border-t border-indigo-100 dark:border-indigo-900/60">
-                        <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                          Số tiếng mặc định mỗi tuần:
-                        </label>
-                        <div className="relative">
-                          <input
-                            type="number"
-                            min="0.5"
-                            step="0.5"
-                            value={defaultHours}
-                            onChange={(e) => setDefaultHours(Number(e.target.value) || 1)}
-                            className="w-full px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 outline-none focus:ring-2 focus:ring-indigo-500"
-                          />
-                          <span className="absolute right-3 top-1.5 text-xs font-bold text-slate-400">tiếng/tuần</span>
-                        </div>
-                      </div>
-                    )}
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                      Cố định các ca học theo lịch chuẩn (tên kiểu, các ngày trong tuần và số tiếng/buổi) để hệ thống tự động tính ma trận thời lượng tuần.
+                    </p>
                   </div>
 
-                  {/* Option 2: Theo số buổi & Kiểu lịch học */}
-                  <div
-                    onClick={() => setDurationMode("by_sessions")}
-                    className={`p-4.5 rounded-2xl border-2 transition cursor-pointer flex flex-col justify-between ${
-                      durationMode === "by_sessions"
-                        ? "border-indigo-600 bg-indigo-50/40 dark:bg-indigo-950/30 shadow-xs"
-                        : "border-slate-200 dark:border-slate-700/80 bg-slate-50/50 dark:bg-slate-800/40 hover:border-slate-300"
-                    }`}
-                  >
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-[11px] font-black uppercase tracking-wider text-indigo-600">
-                          Hình Thức 2
-                        </span>
-                        {durationMode === "by_sessions" && (
-                          <div className="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center">
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                          </div>
-                        )}
-                      </div>
-                      <div className="text-sm font-bold text-slate-900 dark:text-white">
-                        Theo Số Buổi Cố Định / Kiểu Lịch Học
-                      </div>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-                        Cố định các ngày trong tuần (ví dụ: Thứ chẵn 2-4-6 hoặc Thứ lẻ 3-5-7), mỗi buổi có thời lượng chuẩn hóa.
-                      </p>
-                    </div>
-
-                    {durationMode === "by_sessions" && (
-                      <div className="mt-3.5 pt-3 border-t border-indigo-100 dark:border-indigo-900/60 flex items-center justify-between">
-                        <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300">
-                          Đã cấu hình: <strong className="text-indigo-600">{schedulePresets.length} kiểu lịch mẫu</strong>
-                        </span>
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300">
-                          Tự tính ma trận
-                        </span>
-                      </div>
-                    )}
-                  </div>
+                  {!isEditingPreset && (
+                    <button
+                      type="button"
+                      onClick={handleOpenAddPreset}
+                      className="self-start sm:self-auto flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs transition shrink-0"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Thêm kiểu lịch mới</span>
+                    </button>
+                  )}
                 </div>
 
-                {/* KHU VỰC CẤU HÌNH CHI TIẾT CÁC KIỂU LỊCH HỌC KHI CHỌN HÌNH THỨC 2 */}
-                {durationMode === "by_sessions" && (
-                  <div className="mt-4 pt-4 border-t border-slate-200/80 dark:border-slate-800 space-y-4">
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <Sliders className="w-4 h-4 text-indigo-600" />
-                          <h5 className="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-white">
-                            Danh Sách Các Kiểu Lịch Học Áp Dụng Tại Cơ Sở
-                          </h5>
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300">
-                            {schedulePresets.length} kiểu
-                          </span>
-                        </div>
-                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                          Tự đặt tên kiểu, chọn các ngày trong tuần và số tiếng mỗi buổi để hệ thống tính ma trận tự động
-                        </p>
-                      </div>
-
-                      {!isEditingPreset && (
+                <div className="space-y-4">
+                  {/* FORM THÊM / SỬA KIỂU LỊCH */}
+                  {isEditingPreset && (
+                    <div className="p-4 rounded-2xl border-2 border-indigo-500/80 bg-indigo-50/30 dark:bg-indigo-950/20 space-y-3.5 animate-in fade-in duration-200">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-black text-indigo-900 dark:text-indigo-200 flex items-center gap-1.5">
+                          <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+                          {editingPresetId ? "Chỉnh sửa kiểu lịch học" : "Tạo kiểu lịch học mới"}
+                        </span>
                         <button
                           type="button"
-                          onClick={handleOpenAddPreset}
-                          className="self-start sm:self-auto flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs transition"
+                          onClick={() => {
+                            setIsEditingPreset(false);
+                            setEditingPresetId(null);
+                          }}
+                          className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-white dark:hover:bg-slate-800 transition"
                         >
-                          <Plus className="w-3.5 h-3.5" />
-                          <span>Thêm kiểu lịch mới</span>
+                          <X className="w-4 h-4" />
                         </button>
-                      )}
-                    </div>
+                      </div>
 
-                    {/* FORM THÊM / SỬA KIỂU LỊCH */}
-                    {isEditingPreset && (
-                      <div className="p-4 rounded-2xl border-2 border-indigo-500/80 bg-indigo-50/30 dark:bg-indigo-950/20 space-y-3.5 animate-in fade-in duration-200">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-black text-indigo-900 dark:text-indigo-200 flex items-center gap-1.5">
-                            <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
-                            {editingPresetId ? "Chỉnh sửa kiểu lịch học" : "Tạo kiểu lịch học mới"}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setIsEditingPreset(false);
-                              setEditingPresetId(null);
-                            }}
-                            className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-white dark:hover:bg-slate-800 transition"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                        </div>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                          {/* Tên kiểu lịch */}
-                          <div className="sm:col-span-2">
-                            <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 block mb-1">
-                              Tên kiểu lịch:
-                            </label>
-                            <input
-                              type="text"
-                              value={presetFormName}
-                              onChange={(e) => setPresetFormName(e.target.value)}
-                              placeholder="Ví dụ: Thứ chẵn (2-4-6), Thứ lẻ (3-5-7), Lớp cuối tuần..."
-                              className="w-full px-3 py-2 text-xs font-bold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"
-                            />
-                          </div>
-
-                          {/* Giờ vào lớp mặc định */}
-                          <div>
-                            <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 block mb-1">
-                              Giờ vào lớp gợi ý:
-                            </label>
-                            <input
-                              type="text"
-                              value={presetFormStartTime}
-                              onChange={(e) => setPresetFormStartTime(e.target.value)}
-                              placeholder="18:00"
-                              className="w-full px-3 py-2 text-xs font-bold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500 text-center"
-                            />
-                          </div>
-                        </div>
-
-                        {/* Chọn các ngày trong tuần */}
-                        <div>
-                          <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 block mb-1.5">
-                            Chọn các ngày học trong tuần ({presetFormDays.length} ngày đã chọn):
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        {/* Tên kiểu lịch */}
+                        <div className="sm:col-span-2">
+                          <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 block mb-1">
+                            Tên kiểu lịch:
                           </label>
-                          <div className="flex flex-wrap gap-1.5">
-                            {WEEKDAYS.map((day) => {
-                              const isChecked = presetFormDays.includes(day);
-                              return (
-                                <button
-                                  type="button"
-                                  key={day}
-                                  onClick={() => handleTogglePresetDay(day)}
-                                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 ${
-                                    isChecked
-                                      ? "bg-indigo-600 text-white shadow-xs"
-                                      : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800"
-                                  }`}
-                                >
-                                  {isChecked && <Check className="w-3 h-3" />}
-                                  {day}
-                                </button>
-                              );
-                            })}
-                          </div>
+                          <input
+                            type="text"
+                            value={presetFormName}
+                            onChange={(e) => setPresetFormName(e.target.value)}
+                            placeholder="Ví dụ: Thứ chẵn (2-4-6), Thứ lẻ (3-5-7), Lớp cuối tuần..."
+                            className="w-full px-3 py-2 text-xs font-bold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"
+                          />
                         </div>
 
-                        {/* Thời lượng 1 buổi & Ma trận tính toán xem trước */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                          <div>
-                            <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 block mb-1">
-                              Thời lượng 1 buổi học:
-                            </label>
-                            <div className="flex items-center gap-2">
-                              <input
-                                type="number"
-                                min="0.5"
-                                max="8"
-                                step="0.5"
-                                value={presetFormHours}
-                                onChange={(e) => setPresetFormHours(Number(e.target.value) || 1)}
-                                className="w-24 px-3 py-2 text-xs font-black text-center rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"
-                              />
-                              <span className="text-xs font-bold text-slate-500">tiếng / buổi</span>
-                              <div className="flex gap-1">
-                                {[1, 1.5, 2].map((quickH) => (
-                                  <button
-                                    type="button"
-                                    key={quickH}
-                                    onClick={() => setPresetFormHours(quickH)}
-                                    className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition ${
-                                      presetFormHours === quickH
-                                        ? "bg-indigo-600 text-white border-indigo-600"
-                                        : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50"
-                                    }`}
-                                  >
-                                    {quickH}h
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Card Ma trận tính toán xem trước */}
-                          <div className="p-2.5 rounded-xl bg-indigo-100/70 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-900/60 flex items-center justify-between">
-                            <div>
-                              <span className="text-[10px] font-black uppercase tracking-wider text-indigo-700 dark:text-indigo-300 block">
-                                Ma trận tính toán tự động
-                              </span>
-                              <div className="text-xs font-black text-indigo-950 dark:text-indigo-100 mt-0.5">
-                                {presetFormDays.length} buổi × {presetFormHours}h ={" "}
-                                <span className="text-indigo-600 dark:text-indigo-400 text-sm">
-                                  {Math.round(presetFormDays.length * presetFormHours * 10) / 10} tiếng/tuần
-                                </span>
-                              </div>
-                            </div>
-                            <span className="text-[10px] font-bold px-2 py-1 rounded-md bg-white dark:bg-slate-900 text-indigo-700 dark:text-indigo-300 shadow-2xs">
-                              {Math.round(presetFormDays.length * presetFormHours * 60)} phút/tuần
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Nút hành động của form */}
-                        <div className="flex items-center justify-end gap-2 pt-2 border-t border-indigo-100 dark:border-indigo-900/60">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setIsEditingPreset(false);
-                              setEditingPresetId(null);
-                            }}
-                            className="px-3 py-1.5 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800 transition"
-                          >
-                            Hủy bỏ
-                          </button>
-                          <button
-                            type="button"
-                            onClick={handleSavePresetForm}
-                            className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs transition"
-                          >
-                            <Save className="w-3.5 h-3.5" />
-                            <span>{editingPresetId ? "Lưu thay đổi kiểu" : "Tạo kiểu này"}</span>
-                          </button>
+                        {/* Giờ vào lớp mặc định */}
+                        <div>
+                          <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 block mb-1">
+                            Giờ vào lớp gợi ý:
+                          </label>
+                          <input
+                            type="text"
+                            value={presetFormStartTime}
+                            onChange={(e) => setPresetFormStartTime(e.target.value)}
+                            placeholder="18:00"
+                            className="w-full px-3 py-2 text-xs font-bold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500 text-center"
+                          />
                         </div>
                       </div>
-                    )}
 
-                    {/* DANH SÁCH THẺ CÁC KIỂU LỊCH HỌC */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
-                      {schedulePresets.map((preset) => {
-                        const totalHours = Math.round((preset.days?.length || 0) * (preset.hours_per_session || 1.5) * 10) / 10;
-                        const totalMinutes = Math.round(totalHours * 60);
+                      {/* Chọn các ngày trong tuần */}
+                      <div>
+                        <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 block mb-1.5">
+                          Chọn các ngày học trong tuần ({presetFormDays.length} ngày đã chọn):
+                        </label>
+                        <div className="flex flex-wrap gap-1.5">
+                          {WEEKDAYS.map((day) => {
+                            const isChecked = presetFormDays.includes(day);
+                            return (
+                              <button
+                                type="button"
+                                key={day}
+                                onClick={() => handleTogglePresetDay(day)}
+                                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 ${
+                                  isChecked
+                                    ? "bg-indigo-600 text-white shadow-xs"
+                                    : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800"
+                                }`}
+                              >
+                                {isChecked && <Check className="w-3 h-3" />}
+                                {day}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
 
-                        return (
-                          <div
-                            key={preset.id}
-                            className={`p-3.5 rounded-2xl border transition relative flex flex-col justify-between ${
-                              preset.is_default
-                                ? "border-indigo-500 bg-indigo-50/50 dark:bg-indigo-950/30 shadow-xs ring-1 ring-indigo-500/40"
-                                : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-slate-300"
-                            }`}
-                          >
-                            <div>
-                              {/* Header thẻ: Tên + Badge mặc định */}
-                              <div className="flex items-start justify-between gap-1.5 mb-1.5">
-                                <div className="flex items-center gap-1.5 min-w-0">
-                                  <Calendar className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
-                                  <span className="text-xs font-black text-slate-900 dark:text-white truncate">
-                                    {preset.name}
-                                  </span>
-                                </div>
-                                {preset.is_default ? (
-                                  <span className="text-[10px] font-black px-1.5 py-0.5 rounded-md bg-indigo-600 text-white shrink-0">
-                                    Mặc định
-                                  </span>
-                                ) : (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleSetDefaultPreset(preset.id)}
-                                    className="text-[10px] font-bold text-slate-400 hover:text-indigo-600 hover:underline shrink-0"
-                                  >
-                                    Đặt mặc định
-                                  </button>
-                                )}
-                              </div>
-
-                              {/* Badges các ngày trong tuần */}
-                              <div className="flex flex-wrap gap-1 my-2">
-                                {(preset.days || []).map((d) => (
-                                  <span
-                                    key={d}
-                                    className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300"
-                                  >
-                                    {d}
-                                  </span>
-                                ))}
-                              </div>
-
-                              {/* Ma trận tính toán: số buổi × thời lượng = tổng tiếng */}
-                              <div className="p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 text-[11px] space-y-0.5">
-                                <div className="flex items-center justify-between text-slate-600 dark:text-slate-400">
-                                  <span>Thời lượng:</span>
-                                  <strong className="text-slate-900 dark:text-white font-mono">
-                                    {preset.hours_per_session}h / buổi
-                                  </strong>
-                                </div>
-                                <div className="flex items-center justify-between text-slate-600 dark:text-slate-400">
-                                  <span>Ma trận tuần:</span>
-                                  <strong className="text-indigo-600 dark:text-indigo-400 font-mono font-black">
-                                    {preset.days?.length || 0} buổi × {preset.hours_per_session}h = {totalHours}h
-                                  </strong>
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Footer: Thao tác sửa / xóa */}
-                            <div className="flex items-center justify-between pt-2.5 mt-2.5 border-t border-slate-100 dark:border-slate-800/80">
-                              <span className="text-[10px] font-mono text-slate-400">
-                                {totalMinutes} phút/tuần
-                              </span>
-                              <div className="flex items-center gap-1">
+                      {/* Thời lượng 1 buổi & Ma trận tính toán xem trước */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                        <div>
+                          <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 block mb-1">
+                            Thời lượng 1 buổi học:
+                          </label>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="number"
+                              min="0.5"
+                              max="8"
+                              step="0.5"
+                              value={presetFormHours}
+                              onChange={(e) => setPresetFormHours(Number(e.target.value) || 1)}
+                              className="w-24 px-3 py-2 text-xs font-black text-center rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"
+                            />
+                            <span className="text-xs font-bold text-slate-500">tiếng / buổi</span>
+                            <div className="flex gap-1">
+                              {[1, 1.5, 2].map((quickH) => (
                                 <button
                                   type="button"
-                                  onClick={() => handleOpenEditPreset(preset)}
-                                  className="p-1 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
-                                  title="Chỉnh sửa kiểu lịch"
+                                  key={quickH}
+                                  onClick={() => setPresetFormHours(quickH)}
+                                  className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition ${
+                                    presetFormHours === quickH
+                                      ? "bg-indigo-600 text-white border-indigo-600"
+                                      : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50"
+                                  }`}
                                 >
-                                  <Edit2 className="w-3.5 h-3.5" />
+                                  {quickH}h
                                 </button>
-                                {schedulePresets.length > 1 && (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleDeletePreset(preset.id)}
-                                    className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition"
-                                    title="Xóa kiểu lịch"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
-                                )}
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Card Ma trận tính toán xem trước */}
+                        <div className="p-2.5 rounded-xl bg-indigo-100/70 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-900/60 flex items-center justify-between">
+                          <div>
+                            <span className="text-[10px] font-black uppercase tracking-wider text-indigo-700 dark:text-indigo-300 block">
+                              Ma trận tính toán tự động
+                            </span>
+                            <div className="text-xs font-black text-indigo-950 dark:text-indigo-100 mt-0.5">
+                              {presetFormDays.length} buổi × {presetFormHours}h ={" "}
+                              <span className="text-indigo-600 dark:text-indigo-400 text-sm">
+                                {Math.round(presetFormDays.length * presetFormHours * 10) / 10} tiếng/tuần
+                              </span>
+                            </div>
+                          </div>
+                          <span className="text-[10px] font-bold px-2 py-1 rounded-md bg-white dark:bg-slate-900 text-indigo-700 dark:text-indigo-300 shadow-2xs">
+                            {Math.round(presetFormDays.length * presetFormHours * 60)} phút/tuần
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Nút hành động của form */}
+                      <div className="flex items-center justify-end gap-2 pt-2 border-t border-indigo-100 dark:border-indigo-900/60">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsEditingPreset(false);
+                            setEditingPresetId(null);
+                          }}
+                          className="px-3 py-1.5 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800 transition"
+                        >
+                          Hủy bỏ
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleSavePresetForm}
+                          className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs transition"
+                        >
+                          <Save className="w-3.5 h-3.5" />
+                          <span>{editingPresetId ? "Lưu thay đổi kiểu" : "Tạo kiểu này"}</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* DANH SÁCH THẺ CÁC KIỂU LỊCH HỌC */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                    {schedulePresets.map((preset) => {
+                      const totalHours = Math.round((preset.days?.length || 0) * (preset.hours_per_session || 1.5) * 10) / 10;
+                      const totalMinutes = Math.round(totalHours * 60);
+
+                      return (
+                        <div
+                          key={preset.id}
+                          className={`p-3.5 rounded-2xl border transition relative flex flex-col justify-between ${
+                            preset.is_default
+                              ? "border-indigo-500 bg-indigo-50/50 dark:bg-indigo-950/30 shadow-xs ring-1 ring-indigo-500/40"
+                              : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-slate-300"
+                          }`}
+                        >
+                          <div>
+                            {/* Header thẻ: Tên + Badge mặc định */}
+                            <div className="flex items-start justify-between gap-1.5 mb-1.5">
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <Calendar className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                                <span className="text-xs font-black text-slate-900 dark:text-white truncate">
+                                  {preset.name}
+                                </span>
+                              </div>
+                              {preset.is_default ? (
+                                <span className="text-[10px] font-black px-1.5 py-0.5 rounded-md bg-indigo-600 text-white shrink-0">
+                                  Mặc định
+                                </span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => handleSetDefaultPreset(preset.id)}
+                                  className="text-[10px] font-bold text-slate-400 hover:text-indigo-600 hover:underline shrink-0"
+                                >
+                                  Đặt mặc định
+                                </button>
+                              )}
+                            </div>
+
+                            {/* Badges các ngày trong tuần */}
+                            <div className="flex flex-wrap gap-1 my-2">
+                              {(preset.days || []).map((d) => (
+                                <span
+                                  key={d}
+                                  className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300"
+                                >
+                                  {d}
+                                </span>
+                              ))}
+                            </div>
+
+                            {/* Ma trận tính toán: số buổi × thời lượng = tổng tiếng */}
+                            <div className="p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 text-[11px] space-y-0.5">
+                              <div className="flex items-center justify-between text-slate-600 dark:text-slate-400">
+                                <span>Thời lượng:</span>
+                                <strong className="text-slate-900 dark:text-white font-mono">
+                                  {preset.hours_per_session}h / buổi
+                                </strong>
+                              </div>
+                              <div className="flex items-center justify-between text-slate-600 dark:text-slate-400">
+                                <span>Ma trận tuần:</span>
+                                <strong className="text-indigo-600 dark:text-indigo-400 font-mono font-black">
+                                  {preset.days?.length || 0} buổi × {preset.hours_per_session}h = {totalHours}h
+                                </strong>
                               </div>
                             </div>
                           </div>
-                        );
-                      })}
-                    </div>
+
+                          {/* Footer: Thao tác sửa / xóa */}
+                          <div className="flex items-center justify-between pt-2.5 mt-2.5 border-t border-slate-100 dark:border-slate-800/80">
+                            <span className="text-[10px] font-mono text-slate-400">
+                              {totalMinutes} phút/tuần
+                            </span>
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => handleOpenEditPreset(preset)}
+                                className="p-1 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                                title="Chỉnh sửa kiểu lịch"
+                              >
+                                <Edit2 className="w-3.5 h-3.5" />
+                              </button>
+                              {schedulePresets.length > 1 && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeletePreset(preset.id)}
+                                  className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition"
+                                  title="Xóa kiểu lịch"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                )}
+                </div>
               </div>
 
               {/* Class Capacity & Crowded Threshold Card */}

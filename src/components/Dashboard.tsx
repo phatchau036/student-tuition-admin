@@ -175,7 +175,7 @@ export default function Dashboard() {
 
   // Settings
   const [baseTuition, setBaseTuition] = useState<number>(0);
-  const [durationMode, setDurationMode] = useState<"by_hours" | "by_sessions">("by_hours");
+  const [durationMode, setDurationMode] = useState<"by_hours" | "by_sessions">("by_sessions");
   const [monthFormat, setMonthFormat] = useState<MonthFormat>("vietnamese");
   const [defaultHours, setDefaultHours] = useState<number>(3);
   const [defaultSessions, setDefaultSessions] = useState<number>(3);

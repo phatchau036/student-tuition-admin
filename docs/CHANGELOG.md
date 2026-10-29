@@ -8,11 +8,12 @@
 
 ### [v2.8.0] - 2026-10-30
 - **⭐ HỆ THỐNG CÁC KIỂU LỊCH HỌC & MA TRẬN TỰ TÍNH THỜI LƯỢNG (Schedule Presets & Auto Matrix):**
+  - **Chuẩn hóa duy nhất 1 hình thức quản lý lịch học:** Loại bỏ hoàn toàn Hình thức 1 (Theo tổng số tiếng / tuần nhập tay mù mờ), chuyển đổi 100% sang hình thức quản lý theo **Kiểu Lịch Học Cơ Sở & Ma Trận Thời Lượng**.
   - Cho phép cơ sở tạo không giới hạn các "Kiểu Lịch Học" (Preset): tự đặt tên kiểu (ví dụ: *Thứ chẵn 2-4-6*, *Thứ lẻ 3-5-7*, *Cuối tuần T7-CN*), chọn các ngày trong tuần và thời lượng 1 buổi (ví dụ: 1.5 tiếng/buổi).
-  - Tích hợp trực tiếp vào **Hình Thức 2 (Theo Số Buổi Cố Định / Kiểu Lịch Học)** trong `SettingsModal.tsx` với card ma trận tính toán tự động: $\text{Số buổi} \times \text{Số tiếng/buổi} = \text{Tổng tiếng/tuần}$ (và quy đổi phút/tuần).
-  - Nâng cấp `StudentFormModal.tsx`: Thêm thanh chọn nhanh kiểu lịch mẫu cơ sở. Khi click, tự động điền các thứ, giờ học, và tính ngay tổng thời lượng học/tuần thay vì phải nhập tay con số tiếng.
+  - Tích hợp trực tiếp vào `SettingsModal.tsx` với card ma trận tính toán tự động: $\text{Số buổi} \times \text{Số tiếng/buổi} = \text{Tổng tiếng/tuần}$ (và quy đổi phút/tuần).
+  - Nâng cấp `StudentFormModal.tsx`: Bỏ switch tabs hình thức 1/2, hiển thị trực quan thanh chọn nhanh kiểu lịch mẫu cơ sở (hoặc tùy biến thứ và số tiếng/buổi). Hệ thống tự tính ngay tổng thời lượng tuần mà không cần tính nhẩm.
   - Tự động sinh `schedule_details_json` đồng bộ hoàn hảo sang Ma Trận Xếp Lịch `ClassroomScheduleMatrix` và hệ thống Ví Giờ Học.
-  - Setting mới: `schedule_presets` (chuỗi JSON danh sách `SchedulePreset[]`) trong bảng `settings`.
+  - Setting mới: `schedule_presets` (chuỗi JSON danh sách `SchedulePreset[]`) trong bảng `settings`. Mặc định hệ thống gán `duration_mode = 'by_sessions'`.
 
 ### [v2.7.0] - 2026-10-29
 - **⭐ VÍ GIỜ HỌC (Hour Wallet System):** Thay đổi nền tảng cơ chế học bù — bỏ đếm "suất bù", chuyển sang số dư phút trong ví:

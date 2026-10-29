@@ -445,8 +445,8 @@ export async function initDb() {
   // Defaults for settings
   const defaults: [string, string][] = [
     ["base_tuition", "1000000"],
-    ["duration_mode", "by_hours"],
-    ["default_hours_per_week", "3"],
+    ["duration_mode", "by_sessions"],
+    ["default_hours_per_week", "4.5"],
     ["default_sessions_per_week", "3"],
     ["default_study_time", "18:00 - 19:00"],
     ["max_students_per_slot", "10"],

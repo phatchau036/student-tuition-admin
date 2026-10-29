@@ -33,7 +33,7 @@ import {
   Copy,
 } from "lucide-react";
 import Link from "next/link";
-import { formatVND, formatMonthDisplay, parseRegisteredDaysToWeekdays } from "@/lib/tuition";
+import { formatVND, formatMonthDisplay, parseRegisteredDaysToWeekdays, generateUpcomingStudentSchedule, UpcomingLessonSession } from "@/lib/tuition";
 import { MonthFormat, AppLanguage } from "@/lib/types";
 import { useLanguage } from "@/lib/i18n";
 import { useTheme } from "@/lib/ThemeContext";
@@ -855,13 +855,130 @@ export default function ParentPortal() {
                     <button
                       type="button"
                       onClick={() => setIsReportModalOpen(true)}
-                      className="w-full py-2.5 px-3 rounded-xl bg-amber-500 hover:bg-amber-600 active:scale-[0.99] text-white font-bold text-xs flex items-center justify-center gap-2 transition shadow-xs"
+                      className="w-full py-2.5 px-3 rounded-xl bg-amber-500 hover:bg-amber-600 active:scale-[0.99] text-white font-bold text-xs flex items-center justify-center gap-2 transition shadow-xs cursor-pointer"
                     >
                       <CalendarCheck className="w-4 h-4" />
-                      <span>Báo Nghỉ Học (Giờ Vẫn Còn Trong Ví)</span>
+                      <span>Báo Nghỉ Học (Chọn Buổi Trong Lịch Còn Lại)</span>
                     </button>
                   </div>
                 </div>
+
+                {/* ⭐ LỊCH HỌC CÒN LẠI CỦA BÉ (FULL REMAINING SCHEDULE) */}
+                {(() => {
+                  const upcomingList: UpcomingLessonSession[] = generateUpcomingStudentSchedule(activeStudent, 30);
+                  return (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                          <CalendarDays className="w-4 h-4 text-emerald-600" />
+                          <span>Lịch Học Còn Lại Của Bé</span>
+                          <span className="text-[11px] font-bold px-2 py-0.2 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                            {upcomingList.length} buổi
+                          </span>
+                        </h3>
+                        <span className="text-[10px] text-slate-400">30 ngày tới</span>
+                      </div>
+
+                      {upcomingList.length === 0 ? (
+                        <div className="p-6 text-center rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 text-slate-400 text-xs">
+                          <Calendar className="w-8 h-8 mx-auto text-slate-300 mb-2" />
+                          <p>Bé chưa có lịch học cố định hoặc đã hoàn thành khóa học.</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-1.5 max-h-96 overflow-y-auto pr-0.5 scrollbar-thin">
+                          {upcomingList.map((lesson) => {
+                            const [y, m, d] = lesson.date.split("-").map(Number);
+                            const dateLabel = `${String(d).padStart(2, "0")}/${String(m).padStart(2, "0")}`;
+                            const isReported = lesson.isReported;
+
+                            return (
+                              <div
+                                key={lesson.id}
+                                className={`p-3 rounded-2xl border transition flex items-center justify-between gap-3 ${
+                                  lesson.isToday
+                                    ? "bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-800"
+                                    : isReported
+                                    ? "bg-slate-50/70 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700 opacity-80"
+                                    : "bg-white dark:bg-slate-900 border-slate-200/80 dark:border-slate-800 shadow-2xs hover:border-slate-300"
+                                }`}
+                              >
+                                <div className="flex items-center gap-3 min-w-0">
+                                  {/* Day Icon Pill */}
+                                  <div
+                                    className={`w-10 h-10 rounded-xl flex flex-col items-center justify-center font-bold text-xs shrink-0 ${
+                                      lesson.isToday
+                                        ? "bg-emerald-600 text-white shadow-xs"
+                                        : isReported
+                                        ? "bg-slate-200 dark:bg-slate-700 text-slate-500"
+                                        : "bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-900/40"
+                                    }`}
+                                  >
+                                    <span className="text-[10px] uppercase font-black tracking-tight">
+                                      {lesson.dayName === "Chủ Nhật" ? "CN" : lesson.dayName.replace("Thứ ", "T")}
+                                    </span>
+                                    <span className="text-[11px] font-black leading-none">{dateLabel}</span>
+                                  </div>
+
+                                  <div className="min-w-0">
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                      <span className="font-extrabold text-xs text-slate-900 dark:text-white">
+                                        {lesson.dayName} · {lesson.date}
+                                      </span>
+                                      {lesson.isToday && (
+                                        <span className="px-1.5 py-0.2 rounded text-[9px] font-black bg-emerald-600 text-white">
+                                          HÔM NAY
+                                        </span>
+                                      )}
+                                      {isReported && (
+                                        <span className="px-1.5 py-0.2 rounded text-[9px] font-black bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300">
+                                          {lesson.makeupItem?.status === "scheduled"
+                                            ? "ĐÃ XẾP BÙ"
+                                            : lesson.makeupItem?.status === "completed"
+                                            ? "ĐÃ HỌC BÙ"
+                                            : "ĐÃ BÁO NGHỈ"}
+                                        </span>
+                                      )}
+                                    </div>
+
+                                    <div className="flex items-center gap-2 text-[11px] text-slate-500 font-mono mt-0.5">
+                                      <span className="text-amber-700 dark:text-amber-400 font-bold">
+                                        {lesson.timeRange}
+                                      </span>
+                                      <span>•</span>
+                                      <span className="text-slate-600 dark:text-slate-300 font-sans">
+                                        {lesson.subjectName}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="shrink-0 text-right">
+                                  {isReported ? (
+                                    <span className="text-[11px] text-slate-400 font-medium italic">
+                                      Giờ còn trong ví
+                                    </span>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setSelectedLessonDate(lesson.date);
+                                        setIsReportModalOpen(true);
+                                      }}
+                                      className="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/50 dark:hover:bg-amber-900/60 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 transition cursor-pointer active:scale-95"
+                                      title="Bấm để xin nghỉ buổi học này"
+                                    >
+                                      Báo nghỉ
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 {/* ⭐ VÍ GIỜ HỌC: Lịch sử ví giờ (3 dòng gần nhất) */}
                 {activeStudent.wallet_ledger && activeStudent.wallet_ledger.length > 0 && (
