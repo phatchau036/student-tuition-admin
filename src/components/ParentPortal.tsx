@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Phone,
   User,
@@ -33,7 +33,7 @@ import {
   Copy,
 } from "lucide-react";
 import Link from "next/link";
-import { formatVND, formatMonthDisplay, parseRegisteredDaysToWeekdays, generateUpcomingStudentSchedule, UpcomingLessonSession } from "@/lib/tuition";
+import { formatVND, formatMonthDisplay, generateUpcomingStudentSchedule, UpcomingLessonSession } from "@/lib/tuition";
 import { MonthFormat, AppLanguage } from "@/lib/types";
 import { useLanguage } from "@/lib/i18n";
 import { useTheme } from "@/lib/ThemeContext";
@@ -119,19 +119,11 @@ export default function ParentPortal() {
 
   // Absence modal
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
-  const [absenceDate, setAbsenceDate] = useState("");
+  const [selectedLessonDate, setSelectedLessonDate] = useState<string>("");
   const [absenceReason, setAbsenceReason] = useState("");
   const [isSubmittingAbsence, setIsSubmittingAbsence] = useState(false);
 
-  // ⭐ BÁO NGHỈ MỚI: Danh sách buổi học sắp tới (từ lịch cố định, 14 ngày tới)
-  interface UpcomingLesson {
-    date: string; // YYYY-MM-DD
-    dayName: string; // Thứ 2, Thứ 7...
-    timeRange: string; // 17:00 - 18:30
-    isPast: boolean;
-  }
-  const [upcomingLessons, setUpcomingLessons] = useState<UpcomingLesson[]>([]);
-  const [selectedLessonDate, setSelectedLessonDate] = useState<string>("");
+  // Makeup scheduling modal
 
   // Makeup scheduling modal
   const [schedulingItem, setSchedulingItem] = useState<MakeupItem | null>(null);
@@ -239,81 +231,22 @@ export default function ParentPortal() {
 
   const activeStudent = students[activeStudentIndex] || null;
 
-  // ⭐ BÁO NGHỈ MỚI: Build danh sách buổi học sắp tới (14 ngày tới) từ lịch cố định
-  // Ưu tiên schedule_details_json (có giờ cụ thể từng ngày), fallback registered_days + study_time_detail
-  useEffect(() => {
-    if (!isReportModalOpen || !activeStudent) {
-      setUpcomingLessons([]);
-      setSelectedLessonDate("");
-      return;
-    }
-
-    const weekdayNameMap: Record<number, string> = {
-      2: "Thứ 2",
-      3: "Thứ 3",
-      4: "Thứ 4",
-      5: "Thứ 5",
-      6: "Thứ 6",
-      7: "Thứ 7",
-      8: "Chủ Nhật",
-    };
-
-    // Parse lịch chi tiết từng ngày từ schedule_details_json: [{day: "Thứ 2", start_time: "17:00", end_time: "18:30"}, ...]
-    const detailMap: Record<string, { start: string; end: string }> = {};
-    try {
-      const items = JSON.parse(activeStudent.schedule_details_json || "[]");
-      if (Array.isArray(items)) {
-        for (const it of items) {
-          if (it.day && it.start_time && it.end_time) {
-            detailMap[String(it.day).trim()] = { start: String(it.start_time), end: String(it.end_time) };
-          }
-        }
-      }
-    } catch {}
-
-    // Parse giờ mặc định từ study_time_detail nếu lịch chi tiết trống
-    let fallbackTime = "";
-    const rangeMatch = (activeStudent.study_time_detail || "").match(
-      /(\d{1,2}[h:]\d{0,2})\s*[-–]\s*(\d{1,2}[h:]\d{0,2})/
+  // ⭐ LỊCH HỌC CÒN LẠI: Sinh danh sách đầy đủ các buổi học từ hôm nay đến 30 ngày tới
+  // Dùng chung cho cả Tab "Lịch học & Bù" và Modal "Báo Nghỉ Học" (nguồn sự thật duy nhất)
+  const upcomingSchedule = useMemo(() => {
+    if (!activeStudent) return [] as UpcomingLessonSession[];
+    return generateUpcomingStudentSchedule(
+      {
+        schedule_details_json: activeStudent.schedule_details_json,
+        study_time_detail: activeStudent.study_time_detail,
+        registered_days: activeStudent.registered_days,
+        subject_name: undefined,
+        teacher_name: activeStudent.teacher_name,
+        makeups: activeStudent.makeups,
+      },
+      30
     );
-    if (rangeMatch) {
-      const norm = (t: string) => {
-        const m = t.match(/(\d{1,2})[h:]?(\d{2})?/);
-        if (!m) return "";
-        return `${String(m[1]).padStart(2, "0")}:${m[2] || "00"}`;
-      };
-      fallbackTime = `${norm(rangeMatch[1])} - ${norm(rangeMatch[2])}`;
-    }
-
-    // Parse registered_days thành mảng thứ số (2..8) — tái sử dụng hàm chuẩn từ tuition.ts
-    const regDaysText = (activeStudent.registered_days || "").trim();
-    const weekdays = parseRegisteredDaysToWeekdays(regDaysText);
-
-    // Duyệt 14 ngày tới (bắt đầu hôm nay), gom các buổi trùng thứ học
-    const lessons: UpcomingLesson[] = [];
-    const today = new Date();
-    const todayIso = today.toISOString().slice(0, 10);
-    for (let i = 0; i < 14; i++) {
-      const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() + i);
-      const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-      const weekdayNum = d.getDay() === 0 ? 8 : d.getDay() + 1;
-
-      if (!weekdays.includes(weekdayNum)) continue;
-      const dayName = weekdayNameMap[weekdayNum];
-
-      const detail = detailMap[dayName];
-      const timeRange = detail ? `${detail.start} - ${detail.end}` : fallbackTime || "Theo ca mở cửa";
-
-      lessons.push({
-        date: iso,
-        dayName,
-        timeRange,
-        isPast: iso < todayIso,
-      });
-    }
-
-    setUpcomingLessons(lessons);
-  }, [isReportModalOpen, activeStudent]);
+  }, [activeStudent]);
 
   // Refresh student data
   const refreshStudentData = async () => {
@@ -398,9 +331,17 @@ export default function ParentPortal() {
       showToast("Vui lòng chọn buổi học cần nghỉ trong danh sách!", "error");
       return;
     }
-    const chosenLesson = upcomingLessons.find((l) => l.date === selectedLessonDate);
-    if (chosenLesson?.isPast) {
+    const chosenLesson = upcomingSchedule.find((l) => l.id === selectedLessonDate);
+    if (!chosenLesson) {
+      showToast("Không tìm thấy buổi học đã chọn!", "error");
+      return;
+    }
+    if (chosenLesson.isPast) {
       showToast("Không thể báo nghỉ cho buổi đã qua!", "error");
+      return;
+    }
+    if (chosenLesson.isReported) {
+      showToast("Buổi này đã được báo nghỉ trước đó rồi!", "error");
       return;
     }
 
@@ -412,7 +353,7 @@ export default function ParentPortal() {
         body: JSON.stringify({
           action: "report_absence",
           student_id: activeStudent.id,
-          absence_date: selectedLessonDate,
+          absence_date: chosenLesson.date,
           absence_reason: absenceReason.trim(),
         }),
       });
@@ -865,7 +806,7 @@ export default function ParentPortal() {
 
                 {/* ⭐ LỊCH HỌC CÒN LẠI CỦA BÉ (FULL REMAINING SCHEDULE) */}
                 {(() => {
-                  const upcomingList: UpcomingLessonSession[] = generateUpcomingStudentSchedule(activeStudent, 30);
+                  const upcomingList = upcomingSchedule;
                   return (
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
@@ -887,7 +828,7 @@ export default function ParentPortal() {
                       ) : (
                         <div className="space-y-1.5 max-h-96 overflow-y-auto pr-0.5 scrollbar-thin">
                           {upcomingList.map((lesson) => {
-                            const [y, m, d] = lesson.date.split("-").map(Number);
+                            const [, m, d] = lesson.date.split("-").map(Number);
                             const dateLabel = `${String(d).padStart(2, "0")}/${String(m).padStart(2, "0")}`;
                             const isReported = lesson.isReported;
 
@@ -961,7 +902,7 @@ export default function ParentPortal() {
                                     <button
                                       type="button"
                                       onClick={() => {
-                                        setSelectedLessonDate(lesson.date);
+                                        setSelectedLessonDate(lesson.id);
                                         setIsReportModalOpen(true);
                                       }}
                                       className="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/50 dark:hover:bg-amber-900/60 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 transition cursor-pointer active:scale-95"
@@ -1403,32 +1344,31 @@ export default function ParentPortal() {
               </p>
 
               {/* Danh sách buổi học sắp tới */}
-              {upcomingLessons.length === 0 ? (
+              {upcomingSchedule.length === 0 ? (
                 <div className="p-6 text-center rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 text-slate-400 text-xs space-y-2">
                   <CalendarDays className="w-8 h-8 mx-auto text-slate-300 dark:text-slate-700" />
-                  <p>Chưa tìm thấy buổi học nào trong 14 ngày tới.</p>
+                  <p>Chưa tìm thấy buổi học nào trong 30 ngày tới.</p>
                   <p className="text-[11px]">Vui lòng liên hệ trung tâm để cập nhật lịch học.</p>
                 </div>
               ) : (
                 <div className="space-y-2">
                   <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">
-                    Lịch học 14 ngày tới ({upcomingLessons.length} buổi)
+                    Lịch học 30 ngày tới ({upcomingSchedule.length} buổi)
                   </span>
-                  {upcomingLessons.map((lesson) => {
-                    const isSelected = selectedLessonDate === lesson.date;
-                    const isDisabled = lesson.isPast;
+                  {upcomingSchedule.map((lesson) => {
+                    const isSelected = selectedLessonDate === lesson.id;
+                    const isDisabled = lesson.isPast || lesson.isReported;
                     // Format hiển thị ngày: "Hôm nay · 30/10", "Thứ 7 · 01/11"
-                    const [y, m, d] = lesson.date.split("-").map(Number);
+                    const [, m, d] = lesson.date.split("-").map(Number);
                     const dateLabel = `${String(d).padStart(2, "0")}/${String(m).padStart(2, "0")}`;
-                    const todayIso = new Date().toISOString().slice(0, 10);
-                    const dayPrefix = lesson.date === todayIso ? "Hôm nay" : lesson.dayName;
+                    const dayPrefix = lesson.isToday ? "Hôm nay" : lesson.dayName;
 
                     return (
                       <button
-                        key={lesson.date}
+                        key={lesson.id}
                         type="button"
                         disabled={isDisabled}
-                        onClick={() => setSelectedLessonDate(isSelected ? "" : lesson.date)}
+                        onClick={() => setSelectedLessonDate(isSelected ? "" : lesson.id)}
                         className={`w-full p-3 rounded-2xl border text-left transition flex items-center justify-between gap-3 ${
                           isDisabled
                             ? "opacity-45 bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 cursor-not-allowed"
@@ -1440,7 +1380,7 @@ export default function ParentPortal() {
                         <div className="flex items-center gap-3 min-w-0">
                           {/* Radio circle */}
                           <div
-                            className={`w-4.5 h-4.5 w-[18px] h-[18px] rounded-full border-2 flex items-center justify-center shrink-0 transition ${
+                            className={`w-[18px] h-[18px] rounded-full border-2 flex items-center justify-center shrink-0 transition ${
                               isSelected
                                 ? "border-amber-500 bg-amber-500"
                                 : isDisabled
@@ -1460,20 +1400,27 @@ export default function ParentPortal() {
                               >
                                 {dayPrefix} · {dateLabel}
                               </span>
-                              {lesson.date === todayIso && (
+                              {lesson.isToday && (
                                 <span className="px-1.5 py-0.2 rounded text-[9px] font-black bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
                                   HÔM NAY
                                 </span>
                               )}
+                              {lesson.isReported && (
+                                <span className="px-1.5 py-0.2 rounded text-[9px] font-black bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300">
+                                  ĐÃ BÁO NGHỈ
+                                </span>
+                              )}
                             </div>
                             <p className="text-[11px] text-slate-500 dark:text-slate-400 font-mono mt-0.5">
-                              {lesson.timeRange}
+                              {lesson.timeRange} · {lesson.subjectName}
                             </p>
                           </div>
                         </div>
 
                         {isDisabled ? (
-                          <span className="text-[10px] font-bold text-slate-400 shrink-0">Đã qua</span>
+                          <span className="text-[10px] font-bold text-slate-400 shrink-0">
+                            {lesson.isPast ? "Đã qua" : "Đã báo"}
+                          </span>
                         ) : isSelected ? (
                           <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-500 text-white shrink-0">
                             Chọn nghỉ
@@ -1517,9 +1464,12 @@ export default function ParentPortal() {
               >
                 {isSubmittingAbsence
                   ? "Đang lưu..."
-                  : selectedLessonDate
-                  ? "Xác Nhận Báo Nghỉ"
-                  : "Chọn buổi học trước"}
+                  : (() => {
+                      const sel = upcomingSchedule.find((l) => l.id === selectedLessonDate);
+                      if (!sel) return "Chọn buổi học trước";
+                      const [, m, d] = sel.date.split("-").map(Number);
+                      return `Xác Nhận Nghỉ ${sel.dayName} (${String(d).padStart(2, "0")}/${String(m).padStart(2, "0")})`;
+                    })()}
               </button>
             </div>
           </div>
