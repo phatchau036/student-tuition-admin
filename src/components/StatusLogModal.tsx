@@ -487,7 +487,7 @@ export const StatusLogModal: React.FC<StatusLogModalProps> = ({
                   return (
                     <div
                       key={log.id}
-                      className="p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-850 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:border-slate-300 transition"
+                      className="p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:border-slate-300 transition"
                     >
                       <div className="flex items-start gap-3">
                         <span className={`px-2.5 py-1 text-[11px] font-black uppercase rounded-xl border shrink-0 ${badgeBg}`}>

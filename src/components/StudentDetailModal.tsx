@@ -181,7 +181,7 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                       onClose();
                       onOpenStatusChange(student);
                     }}
-                    className="px-3 py-1.5 text-xs font-bold rounded-xl bg-amber-600 hover:bg-amber-700 text-white shrink-0 shadow-xs"
+                    className="px-3 py-1.5 text-xs font-bold rounded-xl bg-amber-100 text-amber-800 hover:bg-amber-200 dark:bg-amber-500/15 dark:text-amber-300 dark:hover:bg-amber-500/25 border border-amber-300 dark:border-amber-500/30 shrink-0 transition"
                   >
                     Đổi trạng thái
                   </button>
@@ -203,7 +203,7 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                       onClose();
                       onOpenStatusChange(student);
                     }}
-                    className="px-3 py-1.5 text-xs font-bold rounded-xl bg-amber-500 hover:bg-amber-600 text-white shrink-0 shadow-xs transition"
+                    className="px-3 py-1.5 text-xs font-bold rounded-xl bg-amber-100 text-amber-800 hover:bg-amber-200 dark:bg-amber-500/15 dark:text-amber-300 dark:hover:bg-amber-500/25 border border-amber-300 dark:border-amber-500/30 shrink-0 transition"
                   >
                     Chuyển vào bảo lưu
                   </button>
@@ -229,7 +229,7 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                       onClose();
                       onOpenStatusChange(student);
                     }}
-                    className="px-3 py-1.5 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shrink-0 shadow-xs"
+                    className="px-3 py-1.5 text-xs font-bold rounded-xl bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:hover:bg-emerald-500/25 border border-emerald-300 dark:border-emerald-500/30 shrink-0 transition"
                   >
                     Cho học lại tiếp
                   </button>
@@ -237,7 +237,7 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
               )}
 
               {/* Tuition & Billing Box */}
-              <div className="p-4.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-850 space-y-3">
+              <div className="p-4.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-slate-100/70 dark:bg-slate-950/50 space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
                     <CreditCard className="w-4 h-4 text-indigo-600" />
@@ -249,13 +249,13 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                 </div>
 
                 <div className="grid grid-cols-2 gap-3 pt-1">
-                  <div className={`p-3 bg-white dark:bg-slate-900 rounded-xl border ${student.is_overdue ? "border-rose-300 dark:border-rose-900/60 bg-rose-50/20" : "border-slate-200 dark:border-slate-800"}`}>
+                  <div className={`p-3 bg-white dark:bg-slate-900 rounded-xl border ${student.is_overdue ? "border-rose-300 dark:border-rose-900/60 bg-rose-50/40 dark:bg-rose-950/20" : "border-slate-200 dark:border-slate-700/70"}`}>
                     <span className="text-[10px] uppercase font-bold text-slate-400 block">Số tiền cần đóng</span>
                     <span className={`text-lg font-black mt-0.5 block ${student.is_overdue ? "text-rose-600 dark:text-rose-400" : "text-slate-900 dark:text-white"}`}>
                       {student.total_tuition_due ? formatVND(student.total_tuition_due) : formatVND(student.current_tuition)}
                     </span>
                     {student.is_overdue && student.previous_debt_amount ? (
-                      <span className="text-[10px] text-rose-600 font-bold block mt-0.5 animate-pulse">
+                      <span className="text-[10px] text-rose-600 dark:text-rose-400 font-bold block mt-0.5">
                         * Bao gồm nợ cũ: +{formatVND(student.previous_debt_amount)} (Nợ {student.unpaid_months_count} tháng)
                       </span>
                     ) : student.monthly_override ? (
@@ -280,7 +280,7 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                     ) : null}
                   </div>
 
-                  <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 flex flex-col justify-between">
+                  <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700/70 flex flex-col justify-between">
                     <div>
                       <span className="text-[10px] uppercase font-bold text-slate-400 block">Trạng thái công nợ</span>
                       {isPaid ? (
@@ -338,7 +338,7 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
               <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 space-y-2.5 text-xs">
                 <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
                   <span className="text-slate-400 font-medium">Môn học đào tạo:</span>
-                  <span className="font-bold text-indigo-600 dark:text-indigo-400">
+                  <span className="font-bold text-slate-800 dark:text-slate-200">
                     {student.subject_name || "Chưa phân môn"}
                   </span>
                 </div>
@@ -426,7 +426,7 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                     return (
                       <div
                         key={log.id}
-                        className="p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-850 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+                        className="p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/40 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2"
                       >
                         <div className="flex items-start gap-2.5">
                           <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black uppercase shrink-0 ${badge}`}>
@@ -494,7 +494,7 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
               <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
                 Chi tiết các buổi học trong tuần:
               </span>
-              <div className="p-4 rounded-2xl bg-slate-50/60 dark:bg-slate-850 border border-slate-200/80 dark:border-slate-800 space-y-2 text-xs">
+              <div className="p-4 rounded-2xl bg-slate-50/60 dark:bg-slate-950/40 border border-slate-200/80 dark:border-slate-800 space-y-2 text-xs">
                 <p className="text-slate-700 dark:text-slate-300 font-semibold">
                   {student.study_time_detail || "Linh hoạt trong ca mở cửa"}
                 </p>
