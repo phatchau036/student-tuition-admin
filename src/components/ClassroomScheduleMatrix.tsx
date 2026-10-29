@@ -32,6 +32,8 @@ import {
   User,
   ArrowRight,
   ExternalLink,
+  X,
+  SlidersHorizontal,
 } from "lucide-react";
 
 interface ClassroomScheduleMatrixProps {
@@ -44,7 +46,7 @@ interface ClassroomScheduleMatrixProps {
   onOpenConsultation?: () => void;
 }
 
-// Các thứ trong tuần chuẩn
+// 7 Ngày trong tuần chuẩn
 const DAYS_OF_WEEK = [
   "Thứ 2",
   "Thứ 3",
@@ -54,10 +56,6 @@ const DAYS_OF_WEEK = [
   "Thứ 7",
   "Chủ Nhật",
 ];
-
-// Các mốc giờ chính hiển thị (17h, 18h, 19h cho ca tối, 08h, 09h, 10h cho ca sáng cuối tuần)
-const DEFAULT_HOURS = ["17h", "18h", "19h"];
-const WEEKEND_HOURS = ["08h", "09h", "10h", "17h", "18h", "19h"];
 
 // Màu badge bộ môn cho sinh động và dễ nhận diện
 const SUBJECT_COLORS: Record<string, { bg: string; text: string; border: string }> = {
@@ -80,6 +78,20 @@ function getSubjectBadge(subjectName?: string) {
   return SUBJECT_COLORS.default;
 }
 
+// Chuyển mốc giờ "08h", "17h" thành định dạng "08:00", "17:00"
+function formatHourLabel(h: string): string {
+  const clean = h.replace("h", "");
+  return `${clean.padStart(2, "0")}:00`;
+}
+
+interface StudentSlotEntry {
+  student: Student;
+  timeDetail: string;
+  subjectName: string;
+  teacherId: string;
+  teacherName?: string;
+}
+
 export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = ({
   students,
   teachers,
@@ -89,8 +101,8 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
   onAddStudentToSlot,
   onOpenConsultation,
 }) => {
-  // Mode: "week_horizontal" (Dàn ngang toàn tuần) | "single_day" (Chọn xem chi tiết từng thứ) | "teacher_centric" (Xem theo từng giáo viên)
-  const [viewMode, setViewMode] = useState<"week_horizontal" | "single_day" | "teacher_centric">("week_horizontal");
+  // Mode: "week_grid" (Lưới 7 Ngày Chuẩn) | "single_day" (Xem Chi Tiết Từng Thứ) | "teacher_centric" (Theo Giáo Viên)
+  const [viewMode, setViewMode] = useState<"week_grid" | "single_day" | "teacher_centric">("week_grid");
   const [activeDay, setActiveDay] = useState<string>("Thứ 2");
   const [selectedTeacherTab, setSelectedTeacherTab] = useState<string>("all");
 
@@ -99,6 +111,15 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
   const [selectedTeacherFilter, setSelectedTeacherFilter] = useState<string>("all");
   const [selectedPaymentStatusFilter, setSelectedPaymentStatusFilter] = useState<"all" | "paid" | "unpaid">("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const [hideEmptyHours, setHideEmptyHours] = useState<boolean>(false);
+
+  // Side Drawer xem toàn bộ học sinh trong 1 ca (dành cho ô đông > 3 học sinh)
+  const [drawerSlot, setDrawerSlot] = useState<{
+    day: string;
+    hour: string;
+    entries: StudentSlotEntry[];
+  } | null>(null);
+  const [drawerSearch, setDrawerSearch] = useState<string>("");
 
   // Hover preview student popover
   const [hoveredStudent, setHoveredStudent] = useState<{
@@ -109,6 +130,13 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
     y: number;
   } | null>(null);
 
+  // Xác định Thứ hôm nay để highlight cột trực quan
+  const todayName = useMemo(() => {
+    const dayIndex = new Date().getDay();
+    const map = ["Chủ Nhật", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7"];
+    return map[dayIndex];
+  }, []);
+
   // Lọc danh sách giáo viên đang hoạt động
   const activeTeachers = useMemo(() => {
     let list = teachers.filter((t) => t.is_active !== 0);
@@ -118,105 +146,7 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
     return list;
   }, [teachers, selectedTeacherFilter]);
 
-  // Danh sách các mốc giờ thực tế xuất hiện theo từng ngày (tự động mở rộng từ ca đăng ký và dữ liệu học sinh)
-  const dayHoursMap = useMemo(() => {
-    const map: Record<string, string[]> = {};
-    for (const d of DAYS_OF_WEEK) {
-      const isWeekend = d === "Thứ 7" || d === "Chủ Nhật";
-      const baseHours = isWeekend ? ["08h", "09h", "10h", "17h", "18h", "19h"] : ["17h", "18h", "19h", "20h"];
-      const hourSet = new Set<string>(baseHours);
-
-      // Thêm các giờ từ timeSlots của cơ sở
-      timeSlots.forEach((slot) => {
-        if (slot.start_time) {
-          const h = parseInt(slot.start_time.split(":")[0], 10);
-          if (!isNaN(h)) hourSet.add(`${String(h).padStart(2, "0")}h`);
-        }
-      });
-
-      // Thêm các giờ thực tế mà học sinh đang học
-      students.forEach((st) => {
-        if (st.status === "dropped") return;
-        const slots = parseStudentScheduleSlots(st, teachers);
-        slots.forEach((s) => {
-          if (s.day === d && s.hourSlot) {
-            hourSet.add(s.hourSlot);
-          }
-        });
-      });
-
-      map[d] = Array.from(hourSet).sort((a, b) => parseInt(a, 10) - parseInt(b, 10));
-    }
-    return map;
-  }, [students, timeSlots, teachers]);
-
-  // Map học sinh vào ma trận 5 chiều: matrixData[day][hourSlot][teacherId] = StudentSlotEntry[]
-  const matrixData = useMemo(() => {
-    const data: Record<
-      string,
-      Record<
-        string,
-        Record<
-          string,
-          Array<{
-            student: Student;
-            timeDetail: string;
-            subjectName: string;
-          }>
-        >
-      >
-    > = {};
-
-    // Khởi tạo khung
-    for (const d of DAYS_OF_WEEK) {
-      data[d] = {};
-      const hours = dayHoursMap[d] || (d === "Thứ 7" || d === "Chủ Nhật" ? WEEKEND_HOURS : DEFAULT_HOURS);
-      for (const h of hours) {
-        data[d][h] = {};
-        for (const tc of teachers) {
-          data[d][h][tc.id] = [];
-        }
-        data[d][h]["unassigned"] = []; // Học sinh chưa gán giáo viên
-      }
-    }
-
-    // Duyệt qua từng học sinh
-    for (const st of students) {
-      if (st.status === "dropped") continue;
-
-      const parsedSlots = parseStudentScheduleSlots(st, teachers);
-
-      for (const slot of parsedSlots) {
-        const d = slot.day;
-        const h = slot.hourSlot;
-        // Ưu tiên giáo viên gán trong hồ sơ, nếu chưa có thì lấy giáo viên tự động nhận diện từ ghi chú/lịch học
-        const resolvedTeacherId = st.teacher_id || slot.detectedTeacherId || "unassigned";
-
-        if (data[d]) {
-          if (!data[d][h]) {
-            data[d][h] = {};
-            for (const tc of teachers) {
-              data[d][h][tc.id] = [];
-            }
-            data[d][h]["unassigned"] = [];
-          }
-
-          const targetTeacherId = data[d][h][resolvedTeacherId] ? resolvedTeacherId : "unassigned";
-          const subName = slot.subjectName || st.subject_name || "Piano";
-
-          data[d][h][targetTeacherId].push({
-            student: st,
-            timeDetail: slot.timeDetail,
-            subjectName: subName,
-          });
-        }
-      }
-    }
-
-    return data;
-  }, [students, teachers, dayHoursMap]);
-
-  // Bộ lọc tìm kiếm & trạng thái học sinh trong ma trận
+  // Bộ lọc tìm kiếm & trạng thái học sinh
   const isStudentMatched = (st: Student) => {
     if (selectedPaymentStatusFilter !== "all") {
       if (selectedPaymentStatusFilter === "paid" && st.payment_status !== "paid") return false;
@@ -227,7 +157,8 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
     return (
       st.name.toLowerCase().includes(q) ||
       (st.phone && st.phone.includes(q)) ||
-      (st.subject_name && st.subject_name.toLowerCase().includes(q))
+      (st.subject_name && st.subject_name.toLowerCase().includes(q)) ||
+      (st.teacher_name && st.teacher_name.toLowerCase().includes(q))
     );
   };
 
@@ -241,7 +172,116 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
     );
   };
 
-  // Tính toán nhanh tổng quan sĩ số toàn trường
+  // Map học sinh vào ma trận 5 chiều: matrixData[day][hourSlot][teacherId] = StudentSlotEntry[]
+  const matrixData = useMemo(() => {
+    const data: Record<string, Record<string, Record<string, StudentSlotEntry[]>>> = {};
+
+    // Khởi tạo khung cho tất cả các ngày
+    for (const d of DAYS_OF_WEEK) {
+      data[d] = {};
+    }
+
+    // Duyệt qua từng học sinh
+    for (const st of students) {
+      if (st.status === "dropped") continue;
+
+      const parsedSlots = parseStudentScheduleSlots(st, teachers);
+
+      for (const slot of parsedSlots) {
+        const d = slot.day;
+        const h = slot.hourSlot;
+        const resolvedTeacherId = st.teacher_id || slot.detectedTeacherId || "unassigned";
+
+        if (data[d]) {
+          if (!data[d][h]) {
+            data[d][h] = {};
+            for (const tc of teachers) {
+              data[d][h][tc.id] = [];
+            }
+            data[d][h]["unassigned"] = [];
+          }
+
+          const targetTeacherId = data[d][h][resolvedTeacherId] ? resolvedTeacherId : "unassigned";
+          const subName = slot.subjectName || st.subject_name || "Piano";
+          const tcObj = teachers.find((t) => t.id === targetTeacherId);
+
+          data[d][h][targetTeacherId].push({
+            student: st,
+            timeDetail: slot.timeDetail,
+            subjectName: subName,
+            teacherId: targetTeacherId,
+            teacherName: tcObj?.name || (targetTeacherId === "unassigned" ? "Chờ gán GV" : undefined),
+          });
+        }
+      }
+    }
+
+    return data;
+  }, [students, teachers]);
+
+  // Danh sách các mốc giờ tổng hợp cho toàn tuần (đảm bảo các hàng thẳng hàng nhau 100%)
+  const allWeekHours = useMemo(() => {
+    const hourSet = new Set<string>(["08h", "09h", "10h", "17h", "18h", "19h", "20h"]);
+
+    // Thêm các giờ từ timeSlots của cơ sở
+    timeSlots.forEach((slot) => {
+      if (slot.start_time) {
+        const h = parseInt(slot.start_time.split(":")[0], 10);
+        if (!isNaN(h)) hourSet.add(`${String(h).padStart(2, "0")}h`);
+      }
+    });
+
+    // Thêm các giờ từ học sinh thực tế
+    students.forEach((st) => {
+      if (st.status === "dropped") return;
+      const slots = parseStudentScheduleSlots(st, teachers);
+      slots.forEach((s) => {
+        if (s.hourSlot) hourSet.add(s.hourSlot);
+      });
+    });
+
+    let sorted = Array.from(hourSet).sort((a, b) => parseInt(a, 10) - parseInt(b, 10));
+
+    // Nếu người dùng chọn "Ẩn giờ trống", chỉ giữ lại những giờ có ít nhất 1 học sinh theo bộ lọc
+    if (hideEmptyHours) {
+      sorted = sorted.filter((h) => {
+        for (const d of DAYS_OF_WEEK) {
+          const hourMap = matrixData[d]?.[h];
+          if (!hourMap) continue;
+          for (const tcId in hourMap) {
+            if (selectedTeacherFilter !== "all" && tcId !== selectedTeacherFilter) continue;
+            for (const item of hourMap[tcId]) {
+              if (isStudentMatched(item.student) && isSubjectMatched(item.subjectName, item.student.subject_id)) {
+                return true;
+              }
+            }
+          }
+        }
+        return false;
+      });
+    }
+
+    return sorted;
+  }, [students, timeSlots, teachers, hideEmptyHours, matrixData, selectedTeacherFilter, selectedPaymentStatusFilter, searchQuery, selectedSubjectFilter]);
+
+  // Lấy toàn bộ học sinh trong ô (Day, Hour) đã qua bộ lọc
+  const getSlotFilteredEntries = (day: string, hour: string): StudentSlotEntry[] => {
+    const hourMap = matrixData[day]?.[hour] || {};
+    const results: StudentSlotEntry[] = [];
+
+    for (const tcId in hourMap) {
+      if (selectedTeacherFilter !== "all" && tcId !== selectedTeacherFilter) continue;
+      for (const item of hourMap[tcId]) {
+        if (isStudentMatched(item.student) && isSubjectMatched(item.subjectName, item.student.subject_id)) {
+          results.push(item);
+        }
+      }
+    }
+
+    return results;
+  };
+
+  // Thống kê tổng số lượt học toàn tuần
   const overallStats = useMemo(() => {
     let totalSlots = 0;
     let paidCount = 0;
@@ -249,13 +289,12 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
     let unassignedCount = 0;
 
     for (const d of DAYS_OF_WEEK) {
-      const hours = d === "Thứ 7" || d === "Chủ Nhật" ? WEEKEND_HOURS : DEFAULT_HOURS;
-      for (const h of hours) {
-        if (!matrixData[d] || !matrixData[d][h]) continue;
-        for (const tcId in matrixData[d][h]) {
-          const entries = matrixData[d][h][tcId];
-          totalSlots += entries.length;
-          for (const item of entries) {
+      for (const h of allWeekHours) {
+        const hourMap = matrixData[d]?.[h];
+        if (!hourMap) continue;
+        for (const tcId in hourMap) {
+          for (const item of hourMap[tcId]) {
+            totalSlots++;
             if (item.student.payment_status === "paid") paidCount++;
             else unpaidCount++;
             if (tcId === "unassigned") unassignedCount++;
@@ -265,371 +304,50 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
     }
 
     return { totalSlots, paidCount, unpaidCount, unassignedCount };
-  }, [matrixData]);
+  }, [matrixData, allWeekHours]);
 
-  // Render một cột ngày hoàn chỉnh (chuẩn hoá hiển thị card học sinh & thanh mốc giờ)
-  const renderDayColumn = (dayName: string, isFullWidth: boolean = false) => {
-    const hours = dayHoursMap[dayName] || (dayName === "Thứ 7" || dayName === "Chủ Nhật" ? WEEKEND_HOURS : DEFAULT_HOURS);
-
-    // Tính tổng sĩ số và chưa đóng của ngày này
-    let dayTotalStudents = 0;
-    let dayUnpaidStudents = 0;
-    for (const h of hours) {
-      if (matrixData[dayName] && matrixData[dayName][h]) {
-        for (const tcId in matrixData[dayName][h]) {
-          const entries = matrixData[dayName][h][tcId];
-          dayTotalStudents += entries.length;
-          dayUnpaidStudents += entries.filter((e) => e.student.payment_status !== "paid").length;
+  // Thống kê học sinh theo từng ngày
+  const dayStatsMap = useMemo(() => {
+    const map: Record<string, { total: number; unpaid: number }> = {};
+    for (const d of DAYS_OF_WEEK) {
+      let total = 0;
+      let unpaid = 0;
+      for (const h of allWeekHours) {
+        const hourMap = matrixData[d]?.[h];
+        if (!hourMap) continue;
+        for (const tcId in hourMap) {
+          for (const item of hourMap[tcId]) {
+            total++;
+            if (item.student.payment_status !== "paid") unpaid++;
+          }
         }
       }
+      map[d] = { total, unpaid };
     }
-
-    const isWeekend = dayName === "Thứ 7" || dayName === "Chủ Nhật";
-
-    return (
-      <div
-        key={dayName}
-        className={`bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-3xl overflow-hidden shadow-sm hover:shadow-md transition-all flex flex-col shrink-0 ${
-          isFullWidth
-            ? "w-full"
-            : "min-w-[360px] max-w-[420px] flex-1"
-        }`}
-      >
-        {/* Header Ngày - Gradient sang trọng, nhận diện rõ Thứ */}
-        <div
-          className={`px-4 py-3.5 border-b flex items-center justify-between ${
-            isWeekend
-              ? "bg-gradient-to-r from-amber-500/10 via-amber-400/5 to-transparent border-amber-200/80 dark:border-amber-900/40 text-amber-950 dark:text-amber-200"
-              : "bg-gradient-to-r from-indigo-500/10 via-indigo-400/5 to-transparent border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white"
-          }`}
-        >
-          <div className="flex items-center gap-2.5">
-            <div
-              className={`w-9 h-9 rounded-2xl flex items-center justify-center font-black text-sm shadow-2xs ${
-                isWeekend
-                  ? "bg-amber-500 text-white"
-                  : "bg-indigo-600 text-white"
-              }`}
-            >
-              {dayName.replace("Thứ ", "T")}
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-extrabold text-sm tracking-tight text-slate-900 dark:text-white">
-                  {dayName}
-                </span>
-                {isWeekend && (
-                  <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300">
-                    Cuối tuần
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400 font-medium">
-                <span>
-                  <strong className="text-slate-800 dark:text-slate-200">{dayTotalStudents}</strong> lượt học
-                </span>
-                {dayUnpaidStudents > 0 && (
-                  <>
-                    <span>•</span>
-                    <span className="text-rose-600 dark:text-rose-400 font-semibold">
-                      {dayUnpaidStudents} chưa đóng
-                    </span>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => onAddStudentToSlot?.(dayName, isWeekend ? "09:00" : "18:00")}
-            className="text-xs font-bold px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-slate-700/80 text-indigo-600 dark:text-indigo-300 border border-indigo-200 dark:border-slate-700 transition flex items-center gap-1 shadow-2xs cursor-pointer active:scale-95"
-            title="Thêm học viên mới vào ngày này"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Thêm vào {dayName}</span>
-          </button>
-        </div>
-
-        {/* Cột Tên Giáo Viên (Table Header bên dưới tên thứ) */}
-        <div className="grid grid-cols-12 bg-slate-900 dark:bg-slate-950 text-white text-[11px] font-extrabold border-b border-slate-800 text-center divide-x divide-slate-800">
-          <div className="col-span-2 py-2.5 uppercase bg-slate-950 text-amber-400 font-black flex items-center justify-center tracking-wider">
-            GIỜ
-          </div>
-          {activeTeachers.map((tc) => (
-            <div
-              key={tc.id}
-              className="py-2.5 px-1 truncate flex flex-col items-center justify-center"
-              style={{ width: `${100 / Math.max(1, activeTeachers.length)}%` }}
-              title={`${tc.name} (${tc.specialty || "GV"})`}
-            >
-              <span className="truncate max-w-[90px]">{tc.name}</span>
-            </div>
-          ))}
-          <div className="col-span-2 py-2.5 px-1 text-slate-400 font-bold truncate flex items-center justify-center" title="Học viên chưa phân công GV">
-            Chưa gán GV
-          </div>
-        </div>
-
-        {/* Lưới các ca giờ trong ngày */}
-        <div className="divide-y divide-slate-200/90 dark:divide-slate-800/80 flex-1 bg-slate-50/30 dark:bg-slate-950/20">
-          {hours.map((hour) => {
-            const hourCells = matrixData[dayName]?.[hour] || {};
-
-            return (
-              <div
-                key={hour}
-                className="grid grid-cols-12 divide-x divide-slate-200/90 dark:divide-slate-800/80 min-h-[145px]"
-              >
-                {/* Cột Mốc Giờ to rõ, thẩm mỹ */}
-                <div className="col-span-2 bg-gradient-to-b from-amber-50/80 to-amber-100/40 dark:from-amber-950/40 dark:to-amber-950/20 p-2 flex flex-col items-center justify-center text-center select-none border-r border-amber-200/70 dark:border-amber-900/40">
-                  <div className="w-8 h-8 rounded-xl bg-amber-400/20 dark:bg-amber-400/10 flex items-center justify-center mb-1">
-                    <Clock className="w-4 h-4 text-amber-700 dark:text-amber-400" />
-                  </div>
-                  <span className="text-xl font-black text-amber-950 dark:text-amber-300 tracking-tight leading-none">
-                    {hour}
-                  </span>
-                  <span className="text-[10px] text-amber-800/80 dark:text-amber-400/70 font-bold mt-1 tracking-tighter">
-                    {hour === "17h"
-                      ? "17:00"
-                      : hour === "18h"
-                      ? "18:00"
-                      : hour === "19h"
-                      ? "19:00"
-                      : hour === "08h"
-                      ? "08:00"
-                      : hour === "09h"
-                      ? "09:00"
-                      : "10:00"}
-                  </span>
-                </div>
-
-                {/* Các ô Giáo viên phụ trách trong ca này */}
-                {activeTeachers.map((tc) => {
-                  const entries = (hourCells[tc.id] || []).filter(
-                    (e) => isStudentMatched(e.student) && isSubjectMatched(e.subjectName, e.student.subject_id)
-                  );
-                  const maxCap = tc.max_students || 10;
-                  const isFull = entries.length >= maxCap;
-                  const isCrowded = entries.length >= maxCap * 0.8;
-                  const subBadge = getSubjectBadge(tc.specialty);
-
-                  return (
-                    <div
-                      key={tc.id}
-                      className="p-1.5 flex flex-col justify-between hover:bg-indigo-50/30 dark:hover:bg-slate-800/40 transition group relative"
-                      style={{ width: `${100 / Math.max(1, activeTeachers.length)}%` }}
-                    >
-                      {/* Tiêu đề mini: Bộ môn & Tỉ lệ sĩ số */}
-                      <div className="pb-1 mb-1 border-b border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-[10px]">
-                        <span
-                          className={`font-black text-[9px] uppercase px-1.5 py-0.2 rounded-md ${subBadge.bg} ${subBadge.text} border ${subBadge.border} truncate max-w-[65px]`}
-                        >
-                          {tc.specialty || "Piano"}
-                        </span>
-                        <span
-                          className={`px-1.5 py-0.2 rounded font-mono font-black text-[10px] ${
-                            isFull
-                              ? "bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300 border border-rose-300"
-                              : isCrowded
-                              ? "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300"
-                              : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
-                          }`}
-                          title={`Sĩ số hiện tại: ${entries.length}/${maxCap} học viên`}
-                        >
-                          {entries.length}/{maxCap}
-                        </span>
-                      </div>
-
-                      {/* Danh sách thẻ học viên trong ô ca dạy */}
-                      <div className="space-y-1.5 flex-1 overflow-y-auto max-h-52 scrollbar-thin pr-0.5">
-                        {entries.length === 0 ? (
-                          <div className="h-full min-h-[70px] flex flex-col items-center justify-center text-[10px] text-slate-400 dark:text-slate-600 italic">
-                            <span>- trống -</span>
-                          </div>
-                        ) : (
-                          entries.map(({ student, timeDetail, subjectName }) => {
-                            const isPaid = student.payment_status === "paid";
-                            const studentSubBadge = getSubjectBadge(subjectName);
-
-                            return (
-                              <div
-                                key={student.id}
-                                onClick={() => onSelectStudent(student)}
-                                onMouseEnter={(e) => {
-                                  const rect = e.currentTarget.getBoundingClientRect();
-                                  setHoveredStudent({
-                                    student,
-                                    timeDetail,
-                                    subjectName,
-                                    x: rect.right + 10,
-                                    y: rect.top,
-                                  });
-                                }}
-                                onMouseLeave={() => setHoveredStudent(null)}
-                                className={`p-1.5 rounded-xl border text-left cursor-pointer transition-all duration-150 transform hover:-translate-y-0.5 hover:shadow-md relative ${
-                                  isPaid
-                                    ? "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700/80 hover:border-indigo-400 dark:hover:border-indigo-500"
-                                    : "bg-rose-50/80 dark:bg-rose-950/40 border-rose-200 dark:border-rose-900/60 hover:border-rose-400"
-                                }`}
-                              >
-                                {/* Dòng tên và trạng thái học phí */}
-                                <div className="flex items-center justify-between gap-1">
-                                  <span className="font-bold text-[11px] text-slate-900 dark:text-white truncate">
-                                    {student.name}
-                                  </span>
-                                  <span
-                                    className={`w-2 h-2 rounded-full shrink-0 shadow-2xs ${
-                                      isPaid ? "bg-emerald-500" : "bg-rose-500 ring-2 ring-rose-200"
-                                    }`}
-                                    title={isPaid ? "Đã hoàn thành học phí" : "Chưa đóng học phí"}
-                                  />
-                                </div>
-
-                                {/* Giờ học lệch / Bộ môn nếu có */}
-                                <div className="flex items-center justify-between gap-1 mt-0.5">
-                                  {timeDetail ? (
-                                    <span className="text-[9px] font-black text-amber-700 dark:text-amber-400 font-mono tracking-tight bg-amber-100/70 dark:bg-amber-950/60 px-1 py-0.2 rounded">
-                                      {timeDetail}
-                                    </span>
-                                  ) : (
-                                    <span className="text-[9px] text-slate-400 dark:text-slate-500 font-medium">
-                                      chuẩn ca
-                                    </span>
-                                  )}
-
-                                  {student.level_name && (
-                                    <span className="text-[8.5px] font-bold text-slate-500 dark:text-slate-400 truncate max-w-[60px]">
-                                      {student.level_name}
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                            );
-                          })
-                        )}
-                      </div>
-
-                      {/* Nút bấm Thêm nhanh vào ô */}
-                      <button
-                        type="button"
-                        onClick={() => onAddStudentToSlot?.(dayName, `${hour.replace("h", "")}:00`, tc.id)}
-                        className="opacity-0 group-hover:opacity-100 transition-all w-full mt-1.5 py-1 text-[10px] font-extrabold rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-indigo-600 hover:text-white text-slate-700 dark:text-slate-300 text-center flex items-center justify-center gap-1 shadow-2xs cursor-pointer active:scale-95"
-                      >
-                        <Plus className="w-3 h-3" />
-                        <span>Xếp học viên</span>
-                      </button>
-                    </div>
-                  );
-                })}
-
-                {/* Cột Học viên chưa gán giáo viên trong ca này */}
-                <div className="col-span-2 p-1.5 bg-amber-50/30 dark:bg-slate-900/40 flex flex-col justify-between">
-                  <div className="pb-1 mb-1 border-b border-amber-200/60 dark:border-slate-800 flex items-center justify-between text-[10px]">
-                    <span className="text-amber-800 dark:text-amber-400 font-bold">Chờ xếp GV</span>
-                    <span className="font-mono font-bold text-[9px] px-1 rounded bg-amber-100 dark:bg-amber-950 text-amber-900 dark:text-amber-200">
-                      {(hourCells["unassigned"] || []).length}
-                    </span>
-                  </div>
-
-                  <div className="space-y-1 flex-1 overflow-y-auto max-h-52 scrollbar-thin">
-                    {(hourCells["unassigned"] || [])
-                      .filter((e) => isStudentMatched(e.student) && isSubjectMatched(e.subjectName, e.student.subject_id))
-                      .map(({ student, timeDetail }) => (
-                        <div
-                          key={student.id}
-                          onClick={() => onSelectStudent(student)}
-                          className="p-1 rounded-lg border border-dashed border-amber-300 dark:border-amber-700/80 bg-amber-50/70 dark:bg-amber-950/40 text-[11px] font-bold text-amber-950 dark:text-amber-200 hover:bg-amber-100 transition cursor-pointer shadow-2xs"
-                        >
-                          <div className="truncate">{student.name}</div>
-                          {timeDetail && (
-                            <div className="text-[9px] text-amber-700 font-mono">({timeDetail})</div>
-                          )}
-                        </div>
-                      ))}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    );
-  };
+    return map;
+  }, [matrixData, allWeekHours]);
 
   return (
     <div className="space-y-4 font-sans animate-in fade-in duration-200">
-      {/* Thanh Chỉ Số Tổng Quan & Bộ Điều Khiển Thao Tác (KPIs Bar) */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {/* Tổng lượt học trong tuần */}
-        <div className="bg-white dark:bg-slate-900 p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
-            <Users className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Tổng Lượt Học / Tuần</div>
-            <div className="text-xl font-black text-slate-900 dark:text-white leading-tight">
-              {overallStats.totalSlots} <span className="text-xs font-normal text-slate-500">lượt</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Học phí đã hoàn thành */}
-        <div className="bg-white dark:bg-slate-900 p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
-            <CheckCircle2 className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Đã Đóng Phí</div>
-            <div className="text-xl font-black text-emerald-600 dark:text-emerald-400 leading-tight">
-              {overallStats.paidCount} <span className="text-xs font-normal text-slate-500">lượt</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Chưa đóng học phí */}
-        <div className="bg-white dark:bg-slate-900 p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
-            <AlertCircle className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Cần Đóng Phí</div>
-            <div className="text-xl font-black text-rose-600 dark:text-rose-400 leading-tight">
-              {overallStats.unpaidCount} <span className="text-xs font-normal text-slate-500">lượt</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Chưa phân công giáo viên */}
-        <div className="bg-white dark:bg-slate-900 p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
-            <UserCheck className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Chờ Xếp Giáo Viên</div>
-            <div className="text-xl font-black text-amber-600 dark:text-amber-400 leading-tight">
-              {overallStats.unassignedCount} <span className="text-xs font-normal text-slate-500">em</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Toolbar Điều Khiển & Bộ Lọc Nhanh */}
-      <div className="bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col lg:flex-row items-center justify-between gap-3">
-        {/* Left: 3 Chế độ xem Sơ đồ */}
-        <div className="flex items-center gap-2 w-full lg:w-auto">
-          <div className="p-1 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 flex items-center text-xs font-bold w-full sm:w-auto">
+      {/* =========================================================================
+          THANH CÔNG CỤ 2 TẦNG (2-TIER TOOLBAR)
+          ========================================================================= */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-3xl p-3 shadow-xs space-y-2.5">
+        {/* TẦNG 1: Chuyển Chế Độ Xem + Tóm Tắt KPI + Nút Thao Tác Nhanh */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+          {/* Nhóm nút chuyển chế độ xem */}
+          <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-800/80 rounded-2xl text-xs font-bold w-full sm:w-auto">
             <button
               type="button"
-              onClick={() => setViewMode("week_horizontal")}
+              onClick={() => setViewMode("week_grid")}
               className={`flex-1 sm:flex-none px-3.5 py-1.5 rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer ${
-                viewMode === "week_horizontal"
+                viewMode === "week_grid"
                   ? "bg-indigo-600 text-white shadow-xs"
-                  : "text-slate-600 dark:text-slate-300 hover:text-slate-900"
+                  : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
               }`}
             >
-              <Columns className="w-3.5 h-3.5" />
-              <span>Toàn Tuần (Dàn Ngang)</span>
+              <LayoutGrid className="w-3.5 h-3.5" />
+              <span>Lưới 7 Ngày Tuần</span>
             </button>
 
             <button
@@ -638,10 +356,10 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
               className={`flex-1 sm:flex-none px-3.5 py-1.5 rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer ${
                 viewMode === "single_day"
                   ? "bg-indigo-600 text-white shadow-xs"
-                  : "text-slate-600 dark:text-slate-300 hover:text-slate-900"
+                  : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
               }`}
             >
-              <Calendar className="w-3.5 h-3.5" />
+              <Columns className="w-3.5 h-3.5" />
               <span>Xem Theo Thứ</span>
             </button>
 
@@ -651,23 +369,69 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
               className={`flex-1 sm:flex-none px-3.5 py-1.5 rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer ${
                 viewMode === "teacher_centric"
                   ? "bg-indigo-600 text-white shadow-xs"
-                  : "text-slate-600 dark:text-slate-300 hover:text-slate-900"
+                  : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
               }`}
             >
               <GraduationCap className="w-3.5 h-3.5" />
               <span>Theo Giáo Viên</span>
             </button>
           </div>
+
+          {/* Dải tóm tắt KPI toàn tuần tinh tế */}
+          <div className="hidden md:flex items-center gap-3 px-3 py-1.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-slate-800 text-xs">
+            <span className="font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1">
+              <Users className="w-3.5 h-3.5 text-indigo-500" />
+              <strong>{overallStats.totalSlots}</strong> lượt học
+            </span>
+            <span className="text-slate-300 dark:text-slate-700">•</span>
+            <span className="font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              <strong>{overallStats.paidCount}</strong> đã đóng
+            </span>
+            {overallStats.unpaidCount > 0 && (
+              <>
+                <span className="text-slate-300 dark:text-slate-700">•</span>
+                <span className="font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                  <AlertCircle className="w-3.5 h-3.5" />
+                  <strong>{overallStats.unpaidCount}</strong> chưa đóng
+                </span>
+              </>
+            )}
+          </div>
+
+          {/* Nút Tư Vấn Ca Trống & In Lịch */}
+          <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+            {onOpenConsultation && (
+              <button
+                type="button"
+                onClick={onOpenConsultation}
+                className="px-3 py-1.5 text-xs font-bold rounded-xl border border-amber-200 dark:border-amber-800/80 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 text-amber-900 dark:text-amber-300 flex items-center gap-1.5 transition cursor-pointer active:scale-95 shadow-2xs"
+                title="Mở bảng tra cứu chỗ trống và sao chép mẫu tin nhắn Zalo tư vấn phụ huynh"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                <span>Tư Vấn Ca Trống</span>
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="p-1.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition cursor-pointer"
+              title="In sơ đồ lớp học ra máy in hoặc lưu PDF"
+            >
+              <Printer className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
-        {/* Right: Tìm kiếm, Bộ lọc môn học, Học phí, In sơ đồ */}
-        <div className="flex items-center gap-2 w-full lg:w-auto flex-wrap sm:flex-nowrap">
-          {/* Ô tìm kiếm thông minh */}
-          <div className="relative flex-1 sm:w-52">
+        {/* TẦNG 2: Bộ Lọc & Tìm Kiếm */}
+        <div className="flex items-center gap-2 flex-wrap text-xs pt-1 border-t border-slate-100 dark:border-slate-800">
+          {/* Ô Tìm Kiếm Nhanh */}
+          <div className="relative flex-1 min-w-[200px] max-w-sm">
             <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
             <input
               type="text"
-              placeholder="Tìm tên, SĐT học viên..."
+              placeholder="Tìm tên, SĐT, môn học, giáo viên..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-8 pr-3 py-1.5 text-xs font-semibold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"
@@ -688,7 +452,7 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
             ))}
           </select>
 
-          {/* Lọc Trạng Thái Học Phí */}
+          {/* Lọc Học Phí */}
           <select
             value={selectedPaymentStatusFilter}
             onChange={(e) => setSelectedPaymentStatusFilter(e.target.value as any)}
@@ -715,76 +479,376 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
             </select>
           )}
 
-          {/* Nút Kết Luận Ca Trống & Tư Vấn Nhanh */}
-          {onOpenConsultation && (
-            <button
-              type="button"
-              onClick={onOpenConsultation}
-              className="px-3.5 py-1.5 text-xs font-black rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white shadow-xs flex items-center gap-1.5 transition cursor-pointer active:scale-95 shrink-0"
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>Kết Luận Ca Trống</span>
-            </button>
-          )}
-
-          {/* Nút In Sơ Đồ Lớp Học */}
-          <button
-            type="button"
-            onClick={() => window.print()}
-            className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition cursor-pointer"
-            title="In sơ đồ lớp học ra máy in hoặc lưu PDF"
-          >
-            <Printer className="w-4 h-4" />
-          </button>
+          {/* Checkbox Ẩn Khung Giờ Trống */}
+          <label className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 cursor-pointer select-none font-semibold hover:bg-slate-100">
+            <input
+              type="checkbox"
+              checked={hideEmptyHours}
+              onChange={(e) => setHideEmptyHours(e.target.checked)}
+              className="rounded text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5"
+            />
+            <span>Ẩn ca trống</span>
+          </label>
         </div>
       </div>
 
-      {/* CHẾ ĐỘ 1: DÀN NGANG TOÀN TUẦN (Thẩm mỹ & chuẩn xác như demo Google Sheets) */}
-      {viewMode === "week_horizontal" && (
-        <div className="overflow-x-auto pb-6 scrollbar-thin">
-          <div className="flex items-start gap-4 min-w-max">
-            {DAYS_OF_WEEK.map((d) => renderDayColumn(d, false))}
+      {/* =========================================================================
+          CHẾ ĐỘ 1: MA TRẬN LƯỚI 7 NGÀY TOÀN TUẦN (HERO TIMETABLE GRID)
+          - 7 Cột chia đều nhau, vừa vặn 100% màn hình, không cuộn ngang trên Desktop
+          - Cột giờ tinh gọn nằm ở ngoài cùng bên trái, các hàng thẳng hàng nhau 100%
+          - Chip rộng, không cắt chữ, ô > 3 học sinh hiển thị "+N nữa" mở Drawer
+          ========================================================================= */}
+      {viewMode === "week_grid" && (
+        <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-3xl overflow-hidden shadow-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse text-left table-fixed min-w-[960px]">
+              {/* HEADER 7 NGÀY */}
+              <thead>
+                <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/40">
+                  {/* Cột Giờ Bên Trái */}
+                  <th className="w-16 p-2.5 text-center text-[11px] font-black uppercase text-slate-400 dark:text-slate-500 border-r border-slate-200 dark:border-slate-800">
+                    GIỜ
+                  </th>
+
+                  {/* 7 Cột Ngày */}
+                  {DAYS_OF_WEEK.map((dayName) => {
+                    const isToday = dayName === todayName;
+                    const isWeekend = dayName === "Thứ 7" || dayName === "Chủ Nhật";
+                    const stats = dayStatsMap[dayName] || { total: 0, unpaid: 0 };
+
+                    return (
+                      <th
+                        key={dayName}
+                        className={`p-2.5 border-r border-slate-200 dark:border-slate-800 last:border-r-0 transition-colors ${
+                          isToday
+                            ? "bg-indigo-50/80 dark:bg-indigo-950/40 text-indigo-950 dark:text-indigo-200"
+                            : isWeekend
+                            ? "bg-amber-50/50 dark:bg-amber-950/20 text-slate-800 dark:text-slate-200"
+                            : "text-slate-800 dark:text-slate-200"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-1">
+                          <div className="flex items-center gap-1.5">
+                            <span
+                              className={`w-6 h-6 rounded-lg flex items-center justify-center font-black text-xs ${
+                                isToday
+                                  ? "bg-indigo-600 text-white"
+                                  : isWeekend
+                                  ? "bg-amber-500 text-white"
+                                  : "bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200"
+                              }`}
+                            >
+                              {dayName.replace("Thứ ", "T")}
+                            </span>
+                            <div>
+                              <div className="font-extrabold text-xs text-slate-900 dark:text-white flex items-center gap-1">
+                                <span>{dayName}</span>
+                                {isToday && (
+                                  <span className="text-[9px] font-black px-1.5 py-0.2 rounded bg-indigo-600 text-white leading-tight">
+                                    Hôm nay
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
+                                <span>{stats.total} lượt</span>
+                                {stats.unpaid > 0 && (
+                                  <span className="text-amber-600 dark:text-amber-400 font-semibold ml-1">
+                                    • {stats.unpaid} chưa đóng
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => onAddStudentToSlot?.(dayName, isWeekend ? "09:00" : "18:00")}
+                            className="w-6 h-6 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-indigo-50 dark:hover:bg-slate-800 hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center justify-center text-slate-400 transition cursor-pointer"
+                            title={`Thêm nhanh học sinh vào ${dayName}`}
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </th>
+                    );
+                  })}
+                </tr>
+              </thead>
+
+              {/* BODY: CÁC KHUNG GIỜ THẲNG HÀNG */}
+              <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+                {allWeekHours.map((hour) => {
+                  const hourLabel = formatHourLabel(hour);
+
+                  return (
+                    <tr key={hour} className="hover:bg-slate-50/20 dark:hover:bg-slate-800/20 transition-colors">
+                      {/* Cột Mốc Giờ Tinh Gọn (56-64px) */}
+                      <td className="w-16 p-2 text-center align-top bg-slate-50/60 dark:bg-slate-950/30 border-r border-slate-200 dark:border-slate-800 select-none">
+                        <div className="font-mono font-black text-xs text-slate-700 dark:text-slate-300">
+                          {hourLabel}
+                        </div>
+                      </td>
+
+                      {/* 7 Cột Ngày Trong Khung Giờ Này */}
+                      {DAYS_OF_WEEK.map((dayName) => {
+                        const isToday = dayName === todayName;
+                        const entries = getSlotFilteredEntries(dayName, hour);
+                        const totalInSlot = entries.length;
+
+                        // Chỉ hiển thị tối đa 3 thẻ, phần còn lại gom thành nút "+N học viên nữa"
+                        const visibleEntries = entries.slice(0, 3);
+                        const remainingCount = totalInSlot - 3;
+
+                        return (
+                          <td
+                            key={dayName}
+                            className={`p-1.5 align-top border-r border-slate-200 dark:border-slate-800 last:border-r-0 min-h-[110px] transition-colors relative group ${
+                              isToday ? "bg-indigo-50/15 dark:bg-indigo-950/10" : ""
+                            }`}
+                          >
+                            {/* Danh sách thẻ học sinh */}
+                            <div className="space-y-1.5 min-h-[95px] flex flex-col justify-start">
+                              {totalInSlot === 0 ? (
+                                /* Ô Trống Sạch Sẽ */
+                                <div
+                                  onClick={() => onAddStudentToSlot?.(dayName, hourLabel)}
+                                  className="h-full min-h-[90px] rounded-xl flex flex-col items-center justify-center text-slate-300 dark:text-slate-700 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50/40 dark:hover:bg-slate-800/40 transition cursor-pointer border border-transparent hover:border-dashed hover:border-indigo-300 dark:hover:border-indigo-700/60 group/empty"
+                                >
+                                  <Plus className="w-4 h-4 opacity-0 group-hover/empty:opacity-100 transition-opacity transform group-hover/empty:scale-110" />
+                                  <span className="text-[10px] font-bold opacity-0 group-hover/empty:opacity-100 transition-opacity mt-0.5">
+                                    Thêm vào ca
+                                  </span>
+                                </div>
+                              ) : (
+                                <>
+                                  {visibleEntries.map(({ student, timeDetail, subjectName, teacherName }) => {
+                                    const isPaid = student.payment_status === "paid";
+                                    const subBadge = getSubjectBadge(subjectName);
+
+                                    return (
+                                      <div
+                                        key={student.id}
+                                        onClick={() => onSelectStudent(student)}
+                                        onMouseEnter={(e) => {
+                                          const rect = e.currentTarget.getBoundingClientRect();
+                                          setHoveredStudent({
+                                            student,
+                                            timeDetail,
+                                            subjectName,
+                                            x: rect.right + 10,
+                                            y: rect.top,
+                                          });
+                                        }}
+                                        onMouseLeave={() => setHoveredStudent(null)}
+                                        className={`p-1.5 rounded-xl border text-left cursor-pointer transition-all duration-150 transform hover:-translate-y-0.5 hover:shadow-md relative ${
+                                          isPaid
+                                            ? "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700/80 hover:border-indigo-400"
+                                            : "bg-rose-50/70 dark:bg-rose-950/30 border-rose-200 dark:border-rose-900/60 hover:border-rose-400"
+                                        }`}
+                                      >
+                                        {/* Dòng 1: Tên học sinh và chấm trạng thái học phí */}
+                                        <div className="flex items-center justify-between gap-1">
+                                          <span className="font-bold text-[11px] text-slate-900 dark:text-white truncate" title={student.name}>
+                                            {student.name}
+                                          </span>
+                                          <span
+                                            className={`w-2 h-2 rounded-full shrink-0 ${
+                                              isPaid ? "bg-emerald-500" : "bg-rose-500 ring-2 ring-rose-200 dark:ring-rose-900"
+                                            }`}
+                                            title={isPaid ? "Đã đóng học phí" : "Chưa đóng học phí"}
+                                          />
+                                        </div>
+
+                                        {/* Dòng 2: Môn học + Giờ học lệch / Giáo viên */}
+                                        <div className="flex items-center justify-between gap-1 mt-0.5 text-[9px]">
+                                          <span
+                                            className={`font-extrabold uppercase px-1 rounded-sm ${subBadge.bg} ${subBadge.text} truncate max-w-[65px]`}
+                                          >
+                                            {subjectName}
+                                          </span>
+
+                                          {timeDetail ? (
+                                            <span className="font-mono font-bold text-amber-700 dark:text-amber-400 bg-amber-100/70 dark:bg-amber-950/60 px-1 rounded">
+                                              {timeDetail}
+                                            </span>
+                                          ) : teacherName ? (
+                                            <span className="text-slate-500 dark:text-slate-400 truncate max-w-[65px]">
+                                              {teacherName}
+                                            </span>
+                                          ) : null}
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+
+                                  {/* Nút Thu Gọn Xem Thêm Khi Ô Có Quá 3 Học Sinh */}
+                                  {remainingCount > 0 && (
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setDrawerSlot({
+                                          day: dayName,
+                                          hour,
+                                          entries,
+                                        })
+                                      }
+                                      className="w-full py-1 px-2 rounded-lg bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/50 dark:hover:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 font-extrabold text-[10px] text-center transition cursor-pointer border border-indigo-200/70 dark:border-indigo-800 flex items-center justify-center gap-1 active:scale-95 shadow-2xs"
+                                    >
+                                      <span>+{remainingCount} học viên nữa</span>
+                                      <ChevronRight className="w-3 h-3" />
+                                    </button>
+                                  )}
+                                </>
+                              )}
+                            </div>
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
 
-      {/* CHẾ ĐỘ 2: XEM THEO TỪNG THỨ (Rất gọn, tối ưu trên laptop & máy tính bảng) */}
+      {/* =========================================================================
+          CHẾ ĐỘ 2: XEM CHI TIẾT THEO TỪNG THỨ (SINGLE DAY VIEW)
+          ========================================================================= */}
       {viewMode === "single_day" && (
         <div className="space-y-4">
           {/* Day selection tabs */}
           <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
             {DAYS_OF_WEEK.map((d) => {
               const isActive = activeDay === d;
-              const isWeekend = d === "Thứ 7" || d === "Chủ Nhật";
+              const isToday = d === todayName;
+              const stats = dayStatsMap[d] || { total: 0, unpaid: 0 };
 
               return (
                 <button
                   key={d}
                   type="button"
                   onClick={() => setActiveDay(d)}
-                  className={`px-4 py-2.5 rounded-2xl text-xs font-extrabold transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
+                  className={`px-4 py-2.5 rounded-2xl text-xs font-extrabold transition-all whitespace-nowrap cursor-pointer flex items-center gap-2 ${
                     isActive
-                      ? isWeekend
-                        ? "bg-amber-500 text-white shadow-md shadow-amber-500/25 scale-105"
-                        : "bg-indigo-600 text-white shadow-md shadow-indigo-600/25 scale-105"
+                      ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/25 scale-102"
                       : "bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/60"
                   }`}
                 >
-                  <Calendar className="w-3.5 h-3.5" />
                   <span>{d}</span>
+                  {isToday && (
+                    <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-400 text-slate-900 font-black">
+                      Hôm nay
+                    </span>
+                  )}
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${isActive ? "bg-white/20 text-white" : "bg-slate-100 dark:bg-slate-700 text-slate-500"}`}>
+                    {stats.total}
+                  </span>
                 </button>
               );
             })}
           </div>
 
-          {/* Hiển thị cột ngày đang chọn ở kích thước rộng đầy đủ */}
-          <div className="max-w-4xl mx-auto">
-            {renderDayColumn(activeDay, true)}
+          {/* Chi tiết ca học trong ngày đã chọn */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-3xl p-4 shadow-sm space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <Calendar className="w-5 h-5 text-indigo-600" />
+                <h3 className="font-extrabold text-base text-slate-900 dark:text-white">
+                  Lịch học chi tiết {activeDay}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => onAddStudentToSlot?.(activeDay, "18:00")}
+                className="px-3.5 py-1.5 text-xs font-bold rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs flex items-center gap-1.5 cursor-pointer active:scale-95"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Thêm học viên vào {activeDay}</span>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+              {allWeekHours.map((hour) => {
+                const hourLabel = formatHourLabel(hour);
+                const entries = getSlotFilteredEntries(activeDay, hour);
+
+                return (
+                  <div
+                    key={hour}
+                    className="border border-slate-200 dark:border-slate-800 rounded-2xl p-3 bg-slate-50/50 dark:bg-slate-950/30 flex flex-col justify-between space-y-2 hover:border-indigo-300 transition"
+                  >
+                    <div className="flex items-center justify-between border-b border-slate-200/80 dark:border-slate-800 pb-1.5">
+                      <span className="font-mono font-black text-sm text-indigo-600 dark:text-indigo-400">
+                        {hourLabel}
+                      </span>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                        {entries.length} học viên
+                      </span>
+                    </div>
+
+                    <div className="space-y-1.5 flex-1 max-h-60 overflow-y-auto scrollbar-thin pr-0.5">
+                      {entries.length === 0 ? (
+                        <div className="py-6 text-center text-xs text-slate-400 italic">
+                          Chưa có học viên nào
+                        </div>
+                      ) : (
+                        entries.map(({ student, timeDetail, subjectName, teacherName }) => {
+                          const isPaid = student.payment_status === "paid";
+                          const subBadge = getSubjectBadge(subjectName);
+
+                          return (
+                            <div
+                              key={student.id}
+                              onClick={() => onSelectStudent(student)}
+                              className={`p-2 rounded-xl border text-left cursor-pointer transition ${
+                                isPaid
+                                  ? "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-indigo-400"
+                                  : "bg-rose-50 dark:bg-rose-950/40 border-rose-200 hover:border-rose-400"
+                              }`}
+                            >
+                              <div className="flex items-center justify-between gap-1">
+                                <span className="font-bold text-xs text-slate-900 dark:text-white truncate">
+                                  {student.name}
+                                </span>
+                                <span
+                                  className={`w-2 h-2 rounded-full shrink-0 ${
+                                    isPaid ? "bg-emerald-500" : "bg-rose-500"
+                                  }`}
+                                />
+                              </div>
+                              <div className="flex items-center justify-between gap-1 text-[10px] text-slate-500 mt-1">
+                                <span className={`font-bold px-1 rounded ${subBadge.bg} ${subBadge.text}`}>
+                                  {subjectName}
+                                </span>
+                                <span>{teacherName || "Chưa gán GV"}</span>
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => onAddStudentToSlot?.(activeDay, hourLabel)}
+                      className="w-full py-1 text-xs font-bold rounded-lg border border-dashed border-slate-300 dark:border-slate-700 hover:border-indigo-400 hover:text-indigo-600 text-slate-500 text-center transition cursor-pointer flex items-center justify-center gap-1"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Thêm vào ca {hourLabel}</span>
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
       )}
 
-      {/* CHẾ ĐỘ 3: THEO DÕI THEO TỪNG GIÁO VIÊN (Teacher-Centric View) */}
+      {/* =========================================================================
+          CHẾ ĐỘ 3: THEO DÕI THEO GIÁO VIÊN (TEACHER-CENTRIC VIEW)
+          ========================================================================= */}
       {viewMode === "teacher_centric" && (
         <div className="space-y-4">
           {/* Tab chọn Giáo Viên */}
@@ -822,11 +886,9 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
             {teachers
               .filter((t) => selectedTeacherTab === "all" || t.id === selectedTeacherTab)
               .map((tc) => {
-                // Đếm tổng số học sinh phụ trách của giáo viên này
                 let teacherTotalStudents = 0;
                 for (const d of DAYS_OF_WEEK) {
-                  const hours = d === "Thứ 7" || d === "Chủ Nhật" ? WEEKEND_HOURS : DEFAULT_HOURS;
-                  for (const h of hours) {
+                  for (const h of allWeekHours) {
                     if (matrixData[d]?.[h]?.[tc.id]) {
                       teacherTotalStudents += matrixData[d][h][tc.id].length;
                     }
@@ -838,7 +900,6 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
                     key={tc.id}
                     className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-3xl p-4 shadow-sm hover:shadow-md transition space-y-3"
                   >
-                    {/* Header Thầy Cô */}
                     <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
                       <div>
                         <div className="font-black text-sm text-slate-900 dark:text-white flex items-center gap-1.5">
@@ -859,11 +920,9 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
                       </div>
                     </div>
 
-                    {/* Danh sách các ca có học sinh của Thầy Cô */}
                     <div className="space-y-2 max-h-72 overflow-y-auto scrollbar-thin pr-1">
                       {DAYS_OF_WEEK.map((d) => {
-                        const hours = d === "Thứ 7" || d === "Chủ Nhật" ? WEEKEND_HOURS : DEFAULT_HOURS;
-                        const dayActiveHours = hours.filter(
+                        const dayActiveHours = allWeekHours.filter(
                           (h) => (matrixData[d]?.[h]?.[tc.id] || []).length > 0
                         );
 
@@ -884,7 +943,7 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
                                 return (
                                   <div key={h} className="text-[11px] bg-white dark:bg-slate-800 p-2 rounded-xl border border-slate-200/80 dark:border-slate-700">
                                     <div className="flex items-center justify-between font-bold text-indigo-600 dark:text-indigo-400 mb-1">
-                                      <span>Ca {h}</span>
+                                      <span>Ca {formatHourLabel(h)}</span>
                                       <span className="text-[10px] text-slate-400">
                                         {studentsInSlot.length}/{tc.max_students || 10} học viên
                                       </span>
@@ -921,7 +980,142 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
         </div>
       )}
 
-      {/* Popover Hover Chi Tiết Học Viên (Nổi lên khi di chuột vào card học sinh) */}
+      {/* =========================================================================
+          SIDE DRAWER: XEM TOÀN BỘ DANH SÁCH HỌC VIÊN TRONG Ô CA HỌC ĐÔNG
+          ========================================================================= */}
+      {drawerSlot && (
+        <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="w-full max-w-md bg-white dark:bg-slate-900 h-full shadow-2xl p-6 flex flex-col border-l border-slate-200 dark:border-slate-800 animate-in slide-in-from-right duration-200">
+            {/* Header Drawer */}
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-lg font-black text-slate-900 dark:text-white">
+                    {drawerSlot.day} · {formatHourLabel(drawerSlot.hour)}
+                  </h3>
+                  <span className="px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 font-extrabold text-xs">
+                    {drawerSlot.entries.length} học viên
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Danh sách phân bổ chi tiết các học viên trong ca học này
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setDrawerSlot(null);
+                  setDrawerSearch("");
+                }}
+                className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-500 hover:text-slate-800 dark:hover:text-white flex items-center justify-center transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Thanh Tìm Kiếm Trong Drawer */}
+            <div className="py-3">
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+                <input
+                  type="text"
+                  placeholder="Lọc học viên trong ca này..."
+                  value={drawerSearch}
+                  onChange={(e) => setDrawerSearch(e.target.value)}
+                  className="w-full pl-8 pr-3 py-1.5 text-xs font-semibold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+            </div>
+
+            {/* Danh Sách Học Viên Trong Drawer */}
+            <div className="flex-1 overflow-y-auto space-y-2 pr-1 scrollbar-thin">
+              {drawerSlot.entries
+                .filter(({ student, subjectName, teacherName }) => {
+                  if (!drawerSearch.trim()) return true;
+                  const q = drawerSearch.toLowerCase();
+                  return (
+                    student.name.toLowerCase().includes(q) ||
+                    (student.phone && student.phone.includes(q)) ||
+                    (subjectName && subjectName.toLowerCase().includes(q)) ||
+                    (teacherName && teacherName.toLowerCase().includes(q))
+                  );
+                })
+                .map(({ student, timeDetail, subjectName, teacherName }) => {
+                  const isPaid = student.payment_status === "paid";
+                  const subBadge = getSubjectBadge(subjectName);
+
+                  return (
+                    <div
+                      key={student.id}
+                      onClick={() => {
+                        onSelectStudent(student);
+                        setDrawerSlot(null);
+                      }}
+                      className={`p-3 rounded-2xl border text-left cursor-pointer transition hover:shadow-md ${
+                        isPaid
+                          ? "bg-slate-50/60 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 hover:border-indigo-400"
+                          : "bg-rose-50/60 dark:bg-rose-950/30 border-rose-200 dark:border-rose-900/60 hover:border-rose-400"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-extrabold text-sm text-slate-900 dark:text-white">
+                          {student.name}
+                        </span>
+                        <span
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                            isPaid
+                              ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
+                              : "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300"
+                          }`}
+                        >
+                          {isPaid ? "Đã đóng phí" : "Chưa đóng phí"}
+                        </span>
+                      </div>
+
+                      <div className="mt-2 flex items-center justify-between text-xs text-slate-500">
+                        <span className={`font-bold px-1.5 py-0.5 rounded ${subBadge.bg} ${subBadge.text}`}>
+                          {subjectName}
+                        </span>
+                        <span className="text-slate-600 dark:text-slate-300 font-semibold">
+                          GV: {teacherName || "Chưa phân công"}
+                        </span>
+                      </div>
+
+                      <div className="mt-1.5 flex items-center justify-between text-[11px] text-slate-400">
+                        <span>SĐT: {student.phone || "---"}</span>
+                        {timeDetail && (
+                          <span className="font-mono font-bold text-amber-600">
+                            {timeDetail}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+
+            {/* Nút Thêm Nhanh Vào Ca Này */}
+            <div className="pt-3 border-t border-slate-100 dark:border-slate-800 mt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  onAddStudentToSlot?.(drawerSlot.day, formatHourLabel(drawerSlot.hour));
+                  setDrawerSlot(null);
+                }}
+                className="w-full py-2.5 text-xs font-black rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white shadow-md transition flex items-center justify-center gap-1.5 active:scale-98"
+              >
+                <Plus className="w-4 h-4 stroke-[3]" />
+                <span>Thêm học viên vào ca này</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================================
+          POPOVER HOVER CHI TIẾT HỌC VIÊN
+          ========================================================================= */}
       {hoveredStudent && (
         <div
           className="fixed z-50 bg-slate-900/95 dark:bg-slate-800/95 text-white p-3 rounded-2xl shadow-2xl border border-slate-700 backdrop-blur-md pointer-events-none w-64 animate-in fade-in zoom-in-95 duration-150"
@@ -955,7 +1149,7 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
               <span>Môn: {hoveredStudent.subjectName} ({hoveredStudent.student.level_name || "Tiêu chuẩn"})</span>
             </div>
             {hoveredStudent.timeDetail && (
-              <div className="flex items-center gap-1.5 text-amber-300">
+              <div className="flex items-center gap-1.5 text-amber-300 font-mono">
                 <Clock className="w-3.5 h-3.5" />
                 <span>Giờ học riêng: {hoveredStudent.timeDetail}</span>
               </div>

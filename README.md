@@ -36,12 +36,14 @@
 
 ---
 
-## 📖 TÀI LIỆU CHI TIẾT
-Vui lòng tham khảo tệp [DOCUMENTATION.md](./DOCUMENTATION.md) để xem chi tiết đầy đủ 100% về:
-- Đặc tả nghiệp vụ từng phân hệ.
-- Danh sách toàn bộ các API endpoint và tham số.
-- Cấu trúc cơ sở dữ liệu SQLite.
-- Quy tắc đối soát thanh toán và kiểm soát sĩ số.
+## 📖 HỆ THỐNG TÀI LIỆU KỸ THUẬT & HƯỚNG DẪN AI AGENT
+Toàn bộ tài liệu kỹ thuật chuyên sâu được quy hoạch tại thư mục **`docs/`**:
+- **Bản đồ điều hướng toàn diện:** 👉 [docs/INDEX.md](./docs/INDEX.md) (Quy định chi tiết việc nào đọc doc nào).
+- **Điều phối AI Subagents:** 👉 [AGENTS.md](./AGENTS.md) (Hướng dẫn 13 subagents và 5 luồng phát triển).
+- **Đặc tả nghiệp vụ 100%:** 👉 [docs/DOCUMENTATION.md](./docs/DOCUMENTATION.md).
+- **Quy tắc an toàn Git & Database:** 👉 [docs/GIT_WORKFLOW_RULES.md](./docs/GIT_WORKFLOW_RULES.md).
+- **Kiến trúc hệ thống & Quyết định (ADR):** 👉 [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) & [docs/DECISIONS.md](./docs/DECISIONS.md).
+- **Cơ sở dữ liệu SQLite & API:** 👉 [docs/DATABASE.md](./docs/DATABASE.md) & [docs/API_REFERENCE.md](./docs/API_REFERENCE.md).
 
 ---
 

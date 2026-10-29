@@ -1095,14 +1095,14 @@ export default function Dashboard() {
                 <button
                   type="button"
                   onClick={() => setIsAvailabilityModalOpen(true)}
-                  className="text-xs font-black px-4 py-2 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white shadow-md shadow-amber-500/25 flex items-center gap-2 transition cursor-pointer active:scale-95"
+                  className="text-xs font-bold px-3 py-1.5 rounded-xl border border-amber-200 dark:border-amber-800/80 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 text-amber-900 dark:text-amber-300 flex items-center gap-1.5 transition cursor-pointer active:scale-95 shadow-2xs"
                 >
-                  <Sparkles className="w-4 h-4" />
-                  <span>⚡ Kết Luận Ca Trống & Tư Vấn Nhanh</span>
+                  <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                  <span>⚡ Tư Vấn Ca Trống</span>
                 </button>
-                <span className="text-xs font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 hidden sm:inline-flex items-center gap-1.5">
+                <span className="text-xs font-medium text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/60 px-3 py-1.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 hidden sm:inline-flex items-center gap-1.5">
                   <CalendarCheck className="w-3.5 h-3.5 text-indigo-500" />
-                  <span>Phân bổ tự động theo Thứ (T2-CN), Ca giờ và Thầy Cô</span>
+                  <span>Lưới 7 ngày toàn tuần đồng bộ, nhấn vào ô trống để thêm nhanh</span>
                 </span>
               </div>
             )}
