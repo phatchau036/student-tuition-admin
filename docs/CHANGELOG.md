@@ -6,6 +6,26 @@
 
 ## 1. LỊCH SỬ PHIÊN BẢN (CHANGELOG)
 
+### [v2.8.1] - 2026-10-30
+- **⭐ TỰ ĐỘNG CỘNG PHỤ THU LEVEL VÀO GÓI HỌC PHÍ & BẢNG KÊ CẤU THÀNH:**
+  - Khắc phục triệt để lỗi học phí không tự cộng tiền phụ thu level khi học sinh chọn Gói Học Phí (`tuition_package_id`): Áp dụng chuẩn hóa công thức `Học phí = (Gói học phí + Phụ thu level) × (1 - Chiết khấu %)` trên toàn bộ hệ thống API (`/api/students`, `/api/parent`, `/api/payments`, `/api/reconciliation/summary`).
+  - **Bảng kê cấu thành học phí minh bạch (`StudentDetailModal.tsx`):** Hiển thị chi tiết từng khoản cấu thành tiền học: Học phí gói + Phụ thu level - Chiết khấu % + Điều chỉnh tháng + Nợ cũ tích lũy = Tổng thực thu cần đóng.
+  - **Diễn giải công thức học phí trên Bảng học sinh (`Dashboard.tsx`):** Cột Học phí hiển thị số tiền chính xác kèm dòng nhãn công thức trực quan (ví dụ `+ 200.000 đ level`), click trực tiếp vào số tiền để mở popup bảng kê chi tiết.
+  - **Đồng bộ hóa tin nhắn Zalo & Cổng phụ huynh:** Tự động liệt kê rõ học phí gói, phụ thu level và ưu đãi trong tin nhắn Zalo nhắc phí (`ZaloReminderModal.tsx`) và trên hóa đơn Cổng Phụ Huynh (`ParentPortal.tsx`).
+
+- **⭐ SẮP XẾP THỨ TỰ LEVEL LINH HOẠT & SORT CỘT GIỐNG GOOGLE SHEETS:**
+  - **Kéo thả (Drag & Drop) & Nút Lên/Xuống trong Cài Đặt (`SettingsModal.tsx`):** Cho phép admin kéo thả hoặc bấm nút `↑`/`↓` để sắp xếp thứ tự ưu tiên các Level (ví dụ: *Grade 1 trước Grade 3, Grade 7, Cơ bản lên đầu...*), tự động lưu trường `sort_order` vào CSDL.
+  - **Sort cột Header chuẩn Google Sheets (`Dashboard.tsx`):** Bấm trực tiếp vào tiêu đề cột `LEVEL & PHỤ THU` để sort danh sách học sinh theo đúng thứ tự level đã thiết lập trong Cài đặt; hỗ trợ sort 2 chiều cho Tên học sinh, Trạng thái, Giáo viên và Mức học phí.
+
+- **⭐ DÁN ẢNH MINH HỌA (CTRL+V) TRONG GÓP Ý TPTEAM & QUY TRÌNH 3 BƯỚC NHẬN VIỆC:**
+  - **Hỗ trợ dán ảnh màn hình `Ctrl + V` trực tiếp (`AppInfoModal.tsx`):** Cho phép chụp màn hình lỗi và ấn `Ctrl + V` ngay trong ô góp ý để đính kèm ảnh (tự động nén canvas lưu dạng `images_json`), kèm nút chọn file từ máy, lưới thumbnail xem trước và Lightbox phóng to ảnh.
+  - **Quy trình xử lý nhiệm vụ 3 giai đoạn (Chưa làm ➔ Đang làm ➔ Đã làm) tại `/he-thong`:** Phân chia rõ ràng 3 tab nhiệm vụ kỹ thuật kèm số lượng đếm thời gian thực.
+  - **Quản lý đội ngũ & Cơ chế nhận việc tự chọn:** Nút bấm *Nhận nhiệm vụ* mở popup chọn mình là ai trong đội ngũ TpTeam; người phụ trách tự tick *Đã làm xong* kèm lời nhắn phản hồi lại cho trung tâm. Bổ sung bảng CSDL `system_team_members` và API `/api/system/team`.
+
+- **⭐ SỬA LỖI NHẬP TIỀN LẺ TRONG CHỈNH SỬA HỌC PHÍ RIÊNG:**
+  - Chuyển toàn bộ các ô nhập số tiền phụ thu/giảm trừ và học phí cuối cùng sang `step="any"` (`MonthlyTuitionModal.tsx`, `QuickAuditModal.tsx`, `SettingsModal.tsx`), loại bỏ lỗi cảnh báo đỏ của trình duyệt và cho phép nhập tự do mọi số tiền lẻ lẻ (35.000 đ, 9.562 đ...).
+  - Xóa bỏ số 0 thừa ở đầu khi bắt đầu gõ số tiền mới.
+
 ### [v2.8.0] - 2026-10-30
 - **⭐ HỆ THỐNG CÁC KIỂU LỊCH HỌC & MA TRẬN TỰ TÍNH THỜI LƯỢNG (Schedule Presets & Auto Matrix):**
   - **Chuẩn hóa duy nhất 1 hình thức quản lý lịch học:** Loại bỏ hoàn toàn Hình thức 1 (Theo tổng số tiếng / tuần nhập tay mù mờ), chuyển đổi 100% sang hình thức quản lý theo **Kiểu Lịch Học Cơ Sở & Ma Trận Thời Lượng**.

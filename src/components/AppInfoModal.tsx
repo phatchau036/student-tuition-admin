@@ -276,7 +276,7 @@ export const AppInfoModal: React.FC<AppInfoModalProps> = ({
                   Thông Tin Ứng Dụng & Trung Tâm Hỗ Trợ
                 </h2>
                 <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
-                  Phiên bản 2.6.0
+                  Phiên bản 2.8.1
                 </span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
@@ -458,25 +458,86 @@ export const AppInfoModal: React.FC<AppInfoModalProps> = ({
               </div>
 
               <div className="space-y-4">
-                {/* v2.6.0 */}
+                {/* v2.8.1 */}
                 <div className="p-5 rounded-2xl border-2 border-indigo-200 dark:border-indigo-900/60 bg-indigo-50/20 dark:bg-indigo-950/20 space-y-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <span className="px-2.5 py-1 rounded-xl text-xs font-black bg-indigo-600 text-white">
-                        v2.6.0 (Hiện tại)
+                        v2.8.1 (Hiện tại)
                       </span>
-                      <span className="text-xs font-bold text-slate-500">27/10/2026</span>
+                      <span className="text-xs font-bold text-slate-500">30/10/2026</span>
                     </div>
                     <span className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">
-                      Nhập/Xuất Excel & Bóc Tách Hóa Đơn & Đa Môn Học
+                      Tự Động Tính Phụ Thu & Sort Sheet & Paste Ảnh TpTeam
                     </span>
                   </div>
                   <ul className="text-xs text-slate-700 dark:text-slate-300 space-y-1.5 list-disc list-inside">
+                    <li><strong>Tự động cộng phụ thu Level vào Gói học phí:</strong> Áp dụng chuẩn hóa công thức tính học phí tự động đồng bộ trên toàn hệ thống API, Dashboard và Cổng phụ huynh.</li>
+                    <li><strong>Bảng kê cấu thành học phí chi tiết (Transparent Breakdown):</strong> Bấm vào học phí để xem bóc tách chi tiết từng khoản: Gói học phí + Phụ thu level - Chiết khấu % + Điều chỉnh tháng + Nợ cũ tích lũy.</li>
+                    <li><strong>Kéo thả & Nút Lên/Xuống sắp xếp thứ tự Level trong Cài đặt:</strong> Tự do di chuyển thứ tự ưu tiên các Level (Grade 1 trước Grade 7, Cơ bản lên đầu...).</li>
+                    <li><strong>Sắp xếp cột trên bảng giống Google Sheets:</strong> Bấm vào tiêu đề cột `LEVEL & PHỤ THU` để sắp xếp danh sách học sinh theo đúng thứ tự Level mong muốn.</li>
+                    <li><strong>Hỗ trợ Dán ảnh chụp màn hình (Ctrl+V) trong góp ý TpTeam:</strong> Chụp màn hình lỗi và ấn Ctrl+V trực tiếp vào nội dung góp ý, đính kèm nhiều ảnh kèm Lightbox phóng to.</li>
+                    <li><strong>Quy trình xử lý nhiệm vụ 3 giai đoạn (Chưa làm / Đang làm / Đã làm) tại /he-thong:</strong> Đội ngũ kỹ thuật TpTeam có thể bấm nhận việc chọn mình là ai và tự tick đã làm xong.</li>
+                    <li><strong>Hỗ trợ nhập mọi số tiền lẻ bất kỳ (step=&quot;any&quot;):</strong> Cho phép nhập tiền lẻ thoải mái khi điều chỉnh học phí riêng tháng hoặc đối soát.</li>
+                  </ul>
+                </div>
+
+                {/* v2.8.0 */}
+                <div className="p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-800/40 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="px-2.5 py-1 rounded-xl text-xs font-black bg-slate-200 text-slate-800 dark:bg-slate-800 dark:text-slate-200">
+                        v2.8.0
+                      </span>
+                      <span className="text-xs font-bold text-slate-500">30/10/2026</span>
+                    </div>
+                    <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                      Kiểu Lịch Học Cơ Sở & Ma Trận Tuần
+                    </span>
+                  </div>
+                  <ul className="text-xs text-slate-600 dark:text-slate-400 space-y-1.5 list-disc list-inside">
+                    <li><strong>Kiểu Lịch Học Cơ Sở (Schedule Presets):</strong> Quản lý các ca học cố định (Thứ chẵn 2-4-6, Thứ lẻ 3-5-7, Cuối tuần T7-CN) và tự động tính tổng số tiếng/tuần.</li>
+                    <li><strong>Huy hiệu lịch học trên danh sách học sinh:</strong> Hiển thị badge nhận diện kiểu lịch trực quan cho từng em.</li>
+                  </ul>
+                </div>
+
+                {/* v2.7.0 */}
+                <div className="p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-800/40 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="px-2.5 py-1 rounded-xl text-xs font-black bg-slate-200 text-slate-800 dark:bg-slate-800 dark:text-slate-200">
+                        v2.7.0
+                      </span>
+                      <span className="text-xs font-bold text-slate-500">29/10/2026</span>
+                    </div>
+                    <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                      Hệ Thống Ví Giờ Học (Hour Wallet)
+                    </span>
+                  </div>
+                  <ul className="text-xs text-slate-600 dark:text-slate-400 space-y-1.5 list-disc list-inside">
+                    <li><strong>Ví giờ học theo phút:</strong> Thay thế suất bù bằng số dư thời lượng phút thực tế, cấp giờ tự động khi đóng tiền và trừ giờ theo buổi điểm danh thật.</li>
+                    <li><strong>Sổ cái giao dịch minh bạch:</strong> Cho phép phụ huynh và trung tâm theo dõi chi tiết lịch sử cộng/trừ giờ học.</li>
+                  </ul>
+                </div>
+
+                {/* v2.6.0 */}
+                <div className="p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-800/40 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="px-2.5 py-1 rounded-xl text-xs font-black bg-slate-200 text-slate-800 dark:bg-slate-800 dark:text-slate-200">
+                        v2.6.0
+                      </span>
+                      <span className="text-xs font-bold text-slate-500">27/10/2026</span>
+                    </div>
+                    <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                      Nhập/Xuất Excel & Bóc Tách Hóa Đơn & Đa Môn Học
+                    </span>
+                  </div>
+                  <ul className="text-xs text-slate-600 dark:text-slate-400 space-y-1.5 list-disc list-inside">
                     <li><strong>Nhập Excel thông minh (Smart Column Mapping):</strong> Cho phép kéo thả trực tiếp file Excel bất kỳ của trung tâm, tự động nhận diện cột và đưa học viên vào hệ thống mà không cần sửa file mẫu.</li>
                     <li><strong>Xuất danh sách học viên ra Excel (.xlsx):</strong> Tự động xuất đầy đủ 19 cột nghiệp vụ kèm học phí, nợ cũ và bóc tách phát sinh chỉ với 1-click.</li>
                     <li><strong>Quản lý danh mục Bộ Môn linh hoạt:</strong> Tự do thiết lập các môn học (*Piano, Guitar, IELTS, Toán, Vẽ, Võ...*) để phù hợp với mọi mô hình cơ sở đào tạo.</li>
                     <li><strong>Bóc tách hóa đơn chi tiết (+ Phụ thu / - Giảm trừ):</strong> Cho phép thêm các khoản thu phát sinh (tiền sách, đồng phục) hoặc trừ tiền nghỉ lễ trên cả Dashboard, Cổng phụ huynh và tin nhắn Zalo Bot.</li>
-                    <li><strong>Tự động nhận diện thứ khi xếp học bù:</strong> Chọn ngày học bù sẽ tự tính ra thứ và chỉ hiển thị đúng các ca mở cửa có hoạt động trong ngày đó.</li>
                   </ul>
                 </div>
 
