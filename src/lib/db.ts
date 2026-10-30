@@ -326,6 +326,7 @@ export async function initDb() {
       content TEXT NOT NULL,
       status TEXT DEFAULT 'pending', -- pending | in_review | planned | completed
       admin_reply TEXT,
+      images_json TEXT DEFAULT '[]',
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
   `);
@@ -444,6 +445,7 @@ export async function initDb() {
   try { await db.execute("ALTER TABLE tuition_packages ADD COLUMN discount_type TEXT DEFAULT 'none'"); } catch {}
   try { await db.execute("ALTER TABLE tuition_packages ADD COLUMN discount_value INTEGER DEFAULT 0"); } catch {}
   try { await db.execute("ALTER TABLE tuition_packages ADD COLUMN benefits TEXT DEFAULT ''"); } catch {}
+  try { await db.execute("ALTER TABLE system_feedbacks ADD COLUMN images_json TEXT DEFAULT '[]'"); } catch {}
 
   // Defaults for settings
   const defaults: [string, string][] = [

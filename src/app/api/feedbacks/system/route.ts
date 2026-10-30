@@ -33,6 +33,15 @@ export async function GET(req: Request) {
         content: String(r.content || ""),
         status: String(r.status || "pending"),
         admin_reply: String(r.admin_reply || ""),
+        images_json: String(r.images_json || "[]"),
+        images: (() => {
+          try {
+            const arr = JSON.parse(String(r.images_json || "[]"));
+            return Array.isArray(arr) ? arr : [];
+          } catch {
+            return [];
+          }
+        })(),
         created_at: String(r.created_at || ""),
       })),
     });
@@ -61,6 +70,8 @@ export async function POST(req: Request) {
       priority = "medium",
       title = "",
       content = "",
+      images = [],
+      images_json,
     } = body;
 
     if (!content.trim() || !title.trim()) {
@@ -70,13 +81,17 @@ export async function POST(req: Request) {
       );
     }
 
+    const finalImagesJson = typeof images_json === "string" 
+      ? images_json 
+      : JSON.stringify(Array.isArray(images) ? images : []);
+
     const id = `sfb-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
     await db.execute({
       sql: `INSERT INTO system_feedbacks (
               id, school_id, school_name, school_code,
               sender_name, sender_contact, category, priority,
-              title, content, status
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
+              title, content, status, images_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)`,
       args: [
         id,
         school_id || "school-default",
@@ -88,6 +103,7 @@ export async function POST(req: Request) {
         priority,
         title.trim(),
         content.trim(),
+        finalImagesJson,
       ],
     });
 

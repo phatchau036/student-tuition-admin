@@ -27,6 +27,10 @@ import {
   Award,
   Terminal,
   RefreshCw,
+  ImageIcon,
+  Upload,
+  Trash2,
+  Maximize2,
 } from "lucide-react";
 import { ParentFeedback, SystemFeedback } from "@/lib/types";
 import { useToast } from "@/components/Toast";
@@ -56,9 +60,11 @@ export const AppInfoModal: React.FC<AppInfoModalProps> = ({
   const [fbContent, setFbContent] = useState("");
   const [fbSenderName, setFbSenderName] = useState("");
   const [fbSenderContact, setFbSenderContact] = useState("");
+  const [fbImages, setFbImages] = useState<string[]>([]);
   const [isSubmittingTpTeam, setIsSubmittingTpTeam] = useState(false);
   const [systemFeedbacks, setSystemFeedbacks] = useState<SystemFeedback[]>([]);
   const [isLoadingSystemFb, setIsLoadingSystemFb] = useState(false);
+  const [previewImageModal, setPreviewImageModal] = useState<string | null>(null);
 
   // Tab 4: Parent Feedbacks List
   const [parentFeedbacks, setParentFeedbacks] = useState<ParentFeedback[]>([]);
@@ -106,6 +112,92 @@ export const AppInfoModal: React.FC<AppInfoModalProps> = ({
     }
   };
 
+  // Helper nén và đọc file ảnh thành Data URL
+  const processImageFile = (file: File) => {
+    if (!file.type.startsWith("image/")) {
+      showToast("Chỉ hỗ trợ file ảnh (PNG, JPG, JPEG, WebP)!", "error");
+      return;
+    }
+    // Giới hạn dung lượng 10MB trước khi nén
+    if (file.size > 10 * 1024 * 1024) {
+      showToast("Dung lượng ảnh quá lớn (>10MB)!", "error");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const dataUrl = e.target?.result as string;
+      if (!dataUrl) return;
+
+      // Nén ảnh canvas nhẹ nhàng để tối ưu lưu trữ DB
+      const img = new Image();
+      img.onload = () => {
+        const maxWidth = 1200;
+        const maxHeight = 1200;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxWidth || height > maxHeight) {
+          if (width > height) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          } else {
+            width = Math.round((width * maxHeight) / height);
+            height = maxHeight;
+          }
+        }
+
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          const compressed = canvas.toDataURL("image/jpeg", 0.75);
+          setFbImages((prev) => [...prev, compressed]);
+          showToast("Đã dán ảnh thành công!", "success");
+        } else {
+          setFbImages((prev) => [...prev, dataUrl]);
+          showToast("Đã dán ảnh thành công!", "success");
+        }
+      };
+      img.src = dataUrl;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Bắt sự kiện Paste ảnh (Ctrl+V) vào khung textarea
+  const handlePasteContent = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    let hasImage = false;
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (item.type.indexOf("image") !== -1) {
+        const file = item.getAsFile();
+        if (file) {
+          hasImage = true;
+          processImageFile(file);
+        }
+      }
+    }
+    if (hasImage) {
+      // Cho phép paste văn bản bình thường nếu có, không chặn hoàn toàn text
+    }
+  };
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+    Array.from(files).forEach((file) => processImageFile(file));
+    e.target.value = "";
+  };
+
+  const handleRemoveImage = (index: number) => {
+    setFbImages((prev) => prev.filter((_, i) => i !== index));
+  };
+
   const handleSubmitToTpTeam = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!fbTitle.trim() || !fbContent.trim()) {
@@ -128,6 +220,7 @@ export const AppInfoModal: React.FC<AppInfoModalProps> = ({
           priority: fbPriority,
           title: fbTitle.trim(),
           content: fbContent.trim(),
+          images: fbImages,
         }),
       });
       const data = await res.json();
@@ -135,6 +228,7 @@ export const AppInfoModal: React.FC<AppInfoModalProps> = ({
         showToast(data.message, "success");
         setFbTitle("");
         setFbContent("");
+        setFbImages([]);
         loadSystemFeedbacks();
       } else {
         showToast(data.message || "Không thể gửi góp ý!", "error");
@@ -537,17 +631,91 @@ export const AppInfoModal: React.FC<AppInfoModalProps> = ({
                 </div>
 
                 <div>
-                  <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">
-                    Nội dung chi tiết <span className="text-rose-500">*</span>
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                      Nội dung chi tiết <span className="text-rose-500">*</span>
+                    </label>
+                    <span className="text-[11px] text-amber-600 dark:text-amber-400 font-bold flex items-center gap-1">
+                      <ImageIcon className="w-3.5 h-3.5" /> Có thể dán ảnh chụp màn hình (Ctrl+V) trực tiếp vào ô này
+                    </span>
+                  </div>
                   <textarea
                     rows={4}
                     required
-                    placeholder="Mô tả cụ thể yêu cầu hoặc vấn đề trung tâm gặp phải..."
+                    placeholder="Mô tả cụ thể yêu cầu hoặc chụp màn hình lỗi rồi bấm Ctrl+V để dán ảnh vào đây..."
                     value={fbContent}
                     onChange={(e) => setFbContent(e.target.value)}
-                    className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 outline-none resize-none"
+                    onPaste={handlePasteContent}
+                    className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 focus:bg-white focus:ring-2 focus:ring-amber-500 outline-none resize-none transition"
                   />
+                </div>
+
+                {/* Khung đính kèm ảnh: Hỗ trợ Paste Ctrl+V, Chọn file hoặc Kéo thả */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                      <ImageIcon className="w-3.5 h-3.5 text-indigo-500" />
+                      <span>Hình ảnh đính kèm minh họa ({fbImages.length})</span>
+                    </label>
+                    <label className="cursor-pointer text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1">
+                      <Upload className="w-3.5 h-3.5" />
+                      <span>Chọn file từ máy...</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        className="hidden"
+                        onChange={handleFileInputChange}
+                      />
+                    </label>
+                  </div>
+
+                  {/* Thumbnail Preview Grid */}
+                  {fbImages.length > 0 ? (
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 p-3 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                      {fbImages.map((imgUrl, idx) => (
+                        <div key={idx} className="relative group rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-black/5 aspect-video flex items-center justify-center">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={imgUrl}
+                            alt={`Đính kèm ${idx + 1}`}
+                            className="w-full h-full object-cover cursor-pointer hover:scale-105 transition"
+                            onClick={() => setPreviewImageModal(imgUrl)}
+                          />
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setPreviewImageModal(imgUrl)}
+                              className="p-1.5 bg-white/90 text-slate-900 rounded-lg hover:bg-white transition"
+                              title="Xem ảnh to"
+                            >
+                              <Maximize2 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveImage(idx)}
+                              className="p-1.5 bg-rose-600 text-white rounded-lg hover:bg-rose-700 transition"
+                              title="Xóa ảnh này"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div
+                      onPaste={(e: any) => handlePasteContent(e)}
+                      className="p-3.5 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40 text-center text-xs text-slate-400 space-y-1"
+                    >
+                      <p>
+                        💡 <strong>Cách 1:</strong> Bấm <code className="px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-800 text-slate-800 dark:text-slate-200 font-mono">Ctrl + V</code> ngay trong khung nội dung để dán ảnh chụp màn hình.
+                      </p>
+                      <p className="text-[11px] text-slate-400">
+                        💡 <strong>Cách 2:</strong> Bấm <strong>&quot;Chọn file từ máy...&quot;</strong> ở góc trên bên phải để tải ảnh lên.
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex justify-end">
@@ -611,9 +779,25 @@ export const AppInfoModal: React.FC<AppInfoModalProps> = ({
                           </span>
                         </div>
 
-                        <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                        <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">
                           {fb.content}
                         </p>
+
+                        {/* Hình ảnh đính kèm trong phản hồi cũ */}
+                        {fb.images && fb.images.length > 0 && (
+                          <div className="flex items-center gap-2 overflow-x-auto py-1">
+                            {fb.images.map((imgUrl, i) => (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                key={i}
+                                src={imgUrl}
+                                alt="Đính kèm"
+                                onClick={() => setPreviewImageModal(imgUrl)}
+                                className="w-16 h-12 object-cover rounded-lg border border-slate-200 dark:border-slate-700 cursor-pointer hover:opacity-80 transition shrink-0"
+                              />
+                            ))}
+                          </div>
+                        )}
 
                         {fb.admin_reply && (
                           <div className="p-3 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900/50 text-xs text-indigo-900 dark:text-indigo-200">
@@ -732,6 +916,30 @@ export const AppInfoModal: React.FC<AppInfoModalProps> = ({
           )}
         </div>
       </div>
+
+      {/* Lightbox Modal xem ảnh đính kèm to */}
+      {previewImageModal && (
+        <div
+          className="fixed inset-0 z-60 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in"
+          onClick={() => setPreviewImageModal(null)}
+        >
+          <div className="relative max-w-4xl max-h-[90vh] flex flex-col items-center">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={previewImageModal}
+              alt="Ảnh phóng to"
+              className="max-w-full max-h-[85vh] object-contain rounded-2xl shadow-2xl border border-white/20"
+              onClick={(e) => e.stopPropagation()}
+            />
+            <button
+              onClick={() => setPreviewImageModal(null)}
+              className="mt-3 px-4 py-1.5 rounded-full bg-white/20 hover:bg-white/30 text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+            >
+              <X className="w-4 h-4" /> Đóng xem ảnh
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

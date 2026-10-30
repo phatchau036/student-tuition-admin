@@ -388,6 +388,8 @@ export interface SystemFeedback {
   content: string;
   status: "pending" | "in_review" | "planned" | "completed";
   admin_reply?: string;
+  images_json?: string;
+  images?: string[];
   created_at: string;
 }
 

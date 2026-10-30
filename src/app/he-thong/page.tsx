@@ -1247,9 +1247,34 @@ export default function SystemAdminPage() {
                         </div>
                       </div>
 
-                      <p className="text-xs text-slate-300 leading-relaxed bg-slate-900/40 p-3 rounded-xl border border-slate-700/40">
+                      <p className="text-xs text-slate-300 leading-relaxed bg-slate-900/40 p-3 rounded-xl border border-slate-700/40 whitespace-pre-wrap">
                         {fb.content}
                       </p>
+
+                      {/* Hiển thị ảnh chụp màn hình cơ sở gửi lên */}
+                      {fb.images && fb.images.length > 0 && (
+                        <div className="space-y-1.5">
+                          <span className="text-[10px] uppercase font-bold text-slate-400">Ảnh chụp màn hình đính kèm ({fb.images.length}):</span>
+                          <div className="flex items-center gap-3 overflow-x-auto py-1">
+                            {fb.images.map((imgUrl, i) => (
+                              <a
+                                key={i}
+                                href={imgUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="block rounded-xl overflow-hidden border border-slate-700 hover:border-purple-400 transition shrink-0"
+                              >
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                  src={imgUrl}
+                                  alt={`Ảnh đính kèm ${i + 1}`}
+                                  className="w-24 h-16 object-cover"
+                                />
+                              </a>
+                            ))}
+                          </div>
+                        </div>
+                      )}
 
                       {fb.admin_reply && (
                         <div className="p-3 rounded-xl bg-purple-950/30 border border-purple-900/40 text-xs text-purple-200">
