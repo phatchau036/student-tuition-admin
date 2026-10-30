@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
-import { calculateStandardTuition, applyDiscount, getPreviousMonthStr } from "@/lib/tuition";
+import { calculateStudentTuition, getPreviousMonthStr } from "@/lib/tuition";
 import { getSchoolIdFromRequest } from "@/lib/authHelper";
 
 export async function GET(req: Request) {
@@ -136,24 +136,22 @@ export async function GET(req: Request) {
     }
 
     const students = studentsRes.rows.map((row) => {
-      // 1. Tính học phí: Nếu có gói học phí thì lấy giá gói, ngược lại lấy baseTuition + phụ thu level.
-      // Sau đó ÁP DỤNG CHIẾT KHẤU riêng của học sinh (VD: 10% anh em ruột...) để trừ vào học phí.
+      // 1. Tính học phí tự động:
+      // - Học phí gốc (Gói học phí hoặc Học phí cơ bản)
+      // - CỘNG Phụ thu Level (Grade, trình độ...)
+      // - TRỪ Chiết khấu / Giảm giá (%)
       const pkgAmount = Number(row.tuition_package_amount || 0);
-      let stdTuition = 0;
-      if (row.tuition_package_id && pkgAmount > 0) {
-        stdTuition = applyDiscount(
-          pkgAmount,
-          Number(row.is_discount_enabled || 0),
-          Number(row.discount_percent || 0)
-        );
-      } else {
-        stdTuition = calculateStandardTuition(
-          baseTuition,
-          Number(row.level_surcharge || 0),
-          Number(row.is_discount_enabled || 0),
-          Number(row.discount_percent || 0)
-        );
-      }
+      const breakdown = calculateStudentTuition({
+        packageAmount: row.tuition_package_id && pkgAmount > 0 ? pkgAmount : null,
+        packageName: row.tuition_package_name ? String(row.tuition_package_name) : null,
+        baseTuition,
+        levelSurcharge: Number(row.level_surcharge || 0),
+        levelName: row.level_name ? String(row.level_name) : null,
+        isDiscountEnabled: Number(row.is_discount_enabled || 0),
+        discountPercent: Number(row.discount_percent || 0),
+      });
+
+      const stdTuition = breakdown.finalTuition;
 
       const override = overridesMap[String(row.id)] || null;
       const currentTuition = override ? override.amount : stdTuition;
@@ -260,6 +258,9 @@ export async function GET(req: Request) {
         created_at: String(row.created_at || ""),
         standard_tuition: stdTuition,
         current_tuition: currentTuition,
+        tuition_formula_text: breakdown.formulaText,
+        tuition_base_amount: breakdown.baseAmount,
+        tuition_discount_amount: breakdown.discountAmount,
         monthly_override: override,
       };
     });

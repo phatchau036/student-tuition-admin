@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
-import { calculateStandardTuition, applyDiscount, getPreviousMonthStr } from "@/lib/tuition";
+import { calculateStudentTuition, getPreviousMonthStr } from "@/lib/tuition";
 
 export async function POST(req: Request) {
   try {
@@ -133,21 +133,16 @@ export async function POST(req: Request) {
         });
 
         const pkgAmount = Number(st.tuition_package_amount || 0);
-        let stdTuition = 0;
-        if (st.tuition_package_id && pkgAmount > 0) {
-          stdTuition = applyDiscount(
-            pkgAmount,
-            Number(st.is_discount_enabled || 0),
-            Number(st.discount_percent || 0)
-          );
-        } else {
-          stdTuition = calculateStandardTuition(
-            baseTuition,
-            Number(st.level_surcharge || 0),
-            Number(st.is_discount_enabled || 0),
-            Number(st.discount_percent || 0)
-          );
-        }
+        const breakdown = calculateStudentTuition({
+          packageAmount: st.tuition_package_id && pkgAmount > 0 ? pkgAmount : null,
+          packageName: st.tuition_package_name ? String(st.tuition_package_name) : null,
+          baseTuition,
+          levelSurcharge: Number(st.level_surcharge || 0),
+          levelName: st.level_name ? String(st.level_name) : null,
+          isDiscountEnabled: Number(st.is_discount_enabled || 0),
+          discountPercent: Number(st.discount_percent || 0),
+        });
+        const stdTuition = breakdown.finalTuition;
 
         const override = overrideRes.rows.length > 0 ? overrideRes.rows[0] : null;
         const currentTuition = override ? Number(override.amount) : stdTuition;
@@ -221,6 +216,10 @@ export async function POST(req: Request) {
           current_month: currentMonth,
           current_tuition: currentTuition,
           standard_tuition: stdTuition,
+          tuition_formula_text: breakdown.formulaText,
+          tuition_base_amount: breakdown.baseAmount,
+          level_surcharge: breakdown.levelSurcharge,
+          tuition_discount_amount: breakdown.discountAmount,
           is_paid: isPaidThisMonth,
           is_overdue: isOverdue,
           unpaid_months_count: unpaidCount,

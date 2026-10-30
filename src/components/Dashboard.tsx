@@ -1680,17 +1680,49 @@ export default function Dashboard() {
                         {/* Monthly Tuition */}
                         <td className="py-2 px-3 overflow-hidden">
                           <div className="flex flex-col min-w-0">
-                            <span
-                              className={`text-sm font-black ${
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setStudentForDetail(student);
+                                setIsDetailModalOpen(true);
+                              }}
+                              className={`text-sm font-black text-left hover:underline cursor-pointer flex items-center gap-1 ${
                                 student.is_overdue
                                   ? "text-rose-600 dark:text-rose-400"
                                   : isCustom
                                   ? "text-amber-600 dark:text-amber-400"
                                   : "text-slate-900 dark:text-slate-100"
                               }`}
+                              title="Bấm để xem bảng kê chi tiết các khoản cộng/trừ ra số tiền này"
                             >
-                              {formatVND(student.current_tuition)}
-                            </span>
+                              <span>{formatVND(student.current_tuition)}</span>
+                            </button>
+
+                            {/* DÒNG DIỄN GIẢI CÔNG THỨC CỘNG TRỪ PHÍ TRỰC QUAN */}
+                            {student.tuition_formula_text ? (
+                              <span
+                                onClick={() => {
+                                  setStudentForDetail(student);
+                                  setIsDetailModalOpen(true);
+                                }}
+                                className="text-[10px] text-slate-500 dark:text-slate-400 font-mono truncate max-w-full hover:text-indigo-600 dark:hover:text-indigo-400 cursor-pointer block mt-0.5"
+                                title={`Công thức tính: ${student.tuition_formula_text}. Bấm để xem chi tiết`}
+                              >
+                                {student.level_surcharge && student.level_surcharge > 0 ? (
+                                  <span className="text-emerald-600 dark:text-emerald-400 font-bold">
+                                    + {formatVND(student.level_surcharge)} level
+                                  </span>
+                                ) : isCustom ? (
+                                  <span className="text-amber-600 dark:text-amber-400 font-bold">
+                                    Tùy chỉnh tháng
+                                  </span>
+                                ) : (
+                                  <span className="text-slate-400">
+                                    {t.default_standard}
+                                  </span>
+                                )}
+                              </span>
+                            ) : null}
 
                             {/* CỘNG DỒN NỢ CŨ VÀ ĐÁNH DẤU NỢ QUÁ 1 THÁNG */}
                             {student.is_overdue && student.previous_debt_amount ? (
@@ -1715,9 +1747,9 @@ export default function Dashboard() {
                                   </span>
                                 )}
                               </div>
-                            ) : (
+                            ) : !student.tuition_formula_text ? (
                               <span className="text-[10px] font-medium text-slate-400">{t.default_standard}</span>
-                            )}
+                            ) : null}
                           </div>
                         </td>
 

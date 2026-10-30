@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
-import { getPreviousMonthStr, getNextMonthStr, applyDiscount } from "@/lib/tuition";
+import { getPreviousMonthStr, getNextMonthStr, calculateStudentTuition } from "@/lib/tuition";
 import { grantCycleForPayment } from "@/lib/wallet";
 
 // Helper: cấp giờ vào Ví Giờ Học cho toàn bộ chu kỳ tháng đã đóng (idempotent, lỗi không chặn thanh toán)
@@ -126,9 +126,12 @@ export async function POST(req: Request) {
       } else {
         // Kiểm tra xem học sinh có được gán gói mặc định không
         const stRes = await db.execute({
-          sql: `SELECT s.tuition_package_id, s.is_discount_enabled, s.discount_percent, p.name as package_name, p.amount as package_amount, p.cycle_unit, p.cycle_value 
+          sql: `SELECT s.tuition_package_id, s.is_discount_enabled, s.discount_percent, 
+                       l.surcharge_amount as level_surcharge,
+                       p.name as package_name, p.amount as package_amount, p.cycle_unit, p.cycle_value 
                 FROM students s 
                 LEFT JOIN tuition_packages p ON s.tuition_package_id = p.id 
+                LEFT JOIN level_surcharges l ON s.level_id = l.id
                 WHERE s.id = ?`,
           args: [student_id],
         });
@@ -136,12 +139,14 @@ export async function POST(req: Request) {
           const stPkg = stRes.rows[0];
           targetPackageId = String(stPkg.tuition_package_id);
           packageName = String(stPkg.package_name || "Gói học phí");
-          const discountedPkgAmount = applyDiscount(
-            Number(stPkg.package_amount || 0),
-            Number(stPkg.is_discount_enabled || 0),
-            Number(stPkg.discount_percent || 0)
-          );
-          paymentAmount = amount !== undefined ? Number(amount) : discountedPkgAmount;
+          const breakdown = calculateStudentTuition({
+            packageAmount: Number(stPkg.package_amount || 0),
+            packageName: String(stPkg.package_name || "Gói học phí"),
+            levelSurcharge: Number(stPkg.level_surcharge || 0),
+            isDiscountEnabled: Number(stPkg.is_discount_enabled || 0),
+            discountPercent: Number(stPkg.discount_percent || 0),
+          });
+          paymentAmount = amount !== undefined ? Number(amount) : breakdown.finalTuition;
           if (stPkg.cycle_unit === "week") {
             cycleMonths = Math.max(1, Math.round(Number(stPkg.cycle_value) / 4));
           } else {

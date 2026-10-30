@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { Student, LevelSurcharge, TimeSlot, DiscountOption, Teacher, ScheduleItem, TuitionPackage, Subject, SchedulePreset } from "@/lib/types";
 import {
+  calculateStudentTuition,
   calculateStandardTuition,
   applyDiscount,
   formatVND,
@@ -291,14 +292,16 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
   const selectedLevel = levels.find((l) => l.id === levelId);
   const selectedLevelSurcharge = selectedLevel ? selectedLevel.surcharge_amount : 0;
   const selectedPkg = tuitionPackages.find((p) => p.id === tuitionPackageId);
-  const liveTuition = selectedPkg
-    ? applyDiscount(selectedPkg.amount, isDiscountEnabled, discountPercent)
-    : calculateStandardTuition(
-        baseTuition,
-        selectedLevelSurcharge,
-        isDiscountEnabled,
-        discountPercent
-      );
+  const liveBreakdown = calculateStudentTuition({
+    packageAmount: selectedPkg ? selectedPkg.amount : null,
+    packageName: selectedPkg ? selectedPkg.name : null,
+    baseTuition,
+    levelSurcharge: selectedLevelSurcharge,
+    levelName: selectedLevel?.level_name,
+    isDiscountEnabled,
+    discountPercent,
+  });
+  const liveTuition = liveBreakdown.finalTuition;
 
   const handleApplyPreset = (preset: SchedulePreset) => {
     setSelectedPresetId(preset.id);
@@ -873,19 +876,25 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
 
           {/* Standard Tuition Live Preview */}
           <div className="p-4 rounded-2xl bg-gradient-to-tr from-indigo-50 to-purple-50 dark:from-indigo-950/40 dark:to-purple-950/30 border border-indigo-100 dark:border-indigo-900/60 flex items-center justify-between">
-            <div>
+            <div className="space-y-0.5">
               <span className="text-xs font-bold text-slate-700 dark:text-slate-300 block">
-                {selectedPkg ? `Học phí áp dụng (${selectedPkg.name}):` : "Học phí chuẩn tự tính (Mặc định):"}
+                {selectedPkg ? `Học phí dự tính (${selectedPkg.name}):` : "Học phí chuẩn tự tính (Mặc định):"}
               </span>
-              <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
-                {selectedPkg
-                  ? `Chu kỳ: ${selectedPkg.cycle_value} ${selectedPkg.cycle_unit === "month" ? "tháng" : "tuần"}${isDiscountEnabled && discountPercent > 0 ? ` (Giảm -${discountPercent}%)` : ""}`
-                  : `(${formatVND(baseTuition)} base + ${formatVND(selectedLevelSurcharge)} surcharge)${isDiscountEnabled && discountPercent > 0 ? ` - ${discountPercent}%` : ""}`}
+              <span className="text-[11px] text-slate-600 dark:text-slate-400 font-medium block">
+                Công thức: <strong className="text-indigo-600 dark:text-indigo-400">{liveBreakdown.formulaText}</strong>
               </span>
+              {selectedPkg && (
+                <span className="text-[10px] text-purple-600 dark:text-purple-400 font-bold block">
+                  Chu kỳ: {selectedPkg.cycle_value} {selectedPkg.cycle_unit === "month" ? "tháng" : "tuần"}
+                </span>
+              )}
             </div>
-            <span className="text-lg font-black text-indigo-700 dark:text-indigo-300">
-              {formatVND(liveTuition)}
-            </span>
+            <div className="text-right shrink-0 pl-3">
+              <span className="text-lg font-black text-indigo-700 dark:text-indigo-300 block">
+                {formatVND(liveTuition)}
+              </span>
+              <span className="text-[10px] font-bold text-slate-400">/ chu kỳ</span>
+            </div>
           </div>
 
           {/* Form Actions */}

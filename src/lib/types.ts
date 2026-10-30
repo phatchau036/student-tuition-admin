@@ -332,6 +332,9 @@ export interface Student {
   monthly_override?: StudentMonthlyTuition | null;
   current_tuition?: number;
   standard_tuition?: number;
+  tuition_formula_text?: string;
+  tuition_base_amount?: number;
+  tuition_discount_amount?: number;
 
   // ⭐ VÍ GIỜ HỌC (HOUR WALLET): Số dư tính bằng phút (sổ cái hour_ledger)
   balance_minutes?: number;    // Tổng số dư ví (CÓ THỂ ÂM)

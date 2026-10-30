@@ -90,6 +90,73 @@ export function parseRegisteredDaysToWeekdays(registeredDays: string): number[] 
   return result.sort((a, b) => a - b);
 }
 
+export interface TuitionBreakdown {
+  baseAmount: number;
+  baseLabel: string;
+  levelSurcharge: number;
+  levelName?: string;
+  subtotal: number;
+  isDiscountEnabled: boolean;
+  discountPercent: number;
+  discountAmount: number;
+  finalTuition: number;
+  formulaText: string;
+}
+
+/**
+ * Tính toán học phí chuẩn xác bao gồm:
+ * - Học phí gốc (từ Gói học phí HOẶC Mức học phí cơ bản)
+ * - CỘNG Phụ thu Level / Trình độ (nếu có)
+ * - TRỪ Chiết khấu / Giảm giá theo % (nếu bật)
+ */
+export function calculateStudentTuition(params: {
+  packageAmount?: number | null;
+  packageName?: string | null;
+  baseTuition?: number | null;
+  levelSurcharge?: number | null;
+  levelName?: string | null;
+  isDiscountEnabled?: boolean | number | null;
+  discountPercent?: number | null;
+}): TuitionBreakdown {
+  const pkgAmount = Number(params.packageAmount) || 0;
+  const base = pkgAmount > 0 ? pkgAmount : Number(params.baseTuition) || 0;
+  const baseLabel = pkgAmount > 0 ? (params.packageName || "Gói học phí") : "Học phí cơ bản";
+  const surcharge = Number(params.levelSurcharge) || 0;
+  const subtotal = base + surcharge;
+  const hasDiscount = Boolean(Number(params.isDiscountEnabled)) && Number(params.discountPercent || 0) > 0;
+  const discountPercent = hasDiscount ? Number(params.discountPercent || 0) : 0;
+  const discountMultiplier = Math.max(0, 1 - discountPercent / 100);
+  const finalTuition = Math.round(subtotal * discountMultiplier);
+  const discountAmount = subtotal - finalTuition;
+
+  // Xây dựng chuỗi công thức diễn giải: ví dụ "1.000.000 đ (Gói 1 tháng) + 200.000 đ (Grade 7)"
+  const parts: string[] = [];
+  if (base > 0) {
+    parts.push(`${formatVND(base)} (${baseLabel})`);
+  } else {
+    parts.push(`0 đ`);
+  }
+  if (surcharge > 0) {
+    parts.push(`+ ${formatVND(surcharge)} (${params.levelName ? `Level ${params.levelName}` : "Phụ thu level"})`);
+  }
+  if (hasDiscount) {
+    parts.push(`- ${discountPercent}% (${formatVND(discountAmount)})`);
+  }
+
+  return {
+    baseAmount: base,
+    baseLabel,
+    levelSurcharge: surcharge,
+    levelName: params.levelName || undefined,
+    subtotal,
+    isDiscountEnabled: hasDiscount,
+    discountPercent,
+    discountAmount,
+    finalTuition,
+    formulaText: parts.join(" "),
+  };
+}
+
 export function calculateStandardTuition(
   baseTuition: number,
   levelSurcharge: number,

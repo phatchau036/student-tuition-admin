@@ -71,6 +71,10 @@ interface StudentData {
   schedule_preset_name?: string;
   study_time_detail?: string;
   tuition_package_name?: string;
+  tuition_formula_text?: string;
+  tuition_base_amount?: number;
+  level_surcharge?: number;
+  tuition_discount_amount?: number;
   is_discount_enabled?: number;
   discount_percent?: number;
   discount_reason?: string;
@@ -1100,14 +1104,25 @@ export default function ParentPortal() {
 
                   {/* Financial Breakdown */}
                   <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200/70 dark:border-slate-700/60 space-y-2 text-xs">
+                    {/* Học phí gốc */}
                     <div className="flex items-center justify-between text-slate-600 dark:text-slate-300">
-                      <span>Học phí tháng này:</span>
-                      <span className="font-bold text-slate-900 dark:text-white">{formatVND(activeStudent.current_tuition)}</span>
+                      <span>{activeStudent.tuition_package_name ? `Gói học phí (${activeStudent.tuition_package_name})` : "Học phí chuẩn"}:</span>
+                      <span className="font-bold text-slate-900 dark:text-white">
+                        {formatVND(activeStudent.tuition_base_amount || (activeStudent.standard_tuition ? activeStudent.standard_tuition - (activeStudent.level_surcharge || 0) : activeStudent.current_tuition))}
+                      </span>
                     </div>
 
-                    {activeStudent.is_discount_enabled && activeStudent.discount_percent ? (
+                    {/* Phụ thu level */}
+                    {activeStudent.level_surcharge && activeStudent.level_surcharge > 0 ? (
                       <div className="flex items-center justify-between text-emerald-600 dark:text-emerald-400 font-semibold">
-                        <span>Chiết khấu ({activeStudent.discount_reason || "Ưu đãi"}):</span>
+                        <span>+ Phụ thu Level ({activeStudent.level_name}):</span>
+                        <span className="font-bold">+{formatVND(activeStudent.level_surcharge)}</span>
+                      </div>
+                    ) : null}
+
+                    {activeStudent.is_discount_enabled && activeStudent.discount_percent ? (
+                      <div className="flex items-center justify-between text-amber-600 dark:text-amber-400 font-semibold">
+                        <span>- Chiết khấu ({activeStudent.discount_reason || "Ưu đãi"}):</span>
                         <span>-{activeStudent.discount_percent}%</span>
                       </div>
                     ) : null}

@@ -30,14 +30,23 @@ export const ZaloReminderModal: React.FC<ZaloReminderModalProps> = ({
   const amountStr = formatVND(student.current_tuition);
   const monthDisplay = formatMonthDisplay(selectedMonth);
 
-  // Parse breakdown of custom items if present
-  let breakdownLines = "";
+  // Parse breakdown of custom items and surcharges if present
+  const breakdownParts: string[] = [];
+  if (student.level_surcharge && student.level_surcharge > 0) {
+    breakdownParts.push(`  • Phụ thu Level (${student.level_name || "Trình độ"}): +${formatVND(student.level_surcharge)}`);
+  }
+  if (student.is_discount_enabled && student.discount_percent > 0) {
+    breakdownParts.push(`  • Chiết khấu ưu đãi: -${student.discount_percent}%`);
+  }
   try {
     const items = JSON.parse(student.monthly_override?.items_json || "[]");
     if (Array.isArray(items) && items.length > 0) {
-      breakdownLines = "\n- Chi tiết điều chỉnh:\n" + items.map((it: any) => `  • ${it.type === "add" ? "+" : "-"}${formatVND(it.amount)} (${it.name})`).join("\n");
+      items.forEach((it: any) => {
+        breakdownParts.push(`  • ${it.name}: ${it.type === "add" ? "+" : "-"}${formatVND(it.amount)}`);
+      });
     }
   } catch {}
+  const breakdownLines = breakdownParts.length > 0 ? "\n- Chi tiết cấu thành:\n" + breakdownParts.join("\n") : "";
 
   // Mẫu tin nhắn nhắc học phí chuẩn mực, lịch sự và chuyên nghiệp
   const messageTemplate = `Kính gửi Quý phụ huynh học sinh ${student.name},
