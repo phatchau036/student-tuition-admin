@@ -477,7 +477,6 @@ export const AppInfoModal: React.FC<AppInfoModalProps> = ({
                     <li><strong>Kéo thả & Nút Lên/Xuống sắp xếp thứ tự Level trong Cài đặt:</strong> Tự do di chuyển thứ tự ưu tiên các Level (Grade 1 trước Grade 7, Cơ bản lên đầu...).</li>
                     <li><strong>Sắp xếp cột trên bảng giống Google Sheets:</strong> Bấm vào tiêu đề cột `LEVEL & PHỤ THU` để sắp xếp danh sách học sinh theo đúng thứ tự Level mong muốn.</li>
                     <li><strong>Hỗ trợ Dán ảnh chụp màn hình (Ctrl+V) trong góp ý TpTeam:</strong> Chụp màn hình lỗi và ấn Ctrl+V trực tiếp vào nội dung góp ý, đính kèm nhiều ảnh kèm Lightbox phóng to.</li>
-                    <li><strong>Quy trình xử lý nhiệm vụ 3 giai đoạn (Chưa làm / Đang làm / Đã làm) tại /he-thong:</strong> Đội ngũ kỹ thuật TpTeam có thể bấm nhận việc chọn mình là ai và tự tick đã làm xong.</li>
                     <li><strong>Hỗ trợ nhập mọi số tiền lẻ bất kỳ (step=&quot;any&quot;):</strong> Cho phép nhập tiền lẻ thoải mái khi điều chỉnh học phí riêng tháng hoặc đối soát.</li>
                   </ul>
                 </div>

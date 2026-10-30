@@ -17,10 +17,8 @@
   - **Kéo thả (Drag & Drop) & Nút Lên/Xuống trong Cài Đặt (`SettingsModal.tsx`):** Cho phép admin kéo thả hoặc bấm nút `↑`/`↓` để sắp xếp thứ tự ưu tiên các Level (ví dụ: *Grade 1 trước Grade 3, Grade 7, Cơ bản lên đầu...*), tự động lưu trường `sort_order` vào CSDL.
   - **Sort cột Header chuẩn Google Sheets (`Dashboard.tsx`):** Bấm trực tiếp vào tiêu đề cột `LEVEL & PHỤ THU` để sort danh sách học sinh theo đúng thứ tự level đã thiết lập trong Cài đặt; hỗ trợ sort 2 chiều cho Tên học sinh, Trạng thái, Giáo viên và Mức học phí.
 
-- **⭐ DÁN ẢNH MINH HỌA (CTRL+V) TRONG GÓP Ý TPTEAM & QUY TRÌNH 3 BƯỚC NHẬN VIỆC:**
+- **⭐ DÁN ẢNH MINH HỌA (CTRL+V) TRONG GÓP Ý TPTEAM:**
   - **Hỗ trợ dán ảnh màn hình `Ctrl + V` trực tiếp (`AppInfoModal.tsx`):** Cho phép chụp màn hình lỗi và ấn `Ctrl + V` ngay trong ô góp ý để đính kèm ảnh (tự động nén canvas lưu dạng `images_json`), kèm nút chọn file từ máy, lưới thumbnail xem trước và Lightbox phóng to ảnh.
-  - **Quy trình xử lý nhiệm vụ 3 giai đoạn (Chưa làm ➔ Đang làm ➔ Đã làm) tại `/he-thong`:** Phân chia rõ ràng 3 tab nhiệm vụ kỹ thuật kèm số lượng đếm thời gian thực.
-  - **Quản lý đội ngũ & Cơ chế nhận việc tự chọn:** Nút bấm *Nhận nhiệm vụ* mở popup chọn mình là ai trong đội ngũ TpTeam; người phụ trách tự tick *Đã làm xong* kèm lời nhắn phản hồi lại cho trung tâm. Bổ sung bảng CSDL `system_team_members` và API `/api/system/team`.
 
 - **⭐ SỬA LỖI NHẬP TIỀN LẺ TRONG CHỈNH SỬA HỌC PHÍ RIÊNG:**
   - Chuyển toàn bộ các ô nhập số tiền phụ thu/giảm trừ và học phí cuối cùng sang `step="any"` (`MonthlyTuitionModal.tsx`, `QuickAuditModal.tsx`, `SettingsModal.tsx`), loại bỏ lỗi cảnh báo đỏ của trình duyệt và cho phép nhập tự do mọi số tiền lẻ lẻ (35.000 đ, 9.562 đ...).
