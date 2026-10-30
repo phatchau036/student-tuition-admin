@@ -352,6 +352,17 @@ export default function ParentPortal() {
 
     try {
       setIsSubmittingAbsence(true);
+
+      // Tính chính xác số phút của ca học này
+      let sessionMin = 90;
+      if (chosenLesson.timeRange && chosenLesson.timeRange.includes("-")) {
+        const [start, end] = chosenLesson.timeRange.split("-").map((s) => s.trim());
+        const [sh, sm] = start.split(":").map(Number);
+        const [eh, em] = end.split(":").map(Number);
+        const diff = (eh * 60 + (em || 0)) - (sh * 60 + (sm || 0));
+        if (diff > 0) sessionMin = diff;
+      }
+
       const res = await fetch("/api/makeups", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -360,15 +371,21 @@ export default function ParentPortal() {
           student_id: activeStudent.id,
           absence_date: chosenLesson.date,
           absence_reason: absenceReason.trim(),
+          minutes: sessionMin,
+          time_range: chosenLesson.timeRange,
+          start_time: chosenLesson.timeRange?.split("-")[0]?.trim() || "18:00",
         }),
       });
       const data = await res.json();
       if (data.success) {
-        showToast("Đã báo nghỉ thành công! Giờ học vẫn nằm trong Ví Giờ để xếp lịch bù.", "success");
+        showToast(
+          data.message || `Đã báo nghỉ thành công! +${sessionMin} phút đã được cộng vào Ví Giờ Học.`,
+          "success"
+        );
         setIsReportModalOpen(false);
         setSelectedLessonDate("");
         setAbsenceReason("");
-        refreshStudentData();
+        await refreshStudentData();
       } else {
         showToast(data.message || "Báo nghỉ thất bại", "error");
       }

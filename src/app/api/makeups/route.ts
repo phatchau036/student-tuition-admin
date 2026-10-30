@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
 import { getSchoolIdFromRequest } from "@/lib/authHelper";
+import { appendLedger, getWalletBalance, getStudentSessionMinutes } from "@/lib/wallet";
+import { formatMinutes } from "@/lib/tuition";
 
 export async function GET(req: Request) {
   try {
@@ -88,13 +90,38 @@ export async function POST(req: Request) {
 
     const targetSlotId = makeup_slot_id || time_slot_id;
 
-    // 1. Action: Báo nghỉ (Tạo buổi cần bù mới)
+    // 1. Action: Báo nghỉ (Tạo buổi cần bù mới & CỘNG PHÚT VÀO VÍ GIỜ)
     if (action === "report_absence") {
       if (!student_id || !absence_date) {
         return NextResponse.json(
           { success: false, message: "Vui lòng chọn học sinh và ngày nghỉ!" },
           { status: 400 }
         );
+      }
+
+      // Chặn báo nghỉ trùng cùng một ngày nếu đã có lịch pending/scheduled
+      const existingCheck = await db.execute({
+        sql: "SELECT id FROM makeup_classes WHERE student_id = ? AND absence_date = ? AND status IN ('pending', 'scheduled') LIMIT 1",
+        args: [student_id, absence_date],
+      });
+      if (existingCheck.rows.length > 0) {
+        return NextResponse.json(
+          { success: false, message: "Buổi học ngày này đã được báo nghỉ trước đó rồi!" },
+          { status: 400 }
+        );
+      }
+
+      // 1. Tính toán thời lượng buổi nghỉ (phút)
+      let sessionMin = Number(body.minutes) || 0;
+      if (sessionMin <= 0) {
+        let dayName: string | undefined;
+        try {
+          const [y, m, d] = absence_date.split("-").map(Number);
+          const dateObj = new Date(y, m - 1, d);
+          const dayIdx = dateObj.getDay();
+          dayName = dayIdx === 0 ? "Chủ Nhật" : `Thứ ${dayIdx + 1}`;
+        } catch {}
+        sessionMin = await getStudentSessionMinutes(student_id, dayName);
       }
 
       const id = `mk-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
@@ -104,10 +131,48 @@ export async function POST(req: Request) {
         args: [id, student_id, absence_date, absence_reason || "Báo nghỉ có phép"],
       });
 
+      // 2. ⭐ CỘNG NGAY VÀO SỔ CÁI VÍ GIỜ HỌC (HOUR LEDGER)
+      const ledgerId = `lg-${student_id.slice(0, 8)}-abs-${Date.now().toString(36)}`;
+      await db.execute({
+        sql: `INSERT INTO hour_ledger (id, student_id, cycle_id, type, minutes, ref_type, ref_id, note, created_by)
+              VALUES (?, ?, NULL, 'ADJUST', ?, 'absence', ?, ?, ?)`,
+        args: [
+          ledgerId,
+          student_id,
+          sessionMin,
+          id,
+          `Báo nghỉ ngày ${absence_date}: +${sessionMin} phút vào ví giờ bù`,
+          "parent",
+        ],
+      });
+
+      // 3. Đồng bộ vào bảng lessons (status = absent_excused)
+      const lessonId = `les-${student_id.slice(0, 8)}-${absence_date}-${Date.now().toString(36)}`;
+      try {
+        await db.execute({
+          sql: `INSERT INTO lessons (id, student_id, date, start_time, planned_minutes, kind, status, reason, created_by)
+                VALUES (?, ?, ?, ?, ?, 'regular', 'absent_excused', ?, ?)
+                ON CONFLICT(student_id, date, start_time) DO UPDATE SET status = 'absent_excused'`,
+          args: [
+            lessonId,
+            student_id,
+            absence_date,
+            body.start_time || "18:00",
+            sessionMin,
+            absence_reason || "Báo nghỉ có phép",
+            "parent",
+          ],
+        });
+      } catch {}
+
+      const newWallet = await getWalletBalance(student_id);
+
       return NextResponse.json({
         success: true,
-        message: "Đã ghi nhận báo nghỉ và cộng +1 buổi học bù cho học sinh!",
+        message: `Đã ghi nhận báo nghỉ thành công! +${sessionMin} phút (${formatMinutes(sessionMin)}) đã được cộng vào Ví Giờ Học.`,
         id,
+        session_minutes: sessionMin,
+        wallet: newWallet,
       });
     }
 
@@ -219,6 +284,26 @@ export async function POST(req: Request) {
         args: [makeup_date, makeup_time || "", targetSlotId || null, note || "", makeup_id],
       });
 
+      // Lấy thông tin student_id để đồng bộ lesson kind='makeup'
+      const mkInfoRes = await db.execute({
+        sql: "SELECT student_id FROM makeup_classes WHERE id = ?",
+        args: [makeup_id],
+      });
+      if (mkInfoRes.rows.length > 0) {
+        const sid = String(mkInfoRes.rows[0].student_id);
+        const mkLessonId = `les-${sid.slice(0, 8)}-mk-${makeup_id}`;
+        const startTime = (makeup_time || "18:00").split("-")[0]?.trim() || "18:00";
+        const sessionMin = Number(body.minutes) || (await getStudentSessionMinutes(sid));
+        try {
+          await db.execute({
+            sql: `INSERT INTO lessons (id, student_id, date, start_time, planned_minutes, slot_id, kind, status, reason, created_by)
+                  VALUES (?, ?, ?, ?, ?, ?, 'makeup', 'scheduled', 'Học bù', 'parent')
+                  ON CONFLICT(student_id, date, start_time) DO UPDATE SET status = 'scheduled', planned_minutes = ?`,
+            args: [mkLessonId, sid, makeup_date, startTime, sessionMin, targetSlotId || null, sessionMin],
+          });
+        } catch {}
+      }
+
       return NextResponse.json({
         success: true,
         message: "Đã xếp lịch học bù thành công!",
@@ -231,10 +316,39 @@ export async function POST(req: Request) {
         return NextResponse.json({ success: false, message: "Thiếu ID buổi bù!" }, { status: 400 });
       }
 
+      const mkCheck = await db.execute({
+        sql: "SELECT student_id, makeup_date FROM makeup_classes WHERE id = ?",
+        args: [makeup_id],
+      });
+      if (mkCheck.rows.length === 0) {
+        return NextResponse.json({ success: false, message: "Không tìm thấy buổi bù!" }, { status: 404 });
+      }
+      const studentId = String(mkCheck.rows[0].student_id);
+      const mkDate = String(mkCheck.rows[0].makeup_date || "");
+      const sessionMin = await getStudentSessionMinutes(studentId);
+
       await db.execute({
         sql: "UPDATE makeup_classes SET status = 'completed' WHERE id = ?",
         args: [makeup_id],
       });
+
+      // Ghi trừ giờ khi đã hoàn thành buổi bù (CONSUME)
+      await appendLedger({
+        studentId,
+        type: "CONSUME",
+        minutes: -sessionMin,
+        refType: "makeup",
+        refId: makeup_id,
+        note: `Đã hoàn thành buổi học bù ngày ${mkDate}`,
+        createdBy: "system",
+      });
+
+      try {
+        await db.execute({
+          sql: "UPDATE lessons SET status = 'attended' WHERE student_id = ? AND kind = 'makeup' AND (date = ? OR id = ?)",
+          args: [studentId, mkDate, `les-${studentId.slice(0, 8)}-mk-${makeup_id}`],
+        });
+      } catch {}
 
       return NextResponse.json({
         success: true,
@@ -248,10 +362,28 @@ export async function POST(req: Request) {
         return NextResponse.json({ success: false, message: "Thiếu ID buổi bù!" }, { status: 400 });
       }
 
+      const mkCheck = await db.execute({
+        sql: "SELECT student_id, makeup_date FROM makeup_classes WHERE id = ?",
+        args: [makeup_id],
+      });
+
       await db.execute({
         sql: "UPDATE makeup_classes SET makeup_date = NULL, makeup_time = NULL, makeup_slot_id = NULL, status = 'pending' WHERE id = ?",
         args: [makeup_id],
       });
+
+      // Xóa/hủy lesson đã scheduled để giải phóng giờ khả dụng
+      if (mkCheck.rows.length > 0) {
+        const studentId = String(mkCheck.rows[0].student_id);
+        const mkDate = String(mkCheck.rows[0].makeup_date || "");
+        const mkLessonId = `les-${studentId.slice(0, 8)}-mk-${makeup_id}`;
+        try {
+          await db.execute({
+            sql: "DELETE FROM lessons WHERE id = ? OR (student_id = ? AND kind = 'makeup' AND status = 'scheduled' AND date = ?)",
+            args: [mkLessonId, studentId, mkDate],
+          });
+        } catch {}
+      }
 
       return NextResponse.json({
         success: true,
@@ -263,6 +395,30 @@ export async function POST(req: Request) {
     if (action === "delete") {
       if (!makeup_id) {
         return NextResponse.json({ success: false, message: "Thiếu ID buổi bù!" }, { status: 400 });
+      }
+
+      const mkCheck = await db.execute({
+        sql: "SELECT student_id, makeup_date FROM makeup_classes WHERE id = ?",
+        args: [makeup_id],
+      });
+
+      if (mkCheck.rows.length > 0) {
+        const studentId = String(mkCheck.rows[0].student_id);
+        const mkLessonId = `les-${studentId.slice(0, 8)}-mk-${makeup_id}`;
+
+        // Xóa dòng ledger liên quan tới buổi báo nghỉ này để hoàn trả số dư
+        await db.execute({
+          sql: "DELETE FROM hour_ledger WHERE student_id = ? AND ((ref_type = 'absence' AND ref_id = ?) OR (ref_type = 'makeup' AND ref_id = ?))",
+          args: [studentId, makeup_id, makeup_id],
+        });
+
+        // Xóa lesson nếu có
+        try {
+          await db.execute({
+            sql: "DELETE FROM lessons WHERE id = ?",
+            args: [mkLessonId],
+          });
+        } catch {}
       }
 
       await db.execute({

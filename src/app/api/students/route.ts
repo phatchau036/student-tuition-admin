@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
 import { calculateStudentTuition, getPreviousMonthStr } from "@/lib/tuition";
 import { getSchoolIdFromRequest } from "@/lib/authHelper";
+import { syncPendingMakeupsToWallet } from "@/lib/wallet";
 
 export async function GET(req: Request) {
   try {
@@ -113,7 +114,10 @@ export async function GET(req: Request) {
       allOverridesMap[`${row.student_id}_${row.month}`] = Number(row.amount);
     }
 
-    // ⭐ VÍ GIỜ HỌC: Số dư ví giờ từ sổ cái hour_ledger (nguồn sự thật duy nhất)
+    // ⭐ VÍ GIỜ HỌC: Tự động đồng bộ các buổi báo nghỉ chưa có trong sổ cái
+    await syncPendingMakeupsToWallet();
+
+    // Số dư ví giờ từ sổ cái hour_ledger (nguồn sự thật duy nhất)
     const walletRes = await db.execute(`
       SELECT student_id, COALESCE(SUM(minutes), 0) as balance
       FROM hour_ledger

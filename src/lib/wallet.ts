@@ -373,3 +373,125 @@ export async function grantHoursForPeriodUtil(
     return [];
   }
 }
+
+/**
+ * Lấy thời lượng 1 buổi học chuẩn (tính bằng phút) của học sinh.
+ * Ưu tiên:
+ * 1. Khớp từ schedule_details_json (nếu có dayName)
+ * 2. Chia từ hours_per_week / sessions_per_week
+ * 3. Đọc từ student_plans.minutes_per_session
+ * 4. Đọc từ settings.default_minutes_per_session (mặc định: 90)
+ */
+export async function getStudentSessionMinutes(
+  studentId: string,
+  dayName?: string
+): Promise<number> {
+  const db = getDb();
+  try {
+    const stRes = await db.execute({
+      sql: "SELECT registered_days, hours_per_week, sessions_per_week, schedule_details_json FROM students WHERE id = ?",
+      args: [studentId],
+    });
+    if (stRes.rows.length > 0) {
+      const st = stRes.rows[0];
+      if (st.schedule_details_json) {
+        try {
+          const items = JSON.parse(String(st.schedule_details_json));
+          if (Array.isArray(items) && items.length > 0) {
+            const matched = dayName
+              ? items.find((i: any) => String(i.day || "").toLowerCase() === dayName.toLowerCase())
+              : items[0];
+            const target = matched || items[0];
+            if (target && target.hours) {
+              const m = Math.round(Number(target.hours) * 60);
+              if (m > 0) return m;
+            }
+            if (target && target.start_time && target.end_time) {
+              const [sh, sm] = String(target.start_time).split(":").map(Number);
+              const [eh, em] = String(target.end_time).split(":").map(Number);
+              const diff = (eh * 60 + (em || 0)) - (sh * 60 + (sm || 0));
+              if (diff > 0) return diff;
+            }
+          }
+        } catch {}
+      }
+      const h = Number(st.hours_per_week || 0);
+      const s = Number(st.sessions_per_week || 0);
+      if (h > 0 && s > 0) {
+        return Math.round((h / s) * 60);
+      }
+    }
+
+    const planRes = await db.execute({
+      sql: "SELECT minutes_per_session FROM student_plans WHERE student_id = ? AND active = 1 LIMIT 1",
+      args: [studentId],
+    });
+    if (planRes.rows.length > 0 && Number(planRes.rows[0].minutes_per_session) > 0) {
+      return Number(planRes.rows[0].minutes_per_session);
+    }
+
+    const setRes = await db.execute("SELECT value FROM settings WHERE key = 'default_minutes_per_session'");
+    if (setRes.rows.length > 0 && Number(setRes.rows[0].value) > 0) {
+      return Number(setRes.rows[0].value);
+    }
+  } catch {}
+
+  return 90;
+}
+
+/**
+ * Tự động đồng bộ các buổi báo nghỉ chưa được ghi vào sổ cái ví giờ học.
+ * Giúp học sinh có sẵn các suất báo nghỉ trước đó lập tức có phút trong ví giờ.
+ */
+export async function syncPendingMakeupsToWallet(studentIds?: string[]): Promise<number> {
+  const db = getDb();
+  let synced = 0;
+  try {
+    let query = "SELECT id, student_id, absence_date, status FROM makeup_classes WHERE status = 'pending'";
+    const args: any[] = [];
+    if (studentIds && studentIds.length > 0) {
+      query += ` AND student_id IN (${studentIds.map(() => "?").join(",")})`;
+      args.push(...studentIds);
+    }
+
+    const pendingRes = await db.execute({ sql: query, args });
+    for (const mk of pendingRes.rows) {
+      const mkId = String(mk.id);
+      const sid = String(mk.student_id);
+      const absDate = String(mk.absence_date || "");
+
+      // Kiểm tra xem đã có ledger với ref_id = mkId chưa
+      const dup = await db.execute({
+        sql: "SELECT id FROM hour_ledger WHERE ref_type = 'absence' AND ref_id = ? LIMIT 1",
+        args: [mkId],
+      });
+      if (dup.rows.length > 0) continue;
+
+      // Kiểm tra xem có phải đã được chuyển từ migrate-pending chưa
+      const migCheck = await db.execute({
+        sql: "SELECT id FROM hour_ledger WHERE ref_type = 'adjust' AND ref_id = ? LIMIT 1",
+        args: [`migrate-pending-${sid}`],
+      });
+      if (migCheck.rows.length > 0) continue;
+
+      const min = await getStudentSessionMinutes(sid);
+      const ledgerId = `lg-${sid.slice(0, 8)}-abs-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 5)}`;
+      await db.execute({
+        sql: `INSERT INTO hour_ledger (id, student_id, cycle_id, type, minutes, ref_type, ref_id, note, created_by)
+              VALUES (?, ?, NULL, 'ADJUST', ?, 'absence', ?, ?, 'sync')`,
+        args: [
+          ledgerId,
+          sid,
+          min,
+          mkId,
+          `Báo nghỉ ngày ${absDate}: +${min} phút vào ví giờ bù`,
+        ],
+      });
+      synced++;
+    }
+  } catch (err) {
+    console.error("syncPendingMakeupsToWallet error:", err);
+  }
+  return synced;
+}
+

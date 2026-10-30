@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
 import { calculateStudentTuition, getPreviousMonthStr } from "@/lib/tuition";
+import { syncPendingMakeupsToWallet } from "@/lib/wallet";
 
 export async function POST(req: Request) {
   try {
@@ -80,6 +81,9 @@ export async function POST(req: Request) {
       const scheduledMakeupMap: Record<string, number> = {};
       const walletLedgerMap: Record<string, Array<{ type: string; minutes: number; note: string; created_at: string }>> = {};
       if (allStudentIds.length > 0) {
+        // Tự động đồng bộ các buổi báo nghỉ chưa được ghi nhận vào sổ cái ví giờ
+        await syncPendingMakeupsToWallet(allStudentIds);
+
         const placeholders = allStudentIds.map(() => "?").join(",");
         const walletRes = await db.execute({
           sql: `SELECT student_id, COALESCE(SUM(minutes), 0) as balance FROM hour_ledger WHERE student_id IN (${placeholders}) GROUP BY student_id`,

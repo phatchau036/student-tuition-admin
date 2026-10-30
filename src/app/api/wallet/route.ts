@@ -270,11 +270,32 @@ export async function POST(req: Request) {
         args: [lessonId, student_id, date, start_time || "18:00", info.minutesPerSession, reason || "Nghỉ có phép", createdBy],
       });
 
-      // KHÔNG ghi CONSUME — giờ vẫn nằm trong ví để xếp bù
+      // Đồng bộ vào makeup_classes
+      const mkId = `mk-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+      await db.execute({
+        sql: `INSERT INTO makeup_classes (id, student_id, absence_date, absence_reason, status)
+              VALUES (?, ?, ?, ?, 'pending')`,
+        args: [mkId, student_id, date, reason || "Báo nghỉ có phép"],
+      });
+
+      // ⭐ Cộng phút của buổi nghỉ vào sổ cái ví giờ học
+      await appendLedger({
+        studentId: student_id,
+        type: "ADJUST",
+        minutes: info.minutesPerSession,
+        refType: "absence",
+        refId: mkId,
+        note: `Báo nghỉ ngày ${date}: +${info.minutesPerSession} phút vào ví giờ bù`,
+        createdBy,
+      });
+
+      const updatedWallet = await getWalletBalance(student_id);
+
       return NextResponse.json({
         success: true,
-        message: `Đã ghi nhận nghỉ có phép ngày ${date}. Giờ vẫn nằm trong ví để xếp học bù!`,
+        message: `Đã ghi nhận nghỉ có phép ngày ${date} và cộng +${info.minutesPerSession} phút vào Ví Giờ Học!`,
         lesson_id: lessonId,
+        wallet: updatedWallet,
       });
     }
 

@@ -27,6 +27,8 @@
 ### [v2.8.0] - 2026-10-30
 - **⭐ HỆ THỐNG CÁC KIỂU LỊCH HỌC & MA TRẬN TỰ TÍNH THỜI LƯỢNG (Schedule Presets & Auto Matrix):**
   - **Chuẩn hóa duy nhất 1 hình thức quản lý lịch học:** Loại bỏ hoàn toàn Hình thức 1 (Theo tổng số tiếng / tuần nhập tay mù mờ), chuyển đổi 100% sang hình thức quản lý theo **Kiểu Lịch Học Cơ Sở & Ma Trận Thời Lượng**.
+  - **Tự động cộng giờ vào Ví Giờ Học ngay khi Báo Nghỉ:** Khi phụ huynh hoặc admin báo nghỉ 1 buổi học, hệ thống lập tức cộng chính xác số phút của ca học đó (ví dụ: +90 phút = 1h30) vào sổ cái `hour_ledger`. Ví giờ còn lại nhảy số ngay lập tức để phụ huynh thấy số dư khả dụng và chọn lịch bù.
+  - **Tự động đồng bộ các buổi báo nghỉ cũ:** Hàm `syncPendingMakeupsToWallet` tự động bù số phút cho toàn bộ các buổi nghỉ trước đó của học sinh chưa có trong sổ cái khi mở Cổng Phụ Huynh hoặc Danh sách học sinh.
   - **Hiển thị trực quan Tên Kiểu Lịch Học (Thứ chẵn, Thứ lẻ, Cuối tuần...) trên bảng Học Sinh:** Cột *Gói & Lịch Học* tại `Dashboard.tsx` có huy hiệu nhận diện kiểu lịch riêng biệt (`[📅 Thứ chẵn (2-4-6)]`, `[📅 Cuối tuần (T7-CN)]`...), kèm hàm nhận diện thông minh `detectStudentPresetName` áp dụng ngay cho cả học sinh cũ và mới.
   - Cho phép cơ sở tạo không giới hạn các "Kiểu Lịch Học" (Preset): tự đặt tên kiểu (ví dụ: *Thứ chẵn 2-4-6*, *Thứ lẻ 3-5-7*, *Cuối tuần T7-CN*), chọn các ngày trong tuần và thời lượng 1 buổi (ví dụ: 1.5 tiếng/buổi).
   - Tích hợp trực tiếp vào `SettingsModal.tsx` với card ma trận tính toán tự động: $\text{Số buổi} \times \text{Số tiếng/buổi} = \text{Tổng tiếng/tuần}$ (và quy đổi phút/tuần).
