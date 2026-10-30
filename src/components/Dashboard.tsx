@@ -73,6 +73,9 @@ import {
   CheckSquare,
   Square,
   UserCheck,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 import Link from "next/link";
 import { MonthlySummaryModal } from "./MonthlySummaryModal";
@@ -203,6 +206,24 @@ export default function Dashboard() {
   const [selectedTeacherFilter, setSelectedTeacherFilter] = useState("all");
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<"all" | "studying" | "reserved" | "dropped">("all");
   const [selectedPaymentFilter, setSelectedPaymentFilter] = useState<"all" | "paid" | "unpaid">("all");
+
+  // Sorting state (Giống Google Sheets: Hỗ trợ Sort theo Level, Tên, Trạng thái, Học phí, GV)
+  const [sortField, setSortField] = useState<"default" | "name" | "level" | "status" | "teacher" | "tuition">("level");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+
+  const handleHeaderSort = (field: "name" | "level" | "status" | "teacher" | "tuition") => {
+    if (sortField === field) {
+      if (sortOrder === "asc") setSortOrder("desc");
+      else {
+        // Toggle về default
+        setSortField("default");
+        setSortOrder("asc");
+      }
+    } else {
+      setSortField(field);
+      setSortOrder("asc");
+    }
+  };
 
   // Modern UI states: Active Row Action Menu & Quick Manage Dropdown
   const [openRowActionStudent, setOpenRowActionStudent] = useState<Student | null>(null);
@@ -506,9 +527,9 @@ export default function Dashboard() {
     }
   };
 
-  // Filtered Students
+  // Filtered & Sorted Students (Sort thông minh theo Level, Thứ tự cài đặt, Tên, Học phí...)
   const filteredStudents = useMemo(() => {
-    return students.filter((s) => {
+    const list = students.filter((s) => {
       const matchSearch =
         s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         s.phone.includes(searchQuery);
@@ -523,6 +544,35 @@ export default function Dashboard() {
 
       return matchSearch && matchSubject && matchLevel && matchSlot && matchTeacher && matchStatus && matchPayment;
     });
+
+    if (sortField === "default") {
+      return list;
+    }
+
+    // Tạo bản sao để sort
+    return [...list].sort((a, b) => {
+      let cmp = 0;
+      if (sortField === "level") {
+        // Ưu tiên 1: level_sort_order do người dùng kéo thả sắp xếp trong Cài Đặt
+        const orderA = a.level_sort_order ?? 999;
+        const orderB = b.level_sort_order ?? 999;
+        if (orderA !== orderB) {
+          cmp = orderA - orderB;
+        } else {
+          // Dự phòng so sánh tên level dạng text
+          cmp = (a.level_name || "").localeCompare(b.level_name || "", "vi", { sensitivity: "base", numeric: true });
+        }
+      } else if (sortField === "name") {
+        cmp = (a.name || "").localeCompare(b.name || "", "vi", { sensitivity: "base" });
+      } else if (sortField === "tuition") {
+        cmp = (a.current_tuition || 0) - (b.current_tuition || 0);
+      } else if (sortField === "status") {
+        cmp = (a.status || "studying").localeCompare(b.status || "studying");
+      } else if (sortField === "teacher") {
+        cmp = (a.teacher_name || "").localeCompare(b.teacher_name || "", "vi");
+      }
+      return sortOrder === "asc" ? cmp : -cmp;
+    });
   }, [
     students,
     searchQuery,
@@ -532,6 +582,8 @@ export default function Dashboard() {
     selectedTeacherFilter,
     selectedStatusFilter,
     selectedPaymentFilter,
+    sortField,
+    sortOrder,
   ]);
 
   // Statistics
@@ -1397,13 +1449,95 @@ export default function Dashboard() {
                       title={isAllFilteredSelected ? "Bỏ chọn tất cả" : "Chọn tất cả học sinh đang hiển thị"}
                     />
                   </th>
-                  <th className="py-2.5 px-2 sm:px-3 w-[26%] xl:w-[18%]">{t.col_student}</th>
-                  <th className="py-2.5 px-2.5 w-[14%] xl:w-[8%]">{t.col_status}</th>
-                  <th className="py-2.5 px-2.5 hidden lg:table-cell w-[10%] xl:w-[8%]">{t.col_teacher}</th>
-                  <th className="py-2.5 px-2.5 hidden xl:table-cell w-[8%] xl:w-[7%]">{t.col_level_surcharge}</th>
+                  <th className="py-2.5 px-2 sm:px-3 w-[26%] xl:w-[18%]">
+                    <button
+                      type="button"
+                      onClick={() => handleHeaderSort("name")}
+                      className="inline-flex items-center gap-1.5 hover:text-indigo-600 dark:hover:text-indigo-400 cursor-pointer font-black transition"
+                      title="Sắp xếp theo Tên học sinh"
+                    >
+                      <span>{t.col_student}</span>
+                      {sortField === "name" ? (
+                        sortOrder === "asc" ? <ArrowUp className="w-3 h-3 text-indigo-600" /> : <ArrowDown className="w-3 h-3 text-indigo-600" />
+                      ) : (
+                        <ArrowUpDown className="w-2.5 h-2.5 opacity-40 hover:opacity-100" />
+                      )}
+                    </button>
+                  </th>
+
+                  <th className="py-2.5 px-2.5 w-[14%] xl:w-[8%]">
+                    <button
+                      type="button"
+                      onClick={() => handleHeaderSort("status")}
+                      className="inline-flex items-center gap-1.5 hover:text-indigo-600 dark:hover:text-indigo-400 cursor-pointer font-black transition"
+                      title="Sắp xếp theo Trạng thái học sinh"
+                    >
+                      <span>{t.col_status}</span>
+                      {sortField === "status" ? (
+                        sortOrder === "asc" ? <ArrowUp className="w-3 h-3 text-indigo-600" /> : <ArrowDown className="w-3 h-3 text-indigo-600" />
+                      ) : (
+                        <ArrowUpDown className="w-2.5 h-2.5 opacity-40 hover:opacity-100" />
+                      )}
+                    </button>
+                  </th>
+
+                  <th className="py-2.5 px-2.5 hidden lg:table-cell w-[10%] xl:w-[8%]">
+                    <button
+                      type="button"
+                      onClick={() => handleHeaderSort("teacher")}
+                      className="inline-flex items-center gap-1.5 hover:text-indigo-600 dark:hover:text-indigo-400 cursor-pointer font-black transition"
+                      title="Sắp xếp theo Giáo viên phụ trách"
+                    >
+                      <span>{t.col_teacher}</span>
+                      {sortField === "teacher" ? (
+                        sortOrder === "asc" ? <ArrowUp className="w-3 h-3 text-indigo-600" /> : <ArrowDown className="w-3 h-3 text-indigo-600" />
+                      ) : (
+                        <ArrowUpDown className="w-2.5 h-2.5 opacity-40 hover:opacity-100" />
+                      )}
+                    </button>
+                  </th>
+
+                  <th className="py-2.5 px-2.5 hidden xl:table-cell w-[8%] xl:w-[7%]">
+                    <button
+                      type="button"
+                      onClick={() => handleHeaderSort("level")}
+                      className="inline-flex items-center gap-1.5 hover:text-indigo-600 dark:hover:text-indigo-400 cursor-pointer font-black transition group"
+                      title="Sắp xếp theo Thứ Tự Cài Đặt Level (Grade 1 trước Grade 7...)"
+                    >
+                      <span className={sortField === "level" ? "text-indigo-600 dark:text-indigo-400 font-extrabold" : ""}>
+                        {t.col_level_surcharge}
+                      </span>
+                      {sortField === "level" ? (
+                        sortOrder === "asc" ? (
+                          <ArrowUp className="w-3 h-3 text-indigo-600" />
+                        ) : (
+                          <ArrowDown className="w-3 h-3 text-indigo-600" />
+                        )
+                      ) : (
+                        <ArrowUpDown className="w-2.5 h-2.5 opacity-40 group-hover:opacity-100" />
+                      )}
+                    </button>
+                  </th>
+
                   <th className="py-2.5 px-3 w-[20%] xl:w-[15%]">{t.col_package_schedule}</th>
                   <th className="py-2.5 px-2 text-center hidden xl:table-cell w-[6%]">{t.col_discount}</th>
-                  <th className="py-2.5 px-3 w-[16%] xl:w-[14%]">{t.col_tuition} {formatMonthDisplay(selectedMonth, monthFormat)}</th>
+
+                  <th className="py-2.5 px-3 w-[16%] xl:w-[14%]">
+                    <button
+                      type="button"
+                      onClick={() => handleHeaderSort("tuition")}
+                      className="inline-flex items-center gap-1.5 hover:text-indigo-600 dark:hover:text-indigo-400 cursor-pointer font-black transition"
+                      title="Sắp xếp theo Mức học phí"
+                    >
+                      <span>{t.col_tuition} {formatMonthDisplay(selectedMonth, monthFormat)}</span>
+                      {sortField === "tuition" ? (
+                        sortOrder === "asc" ? <ArrowUp className="w-3 h-3 text-indigo-600" /> : <ArrowDown className="w-3 h-3 text-indigo-600" />
+                      ) : (
+                        <ArrowUpDown className="w-2.5 h-2.5 opacity-40 hover:opacity-100" />
+                      )}
+                    </button>
+                  </th>
+
                   <th className="py-2.5 px-3 text-center hidden md:table-cell w-[17%] xl:w-[12%]">{t.col_reconciliation}</th>
                   <th className="py-2.5 px-3 text-right w-[9%] xl:w-[6%]">{t.col_actions}</th>
                 </tr>

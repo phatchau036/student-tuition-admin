@@ -51,6 +51,9 @@ import {
   ExternalLink,
   Globe,
   BookOpen,
+  ArrowUp,
+  ArrowDown,
+  GripVertical,
 } from "lucide-react";
 
 interface SettingsModalProps {
@@ -644,8 +647,37 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setLevels(updated);
   };
 
+  const handleMoveLevel = (index: number, direction: "up" | "down") => {
+    const targetIndex = direction === "up" ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= levels.length) return;
+    const reordered = [...levels];
+    const [moved] = reordered.splice(index, 1);
+    reordered.splice(targetIndex, 0, moved);
+    // Cập nhật lại sort_order liên tục 1..N
+    const updated = reordered.map((l, i) => ({ ...l, sort_order: i + 1 }));
+    setLevels(updated);
+  };
+
+  const handleDragStartLevel = (e: React.DragEvent, index: number) => {
+    e.dataTransfer.setData("text/plain", String(index));
+  };
+
+  const handleDropLevel = (e: React.DragEvent, dropIndex: number) => {
+    e.preventDefault();
+    const dragIndexStr = e.dataTransfer.getData("text/plain");
+    if (!dragIndexStr) return;
+    const dragIndex = parseInt(dragIndexStr, 10);
+    if (isNaN(dragIndex) || dragIndex === dropIndex) return;
+    const reordered = [...levels];
+    const [moved] = reordered.splice(dragIndex, 1);
+    reordered.splice(dropIndex, 0, moved);
+    const updated = reordered.map((l, i) => ({ ...l, sort_order: i + 1 }));
+    setLevels(updated);
+  };
+
   const handleRemoveLevel = (index: number) => {
-    setLevels(levels.filter((_, i) => i !== index));
+    const updated = levels.filter((_, i) => i !== index).map((l, i) => ({ ...l, sort_order: i + 1 }));
+    setLevels(updated);
   };
 
   // Discount presets helpers
@@ -2429,9 +2461,36 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 {levels.map((lvl, index) => (
                   <div
                     key={lvl.id || index}
-                    className="p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-800/40 flex items-center gap-3.5 shadow-xs hover:border-slate-300 transition"
+                    draggable
+                    onDragStart={(e) => handleDragStartLevel(e, index)}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => handleDropLevel(e, index)}
+                    className="p-3.5 sm:p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-800/40 flex items-center gap-2.5 sm:gap-3.5 shadow-xs hover:border-indigo-300 dark:hover:border-indigo-700/80 transition cursor-grab active:cursor-grabbing group"
                   >
-                    <div className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 font-black text-xs flex items-center justify-center shrink-0">
+                    {/* Tay cầm kéo thả + Nút lên/xuống */}
+                    <div className="flex flex-col items-center justify-center gap-0.5 shrink-0">
+                      <button
+                        type="button"
+                        disabled={index === 0}
+                        onClick={() => handleMoveLevel(index, "up")}
+                        className="p-1 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-20 disabled:hover:bg-transparent transition cursor-pointer"
+                        title="Di chuyển lên trên"
+                      >
+                        <ArrowUp className="w-3.5 h-3.5" />
+                      </button>
+                      <GripVertical className="w-4 h-4 text-slate-300 group-hover:text-indigo-500 transition" />
+                      <button
+                        type="button"
+                        disabled={index === levels.length - 1}
+                        onClick={() => handleMoveLevel(index, "down")}
+                        className="p-1 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-20 disabled:hover:bg-transparent transition cursor-pointer"
+                        title="Di chuyển xuống dưới"
+                      >
+                        <ArrowDown className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+
+                    <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 font-black text-xs flex items-center justify-center shrink-0">
                       #{index + 1}
                     </div>
 
@@ -2473,7 +2532,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                     <button
                       onClick={() => handleRemoveLevel(index)}
-                      className="p-2 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl transition shrink-0"
+                      className="p-2 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl transition shrink-0 cursor-pointer"
                       title="Xóa Level"
                     >
                       <Trash2 className="w-4 h-4" />

@@ -276,6 +276,7 @@ export interface Student {
   level_id: string;
   level_name?: string;
   level_surcharge?: number;
+  level_sort_order?: number;
   subject_id?: string;
   subject_name?: string;
   subject_color?: string;
