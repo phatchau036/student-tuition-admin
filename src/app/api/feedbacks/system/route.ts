@@ -42,6 +42,11 @@ export async function GET(req: Request) {
             return [];
           }
         })(),
+        assignee_id: r.assignee_id ? String(r.assignee_id) : undefined,
+        assignee_name: r.assignee_name ? String(r.assignee_name) : undefined,
+        assigned_at: r.assigned_at ? String(r.assigned_at) : undefined,
+        completed_at: r.completed_at ? String(r.completed_at) : undefined,
+        completed_by: r.completed_by ? String(r.completed_by) : undefined,
         created_at: String(r.created_at || ""),
       })),
     });
@@ -126,7 +131,15 @@ export async function PATCH(req: Request) {
     await initDb();
     const db = getDb();
     const body = await req.json();
-    const { id, status, admin_reply } = body;
+    const { 
+      id, 
+      status, 
+      admin_reply, 
+      action, 
+      assignee_id, 
+      assignee_name, 
+      completed_by 
+    } = body;
 
     if (!id) {
       return NextResponse.json(
@@ -135,6 +148,79 @@ export async function PATCH(req: Request) {
       );
     }
 
+    // 1. Nhận nhiệm vụ (Assign task)
+    if (action === "assign") {
+      if (!assignee_name || !assignee_name.trim()) {
+        return NextResponse.json({ success: false, message: "Vui lòng chọn người nhận việc!" }, { status: 400 });
+      }
+      const nowStr = new Date().toISOString();
+      await db.execute({
+        sql: `UPDATE system_feedbacks 
+              SET status = 'in_progress',
+                  assignee_id = ?,
+                  assignee_name = ?,
+                  assigned_at = ?
+              WHERE id = ?`,
+        args: [assignee_id || null, assignee_name.trim(), nowStr, id],
+      });
+      return NextResponse.json({
+        success: true,
+        message: `Đã giao nhiệm vụ cho "${assignee_name.trim()}"! Trạng thái: Đang làm.`,
+      });
+    }
+
+    // 2. Hủy nhận nhiệm vụ (Trả về Chưa làm)
+    if (action === "unassign") {
+      await db.execute({
+        sql: `UPDATE system_feedbacks 
+              SET status = 'pending',
+                  assignee_id = NULL,
+                  assignee_name = NULL,
+                  assigned_at = NULL
+              WHERE id = ?`,
+        args: [id],
+      });
+      return NextResponse.json({
+        success: true,
+        message: "Đã hủy nhận nhiệm vụ, đưa về mục Chưa làm!",
+      });
+    }
+
+    // 3. Đánh dấu làm xong (Complete task)
+    if (action === "complete") {
+      const nowStr = new Date().toISOString();
+      await db.execute({
+        sql: `UPDATE system_feedbacks 
+              SET status = 'completed',
+                  completed_at = ?,
+                  completed_by = COALESCE(?, assignee_name),
+                  admin_reply = CASE WHEN ? != '' THEN ? ELSE admin_reply END
+              WHERE id = ?`,
+        args: [nowStr, completed_by || null, admin_reply ? admin_reply.trim() : "", admin_reply ? admin_reply.trim() : "", id],
+      });
+      return NextResponse.json({
+        success: true,
+        message: "Tuyệt vời! Đã đánh dấu hoàn thành nhiệm vụ này!",
+      });
+    }
+
+    // 4. Mở lại nhiệm vụ (Reopen)
+    if (action === "reopen") {
+      await db.execute({
+        sql: `UPDATE system_feedbacks 
+              SET status = 'in_progress',
+                  completed_at = NULL,
+                  completed_by = NULL
+              WHERE id = ?`,
+        args: [id],
+      });
+      return NextResponse.json({
+        success: true,
+        message: "Đã mở lại nhiệm vụ sang trạng thái Đang làm!",
+      });
+    }
+
+    // 5. Cập nhật thông thường (Status + Reply)
     await db.execute({
       sql: `UPDATE system_feedbacks 
             SET status = COALESCE(?, status),

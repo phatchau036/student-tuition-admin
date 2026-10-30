@@ -324,9 +324,27 @@ export async function initDb() {
       priority TEXT DEFAULT 'medium', -- low | medium | high
       title TEXT NOT NULL,
       content TEXT NOT NULL,
-      status TEXT DEFAULT 'pending', -- pending | in_review | planned | completed
+      status TEXT DEFAULT 'pending', -- pending | in_progress | completed
       admin_reply TEXT,
       images_json TEXT DEFAULT '[]',
+      assignee_id TEXT DEFAULT NULL,
+      assignee_name TEXT DEFAULT NULL,
+      assigned_at DATETIME DEFAULT NULL,
+      completed_at DATETIME DEFAULT NULL,
+      completed_by TEXT DEFAULT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+
+  // 14.1 System Team Members Table (Đội ngũ kỹ thuật / phát triển hệ thống TpTeam)
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS system_team_members (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      role TEXT DEFAULT 'developer', -- developer | tester | manager | support
+      phone TEXT DEFAULT '',
+      avatar_color TEXT DEFAULT 'purple',
+      is_active INTEGER NOT NULL DEFAULT 1,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
   `);
@@ -446,6 +464,11 @@ export async function initDb() {
   try { await db.execute("ALTER TABLE tuition_packages ADD COLUMN discount_value INTEGER DEFAULT 0"); } catch {}
   try { await db.execute("ALTER TABLE tuition_packages ADD COLUMN benefits TEXT DEFAULT ''"); } catch {}
   try { await db.execute("ALTER TABLE system_feedbacks ADD COLUMN images_json TEXT DEFAULT '[]'"); } catch {}
+  try { await db.execute("ALTER TABLE system_feedbacks ADD COLUMN assignee_id TEXT DEFAULT NULL"); } catch {}
+  try { await db.execute("ALTER TABLE system_feedbacks ADD COLUMN assignee_name TEXT DEFAULT NULL"); } catch {}
+  try { await db.execute("ALTER TABLE system_feedbacks ADD COLUMN assigned_at DATETIME DEFAULT NULL"); } catch {}
+  try { await db.execute("ALTER TABLE system_feedbacks ADD COLUMN completed_at DATETIME DEFAULT NULL"); } catch {}
+  try { await db.execute("ALTER TABLE system_feedbacks ADD COLUMN completed_by TEXT DEFAULT NULL"); } catch {}
 
   // Defaults for settings
   const defaults: [string, string][] = [
@@ -497,6 +520,17 @@ export async function initDb() {
       await db.execute({
         sql: "UPDATE students SET tuition_package_id = ? WHERE tuition_package_id IS NULL OR tuition_package_id = ''",
         args: [defaultPkgId],
+      });
+    }
+  } catch {}
+  // Tự động seed một số thành viên mặc định cho TpTeam nếu chưa có
+  try {
+    const teamCheck = await db.execute("SELECT COUNT(*) as c FROM system_team_members");
+    if (Number(teamCheck.rows[0].c) === 0) {
+      await db.execute({
+        sql: `INSERT INTO system_team_members (id, name, role, avatar_color) VALUES 
+              ('mem-1', 'Thầy Phát', 'developer', 'purple'),
+              ('mem-2', 'Admin Kỹ Thuật', 'manager', 'emerald')`,
       });
     }
   } catch {}

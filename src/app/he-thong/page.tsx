@@ -32,9 +32,16 @@ import {
   Send,
   Inbox,
   Filter,
+  UserCheck,
+  Clock,
+  CheckSquare,
+  Square,
+  UserPlus,
+  Play,
+  RotateCcw,
 } from "lucide-react";
 import Link from "next/link";
-import { SystemFeedback } from "@/lib/types";
+import { SystemFeedback, SystemTeamMember } from "@/lib/types";
 import {
   generateAdminUsernameFromSchool,
   generateRandomPassword,
@@ -114,12 +121,33 @@ export default function SystemAdminPage() {
   const [adminPassword, setAdminPassword] = useState("");
   const [isSubmittingAdmin, setIsSubmittingAdmin] = useState(false);
 
-  // Feedbacks from Schools to TpTeam
+  // Feedbacks & Task Workflow (Chưa làm / Đang làm / Đã làm)
   const [systemFeedbacks, setSystemFeedbacks] = useState<SystemFeedback[]>([]);
   const [isLoadingFeedbacks, setIsLoadingFeedbacks] = useState(false);
+  const [feedbackTaskTab, setFeedbackTaskTab] = useState<"pending" | "in_progress" | "completed">("pending");
   const [activeFeedbackReplyId, setActiveFeedbackReplyId] = useState<string | null>(null);
   const [feedbackReplyText, setFeedbackReplyText] = useState("");
-  const [feedbackStatusUpdate, setFeedbackStatusUpdate] = useState<"pending" | "in_review" | "planned" | "completed">("in_review");
+  const [feedbackStatusUpdate, setFeedbackStatusUpdate] = useState<"pending" | "in_progress" | "in_review" | "planned" | "completed">("in_progress");
+
+  // TpTeam Members Management & Task Assignment Modal
+  const [teamMembers, setTeamMembers] = useState<SystemTeamMember[]>([]);
+  const [isLoadingTeam, setIsLoadingTeam] = useState(false);
+  const [isTeamModalOpen, setIsTeamModalOpen] = useState(false);
+  const [newMemberName, setNewMemberName] = useState("");
+  const [newMemberRole, setNewMemberRole] = useState<"developer" | "tester" | "manager" | "support">("developer");
+  const [newMemberPhone, setNewMemberPhone] = useState("");
+  const [isSavingMember, setIsSavingMember] = useState(false);
+
+  // Assign Task Modal (Bấm nhận việc chọn mình là ai)
+  const [assignModalTask, setAssignModalTask] = useState<SystemFeedback | null>(null);
+  const [selectedAssigneeId, setSelectedAssigneeId] = useState("");
+  const [customAssigneeName, setCustomAssigneeName] = useState("");
+  const [isSubmittingAssign, setIsSubmittingAssign] = useState(false);
+
+  // Complete Task Modal (Tick hoàn thành nhiệm vụ)
+  const [completeModalTask, setCompleteModalTask] = useState<SystemFeedback | null>(null);
+  const [completeReplyNote, setCompleteReplyNote] = useState("");
+  const [isSubmittingComplete, setIsSubmittingComplete] = useState(false);
 
   // Modal IP Whitelist for School
   const [isIpModalOpen, setIsIpModalOpen] = useState(false);
@@ -152,9 +180,9 @@ export default function SystemAdminPage() {
   const [adminToDelete, setAdminToDelete] = useState<SchoolAdmin | null>(null);
   const [isDeletingAdmin, setIsDeletingAdmin] = useState(false);
 
-  const [toastMessage, setToastMessage] = useState<{ text: string; type: "success" | "error" } | null>(null);
+  const [toastMessage, setToastMessage] = useState<{ text: string; type: "success" | "error" | "info" } | null>(null);
 
-  const showToast = (text: string, type: "success" | "error" = "success") => {
+  const showToast = (text: string, type: "success" | "error" | "info" = "success") => {
     setToastMessage({ text, type });
     setTimeout(() => setToastMessage(null), 3500);
   };
@@ -245,10 +273,203 @@ export default function SystemAdminPage() {
         }
       }
       loadSystemFeedbacks();
+      loadTeamMembers();
     } catch {
       showToast("Lỗi kết nối khi tải dữ liệu hệ thống!", "error");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const loadTeamMembers = async () => {
+    try {
+      setIsLoadingTeam(true);
+      const res = await fetch("/api/system/team");
+      const json = await res.json();
+      if (json.success) {
+        setTeamMembers(json.data || []);
+      }
+    } catch {
+      console.error("Lỗi khi tải thành viên team");
+    } finally {
+      setIsLoadingTeam(false);
+    }
+  };
+
+  const handleAddTeamMember = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newMemberName.trim()) {
+      showToast("Vui lòng nhập tên thành viên!", "error");
+      return;
+    }
+    try {
+      setIsSavingMember(true);
+      const res = await fetch("/api/system/team", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "create",
+          name: newMemberName.trim(),
+          role: newMemberRole,
+          phone: newMemberPhone.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(data.message, "success");
+        setNewMemberName("");
+        setNewMemberPhone("");
+        loadTeamMembers();
+      } else {
+        showToast(data.message || "Lỗi khi thêm thành viên!", "error");
+      }
+    } catch {
+      showToast("Lỗi kết nối máy chủ!", "error");
+    } finally {
+      setIsSavingMember(false);
+    }
+  };
+
+  const handleDeleteTeamMember = async (id: string, name: string) => {
+    if (!confirm(`Bạn có chắc muốn xóa thành viên "${name}" khỏi đội ngũ?`)) return;
+    try {
+      const res = await fetch("/api/system/team", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "delete", id }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(data.message, "success");
+        loadTeamMembers();
+      } else {
+        showToast(data.message || "Lỗi khi xóa thành viên!", "error");
+      }
+    } catch {
+      showToast("Lỗi kết nối máy chủ!", "error");
+    }
+  };
+
+  // Xử lý Nhận Việc (Assign Task)
+  const handleConfirmAssignTask = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!assignModalTask) return;
+
+    let assigneeName = customAssigneeName.trim();
+    if (selectedAssigneeId) {
+      const found = teamMembers.find((m) => m.id === selectedAssigneeId);
+      if (found) assigneeName = found.name;
+    }
+
+    if (!assigneeName) {
+      showToast("Vui lòng chọn hoặc nhập tên người nhận việc!", "error");
+      return;
+    }
+
+    try {
+      setIsSubmittingAssign(true);
+      const res = await fetch("/api/feedbacks/system", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: assignModalTask.id,
+          action: "assign",
+          assignee_id: selectedAssigneeId || null,
+          assignee_name: assigneeName,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(data.message, "success");
+        setAssignModalTask(null);
+        setSelectedAssigneeId("");
+        setCustomAssigneeName("");
+        loadSystemFeedbacks();
+      } else {
+        showToast(data.message || "Lỗi khi nhận việc!", "error");
+      }
+    } catch {
+      showToast("Lỗi kết nối máy chủ!", "error");
+    } finally {
+      setIsSubmittingAssign(false);
+    }
+  };
+
+  // Xử lý Hủy nhận việc (Đưa về Chưa làm)
+  const handleUnassignTask = async (id: string) => {
+    try {
+      const res = await fetch("/api/feedbacks/system", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id,
+          action: "unassign",
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(data.message, "info");
+        loadSystemFeedbacks();
+      } else {
+        showToast(data.message || "Lỗi khi hủy nhận!", "error");
+      }
+    } catch {
+      showToast("Lỗi kết nối máy chủ!", "error");
+    }
+  };
+
+  // Xử lý Hoàn Thành Việc (Complete Task)
+  const handleConfirmCompleteTask = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!completeModalTask) return;
+
+    try {
+      setIsSubmittingComplete(true);
+      const res = await fetch("/api/feedbacks/system", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: completeModalTask.id,
+          action: "complete",
+          admin_reply: completeReplyNote.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(data.message, "success");
+        setCompleteModalTask(null);
+        setCompleteReplyNote("");
+        loadSystemFeedbacks();
+      } else {
+        showToast(data.message || "Lỗi khi hoàn thành!", "error");
+      }
+    } catch {
+      showToast("Lỗi kết nối máy chủ!", "error");
+    } finally {
+      setIsSubmittingComplete(false);
+    }
+  };
+
+  // Mở lại việc (Reopen)
+  const handleReopenTask = async (id: string) => {
+    try {
+      const res = await fetch("/api/feedbacks/system", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id,
+          action: "reopen",
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(data.message, "info");
+        loadSystemFeedbacks();
+      } else {
+        showToast(data.message || "Lỗi khi mở lại nhiệm vụ!", "error");
+      }
+    } catch {
+      showToast("Lỗi kết nối máy chủ!", "error");
     }
   };
 
@@ -680,8 +901,10 @@ export default function SystemAdminPage() {
           <div className="fixed top-5 right-5 z-50 flex items-center gap-2 px-4 py-3 rounded-xl bg-white text-slate-900 shadow-2xl border border-slate-200 animate-in fade-in slide-in-from-top-4">
             {toastMessage.type === "success" ? (
               <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-            ) : (
+            ) : toastMessage.type === "error" ? (
               <AlertCircle className="w-5 h-5 text-rose-600" />
+            ) : (
+              <Sparkles className="w-5 h-5 text-indigo-600" />
             )}
             <span className="text-sm font-semibold">{toastMessage.text}</span>
           </div>
@@ -1157,207 +1380,330 @@ export default function SystemAdminPage() {
           </div>
         )}
 
-        {/* TAB 2: FEEDBACKS FROM SCHOOLS */}
-        {activeSystemTab === "feedbacks" && (
-          <div className="space-y-4 animate-in fade-in duration-150">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                  <Inbox className="w-5 h-5 text-amber-400" />
-                  <span>Ý Kiến Đóng Góp & Yêu Cầu Từ Các Trung Tâm ({systemFeedbacks.length})</span>
-                </h2>
-                <p className="text-xs text-slate-400">
-                  Lắng nghe phản hồi thực tế từ các cơ sở để cải tiến sản phẩm và cập nhật tính năng
-                </p>
-              </div>
-              <button
-                onClick={loadSystemFeedbacks}
-                className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200 transition shrink-0 self-start sm:self-auto"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${isLoadingFeedbacks ? "animate-spin" : ""}`} />
-                <span>Làm mới góp ý</span>
-              </button>
-            </div>
+        {/* TAB 2: FEEDBACKS & TASK WORKFLOW FROM SCHOOLS */}
+        {activeSystemTab === "feedbacks" && (() => {
+          const pendingFeedbacks = systemFeedbacks.filter((fb) => fb.status === "pending" || !fb.status);
+          const inProgressFeedbacks = systemFeedbacks.filter((fb) => fb.status === "in_progress" || fb.status === "in_review" || fb.status === "planned");
+          const completedFeedbacks = systemFeedbacks.filter((fb) => fb.status === "completed");
 
-            <div className="bg-slate-800/80 rounded-2xl border border-slate-700/80 overflow-hidden">
-              {isLoadingFeedbacks ? (
-                <div className="py-12 text-center text-xs text-slate-400">Đang tải danh sách góp ý...</div>
-              ) : systemFeedbacks.length === 0 ? (
-                <div className="py-12 text-center text-xs text-slate-500">
-                  Chưa có góp ý hoặc yêu cầu nào từ các trung tâm.
+          const currentList =
+            feedbackTaskTab === "pending"
+              ? pendingFeedbacks
+              : feedbackTaskTab === "in_progress"
+              ? inProgressFeedbacks
+              : completedFeedbacks;
+
+          return (
+            <div className="space-y-4 animate-in fade-in duration-150">
+              {/* Header Tab 2 & Nút quản lý đội ngũ */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                    <Inbox className="w-5 h-5 text-amber-400" />
+                    <span>Nhiệm Vụ & Phản Hồi Từ Các Trung Tâm ({systemFeedbacks.length})</span>
+                  </h2>
+                  <p className="text-xs text-slate-400">
+                    Quy trình xử lý công việc: <strong>Chưa làm ➔ Đang làm ➔ Đã làm</strong> dành riêng cho đội ngũ phát triển TpTeam
+                  </p>
                 </div>
-              ) : (
-                <div className="divide-y divide-slate-700/60">
-                  {systemFeedbacks.map((fb) => (
-                    <div key={fb.id} className="p-5 space-y-3 hover:bg-slate-700/20 transition">
-                      <div className="flex items-start justify-between gap-3 flex-wrap">
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="px-2 py-0.5 rounded text-[11px] font-black uppercase bg-purple-500/20 text-purple-300 border border-purple-500/30">
-                              {fb.school_name || fb.school_code}
-                            </span>
-                            <span className="text-sm font-bold text-white">{fb.title}</span>
-                            <span
-                              className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                                fb.priority === "high"
-                                  ? "bg-rose-500/20 text-rose-300 border border-rose-500/30"
-                                  : "bg-slate-700 text-slate-300"
-                              }`}
-                            >
-                              {fb.priority === "high" ? "Ưu tiên cao" : "Bình thường"}
-                            </span>
-                          </div>
-                          {fb.sender_contact && (
-                            <p className="text-xs text-slate-400">
-                              Người liên hệ: <strong className="text-slate-200">{fb.sender_contact}</strong>
-                            </p>
-                          )}
-                        </div>
 
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={`px-2.5 py-1 rounded-full text-xs font-bold ${
-                              fb.status === "completed"
-                                ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
-                                : fb.status === "planned"
-                                ? "bg-blue-500/20 text-blue-300 border border-blue-500/30"
-                                : fb.status === "in_review"
-                                ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
-                                : "bg-slate-700 text-slate-300"
-                            }`}
-                          >
-                            {fb.status === "completed"
-                              ? "Đã hoàn thành"
-                              : fb.status === "planned"
-                              ? "Đã lên kế hoạch"
-                              : fb.status === "in_review"
-                              ? "Đang xử lý"
-                              : "Mới tiếp nhận"}
-                          </span>
-                          <button
-                            onClick={() => {
-                              setActiveFeedbackReplyId(fb.id);
-                              setFeedbackReplyText(fb.admin_reply || "");
-                              setFeedbackStatusUpdate(fb.status);
-                            }}
-                            className="px-3 py-1 text-xs font-semibold rounded-lg bg-purple-600/30 hover:bg-purple-600/50 text-purple-300 border border-purple-500/30 transition"
-                          >
-                            Xử lý & Phản hồi
-                          </button>
-                        </div>
-                      </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => setIsTeamModalOpen(true)}
+                    className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-xl bg-purple-600/30 hover:bg-purple-600/50 text-purple-200 border border-purple-500/40 transition cursor-pointer"
+                    title="Quản lý thành viên đội ngũ hệ thống"
+                  >
+                    <Users className="w-3.5 h-3.5 text-purple-300" />
+                    <span>Đội Ngũ TpTeam ({teamMembers.length})</span>
+                  </button>
 
-                      <p className="text-xs text-slate-300 leading-relaxed bg-slate-900/40 p-3 rounded-xl border border-slate-700/40 whitespace-pre-wrap">
-                        {fb.content}
-                      </p>
+                  <button
+                    onClick={loadSystemFeedbacks}
+                    className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200 transition shrink-0 cursor-pointer"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isLoadingFeedbacks ? "animate-spin" : ""}`} />
+                    <span>Làm mới</span>
+                  </button>
+                </div>
+              </div>
 
-                      {/* Hiển thị ảnh chụp màn hình cơ sở gửi lên */}
-                      {fb.images && fb.images.length > 0 && (
-                        <div className="space-y-1.5">
-                          <span className="text-[10px] uppercase font-bold text-slate-400">Ảnh chụp màn hình đính kèm ({fb.images.length}):</span>
-                          <div className="flex items-center gap-3 overflow-x-auto py-1">
-                            {fb.images.map((imgUrl, i) => (
-                              <a
-                                key={i}
-                                href={imgUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="block rounded-xl overflow-hidden border border-slate-700 hover:border-purple-400 transition shrink-0"
+              {/* Bộ 3 Tab Nhiệm Vụ: Chưa làm / Đang làm / Đã làm */}
+              <div className="grid grid-cols-3 gap-2 p-1.5 rounded-2xl bg-slate-800/90 border border-slate-700/80">
+                <button
+                  type="button"
+                  onClick={() => setFeedbackTaskTab("pending")}
+                  className={`py-2 px-3 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 transition cursor-pointer ${
+                    feedbackTaskTab === "pending"
+                      ? "bg-amber-500 text-slate-950 shadow-md shadow-amber-500/25"
+                      : "text-slate-400 hover:text-white hover:bg-slate-700/50"
+                  }`}
+                >
+                  <Clock className="w-3.5 h-3.5" />
+                  <span>Chưa làm</span>
+                  <span className={`px-2 py-0.2 rounded-full text-[10px] font-black ${
+                    feedbackTaskTab === "pending" ? "bg-slate-950/20 text-slate-950" : "bg-slate-700 text-slate-300"
+                  }`}>
+                    {pendingFeedbacks.length}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setFeedbackTaskTab("in_progress")}
+                  className={`py-2 px-3 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 transition cursor-pointer ${
+                    feedbackTaskTab === "in_progress"
+                      ? "bg-blue-600 text-white shadow-md shadow-blue-600/30"
+                      : "text-slate-400 hover:text-white hover:bg-slate-700/50"
+                  }`}
+                >
+                  <Play className="w-3.5 h-3.5" />
+                  <span>Đang làm</span>
+                  <span className={`px-2 py-0.2 rounded-full text-[10px] font-black ${
+                    feedbackTaskTab === "in_progress" ? "bg-white/20 text-white" : "bg-slate-700 text-slate-300"
+                  }`}>
+                    {inProgressFeedbacks.length}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setFeedbackTaskTab("completed")}
+                  className={`py-2 px-3 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 transition cursor-pointer ${
+                    feedbackTaskTab === "completed"
+                      ? "bg-emerald-600 text-white shadow-md shadow-emerald-600/30"
+                      : "text-slate-400 hover:text-white hover:bg-slate-700/50"
+                  }`}
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>Đã làm xong</span>
+                  <span className={`px-2 py-0.2 rounded-full text-[10px] font-black ${
+                    feedbackTaskTab === "completed" ? "bg-white/20 text-white" : "bg-slate-700 text-slate-300"
+                  }`}>
+                    {completedFeedbacks.length}
+                  </span>
+                </button>
+              </div>
+
+              {/* Danh sách nhiệm vụ theo Tab đã chọn */}
+              <div className="bg-slate-800/80 rounded-2xl border border-slate-700/80 overflow-hidden">
+                {isLoadingFeedbacks ? (
+                  <div className="py-12 text-center text-xs text-slate-400">Đang tải danh sách nhiệm vụ...</div>
+                ) : currentList.length === 0 ? (
+                  <div className="py-12 text-center text-xs text-slate-500">
+                    {feedbackTaskTab === "pending" && "Không có nhiệm vụ nào đang chờ xử lý! Tuyệt vời!"}
+                    {feedbackTaskTab === "in_progress" && "Chưa có nhiệm vụ nào đang được nhận làm."}
+                    {feedbackTaskTab === "completed" && "Chưa có nhiệm vụ nào hoàn thành trong danh mục này."}
+                  </div>
+                ) : (
+                  <div className="divide-y divide-slate-700/60">
+                    {currentList.map((fb) => (
+                      <div key={fb.id} className="p-5 space-y-3.5 hover:bg-slate-700/20 transition">
+                        <div className="flex items-start justify-between gap-3 flex-wrap">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="px-2 py-0.5 rounded text-[11px] font-black uppercase bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                                {fb.school_name || fb.school_code}
+                              </span>
+                              <span className="text-sm font-bold text-white">{fb.title}</span>
+                              <span
+                                className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                                  fb.priority === "high"
+                                    ? "bg-rose-500/20 text-rose-300 border border-rose-500/30"
+                                    : "bg-slate-700 text-slate-300"
+                                }`}
                               >
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img
-                                  src={imgUrl}
-                                  alt={`Ảnh đính kèm ${i + 1}`}
-                                  className="w-24 h-16 object-cover"
-                                />
-                              </a>
-                            ))}
+                                {fb.priority === "high" ? "Ưu tiên cao" : "Bình thường"}
+                              </span>
+                            </div>
+                            {fb.sender_contact && (
+                              <p className="text-xs text-slate-400">
+                                Người liên hệ: <strong className="text-slate-200">{fb.sender_contact}</strong>
+                              </p>
+                            )}
                           </div>
-                        </div>
-                      )}
 
-                      {fb.admin_reply && (
-                        <div className="p-3 rounded-xl bg-purple-950/30 border border-purple-900/40 text-xs text-purple-200">
-                          <strong className="block text-[10px] uppercase tracking-wider text-purple-400">
-                            Phản hồi của TpTeam đã gửi tới trung tâm:
-                          </strong>
-                          <p className="mt-0.5">{fb.admin_reply}</p>
-                        </div>
-                      )}
+                          {/* Action Buttons: Nhận Việc, Đang làm bởi ai, Đánh dấu Đã xong */}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {/* Trạng thái 1: CHƯA LÀM => Nút BẤM NHẬN NHIỆM VỤ */}
+                            {(fb.status === "pending" || !fb.status) && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setAssignModalTask(fb);
+                                  setSelectedAssigneeId(teamMembers[0]?.id || "");
+                                  setCustomAssigneeName("");
+                                }}
+                                className="px-3.5 py-1.5 text-xs font-bold rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-md shadow-amber-500/20 transition flex items-center gap-1.5 cursor-pointer"
+                              >
+                                <Play className="w-3.5 h-3.5 fill-current" />
+                                <span>Nhận Nhiệm Vụ Này</span>
+                              </button>
+                            )}
 
-                      {/* Form phản hồi khi bấm nút */}
-                      {activeFeedbackReplyId === fb.id && (
-                        <div className="p-4 rounded-xl bg-slate-900/90 border border-purple-500/40 space-y-3 animate-in fade-in">
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold text-white">Phản hồi góp ý cho cơ sở</span>
+                            {/* Trạng thái 2: ĐANG LÀM => Hiển thị Người nhận + Nút HOÀN THÀNH */}
+                            {(fb.status === "in_progress" || fb.status === "in_review" || fb.status === "planned") && (
+                              <div className="flex items-center gap-2">
+                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-extrabold bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                                  <UserCheck className="w-3.5 h-3.5 text-blue-400" />
+                                  <span>Đang làm: {fb.assignee_name || "Thành viên TpTeam"}</span>
+                                </span>
+
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setCompleteModalTask(fb);
+                                    setCompleteReplyNote(fb.admin_reply || "");
+                                  }}
+                                  className="px-3.5 py-1.5 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-600/30 transition flex items-center gap-1.5 cursor-pointer"
+                                  title="Bấm để đánh dấu đã làm xong nhiệm vụ này"
+                                >
+                                  <CheckSquare className="w-3.5 h-3.5" />
+                                  <span>Đã Làm Xong</span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleUnassignTask(fb.id)}
+                                  className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition"
+                                  title="Hủy nhận việc (chuyển về Chưa làm)"
+                                >
+                                  <RotateCcw className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            )}
+
+                            {/* Trạng thái 3: ĐÃ LÀM XONG => Hiển thị Badge + Nút Mở lại nếu cần */}
+                            {fb.status === "completed" && (
+                              <div className="flex items-center gap-2">
+                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                                  <span>Hoàn thành bởi: {fb.completed_by || fb.assignee_name || "TpTeam"}</span>
+                                </span>
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleReopenTask(fb.id)}
+                                  className="px-2.5 py-1 text-xs rounded-lg border border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700 transition"
+                                  title="Mở lại nhiệm vụ"
+                                >
+                                  Mở lại
+                                </button>
+                              </div>
+                            )}
+
+                            {/* Nút gửi lời nhắn phản hồi lại cơ sở */}
                             <button
-                              onClick={() => setActiveFeedbackReplyId(null)}
-                              className="text-xs text-slate-400 hover:text-white"
+                              onClick={() => {
+                                setActiveFeedbackReplyId(fb.id);
+                                setFeedbackReplyText(fb.admin_reply || "");
+                                setFeedbackStatusUpdate(fb.status);
+                              }}
+                              className="px-3 py-1.5 text-xs font-semibold rounded-xl bg-purple-600/30 hover:bg-purple-600/50 text-purple-300 border border-purple-500/30 transition cursor-pointer"
                             >
-                              Đóng
+                              Phản hồi cơ sở
                             </button>
                           </div>
+                        </div>
 
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <div>
-                              <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
-                                Cập nhật trạng thái
-                              </label>
-                              <select
-                                value={feedbackStatusUpdate}
-                                onChange={(e) => setFeedbackStatusUpdate(e.target.value as any)}
-                                className="w-full px-3 py-2 text-xs rounded-xl bg-slate-800 border border-slate-700 text-white outline-none"
-                              >
-                                <option value="pending">Mới tiếp nhận</option>
-                                <option value="in_review">Đang xem xét & xử lý</option>
-                                <option value="planned">Đã đưa vào kế hoạch phát triển</option>
-                                <option value="completed">Đã hoàn thành / Đã cập nhật</option>
-                              </select>
+                        {/* Nội dung chi tiết */}
+                        <p className="text-xs text-slate-300 leading-relaxed bg-slate-900/50 p-3.5 rounded-xl border border-slate-700/50 whitespace-pre-wrap">
+                          {fb.content}
+                        </p>
+
+                        {/* Hiển thị ảnh chụp màn hình cơ sở gửi lên */}
+                        {fb.images && fb.images.length > 0 && (
+                          <div className="space-y-1.5">
+                            <span className="text-[10px] uppercase font-bold text-slate-400">Ảnh đính kèm ({fb.images.length}):</span>
+                            <div className="flex items-center gap-3 overflow-x-auto py-1">
+                              {fb.images.map((imgUrl, i) => (
+                                <a
+                                  key={i}
+                                  href={imgUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="block rounded-xl overflow-hidden border border-slate-700 hover:border-purple-400 transition shrink-0"
+                                >
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img
+                                    src={imgUrl}
+                                    alt={`Ảnh đính kèm ${i + 1}`}
+                                    className="w-24 h-16 object-cover"
+                                  />
+                                </a>
+                              ))}
                             </div>
                           </div>
+                        )}
 
-                          <div>
-                            <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
-                              Lời nhắn phản hồi gửi lại cho cơ sở:
-                            </label>
-                            <textarea
-                              rows={3}
-                              placeholder="Nhập nội dung giải đáp hoặc thông báo phiên bản cập nhật..."
-                              value={feedbackReplyText}
-                              onChange={(e) => setFeedbackReplyText(e.target.value)}
-                              className="w-full px-3 py-2 text-xs rounded-xl bg-slate-800 border border-slate-700 text-white outline-none resize-none"
-                            />
+                        {fb.admin_reply && (
+                          <div className="p-3 rounded-xl bg-purple-950/30 border border-purple-900/40 text-xs text-purple-200">
+                            <strong className="block text-[10px] uppercase tracking-wider text-purple-400">
+                              Phản hồi của TpTeam đã gửi tới trung tâm:
+                            </strong>
+                            <p className="mt-0.5">{fb.admin_reply}</p>
                           </div>
+                        )}
 
-                          <div className="flex items-center justify-end gap-2 pt-1">
-                            <button
-                              type="button"
-                              onClick={() => setActiveFeedbackReplyId(null)}
-                              className="px-3 py-1.5 text-xs rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300"
-                            >
-                              Hủy
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleUpdateFeedbackStatus(fb.id)}
-                              className="px-4 py-1.5 text-xs font-bold rounded-lg bg-purple-600 hover:bg-purple-500 text-white shadow-xs"
-                            >
-                              Lưu & Gửi Phản Hồi
-                            </button>
+                        {/* Form phản hồi khi bấm nút */}
+                        {activeFeedbackReplyId === fb.id && (
+                          <div className="p-4 rounded-xl bg-slate-900/90 border border-purple-500/40 space-y-3 animate-in fade-in">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-bold text-white">Lời nhắn gửi lại trung tâm</span>
+                              <button
+                                onClick={() => setActiveFeedbackReplyId(null)}
+                                className="text-xs text-slate-400 hover:text-white"
+                              >
+                                Đóng
+                              </button>
+                            </div>
+
+                            <div>
+                              <textarea
+                                rows={3}
+                                placeholder="Nhập nội dung giải đáp hoặc thông báo phiên bản cập nhật..."
+                                value={feedbackReplyText}
+                                onChange={(e) => setFeedbackReplyText(e.target.value)}
+                                className="w-full px-3 py-2 text-xs rounded-xl bg-slate-800 border border-slate-700 text-white outline-none resize-none"
+                              />
+                            </div>
+
+                            <div className="flex items-center justify-end gap-2 pt-1">
+                              <button
+                                type="button"
+                                onClick={() => setActiveFeedbackReplyId(null)}
+                                className="px-3 py-1.5 text-xs rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300"
+                              >
+                                Hủy
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateFeedbackStatus(fb.id)}
+                                className="px-4 py-1.5 text-xs font-bold rounded-lg bg-purple-600 hover:bg-purple-500 text-white shadow-xs"
+                              >
+                                Lưu & Gửi Phản Hồi
+                              </button>
+                            </div>
                           </div>
+                        )}
+
+                        <div className="flex items-center justify-between text-[10px] text-slate-500 pt-1">
+                          <span>Gửi lúc: {fb.created_at}</span>
+                          {fb.assigned_at && fb.assignee_name && (
+                            <span>Đã nhận: {fb.assigned_at.slice(0, 16).replace("T", " ")} ({fb.assignee_name})</span>
+                          )}
+                          {fb.completed_at && (
+                            <span className="text-emerald-400 font-bold">Xong lúc: {fb.completed_at.slice(0, 16).replace("T", " ")}</span>
+                          )}
                         </div>
-                      )}
-
-                      <div className="text-[10px] text-slate-500">
-                        Gửi lúc: {fb.created_at}
                       </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* TAB 3: AUTO UPGRADE & MAINTENANCE */}
         {activeSystemTab === "maintenance" && (
@@ -2260,6 +2606,259 @@ export default function SystemAdminPage() {
                 <span>{isUpgrading ? "Đang Tải & Build..." : "Bắt Đầu Cập Nhật Ngay"}</span>
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal 1: Quản lý Đội Ngũ TpTeam (Thêm / Xóa thành viên) */}
+      {isTeamModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-slate-900 border border-slate-700 rounded-3xl w-full max-w-lg p-6 space-y-5 shadow-2xl max-h-[92vh] overflow-y-auto">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                <Users className="w-5 h-5 text-purple-400" />
+                <span>Quản Lý Đội Ngũ TpTeam</span>
+              </h3>
+              <button
+                onClick={() => setIsTeamModalOpen(false)}
+                className="text-slate-400 hover:text-white text-lg font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Form thêm thành viên mới */}
+            <form onSubmit={handleAddTeamMember} className="p-4 rounded-2xl bg-slate-800/80 border border-slate-700 space-y-3">
+              <span className="text-xs font-bold text-white block">Thêm thành viên mới vào team</span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div>
+                  <label className="text-[10px] font-bold uppercase text-slate-400 block mb-1">Tên thành viên *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="VD: Thầy Phát, Quang, Huy..."
+                    value={newMemberName}
+                    onChange={(e) => setNewMemberName(e.target.value)}
+                    className="w-full px-3 py-1.5 text-xs rounded-xl bg-slate-900 border border-slate-700 text-white outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold uppercase text-slate-400 block mb-1">Vai trò</label>
+                  <select
+                    value={newMemberRole}
+                    onChange={(e) => setNewMemberRole(e.target.value as any)}
+                    className="w-full px-3 py-1.5 text-xs rounded-xl bg-slate-900 border border-slate-700 text-white outline-none"
+                  >
+                    <option value="developer">Lập trình viên (Developer)</option>
+                    <option value="tester">Kiểm thử (Tester / QA)</option>
+                    <option value="manager">Quản lý (Project Manager)</option>
+                    <option value="support">Hỗ trợ kỹ thuật (Support)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold uppercase text-slate-400 block mb-1">Số điện thoại liên hệ (Tùy chọn)</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    placeholder="VD: 0901234567"
+                    value={newMemberPhone}
+                    onChange={(e) => setNewMemberPhone(e.target.value)}
+                    className="w-full px-3 py-1.5 text-xs rounded-xl bg-slate-900 border border-slate-700 text-white outline-none"
+                  />
+                  <button
+                    type="submit"
+                    disabled={isSavingMember}
+                    className="px-4 py-1.5 text-xs font-bold rounded-xl bg-purple-600 hover:bg-purple-500 text-white shrink-0 disabled:opacity-50 cursor-pointer"
+                  >
+                    {isSavingMember ? "Đang thêm..." : "+ Thêm"}
+                  </button>
+                </div>
+              </div>
+            </form>
+
+            {/* Danh sách thành viên */}
+            <div className="space-y-2">
+              <span className="text-xs font-bold text-slate-400 block">Danh sách thành viên hiện tại ({teamMembers.length})</span>
+              <div className="divide-y divide-slate-800 border border-slate-800 rounded-2xl overflow-hidden bg-slate-950/40">
+                {teamMembers.map((mem) => (
+                  <div key={mem.id} className="p-3 flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-xl bg-purple-500/20 border border-purple-500/30 text-purple-300 font-black text-xs flex items-center justify-center">
+                        {mem.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <span className="text-xs font-bold text-white block">{mem.name}</span>
+                        <span className="text-[10px] text-slate-400 capitalize">{mem.role} {mem.phone ? `• ${mem.phone}` : ""}</span>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteTeamMember(mem.id, mem.name)}
+                      className="p-1.5 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition"
+                      title="Xóa thành viên"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-2">
+              <button
+                type="button"
+                onClick={() => setIsTeamModalOpen(false)}
+                className="px-4 py-2 text-xs font-bold rounded-xl bg-slate-800 hover:bg-slate-700 text-white cursor-pointer"
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal 2: Nhận Nhiệm Vụ (Chọn Mình Là Ai) */}
+      {assignModalTask && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-slate-900 border border-slate-700 rounded-3xl w-full max-w-md p-6 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                <Play className="w-4 h-4 text-amber-400 fill-current" />
+                <span>Nhận Xử Lý Nhiệm Vụ</span>
+              </h3>
+              <button
+                onClick={() => setAssignModalTask(null)}
+                className="text-slate-400 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-3 rounded-2xl bg-slate-800/60 border border-slate-700/60 space-y-1">
+              <span className="text-[10px] font-bold text-purple-400 uppercase tracking-wider block">
+                {assignModalTask.school_name || assignModalTask.school_code}
+              </span>
+              <p className="text-xs font-bold text-white">{assignModalTask.title}</p>
+            </div>
+
+            <form onSubmit={handleConfirmAssignTask} className="space-y-4">
+              <div>
+                <label className="text-xs font-bold text-slate-300 block mb-1.5">
+                  Bạn là ai trong đội ngũ TpTeam? <span className="text-rose-500">*</span>
+                </label>
+                <div className="space-y-2">
+                  <select
+                    value={selectedAssigneeId}
+                    onChange={(e) => {
+                      setSelectedAssigneeId(e.target.value);
+                      if (e.target.value) setCustomAssigneeName("");
+                    }}
+                    className="w-full px-3 py-2 text-xs font-bold rounded-xl bg-slate-800 border border-slate-700 text-white outline-none"
+                  >
+                    <option value="">-- Chọn thành viên trong danh sách --</option>
+                    {teamMembers.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.name} ({m.role})
+                      </option>
+                    ))}
+                  </select>
+
+                  <div className="text-center text-[10px] text-slate-500 font-bold uppercase tracking-wider">
+                    — Hoặc nhập tên nhanh nếu chưa có trong danh sách —
+                  </div>
+
+                  <input
+                    type="text"
+                    placeholder="Nhập họ tên của bạn (VD: Thầy Phát...)"
+                    value={customAssigneeName}
+                    onChange={(e) => {
+                      setCustomAssigneeName(e.target.value);
+                      if (e.target.value) setSelectedAssigneeId("");
+                    }}
+                    className="w-full px-3 py-2 text-xs font-semibold rounded-xl bg-slate-800 border border-slate-700 text-white outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setAssignModalTask(null)}
+                  className="px-4 py-2 text-xs font-semibold rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 cursor-pointer"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingAssign}
+                  className="px-5 py-2 text-xs font-bold rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-md shadow-amber-500/20 disabled:opacity-50 cursor-pointer"
+                >
+                  {isSubmittingAssign ? "Đang lưu..." : "Xác Nhận Nhận Việc"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal 3: Đánh Dấu Làm Xong (Complete Task) */}
+      {completeModalTask && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-slate-900 border border-slate-700 rounded-3xl w-full max-w-md p-6 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                <span>Hoàn Thành Nhiệm Vụ</span>
+              </h3>
+              <button
+                onClick={() => setCompleteModalTask(null)}
+                className="text-slate-400 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-emerald-950/30 border border-emerald-900/40 text-xs text-emerald-200 space-y-1">
+              <span className="font-bold block">Bạn đã giải quyết xong yêu cầu này:</span>
+              <p className="font-bold text-white">{completeModalTask.title}</p>
+              <span className="text-[10px] text-emerald-400 block">Người thực hiện: {completeModalTask.assignee_name || "Thành viên team"}</span>
+            </div>
+
+            <form onSubmit={handleConfirmCompleteTask} className="space-y-3.5">
+              <div>
+                <label className="text-xs font-bold text-slate-300 block mb-1">
+                  Lời nhắn phản hồi gửi cơ sở (Tùy chọn):
+                </label>
+                <textarea
+                  rows={3}
+                  placeholder="VD: Đã fix xong lỗi trên phiên bản v2.6.2, trung tâm vui lòng kiểm tra lại nhé!"
+                  value={completeReplyNote}
+                  onChange={(e) => setCompleteReplyNote(e.target.value)}
+                  className="w-full px-3 py-2 text-xs rounded-xl bg-slate-800 border border-slate-700 text-white outline-none resize-none"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setCompleteModalTask(null)}
+                  className="px-4 py-2 text-xs font-semibold rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 cursor-pointer"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingComplete}
+                  className="px-5 py-2 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-600/30 disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
+                >
+                  <CheckSquare className="w-4 h-4" />
+                  <span>{isSubmittingComplete ? "Đang lưu..." : "Xác Nhận Đã Xong"}</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

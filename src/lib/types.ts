@@ -386,10 +386,26 @@ export interface SystemFeedback {
   priority: "low" | "medium" | "high";
   title: string;
   content: string;
-  status: "pending" | "in_review" | "planned" | "completed";
+  status: "pending" | "in_progress" | "completed" | "in_review" | "planned";
   admin_reply?: string;
   images_json?: string;
   images?: string[];
+  assignee_id?: string;
+  assignee_name?: string;
+  assigned_at?: string;
+  completed_at?: string;
+  completed_by?: string;
   created_at: string;
+}
+
+// 3. Thành viên đội ngũ phát triển TpTeam
+export interface SystemTeamMember {
+  id: string;
+  name: string;
+  role: "developer" | "tester" | "manager" | "support";
+  phone?: string;
+  avatar_color?: string;
+  is_active: number;
+  created_at?: string;
 }
 
