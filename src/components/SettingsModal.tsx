@@ -1572,10 +1572,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           <input
                             type="number"
                             min="0"
-                            step="50000"
-                            value={newPkgOriginalAmount}
+                            step="any"
+                            value={newPkgOriginalAmount === 0 ? "" : newPkgOriginalAmount}
                             onChange={(e) => {
-                              const val = Number(e.target.value) || 0;
+                              const val = e.target.value === "" ? 0 : Number(e.target.value);
                               setNewPkgOriginalAmount(val);
                               if (newPkgDiscountType === "percent" && newPkgDiscountValue > 0) {
                                 setNewPkgAmount(Math.round(val * (1 - newPkgDiscountValue / 100)));
@@ -1661,10 +1661,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           <input
                             type="number"
                             min="0"
-                            step="50000"
+                            step="any"
                             required
-                            value={newPkgAmount}
-                            onChange={(e) => setNewPkgAmount(Number(e.target.value) || 0)}
+                            value={newPkgAmount === 0 ? "" : newPkgAmount}
+                            onChange={(e) => setNewPkgAmount(e.target.value === "" ? 0 : Number(e.target.value))}
                             className="w-full px-3 py-2 text-xs font-black text-emerald-600 dark:text-emerald-400 rounded-xl border border-emerald-300 dark:border-emerald-800 bg-emerald-50/30 dark:bg-emerald-950/20 focus:ring-2 focus:ring-emerald-500 outline-none"
                           />
                           <span className="absolute right-3 top-2 text-[10px] font-bold text-slate-400">
@@ -2516,11 +2516,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           <input
                             type="number"
                             min="0"
-                            step="50000"
-                            value={lvl.surcharge_amount}
-                            onChange={(e) =>
-                              handleUpdateLevel(index, "surcharge_amount", Number(e.target.value) || 0)
-                            }
+                            step="any"
+                            value={lvl.surcharge_amount === 0 ? "" : lvl.surcharge_amount}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              handleUpdateLevel(index, "surcharge_amount", val === "" ? 0 : Number(val));
+                            }}
                             className="w-full px-3 py-1.5 text-xs font-black text-emerald-600 dark:text-emerald-400 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none"
                           />
                           <span className="absolute right-3 top-1.5 text-xs font-bold text-slate-400">

@@ -35,7 +35,7 @@ export const MonthlyTuitionModal: React.FC<MonthlyTuitionModalProps> = ({
   // New item inputs
   const [newItemName, setNewItemName] = useState("");
   const [newItemType, setNewItemType] = useState<"add" | "deduct">("add");
-  const [newItemAmount, setNewItemAmount] = useState<number>(50000);
+  const [newItemAmount, setNewItemAmount] = useState<number | "">("");
 
   useEffect(() => {
     if (student) {
@@ -86,7 +86,7 @@ export const MonthlyTuitionModal: React.FC<MonthlyTuitionModalProps> = ({
     setNote(summary);
 
     setNewItemName("");
-    setNewItemAmount(50000);
+    setNewItemAmount("");
   };
 
   const handleRemoveItem = (id: string) => {
@@ -269,11 +269,14 @@ export const MonthlyTuitionModal: React.FC<MonthlyTuitionModalProps> = ({
               <div className="sm:col-span-3">
                 <input
                   type="number"
-                  step="10000"
+                  step="any"
                   min="0"
                   placeholder="Số tiền"
-                  value={newItemAmount}
-                  onChange={(e) => setNewItemAmount(Number(e.target.value) || 0)}
+                  value={newItemAmount === "" ? "" : newItemAmount}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setNewItemAmount(val === "" ? "" : Number(val));
+                  }}
                   className="w-full px-2.5 py-1.5 text-xs font-black rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white outline-none"
                 />
               </div>
@@ -337,10 +340,13 @@ export const MonthlyTuitionModal: React.FC<MonthlyTuitionModalProps> = ({
               <input
                 type="number"
                 min="0"
-                step="50000"
+                step="any"
                 required
-                value={amount}
-                onChange={(e) => setAmount(Number(e.target.value) || 0)}
+                value={amount === 0 ? "" : amount}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setAmount(val === "" ? 0 : Number(val));
+                }}
                 placeholder="Nhập số tiền..."
                 className="w-full pl-10 pr-4 py-2.5 text-base font-black text-amber-600 dark:text-amber-400 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition"
               />

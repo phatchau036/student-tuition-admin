@@ -415,9 +415,13 @@ export const QuickAuditModal: React.FC<QuickAuditModalProps> = ({
                     </label>
                     <input
                       type="number"
-                      step={10000}
-                      value={customAmount}
-                      onChange={(e) => setCustomAmount(Number(e.target.value))}
+                      step="any"
+                      min="0"
+                      value={customAmount === 0 ? "" : customAmount}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setCustomAmount(val === "" ? 0 : Number(val));
+                      }}
                       className="w-full px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none"
                     />
                   </div>
