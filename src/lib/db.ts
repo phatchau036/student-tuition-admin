@@ -349,6 +349,26 @@ export async function initDb() {
     );
   `);
 
+  // 14.2 Classes Table (Quản lý các Lớp học, phòng học, sĩ số và thời khóa biểu)
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS classes (
+      id TEXT PRIMARY KEY,
+      school_id TEXT NOT NULL DEFAULT 'school-default',
+      name TEXT NOT NULL,
+      code TEXT,
+      subject_id TEXT,
+      teacher_id TEXT,
+      max_students INTEGER DEFAULT 8,
+      room TEXT DEFAULT '',
+      schedule_json TEXT DEFAULT '[]',
+      teacher_assignments_json TEXT DEFAULT '[]',
+      color TEXT DEFAULT 'indigo',
+      note TEXT DEFAULT '',
+      status TEXT DEFAULT 'active',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+
   // 15. Student Plans Table (Kế hoạch học: thứ học + thời lượng mỗi buổi — "1 buổi = bao nhiêu phút")
   await db.execute(`
     CREATE TABLE IF NOT EXISTS student_plans (
@@ -468,6 +488,8 @@ export async function initDb() {
   try { await db.execute("ALTER TABLE makeup_classes ADD COLUMN lesson_id TEXT DEFAULT NULL"); } catch {}
   try { await db.execute("ALTER TABLE makeup_classes ADD COLUMN student_name TEXT DEFAULT ''"); } catch {}
   try { await db.execute("ALTER TABLE makeup_classes ADD COLUMN student_phone TEXT DEFAULT ''"); } catch {}
+  try { await db.execute("ALTER TABLE students ADD COLUMN class_id TEXT DEFAULT NULL"); } catch {}
+  try { await db.execute("ALTER TABLE classes ADD COLUMN teacher_assignments_json TEXT DEFAULT '[]'"); } catch {}
   try { await db.execute("ALTER TABLE tuition_packages ADD COLUMN original_amount INTEGER DEFAULT 1000000"); } catch {}
   try { await db.execute("ALTER TABLE tuition_packages ADD COLUMN discount_type TEXT DEFAULT 'none'"); } catch {}
   try { await db.execute("ALTER TABLE tuition_packages ADD COLUMN discount_value INTEGER DEFAULT 0"); } catch {}

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Student, LevelSurcharge, TimeSlot, DiscountOption, Teacher, ScheduleItem, TuitionPackage, Subject, SchedulePreset } from "@/lib/types";
+import { Student, LevelSurcharge, TimeSlot, DiscountOption, Teacher, ScheduleItem, TuitionPackage, Subject, SchedulePreset, ClassRoom } from "@/lib/types";
 import {
   calculateStudentTuition,
   calculateStandardTuition,
@@ -41,6 +41,7 @@ import {
   CalendarDays,
   Sparkles,
   BookOpen,
+  Building2,
 } from "lucide-react";
 
 interface StudentFormModalProps {
@@ -55,6 +56,7 @@ interface StudentFormModalProps {
   discountPresets: DiscountOption[];
   tuitionPackages?: TuitionPackage[];
   subjects?: Subject[];
+  classes?: ClassRoom[];
   schedulePresets?: SchedulePreset[];
   schoolId?: string;
   defaultDurationMode?: "by_hours" | "by_sessions";
@@ -97,6 +99,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
   discountPresets,
   tuitionPackages = [],
   subjects = [],
+  classes = [],
   schedulePresets = [],
   schoolId,
   defaultDurationMode = "by_hours",
@@ -115,6 +118,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
   const [zaloChatId, setZaloChatId] = useState("");
   const [levelId, setLevelId] = useState("");
   const [subjectId, setSubjectId] = useState("");
+  const [classId, setClassId] = useState("");
   const [timeSlotId, setTimeSlotId] = useState("");
   const [teacherId, setTeacherId] = useState("");
   const [tuitionPackageId, setTuitionPackageId] = useState("");
@@ -152,6 +156,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
       setZaloChatId(studentToEdit.zalo_chat_id || "");
       setLevelId(studentToEdit.level_id || (levels[0]?.id ?? ""));
       setSubjectId(studentToEdit.subject_id || (subjects[0]?.id ?? ""));
+      setClassId(studentToEdit.class_id || "");
       setTimeSlotId(studentToEdit.time_slot_id || (timeSlots[0]?.id ?? ""));
       setTeacherId(studentToEdit.teacher_id || (teachers[0]?.id ?? ""));
       setTuitionPackageId(studentToEdit.tuition_package_id || "");
@@ -393,6 +398,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
           zalo_chat_id: zaloChatId.trim(),
           level_id: levelId,
           subject_id: subjectId || null,
+          class_id: classId || null,
           time_slot_id: timeSlotId || "",
           teacher_id: teacherId || null,
           tuition_package_id: tuitionPackageId || null,
@@ -562,8 +568,51 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
             </div>
           </div>
 
-          {/* Teacher, Level & Subject */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+          {/* Class, Teacher, Level & Subject */}
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3.5">
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
+                Lớp học tham gia
+              </label>
+              <div className="relative">
+                <Building2 className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
+                <select
+                  value={classId}
+                  onChange={(e) => {
+                    const cId = e.target.value;
+                    setClassId(cId);
+                    const matchedClass = classes.find((c) => c.id === cId);
+                    if (matchedClass) {
+                      if (matchedClass.teacher_id) setTeacherId(matchedClass.teacher_id);
+                      if (matchedClass.subject_id) setSubjectId(matchedClass.subject_id);
+                      // Tự động gợi ý lịch học nếu lớp có lịch
+                      try {
+                        if (matchedClass.schedule_json) {
+                          const parsed = JSON.parse(matchedClass.schedule_json);
+                          if (Array.isArray(parsed) && parsed.length > 0) {
+                            const days = parsed.map((item: any) => item.day);
+                            setSelectedDays(days);
+                            const first = parsed[0];
+                            if (first.start_time && first.end_time) {
+                              setFixedSessionTime(`${first.start_time} - ${first.end_time}`);
+                            }
+                          }
+                        }
+                      } catch {}
+                    }
+                  }}
+                  className="w-full pl-10 pr-4 py-2.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 outline-none hover:border-slate-300 transition"
+                >
+                  <option value="">-- Chưa gán lớp --</option>
+                  {classes.map((cls) => (
+                    <option key={cls.id} value={cls.id}>
+                      {cls.name} {cls.room ? `(${cls.room})` : ""} - {cls.student_count || 0}/{cls.max_students} HS
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
                 Môn học đào tạo
@@ -596,7 +645,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                   onChange={(e) => setTeacherId(e.target.value)}
                   className="w-full pl-10 pr-4 py-2.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 outline-none hover:border-slate-300 transition"
                 >
-                  <option value="">-- Chưa gán giáo viên --</option>
+                  <option value="">-- Kế thừa từ Lớp học / Chưa gán GV --</option>
                   {teachers.map((tc) => (
                     <option key={tc.id} value={tc.id}>
                       {tc.name} {tc.specialty ? `(${tc.specialty})` : ""}

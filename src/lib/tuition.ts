@@ -454,6 +454,7 @@ export interface ParsedStudentSchedule {
   timeDetail: string;   // "18h30", "17h30 - 19h", "18h - 19h30" hoặc rỗng nếu đúng giờ chuẩn
   subjectName?: string; // Tên bộ môn nếu có ghi riêng (VD: "Piano", "Guitar")
   detectedTeacherId?: string; // ID giáo viên nếu phát hiện từ chuỗi
+  matchedTeacherIds?: string[]; // Danh sách các GV đứng ca tương ứng trong lớp (hỗ trợ nhiều GV cùng giờ)
 }
 
 // Phân tích lịch học chi tiết của học sinh từ schedule_details_json, study_time_detail và registered_days
@@ -465,6 +466,7 @@ export function parseStudentScheduleSlots(
     time_slot_name?: string;
     time_slot_desc?: string;
     status_note?: string;
+    class_teacher_assignments_json?: string;
   },
   availableTeachers: Array<{ id: string; name: string }> = []
 ): ParsedStudentSchedule[] {
@@ -487,6 +489,26 @@ export function parseStudentScheduleSlots(
       }
     }
     return undefined;
+  };
+
+  // Helper tìm tất cả GV trong lớp phụ trách ca/giờ này từ teacher_assignments_json
+  const findClassTeachersForSlot = (day: string, startH: number): string[] => {
+    if (!student.class_teacher_assignments_json) return [];
+    try {
+      const assignments = JSON.parse(student.class_teacher_assignments_json);
+      if (!Array.isArray(assignments)) return [];
+      const matched = assignments.filter((a: any) => {
+        const matchDay = !a.day || a.day === "Tất cả các ngày" || a.day === day;
+        if (!matchDay) return false;
+        if (!a.start_time || !a.end_time) return true;
+        const [sh] = a.start_time.split(":").map(Number);
+        const [eh] = a.end_time.split(":").map(Number);
+        return startH >= sh && startH < eh;
+      });
+      return matched.map((m: any) => m.teacher_id).filter(Boolean);
+    } catch {
+      return [];
+    }
   };
 
   const detectedTeacherFromNote = detectTeacher(
@@ -525,11 +547,14 @@ export function parseStudentScheduleSlots(
               timeDetail = `${start} - ${String(eH).padStart(2, "0")}:${String(sM || 0).padStart(2, "0")}`;
             }
 
+            const classTeachers = findClassTeachersForSlot(item.day, startHour);
+
             results.push({
               day: item.day,
               hourSlot: slotHourStr,
               timeDetail: timeDetail,
-              detectedTeacherId: detectedTeacherFromNote,
+              detectedTeacherId: detectedTeacherFromNote || classTeachers[0],
+              matchedTeacherIds: classTeachers.length > 0 ? classTeachers : undefined,
             });
           }
         }
@@ -959,6 +984,102 @@ export function detectStudentPresetName(
   }
 
   return "";
+}
+
+// Helper giải quyết danh sách giáo viên phụ trách học sinh dựa trên Lớp học & Khung giờ học thực tế
+export function resolveStudentTeachers(
+  student: {
+    teacher_id?: string;
+    teacher_name?: string;
+    class_id?: string;
+    class_teacher_assignments_json?: string;
+    study_time_detail?: string;
+    schedule_details_json?: string;
+    registered_days?: string;
+  },
+  availableTeachers: Array<{ id: string; name: string }> = []
+): {
+  primaryTeacherId?: string;
+  primaryTeacherName: string;
+  allTeacherNames: string[];
+  teacherDisplay: string;
+} {
+  const teacherMap = new Map(availableTeachers.map((t) => [t.id, t.name]));
+
+  // 1. Nếu có teacher_assignments_json từ lớp học
+  if (student.class_teacher_assignments_json) {
+    try {
+      const assignments = JSON.parse(student.class_teacher_assignments_json);
+      if (Array.isArray(assignments) && assignments.length > 0) {
+        // Tách giờ bắt đầu/kết thúc học sinh đang học
+        let stStartH = 18;
+        if (student.schedule_details_json) {
+          try {
+            const items = JSON.parse(student.schedule_details_json);
+            if (Array.isArray(items) && items.length > 0 && items[0].start_time) {
+              stStartH = parseInt(items[0].start_time.split(":")[0], 10);
+            }
+          } catch {}
+        } else if (student.study_time_detail) {
+          const match = student.study_time_detail.match(/(\d{1,2})(?::(\d{2})|h)/);
+          if (match) stStartH = parseInt(match[1], 10);
+        }
+
+        // Lọc các giáo viên đứng ca trùng với giờ của học sinh
+        const matched = assignments.filter((a: any) => {
+          if (!a.start_time || !a.end_time) return true;
+          const [sh] = a.start_time.split(":").map(Number);
+          const [eh] = a.end_time.split(":").map(Number);
+          return stStartH >= sh && stStartH < eh;
+        });
+
+        const targetList = matched.length > 0 ? matched : assignments;
+        const names = Array.from(
+          new Set(
+            targetList
+              .map((a: any) => a.teacher_name || teacherMap.get(a.teacher_id))
+              .filter(Boolean)
+          )
+        ) as string[];
+
+        if (names.length > 0) {
+          return {
+            primaryTeacherId: targetList[0].teacher_id,
+            primaryTeacherName: names[0],
+            allTeacherNames: names,
+            teacherDisplay: names.join(" & "),
+          };
+        }
+      }
+    } catch {}
+  }
+
+  // 2. Fallback qua teacher_name / teacher_id cá nhân
+  if (student.teacher_name && student.teacher_name !== "Chưa gán GV") {
+    return {
+      primaryTeacherId: student.teacher_id,
+      primaryTeacherName: student.teacher_name,
+      allTeacherNames: [student.teacher_name],
+      teacherDisplay: student.teacher_name,
+    };
+  }
+
+  if (student.teacher_id && teacherMap.has(student.teacher_id)) {
+    const tName = teacherMap.get(student.teacher_id)!;
+    return {
+      primaryTeacherId: student.teacher_id,
+      primaryTeacherName: tName,
+      allTeacherNames: [tName],
+      teacherDisplay: tName,
+    };
+  }
+
+  return {
+    primaryTeacherId: undefined,
+    primaryTeacherName: "Chưa gán GV",
+    allTeacherNames: [],
+    teacherDisplay: "Chưa gán GV",
+  };
 }
 
 

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useMemo, useEffect } from "react";
-import { Student, Teacher, TimeSlot, Subject } from "@/lib/types";
+import { Student, Teacher, TimeSlot, Subject, ClassRoom } from "@/lib/types";
 import { parseStudentScheduleSlots } from "@/lib/tuition";
 import {
   Calendar,
@@ -41,6 +41,7 @@ interface ClassroomScheduleMatrixProps {
   teachers: Teacher[];
   timeSlots: TimeSlot[];
   subjects: Subject[];
+  classes?: ClassRoom[];
   onSelectStudent: (student: Student) => void;
   onAddStudentToSlot?: (day: string, time: string, teacherId?: string, subjectId?: string) => void;
   onOpenConsultation?: () => void;
@@ -118,6 +119,7 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
   teachers,
   timeSlots,
   subjects,
+  classes = [],
   onSelectStudent,
   onAddStudentToSlot,
   onOpenConsultation,
@@ -140,6 +142,7 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
   const [selectedTeacherTab, setSelectedTeacherTab] = useState<string>("all");
 
   // Filters & Search
+  const [selectedClassFilter, setSelectedClassFilter] = useState<string>("all");
   const [selectedSubjectFilter, setSelectedSubjectFilter] = useState<string>("all");
   const [selectedTeacherFilter, setSelectedTeacherFilter] = useState<string>("all");
   const [selectedPaymentStatusFilter, setSelectedPaymentStatusFilter] = useState<"all" | "paid" | "unpaid">("all");
@@ -226,11 +229,15 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
       if (selectedPaymentStatusFilter === "paid" && st.payment_status !== "paid") return false;
       if (selectedPaymentStatusFilter === "unpaid" && st.payment_status === "paid") return false;
     }
+    if (selectedClassFilter !== "all" && st.class_id !== selectedClassFilter) {
+      return false;
+    }
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase();
     return (
       st.name.toLowerCase().includes(q) ||
       (st.phone && st.phone.includes(q)) ||
+      (st.class_name && st.class_name.toLowerCase().includes(q)) ||
       (st.subject_name && st.subject_name.toLowerCase().includes(q)) ||
       (st.teacher_name && st.teacher_name.toLowerCase().includes(q))
     );
@@ -264,7 +271,12 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
       for (const slot of parsedSlots) {
         const d = slot.day;
         const h = slot.hourSlot;
-        const resolvedTeacherId = st.teacher_id || slot.detectedTeacherId || "unassigned";
+
+        // Nếu ca đó có nhiều giáo viên phụ trách (matchedTeacherIds), đẩy học sinh vào cột của TẤT CẢ các GV đó
+        const targetTeacherIds =
+          slot.matchedTeacherIds && slot.matchedTeacherIds.length > 0
+            ? slot.matchedTeacherIds
+            : [st.teacher_id || slot.detectedTeacherId || "unassigned"];
 
         if (data[d]) {
           if (!data[d][h]) {
@@ -275,17 +287,19 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
             data[d][h]["unassigned"] = [];
           }
 
-          const targetTeacherId = data[d][h][resolvedTeacherId] ? resolvedTeacherId : "unassigned";
-          const subName = slot.subjectName || st.subject_name || "Piano";
-          const tcObj = teachers.find((t) => t.id === targetTeacherId);
+          for (const resolvedTeacherId of targetTeacherIds) {
+            const targetTeacherId = data[d][h][resolvedTeacherId] ? resolvedTeacherId : "unassigned";
+            const subName = slot.subjectName || st.subject_name || "Piano";
+            const tcObj = teachers.find((t) => t.id === targetTeacherId);
 
-          data[d][h][targetTeacherId].push({
-            student: st,
-            timeDetail: slot.timeDetail,
-            subjectName: subName,
-            teacherId: targetTeacherId,
-            teacherName: tcObj?.name || (targetTeacherId === "unassigned" ? "Chờ gán GV" : undefined),
-          });
+            data[d][h][targetTeacherId].push({
+              student: st,
+              timeDetail: slot.timeDetail,
+              subjectName: subName,
+              teacherId: targetTeacherId,
+              teacherName: tcObj?.name || (targetTeacherId === "unassigned" ? "Chờ gán GV" : undefined),
+            });
+          }
         }
       }
     }
@@ -544,6 +558,22 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
               </option>
             ))}
           </select>
+
+          {/* Lọc Lớp Học */}
+          {classes.length > 0 && (
+            <select
+              value={selectedClassFilter}
+              onChange={(e) => setSelectedClassFilter(e.target.value)}
+              className="px-2.5 py-1.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 outline-none cursor-pointer max-w-[160px] truncate"
+            >
+              <option value="all">Tất cả Lớp ({classes.length})</option>
+              {classes.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name} {c.room ? `(${c.room})` : ""}
+                </option>
+              ))}
+            </select>
+          )}
 
           {/* Lọc Học Phí */}
           <select

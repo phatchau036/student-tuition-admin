@@ -6,6 +6,13 @@
 
 ## 1. LỊCH SỬ PHIÊN BẢN (CHANGELOG)
 
+### [v2.8.3] - 2026-10-31
+- **⭐ HỆ THỐNG QUẢN LÝ LỚP HỌC, PHÂN BỔ SĨ SỐ & THỜI KHÓA BIỂU ĐỨNG LỚP:**
+  - **Quản lý danh mục Lớp Học (`ClassManagementModal.tsx` & `/api/classes`):** Định nghĩa số lượng lớp học (Lớp Piano K1, Guitar Đệm Hát, Thanh Nhạc Nhóm...), phân bổ Sĩ số tối đa (Max Capacity) cho từng lớp, gán Phòng học và cấu hình Thời khóa biểu các ca trong tuần.
+  - **Phân công Giáo viên đứng lớp & Cổng Giáo Viên (`/giao-vien`):** Bổ sung Tab *"Lớp Đứng"* trên giao diện điện thoại của giáo viên, hiển thị rõ ràng từng lớp mình phụ trách, phòng học, sĩ số thực tế/sĩ số tối đa và thời khóa biểu các ca dạy trong tuần.
+  - **Tích hợp chọn Lớp vào Hồ sơ Học sinh (`StudentFormModal.tsx`):** Cho phép gán học sinh vào Lớp học, tự động gợi ý giáo viên phụ trách và lịch học tuần của lớp đó.
+  - **Bộ lọc Lớp Học & Hiển thị trên Bảng (`Dashboard.tsx` & `ClassroomScheduleMatrix.tsx`):** Bổ sung bộ lọc Lớp Học trên Dashboard và Sơ đồ lớp ma trận, hiển thị huy hiệu Tên Lớp & Phòng học trực quan trên danh sách học viên.
+
 ### [v2.8.2] - 2026-10-30
 - **⭐ TÁI CẤU TRÚC: TÍCH HỢP TOÀN BỘ QUỸ GIỜ VÀO MODULE BÁO NGHỈ & HỌC BÙ:**
   - **Xóa bỏ giao diện "Ví Giờ Học" riêng lẻ độc lập:** Gỡ bỏ modal tách biệt, gom toàn bộ logic tích lũy và sử dụng giờ học vào chung module **"Quản Lý Báo Nghỉ & Quỹ Giờ Học Bù"** (`MakeUpClassesModal.tsx`).

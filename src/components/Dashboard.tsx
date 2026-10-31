@@ -83,11 +83,12 @@ import { AppInfoModal } from "./AppInfoModal";
 import { SmartExcelImportModal } from "./SmartExcelImportModal";
 import { QuickAuditModal } from "./QuickAuditModal";
 import { ClassroomScheduleMatrix } from "./ClassroomScheduleMatrix";
+import { ClassManagementModal } from "./ClassManagementModal";
 import { ScheduleAvailabilityModal } from "./ScheduleAvailabilityModal";
 import { exportStudentsToExcel } from "@/lib/exportExcel";
 import { useLanguage } from "@/lib/i18n";
 import { useTheme } from "@/lib/ThemeContext";
-import { AppLanguage } from "@/lib/types";
+import { AppLanguage, ClassRoom } from "@/lib/types";
 
 export default function Dashboard() {
   const { showToast } = useToast();
@@ -126,6 +127,7 @@ export default function Dashboard() {
   // Modals state
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isTeacherModalOpen, setIsTeacherModalOpen] = useState(false);
+  const [isClassModalOpen, setIsClassModalOpen] = useState(false);
   const [isMakeupModalOpen, setIsMakeupModalOpen] = useState(false);
   const [selectedStudentForMakeup, setSelectedStudentForMakeup] = useState<string | undefined>(undefined);
 
@@ -165,6 +167,7 @@ export default function Dashboard() {
   // Data states
   const [students, setStudents] = useState<Student[]>([]);
   const [teachers, setTeachers] = useState<Teacher[]>([]);
+  const [classes, setClasses] = useState<ClassRoom[]>([]);
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
   const [levels, setLevels] = useState<LevelSurcharge[]>([]);
   const [discountPresets, setDiscountPresets] = useState<DiscountOption[]>([]);
@@ -197,6 +200,7 @@ export default function Dashboard() {
 
   // Filters & Search
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedClassFilter, setSelectedClassFilter] = useState("all");
   const [selectedSubjectFilter, setSelectedSubjectFilter] = useState("all");
   const [selectedLevelFilter, setSelectedLevelFilter] = useState("all");
   const [selectedSlotFilter, setSelectedSlotFilter] = useState("all");
@@ -296,6 +300,7 @@ export default function Dashboard() {
           });
           loadSettings(json.admin.school_id);
           loadTeachers(json.admin.school_id);
+          loadClasses(json.admin.school_id);
           loadStudents(selectedMonth, json.admin.school_id);
         } else {
           setIsAuthenticated(false);
@@ -433,6 +438,23 @@ export default function Dashboard() {
     }
   };
 
+  // Load Classes
+  const loadClasses = async (schoolId?: string) => {
+    try {
+      const targetSchoolId = schoolId || currentSchool?.id || "";
+      const query = targetSchoolId ? `?school_id=${targetSchoolId}` : "";
+      const res = await fetch(`/api/classes${query}`, {
+        headers: getAuthHeaders(),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setClasses(json.data);
+      }
+    } catch (err) {
+      console.error("Failed to load classes:", err);
+    }
+  };
+
   // Load Students for Selected Month (Hỗ trợ silent refresh giữ nguyên vị trí cuộn trang)
   const loadStudents = async (month: string, schoolId?: string, silent: boolean = false) => {
     try {
@@ -459,6 +481,7 @@ export default function Dashboard() {
   useEffect(() => {
     loadSettings();
     loadTeachers();
+    loadClasses();
   }, []);
 
   useEffect(() => {
@@ -473,6 +496,7 @@ export default function Dashboard() {
   const handleRefresh = () => {
     loadSettings();
     loadTeachers();
+    loadClasses();
     loadStudents(selectedMonth, currentSchool?.id);
   };
 
@@ -531,6 +555,7 @@ export default function Dashboard() {
         s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         s.phone.includes(searchQuery);
       const matchSubject = selectedSubjectFilter === "all" || s.subject_id === selectedSubjectFilter;
+      const matchClass = selectedClassFilter === "all" || s.class_id === selectedClassFilter;
       const matchLevel = selectedLevelFilter === "all" || s.level_id === selectedLevelFilter;
       const matchSlot = selectedSlotFilter === "all" || s.time_slot_id === selectedSlotFilter;
       const matchTeacher = selectedTeacherFilter === "all" || s.teacher_id === selectedTeacherFilter;
@@ -539,7 +564,7 @@ export default function Dashboard() {
       const matchPayment =
         selectedPaymentFilter === "all" || (s.payment_status || "unpaid") === selectedPaymentFilter;
 
-      return matchSearch && matchSubject && matchLevel && matchSlot && matchTeacher && matchStatus && matchPayment;
+      return matchSearch && matchSubject && matchClass && matchLevel && matchSlot && matchTeacher && matchStatus && matchPayment;
     });
 
     if (sortField === "default") {
@@ -934,6 +959,23 @@ export default function Dashboard() {
                     </span>
                     <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
                       {teachers.length}
+                    </span>
+                  </button>
+
+                  {/* Quản lý Lớp học & Sĩ số */}
+                  <button
+                    onClick={() => {
+                      setIsManagementMenuOpen(false);
+                      setIsClassModalOpen(true);
+                    }}
+                    className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition text-left"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Layers className="w-4 h-4 text-emerald-600" />
+                      <span>Quản Lý Lớp Học</span>
+                    </span>
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+                      {classes.length} lớp
                     </span>
                   </button>
 
@@ -1344,6 +1386,25 @@ export default function Dashboard() {
                 </select>
               </div>
 
+              {/* Filter by Class */}
+              <div>
+                <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">
+                  Lớp học
+                </label>
+                <select
+                  value={selectedClassFilter}
+                  onChange={(e) => setSelectedClassFilter(e.target.value)}
+                  className="w-full px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 outline-none"
+                >
+                  <option value="all">-- Tất cả lớp ({classes.length}) --</option>
+                  {classes.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} {c.room ? `(${c.room})` : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               {/* Filter by Teacher */}
               <div>
                 <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">
@@ -1695,18 +1756,38 @@ export default function Dashboard() {
                         {/* Teacher */}
                         <td className="py-2 px-2.5 hidden lg:table-cell overflow-hidden">
                           {student.teacher_name && student.teacher_name !== "Chưa gán GV" ? (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-bold rounded-lg bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-900/50 max-w-full">
-                              <GraduationCap className="w-3 h-3 text-indigo-600 dark:text-indigo-400 shrink-0" />
-                              <span className="truncate">{student.teacher_name}</span>
-                            </span>
+                            <div className="flex flex-col items-start gap-1 max-w-full">
+                              {student.teacher_name.includes(" & ") ? (
+                                student.teacher_name.split(" & ").map((tName, i) => (
+                                  <span
+                                    key={i}
+                                    className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-bold rounded-lg bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-900/50 max-w-full"
+                                  >
+                                    <GraduationCap className="w-3 h-3 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                                    <span className="truncate">{tName.trim()}</span>
+                                  </span>
+                                ))
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-bold rounded-lg bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-900/50 max-w-full">
+                                  <GraduationCap className="w-3 h-3 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                                  <span className="truncate">{student.teacher_name}</span>
+                                </span>
+                              )}
+                            </div>
                           ) : (
                             <span className="text-xs text-slate-400 font-medium italic">{t.no_teacher_assigned}</span>
                           )}
                         </td>
 
-                        {/* Level & Subject & Surcharge */}
+                        {/* Level & Subject & Class & Surcharge */}
                         <td className="py-2 px-2.5 hidden xl:table-cell overflow-hidden">
                           <div className="flex flex-col items-start gap-1">
+                            {student.class_name && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-black uppercase rounded-md bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 max-w-full">
+                                <Layers className="w-2.5 h-2.5 shrink-0" />
+                                <span className="truncate">{student.class_name} {student.class_room ? `(${student.class_room})` : ""}</span>
+                              </span>
+                            )}
                             {student.subject_name && (
                               <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-black uppercase rounded-md bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 max-w-full">
                                 <BookOpen className="w-2.5 h-2.5 shrink-0" />
@@ -2075,6 +2156,7 @@ export default function Dashboard() {
               teachers={teachers}
               timeSlots={timeSlots}
               subjects={subjects}
+              classes={classes}
               onSelectStudent={(st) => {
                 setStudentForDetail(st);
                 setIsDetailModalOpen(true);
@@ -2328,6 +2410,18 @@ export default function Dashboard() {
         onRefresh={handleRefresh}
       />
 
+      {/* Class Management Modal */}
+      <ClassManagementModal
+        isOpen={isClassModalOpen}
+        onClose={() => setIsClassModalOpen(false)}
+        classes={classes}
+        teachers={teachers}
+        subjects={subjects}
+        students={students}
+        schoolId={currentSchool?.id}
+        onRefresh={handleRefresh}
+      />
+
       {/* Make Up Classes & Absence Modal */}
       <MakeUpClassesModal
         isOpen={isMakeupModalOpen}
@@ -2355,6 +2449,7 @@ export default function Dashboard() {
         discountPresets={discountPresets}
         tuitionPackages={tuitionPackages}
         subjects={subjects}
+        classes={classes}
         schedulePresets={schedulePresets}
         schoolId={currentSchool?.id}
         defaultDurationMode={durationMode}

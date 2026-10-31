@@ -172,6 +172,46 @@ export interface MonthlyReconciliationSummary {
   sepay_matched_revenue: number; // Tổng tiền SePay đối soát
 }
 
+export interface ClassScheduleItem {
+  id?: string;
+  day: string; // "Thứ 2", "Thứ 3", ... "Chủ Nhật"
+  start_time: string; // "18:00"
+  end_time: string; // "19:30"
+}
+
+export interface ClassTeacherAssignment {
+  id?: string;
+  teacher_id: string;
+  teacher_name?: string;
+  day?: string; // "Thứ 2", hoặc "Tất cả các ngày"
+  start_time: string; // "17:00"
+  end_time: string; // "18:00"
+  role?: string; // "Đứng lớp chính", "Trợ giảng", "Dạy kèm"
+}
+
+export interface ClassRoom {
+  id: string;
+  school_id?: string;
+  name: string; // "Piano Căn Bản K1"
+  code?: string; // "PIANO-K1"
+  subject_id?: string;
+  subject_name?: string;
+  subject_color?: string;
+  teacher_id?: string;
+  teacher_name?: string;
+  teacher_phone?: string;
+  max_students: number; // Sĩ số tối đa CỦA LỚP: 8, 10, 15... (không phụ thuộc GV)
+  room?: string; // "Phòng 101"
+  schedule_json?: string; // JSON mảng ClassScheduleItem[]: khung giờ mở của lớp
+  teacher_assignments_json?: string; // JSON mảng ClassTeacherAssignment[]: giáo viên nào dạy giờ nào
+  color?: string; // "indigo", "emerald", "amber"...
+  note?: string;
+  status: "active" | "closed";
+  student_count?: number; // Số học sinh thực tế đang theo học
+  students?: Array<{ id: string; name: string; phone: string }>;
+  created_at?: string;
+}
+
 export interface SchedulePreset {
   id: string; // "preset-even", "preset-odd", hoặc uuid
   name: string; // Tên kiểu: "Thứ chẵn", "Thứ lẻ", "Cuối tuần", v.v.
@@ -297,11 +337,18 @@ export interface Student {
   expected_return_date?: string; // Ngày dự kiến học lại (nếu bảo lưu)
   status_note?: string; // Lý do
   
-  // Giáo viên phụ trách
+  // Giáo viên phụ trách (có thể suy ra từ lớp hoặc nhiều GV cùng ca)
   teacher_id?: string;
   teacher_name?: string;
   teacher_phone?: string;
   teacher_color?: string;
+  assigned_teachers?: Array<{ id: string; name: string; role?: string; time?: string }>;
+
+  // Lớp học tham gia
+  class_id?: string;
+  class_name?: string;
+  class_room?: string;
+  class_teacher_assignments_json?: string;
 
   // Lịch học & thời lượng hàng tuần:
   start_date?: string;       // Ngày bắt đầu đăng ký học (YYYY-MM-DD)

@@ -276,7 +276,7 @@ export const AppInfoModal: React.FC<AppInfoModalProps> = ({
                   Thông Tin Ứng Dụng & Trung Tâm Hỗ Trợ
                 </h2>
                 <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
-                  Phiên bản 2.8.2
+                  Phiên bản 2.8.3
                 </span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
@@ -458,26 +458,44 @@ export const AppInfoModal: React.FC<AppInfoModalProps> = ({
               </div>
 
               <div className="space-y-4">
-                {/* v2.8.2 */}
+                {/* v2.8.3 */}
                 <div className="p-5 rounded-2xl border-2 border-indigo-200 dark:border-indigo-900/60 bg-indigo-50/20 dark:bg-indigo-950/20 space-y-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <span className="px-2.5 py-1 rounded-xl text-xs font-black bg-indigo-600 text-white">
-                        v2.8.2 (Hiện tại)
+                        v2.8.3 (Hiện tại)
                       </span>
-                      <span className="text-xs font-bold text-slate-500">30/10/2026</span>
+                      <span className="text-xs font-bold text-slate-500">31/10/2026</span>
                     </div>
                     <span className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">
-                      Tích Hợp Quỹ Giờ Vào Báo Nghỉ & Học Bù & Nâng Cấp Quản Lý Giáo Viên
+                      Quản Lý Lớp Học, Sĩ Số & Thời Khóa Biểu Giáo Viên
                     </span>
                   </div>
                   <ul className="text-xs text-slate-700 dark:text-slate-300 space-y-1.5 list-disc list-inside">
+                    <li><strong>Quản lý Lớp học & Sĩ số tối đa:</strong> Thiết lập số lượng lớp, phân bổ số học sinh tối đa cho từng lớp, phòng học và thời khóa biểu tuần.</li>
+                    <li><strong>Thời khóa biểu đứng lớp cho Giáo viên:</strong> Cổng giáo viên bổ sung Tab &quot;Lớp Đứng&quot; hiển thị trực quan các ca dạy trong tuần, phòng học và sĩ số.</li>
+                    <li><strong>Gán Lớp học vào Hồ sơ học sinh:</strong> Tự động gợi ý giáo viên và lịch học khi học sinh chọn lớp.</li>
+                    <li><strong>Bộ lọc Lớp học trên Dashboard & Ma trận:</strong> Lọc danh sách học sinh và sơ đồ lớp học theo từng lớp thuận tiện.</li>
+                  </ul>
+                </div>
+
+                {/* v2.8.2 */}
+                <div className="p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-800/40 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="px-2.5 py-1 rounded-xl text-xs font-black bg-slate-200 text-slate-800 dark:bg-slate-800 dark:text-slate-200">
+                        v2.8.2
+                      </span>
+                      <span className="text-xs font-bold text-slate-500">30/10/2026</span>
+                    </div>
+                    <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                      Tích Hợp Quỹ Giờ Vào Báo Nghỉ & Học Bù
+                    </span>
+                  </div>
+                  <ul className="text-xs text-slate-600 dark:text-slate-400 space-y-1.5 list-disc list-inside">
                     <li><strong>Tích hợp toàn bộ quỹ giờ vào Module Báo Nghỉ & Học Bù:</strong> Xóa bỏ giao diện Ví Giờ riêng lẻ, thống nhất việc quản lý số giờ học bù tích lũy và sử dụng vào chung một nơi.</li>
                     <li><strong>Chuyển đổi hoàn toàn sang đơn vị Giờ Học (Hours/Minutes):</strong> Định lượng chính xác 0.5h (30p), 1.0h (60p), 1.5h (90p), 2.0h (120p) thay vì cộng trừ buổi bù chung chung.</li>
                     <li><strong>Cơ chế Báo nghỉ tích lũy tự động:</strong> Tự động nhận diện khung giờ học của học sinh để tính toán và cộng dồn chính xác số giờ nghỉ vào Quỹ giờ học bù.</li>
-                    <li><strong>Cơ chế Đăng ký học bù & Khấu trừ:</strong> Cho phép chọn số giờ muốn bù trong ca mở cửa, kiểm tra sĩ số lớp học và chặn vượt quá quỹ giờ bù khả dụng.</li>
-                    <li><strong>Tích hợp Sổ cái biến động quỹ giờ:</strong> Xem lịch sử chi tiết từng lần tích lũy (khi báo nghỉ) và khấu trừ (khi học bù).</li>
-                    <li><strong>Thiết kế mới giao diện Quản Lý Đội Ngũ Giáo Viên:</strong> Bố cục 2 cột chuyên nghiệp, tìm kiếm tức thì, lọc theo bộ môn và gợi ý bộ môn 1-click.</li>
                   </ul>
                 </div>
 

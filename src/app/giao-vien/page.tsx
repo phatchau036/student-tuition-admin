@@ -57,6 +57,8 @@ interface Student {
   level_id: string;
   level_name: string;
   level_surcharge: number;
+  class_name?: string;
+  class_room?: string;
   duration_mode: string;
   sessions_per_week: number;
   hours_per_week: number;
@@ -65,6 +67,21 @@ interface Student {
   schedule_details_json?: string;
   schedule_preset_name?: string;
   is_makeup?: boolean;
+  balance_minutes?: number;
+  available_minutes?: number;
+}
+
+interface TeacherClass {
+  id: string;
+  name: string;
+  code?: string;
+  subject_name?: string;
+  room?: string;
+  max_students: number;
+  student_count: number;
+  schedule_json?: string;
+  teacher_assignments_json?: string;
+  color?: string;
 }
 
 interface MakeupClass {
@@ -96,11 +113,12 @@ export default function TeacherPortal() {
   const [activeTeacher, setActiveTeacher] = useState<Teacher | null>(null);
 
   const [students, setStudents] = useState<Student[]>([]);
+  const [classes, setClasses] = useState<TeacherClass[]>([]);
   const [makeups, setMakeups] = useState<MakeupClass[]>([]);
   const [levels, setLevels] = useState<Level[]>([]);
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [activeTab, setActiveTab] = useState<"all" | "makeups">("all");
+  const [activeTab, setActiveTab] = useState<"all" | "classes" | "makeups">("all");
   const [searchQuery, setSearchQuery] = useState("");
 
   // Level Upgrade Modal State
@@ -190,6 +208,7 @@ export default function TeacherPortal() {
       if (json.success) {
         setActiveTeacher(json.data.teacher);
         setStudents(json.data.students || []);
+        setClasses(json.data.classes || []);
         setMakeups(json.data.makeups || []);
         setLevels(json.data.levels || []);
         setTimeSlots(json.data.time_slots || []);
@@ -510,7 +529,7 @@ export default function TeacherPortal() {
               </div>
             )}
 
-            {/* Navigation Tabs (Mobile Optimized) */}
+            {/* Navigation Tabs (Mobile Optimized: 3 Tabs) */}
             <div className="flex items-center p-1 rounded-2xl bg-slate-200/80 dark:bg-slate-800/80 text-xs font-bold">
               <button
                 onClick={() => setActiveTab("all")}
@@ -521,7 +540,19 @@ export default function TeacherPortal() {
                 }`}
               >
                 <UserCheck className="w-4 h-4" />
-                <span>Học Sinh Của Tôi ({students.length})</span>
+                <span>Học Sinh ({students.length})</span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab("classes")}
+                className={`flex-1 py-2.5 rounded-xl transition flex items-center justify-center gap-1.5 ${
+                  activeTab === "classes"
+                    ? "bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-xs"
+                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
+                }`}
+              >
+                <Layers className="w-4 h-4 text-emerald-500" />
+                <span>Lớp Đứng ({classes.length})</span>
               </button>
 
               <button
@@ -533,12 +564,7 @@ export default function TeacherPortal() {
                 }`}
               >
                 <CalendarCheck className="w-4 h-4 text-amber-500" />
-                <span>Lịch Học Bù ({makeups.length})</span>
-                {makeups.length > 0 && (
-                  <span className="px-1.5 py-0.5 rounded-full bg-amber-500 text-white text-[10px]">
-                    {makeups.length}
-                  </span>
-                )}
+                <span>Lịch Bù ({makeups.length})</span>
               </button>
             </div>
 
@@ -590,6 +616,16 @@ export default function TeacherPortal() {
                         <p className="text-xs text-slate-500 flex items-center gap-1.5">
                           <Phone className="w-3.5 h-3.5 text-slate-400" />
                           <span>{st.phone}</span>
+                          {st.class_name && (
+                            <span className="ml-1 px-2 py-0.2 rounded-md bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 text-[10px] font-black border border-emerald-200 dark:border-emerald-800">
+                              🏫 {st.class_name} {st.class_room ? `(${st.class_room})` : ""}
+                            </span>
+                          )}
+                          {st.available_minutes !== undefined && st.available_minutes > 0 && (
+                            <span className="ml-1 px-2 py-0.2 rounded-md bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300 text-[10px] font-black">
+                              ⏱️ Quỹ bù: {(st.available_minutes / 60).toFixed(1).replace(".0", "")}h
+                            </span>
+                          )}
                         </p>
                       </div>
 
@@ -653,7 +689,121 @@ export default function TeacherPortal() {
               </div>
             )}
 
-            {/* TAB 2: Makeups List (ĐÁNH DẤU HỌC SINH HỌC BÙ) */}
+            {/* TAB 2: THỜI KHÓA BIỂU CÁC LỚP ĐỨNG LỚP */}
+            {activeTab === "classes" && (
+              <div className="space-y-3.5">
+                <div className="p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/60 text-xs text-emerald-900 dark:text-emerald-200 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <Layers className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>Lớp học và thời khóa biểu thầy/cô phụ trách:</span>
+                  </div>
+                  <strong className="text-emerald-700 dark:text-emerald-300 font-black">{classes.length} lớp</strong>
+                </div>
+
+                {classes.map((cls) => {
+                  let scheduleItemsList: Array<{ day: string; start_time: string; end_time: string }> = [];
+                  try {
+                    if (cls.schedule_json) scheduleItemsList = JSON.parse(cls.schedule_json);
+                  } catch {}
+
+                  let myAssignments: Array<{ teacher_id: string; day?: string; start_time: string; end_time: string; role?: string }> = [];
+                  try {
+                    if (cls.teacher_assignments_json) {
+                      const allAss = JSON.parse(cls.teacher_assignments_json);
+                      if (Array.isArray(allAss)) {
+                        myAssignments = allAss.filter((a) => a.teacher_id === activeTeacher?.id);
+                      }
+                    }
+                  } catch {}
+
+                  const isFull = (cls.student_count || 0) >= cls.max_students;
+
+                  return (
+                    <div
+                      key={cls.id}
+                      className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xs space-y-3"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h3 className="text-base font-extrabold text-slate-900 dark:text-white">
+                              {cls.name}
+                            </h3>
+                            {cls.code && (
+                              <span className="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                                {cls.code}
+                              </span>
+                            )}
+                            {cls.subject_name && (
+                              <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
+                                {cls.subject_name}
+                              </span>
+                            )}
+                          </div>
+
+                          {cls.room && (
+                            <p className="text-xs text-slate-500 font-medium mt-1 flex items-center gap-1">
+                              <span>📍 Phòng:</span>
+                              <strong className="text-slate-800 dark:text-slate-200">{cls.room}</strong>
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="text-right shrink-0">
+                          <span className={`text-xs font-black px-2.5 py-1 rounded-xl ${
+                            isFull
+                              ? "bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300"
+                              : "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300"
+                          }`}>
+                            {cls.student_count || 0}/{cls.max_students} HS
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* ⭐ CA DẠY CỤ THỂ CỦA THẦY/CÔ NÀY TRONG LỚP (Ví dụ: 17h-18h Cô Điệp) */}
+                      {myAssignments.length > 0 && (
+                        <div className="p-2.5 rounded-xl bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/60 text-xs space-y-1">
+                          <div className="text-[11px] font-black uppercase text-emerald-800 dark:text-emerald-300 flex items-center gap-1">
+                            <Clock className="w-3.5 h-3.5 text-emerald-600" /> Ca phân công của Thầy/Cô:
+                          </div>
+                          <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+                            {myAssignments.map((ma, idx) => (
+                              <span
+                                key={idx}
+                                className="px-2.5 py-1 rounded-lg text-xs font-black bg-white dark:bg-slate-900 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 font-mono shadow-xs"
+                              >
+                                {ma.day && ma.day !== "Tất cả các ngày" ? `${ma.day}: ` : ""}{ma.start_time} - {ma.end_time} {ma.role ? `(${ma.role})` : ""}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Khung giờ mở cửa chung của lớp */}
+                      {scheduleItemsList.length > 0 && (
+                        <div className="text-xs text-slate-500 flex items-center gap-1.5 flex-wrap">
+                          <span className="font-semibold text-slate-700 dark:text-slate-300">Giờ mở lớp chung:</span>
+                          {scheduleItemsList.map((sc, idx) => (
+                            <span key={idx} className="font-mono">
+                              {sc.day} ({sc.start_time}-{sc.end_time}){idx < scheduleItemsList.length - 1 ? ", " : ""}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+
+                {classes.length === 0 && (
+                  <div className="py-12 text-center text-slate-400 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800">
+                    <Layers className="w-8 h-8 mx-auto text-slate-300 mb-2" />
+                    <p className="text-sm">Hiện giáo viên chưa được phân công đứng lớp cố định nào.</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* TAB 3: Makeups List (ĐÁNH DẤU HỌC SINH HỌC BÙ) */}
             {activeTab === "makeups" && (
               <div className="space-y-3">
                 <div className="p-3 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-xs text-amber-800 dark:text-amber-300 flex items-start gap-2">

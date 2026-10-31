@@ -40,16 +40,84 @@ export async function GET(req: Request) {
 
     const teacher = teacherRes.rows[0];
 
-    // 1. Get Regular Students of this teacher
+    // 1. Get Regular Students of this teacher (kèm thông tin Lớp học và Quỹ Giờ Học Bù)
+    const walletRes = await db.execute(`
+      SELECT student_id, COALESCE(SUM(minutes), 0) as balance
+      FROM hour_ledger
+      GROUP BY student_id
+    `);
+    const walletMap: Record<string, number> = {};
+    for (const row of walletRes.rows) {
+      walletMap[String(row.student_id)] = Number(row.balance || 0);
+    }
+
+    const scheduledMakeupRes = await db.execute(`
+      SELECT student_id, COALESCE(SUM(planned_minutes), 0) as scheduled
+      FROM lessons
+      WHERE kind = 'makeup' AND status = 'scheduled'
+      GROUP BY student_id
+    `);
+    const scheduledMakeupMap: Record<string, number> = {};
+    for (const row of scheduledMakeupRes.rows) {
+      scheduledMakeupMap[String(row.student_id)] = Number(row.scheduled || 0);
+    }
+
     const regularStudentsRes = await db.execute({
       sql: `
-        SELECT st.*, l.level_name, l.surcharge_amount as level_surcharge
+        SELECT st.*, 
+               l.level_name, 
+               l.surcharge_amount as level_surcharge,
+               c.name as class_name,
+               c.room as class_room,
+               c.teacher_assignments_json as class_teacher_assignments_json
         FROM students st
         LEFT JOIN level_surcharges l ON st.level_id = l.id
-        WHERE st.teacher_id = ?
+        LEFT JOIN classes c ON st.class_id = c.id
+        WHERE st.teacher_id = ? 
+           OR c.teacher_id = ? 
+           OR c.teacher_assignments_json LIKE ?
         ORDER BY st.name ASC
       `,
-      args: [teacherId],
+      args: [teacherId, teacherId, `%"teacher_id":"${teacherId}"%`],
+    });
+
+    const studentsWithWallet = regularStudentsRes.rows.map((st) => {
+      const sid = String(st.id);
+      const bal = walletMap[sid] || 0;
+      const sched = scheduledMakeupMap[sid] || 0;
+      return {
+        ...st,
+        balance_minutes: bal,
+        available_minutes: bal - sched,
+      };
+    });
+
+    // 1.1 Get Classes that this teacher is in charge of (hoặc được phân công giờ dạy trong teacher_assignments_json)
+    const allClassesRes = await db.execute(`
+      SELECT c.*, 
+             sub.name as subject_name, 
+             sub.color as subject_color,
+             COUNT(s.id) as student_count
+      FROM classes c
+      LEFT JOIN subjects sub ON c.subject_id = sub.id
+      LEFT JOIN students s ON s.class_id = c.id AND s.status != 'dropped'
+      WHERE c.status = 'active'
+      GROUP BY c.id
+      ORDER BY c.name ASC
+    `);
+
+    // Lọc các lớp mà giáo viên là chủ nhiệm HOẶC có ca dạy trong teacher_assignments_json
+    const teacherClasses = allClassesRes.rows.filter((cls) => {
+      if (cls.teacher_id === teacherId) return true;
+      try {
+        if (cls.teacher_assignments_json) {
+          const assignments = JSON.parse(String(cls.teacher_assignments_json));
+          if (Array.isArray(assignments)) {
+            return assignments.some((a: any) => a.teacher_id === teacherId);
+          }
+        }
+      } catch {}
+      return false;
     });
 
     // 2. Get MakeUp Students attending classes (Today or Upcoming)
@@ -84,7 +152,8 @@ export async function GET(req: Request) {
       success: true,
       data: {
         teacher,
-        students: regularStudentsRes.rows,
+        students: studentsWithWallet,
+        classes: teacherClasses,
         makeups: makeupsRes.rows,
         levels: levelsRes.rows,
         time_slots: slotsRes.rows,

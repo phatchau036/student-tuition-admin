@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
-import { calculateStudentTuition, getPreviousMonthStr } from "@/lib/tuition";
+import { calculateStudentTuition, getPreviousMonthStr, resolveStudentTeachers } from "@/lib/tuition";
 import { getSchoolIdFromRequest } from "@/lib/authHelper";
 import { syncPendingMakeupsToWallet } from "@/lib/wallet";
 
@@ -42,13 +42,17 @@ export async function GET(req: Request) {
           pkg.name as tuition_package_name,
           pkg.amount as tuition_package_amount,
           pkg.cycle_unit as tuition_package_cycle_unit,
-          pkg.cycle_value as tuition_package_cycle_value
+          pkg.cycle_value as tuition_package_cycle_value,
+          c.name as class_name,
+          c.room as class_room,
+          c.teacher_assignments_json as class_teacher_assignments_json
         FROM students s
         LEFT JOIN level_surcharges l ON s.level_id = l.id
         LEFT JOIN subjects sub ON s.subject_id = sub.id
         LEFT JOIN time_slots t ON s.time_slot_id = t.id
         LEFT JOIN teachers tc ON s.teacher_id = tc.id
         LEFT JOIN tuition_packages pkg ON s.tuition_package_id = pkg.id
+        LEFT JOIN classes c ON s.class_id = c.id
         WHERE s.school_id = ?
         ORDER BY s.created_at DESC
       `,
@@ -140,7 +144,25 @@ export async function GET(req: Request) {
       scheduledMakeupMap[String(row.student_id)] = Number(row.scheduled || 0);
     }
 
+    // Lấy toàn bộ danh sách giáo viên để đối chiếu tên khi suy luận từ lớp
+    const teachersListRes = await db.execute("SELECT id, name FROM teachers WHERE is_active = 1");
+    const teachersList = teachersListRes.rows.map((t) => ({ id: String(t.id), name: String(t.name) }));
+
     const students = studentsRes.rows.map((row) => {
+      // Tự động giải quyết giáo viên đứng lớp tương ứng theo ca (hỗ trợ hiển thị cả 2 giáo viên nếu cùng ca)
+      const teacherResolved = resolveStudentTeachers(
+        {
+          teacher_id: row.teacher_id ? String(row.teacher_id) : undefined,
+          teacher_name: row.teacher_name ? String(row.teacher_name) : undefined,
+          class_id: row.class_id ? String(row.class_id) : undefined,
+          class_teacher_assignments_json: row.class_teacher_assignments_json ? String(row.class_teacher_assignments_json) : undefined,
+          study_time_detail: String(row.study_time_detail || ""),
+          schedule_details_json: String(row.schedule_details_json || "[]"),
+          registered_days: String(row.registered_days || ""),
+        },
+        teachersList
+      );
+
       // 1. Tính học phí tự động:
       // - Học phí gốc (Gói học phí hoặc Học phí cơ bản)
       // - CỘNG Phụ thu Level (Grade, trình độ...)
@@ -224,9 +246,15 @@ export async function GET(req: Request) {
         time_slot_id: String(row.time_slot_id || ""),
         time_slot_name: row.time_slot_name ? String(row.time_slot_name) : "Khung giờ linh hoạt",
         time_slot_desc: row.time_slot_desc ? String(row.time_slot_desc) : "",
-        teacher_id: row.teacher_id ? String(row.teacher_id) : undefined,
-        teacher_name: row.teacher_name ? String(row.teacher_name) : "Chưa gán GV",
+        teacher_id: teacherResolved.primaryTeacherId || (row.teacher_id ? String(row.teacher_id) : undefined),
+        teacher_name: teacherResolved.teacherDisplay || (row.teacher_name ? String(row.teacher_name) : "Chưa gán GV"),
         teacher_color: row.teacher_color ? String(row.teacher_color) : "indigo",
+
+        // Lớp học
+        class_id: row.class_id ? String(row.class_id) : undefined,
+        class_name: row.class_name ? String(row.class_name) : undefined,
+        class_room: row.class_room ? String(row.class_room) : undefined,
+        class_teacher_assignments_json: row.class_teacher_assignments_json ? String(row.class_teacher_assignments_json) : undefined,
         
         // Trạng thái học sinh: đang học, bảo lưu, nghỉ học
         status: (row.status as "studying" | "reserved" | "dropped") || "studying",
@@ -302,6 +330,7 @@ export async function POST(req: Request) {
       zalo_chat_id,
       level_id,
       subject_id,
+      class_id,
       time_slot_id,
       teacher_id,
       tuition_package_id,
@@ -338,11 +367,11 @@ export async function POST(req: Request) {
 
     await db.execute({
       sql: `INSERT INTO students (
-              id, school_id, student_code, name, phone, zalo_link, zalo_chat_id, level_id, subject_id, time_slot_id, teacher_id, tuition_package_id,
+              id, school_id, student_code, name, phone, zalo_link, zalo_chat_id, level_id, subject_id, class_id, time_slot_id, teacher_id, tuition_package_id,
               start_date, duration_mode, sessions_per_week, hours_per_week, registered_days, study_time_detail, schedule_details_json, schedule_preset_name,
               is_discount_enabled, discount_percent, discount_reason
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       args: [
         id,
         targetSchoolId,
@@ -353,6 +382,7 @@ export async function POST(req: Request) {
         zalo_chat_id ? String(zalo_chat_id).trim() : null,
         level_id,
         subject_id || null,
+        class_id || null,
         time_slot_id || "",
         teacher_id || null,
         tuition_package_id || null,
