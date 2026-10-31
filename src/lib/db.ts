@@ -459,6 +459,15 @@ export async function initDb() {
   try { await db.execute("ALTER TABLE teachers ADD COLUMN zalo_link TEXT DEFAULT NULL"); } catch {}
   try { await db.execute("ALTER TABLE student_monthly_tuitions ADD COLUMN items_json TEXT DEFAULT '[]'"); } catch {}
   try { await db.execute("ALTER TABLE makeup_classes ADD COLUMN makeup_teacher_id TEXT DEFAULT NULL"); } catch {}
+  try { await db.execute("ALTER TABLE makeup_classes ADD COLUMN absence_start_time TEXT DEFAULT '18:00'"); } catch {}
+  try { await db.execute("ALTER TABLE makeup_classes ADD COLUMN absence_end_time TEXT DEFAULT '19:30'"); } catch {}
+  try { await db.execute("ALTER TABLE makeup_classes ADD COLUMN absence_minutes INTEGER DEFAULT 90"); } catch {}
+  try { await db.execute("ALTER TABLE makeup_classes ADD COLUMN makeup_start_time TEXT DEFAULT NULL"); } catch {}
+  try { await db.execute("ALTER TABLE makeup_classes ADD COLUMN makeup_end_time TEXT DEFAULT NULL"); } catch {}
+  try { await db.execute("ALTER TABLE makeup_classes ADD COLUMN makeup_minutes INTEGER DEFAULT 60"); } catch {}
+  try { await db.execute("ALTER TABLE makeup_classes ADD COLUMN lesson_id TEXT DEFAULT NULL"); } catch {}
+  try { await db.execute("ALTER TABLE makeup_classes ADD COLUMN student_name TEXT DEFAULT ''"); } catch {}
+  try { await db.execute("ALTER TABLE makeup_classes ADD COLUMN student_phone TEXT DEFAULT ''"); } catch {}
   try { await db.execute("ALTER TABLE tuition_packages ADD COLUMN original_amount INTEGER DEFAULT 1000000"); } catch {}
   try { await db.execute("ALTER TABLE tuition_packages ADD COLUMN discount_type TEXT DEFAULT 'none'"); } catch {}
   try { await db.execute("ALTER TABLE tuition_packages ADD COLUMN discount_value INTEGER DEFAULT 0"); } catch {}

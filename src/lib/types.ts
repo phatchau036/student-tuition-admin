@@ -237,11 +237,18 @@ export interface MakeUpClass {
   teacher_name?: string;
   absence_date: string; // Ngày nghỉ YYYY-MM-DD
   absence_reason: string; // Lý do nghỉ
+  absence_start_time?: string; // Giờ bắt đầu nghỉ (ví dụ: "17:00")
+  absence_end_time?: string; // Giờ kết thúc ca nghỉ (ví dụ: "18:30")
+  absence_minutes?: number; // Số phút của ca nghỉ (ví dụ: 90)
   status: "pending" | "scheduled" | "completed"; // pending = chưa xếp bù, scheduled = đã có lịch bù, completed = đã học bù xong
   makeup_date?: string; // Ngày học bù YYYY-MM-DD
   makeup_time?: string; // Giờ học bù (ví dụ "18:00 - 19:00")
+  makeup_start_time?: string; // Giờ bắt đầu ca bù
+  makeup_end_time?: string; // Giờ kết thúc ca bù
+  makeup_minutes?: number; // Số phút đăng ký bù (ví dụ: 60, 90)
   makeup_slot_id?: string;
   makeup_teacher_id?: string;
+  lesson_id?: string;
   note?: string;
   created_at?: string;
 }

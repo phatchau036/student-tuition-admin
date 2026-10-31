@@ -6,6 +6,18 @@
 
 ## 1. LỊCH SỬ PHIÊN BẢN (CHANGELOG)
 
+### [v2.8.2] - 2026-10-30
+- **⭐ TÁI CẤU TRÚC: TÍCH HỢP TOÀN BỘ QUỸ GIỜ VÀO MODULE BÁO NGHỈ & HỌC BÙ:**
+  - **Xóa bỏ giao diện "Ví Giờ Học" riêng lẻ độc lập:** Gỡ bỏ modal tách biệt, gom toàn bộ logic tích lũy và sử dụng giờ học vào chung module **"Quản Lý Báo Nghỉ & Quỹ Giờ Học Bù"** (`MakeUpClassesModal.tsx`).
+  - **Chuyển đổi toàn bộ đơn vị quản lý từ BUỔI HỌC sang SỐ GIỜ HỌC (HOURS/MINUTES):** Không còn quy đổi "+1 buổi bù" chung chung mà định lượng chính xác: `0.5h (30p)`, `1.0h (60p)`, `1.5h (90p)`, `2.0h (120p)`.
+  - **Cơ chế Báo Nghỉ (Tích Lũy Giờ Bù):** Ghi nhận rõ Ngày nghỉ, Ca học nghỉ (`absence_start_time` - `absence_end_time`), tự động trích xuất từ lịch học của học sinh để tính thời lượng ca nghỉ và cộng dồn chính xác vào Quỹ giờ học bù (ghi nhận vào sổ cái `hour_ledger`).
+  - **Cơ chế Đăng Ký Học Bù (Khấu Trừ Quỹ Giờ):**
+    - Hiển thị Quỹ giờ bù khả dụng trước khi xếp bù.
+    - Cho phép chọn ca mở cửa và chọn số giờ muốn bù trong ca đó (có các nút chọn nhanh 0.5h, 1.0h, 1.5h, 2.0h).
+    - Validation chặt chẽ: Chặn không cho đăng ký vượt quá Quỹ giờ khả dụng và tự động tính trước số giờ còn lại sau khi bù.
+    - Tích hợp tab **Biến Động Quỹ Giờ (Sổ cái)** xem lịch sử chi tiết từng lần tích lũy (khi báo nghỉ) và khấu trừ (khi học bù).
+  - **Thiết kế lại giao diện Quản Lý Giáo Viên (`TeacherManagementModal.tsx`):** Nâng cấp layout 2 cột hiện đại, bổ sung gợi ý bộ môn 1-click, thanh tìm kiếm tức thì và bộ lọc chuyên môn.
+
 ### [v2.8.1] - 2026-10-30
 - **⭐ TỰ ĐỘNG CỘNG PHỤ THU LEVEL VÀO GÓI HỌC PHÍ & BẢNG KÊ CẤU THÀNH:**
   - Khắc phục triệt để lỗi học phí không tự cộng tiền phụ thu level khi học sinh chọn Gói Học Phí (`tuition_package_id`): Áp dụng chuẩn hóa công thức `Học phí = (Gói học phí + Phụ thu level) × (1 - Chiết khấu %)` trên toàn bộ hệ thống API (`/api/students`, `/api/parent`, `/api/payments`, `/api/reconciliation/summary`).

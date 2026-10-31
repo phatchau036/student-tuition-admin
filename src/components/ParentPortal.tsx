@@ -723,7 +723,7 @@ export default function ParentPortal() {
                     <p className="font-bold mt-0.5">{activeStudent.teacher_name}</p>
                   </div>
                   <div className="bg-white/10 rounded-xl p-2.5 backdrop-blur-xs">
-                    <p className="text-emerald-100 text-[11px]">⏱️ Ví giờ còn lại:</p>
+                    <p className="text-emerald-100 text-[11px]">⏱️ Quỹ giờ bù:</p>
                     <p
                       className={`font-extrabold mt-0.5 ${
                         (activeStudent.available_minutes ?? 0) < 0 ? "text-rose-300" : "text-amber-300"
@@ -734,8 +734,8 @@ export default function ParentPortal() {
                         const abs = Math.abs(avail);
                         const h = Math.floor(abs / 60);
                         const m = abs % 60;
-                        const label = avail === 0 ? "0 phút" : h > 0 ? `${h}h${m > 0 ? String(m).padStart(2, "0") : ""}` : `${m} phút`;
-                        return avail < 0 ? `Âm ${label}` : label;
+                        const label = avail === 0 ? "0 giờ" : h > 0 ? `${h}h${m > 0 ? String(m).padStart(2, "0") : ""}` : `${m} phút`;
+                        return avail < 0 ? `Thiếu ${label}` : label;
                       })()}
                     </p>
                   </div>
