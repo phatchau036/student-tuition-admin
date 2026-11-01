@@ -488,6 +488,7 @@ export async function initDb() {
   try { await db.execute("ALTER TABLE makeup_classes ADD COLUMN lesson_id TEXT DEFAULT NULL"); } catch {}
   try { await db.execute("ALTER TABLE makeup_classes ADD COLUMN student_name TEXT DEFAULT ''"); } catch {}
   try { await db.execute("ALTER TABLE makeup_classes ADD COLUMN student_phone TEXT DEFAULT ''"); } catch {}
+  try { await db.execute("ALTER TABLE makeup_classes ADD COLUMN class_id TEXT DEFAULT NULL"); } catch {}
   // Backfill student_name and student_phone for legacy rows in makeup_classes
   try {
     await db.execute(`

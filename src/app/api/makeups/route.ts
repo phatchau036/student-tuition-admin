@@ -48,28 +48,31 @@ export async function GET(req: Request) {
              m.status, 
              m.makeup_date, 
              m.makeup_time, 
-             m.makeup_slot_id, 
-             m.makeup_teacher_id, 
-             m.note, 
-             m.created_at, 
-             m.absence_start_time, 
-             m.absence_end_time, 
-             m.absence_minutes, 
-             m.makeup_start_time, 
-             m.makeup_end_time, 
-             m.makeup_minutes, 
-             m.lesson_id,
-             COALESCE(NULLIF(s.name, ''), NULLIF(m.student_name, ''), 'Học viên') as student_name, 
-             COALESCE(NULLIF(s.phone, ''), NULLIF(m.student_phone, ''), '') as student_phone, 
-             s.school_id as student_school_id,
-             s.registered_days, 
-             s.study_time_detail,
-             s.schedule_details_json,
-             COALESCE(tc.name, 'Chưa phân công') as teacher_name
-      FROM makeup_classes m
-      LEFT JOIN students s ON m.student_id = s.id
-      LEFT JOIN teachers tc ON s.teacher_id = tc.id
-      WHERE 1=1
+	             m.makeup_slot_id, 
+	             m.makeup_teacher_id, 
+	             m.class_id,
+	             cls.name as class_name,
+	             m.note, 
+	             m.created_at, 
+	             m.absence_start_time, 
+	             m.absence_end_time, 
+	             m.absence_minutes, 
+	             m.makeup_start_time, 
+	             m.makeup_end_time, 
+	             m.makeup_minutes, 
+	             m.lesson_id,
+	             COALESCE(NULLIF(s.name, ''), NULLIF(m.student_name, ''), 'Học viên') as student_name, 
+	             COALESCE(NULLIF(s.phone, ''), NULLIF(m.student_phone, ''), '') as student_phone, 
+	             s.school_id as student_school_id,
+	             s.registered_days, 
+	             s.study_time_detail,
+	             s.schedule_details_json,
+	             COALESCE(tc.name, 'Chưa phân công') as teacher_name
+	      FROM makeup_classes m
+	      LEFT JOIN students s ON m.student_id = s.id
+	      LEFT JOIN teachers tc ON s.teacher_id = tc.id
+	      LEFT JOIN classes cls ON m.class_id = cls.id
+	      WHERE 1=1
     `;
     const args: any[] = [];
 
@@ -162,11 +165,14 @@ export async function POST(req: Request) {
       makeup_minutes,
       makeup_slot_id,
       makeup_teacher_id,
+      class_id,
+      makeup_class_id,
       time_slot_id,
       note,
     } = body;
 
     const targetSlotId = makeup_slot_id || time_slot_id;
+    const targetClassId = class_id || makeup_class_id || null;
 
     // =========================================================================
     // 1. Action: Báo nghỉ (Tích lũy giờ bù vào quỹ & đồng bộ lessons)
@@ -451,7 +457,7 @@ export async function POST(req: Request) {
       await db.execute({
         sql: `UPDATE makeup_classes 
               SET makeup_date = ?, makeup_time = ?, makeup_start_time = ?, makeup_end_time = ?,
-                  makeup_minutes = ?, makeup_slot_id = ?, makeup_teacher_id = ?, lesson_id = ?,
+                  makeup_minutes = ?, makeup_slot_id = ?, makeup_teacher_id = ?, class_id = COALESCE(?, class_id), lesson_id = ?,
                   note = ?, status = 'scheduled'
               WHERE id = ?`,
         args: [
@@ -462,6 +468,7 @@ export async function POST(req: Request) {
           plannedMin,
           targetSlotId || null,
           makeup_teacher_id || null,
+          targetClassId || null,
           lessonId,
           note || "",
           makeup_id,

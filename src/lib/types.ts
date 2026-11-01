@@ -288,6 +288,8 @@ export interface MakeUpClass {
   makeup_minutes?: number; // Số phút đăng ký bù (ví dụ: 60, 90)
   makeup_slot_id?: string;
   makeup_teacher_id?: string;
+  class_id?: string;
+  class_name?: string;
   lesson_id?: string;
   note?: string;
   created_at?: string;

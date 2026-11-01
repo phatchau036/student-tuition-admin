@@ -37,6 +37,7 @@ import { formatVND, formatMonthDisplay, generateUpcomingStudentSchedule, Upcomin
 import { MonthFormat, AppLanguage } from "@/lib/types";
 import { useLanguage } from "@/lib/i18n";
 import { useTheme } from "@/lib/ThemeContext";
+import { detectShiftTeachers } from "@/lib/shiftDetection";
 
 interface MakeupItem {
   id: string;
@@ -112,6 +113,24 @@ interface SlotOccupancy {
   is_day_supported: boolean;
 }
 
+interface ParentClassOccupancy {
+  class_id: string;
+  class_name: string;
+  subject_name: string;
+  room?: string;
+  max_capacity: number;
+  student_count: number;
+  remaining_slots: number;
+  is_full: boolean;
+  shifts: Array<{
+    teacher_id: string;
+    teacher_name: string;
+    start_time: string;
+    end_time: string;
+    role?: string;
+  }>;
+}
+
 export default function ParentPortal() {
   const { language, setLanguage, t } = useLanguage();
   const { theme, toggleTheme } = useTheme();
@@ -134,9 +153,11 @@ export default function ParentPortal() {
   const [schedulingItem, setSchedulingItem] = useState<MakeupItem | null>(null);
   const [makeupDate, setMakeupDate] = useState("");
   const [selectedSlotId, setSelectedSlotId] = useState("");
+  const [selectedClassId, setSelectedClassId] = useState("");
   const [makeupTime, setMakeupTime] = useState("");
   const [makeupNote, setMakeupNote] = useState("");
   const [occupancySlots, setOccupancySlots] = useState<SlotOccupancy[]>([]);
+  const [occupancyClasses, setOccupancyClasses] = useState<ParentClassOccupancy[]>([]);
   const [isLoadingOccupancy, setIsLoadingOccupancy] = useState(false);
   const [dayNameVi, setDayNameVi] = useState("");
   const [isSubmittingMakeup, setIsSubmittingMakeup] = useState(false);
@@ -412,8 +433,19 @@ export default function ParentPortal() {
         const json = await res.json();
         if (json.success) {
           const supportedSlots = (json.data.slots as SlotOccupancy[]).filter((s) => s.is_day_supported);
+          const classesList = (json.data.classes as ParentClassOccupancy[]) || [];
           setOccupancySlots(supportedSlots);
+          setOccupancyClasses(classesList);
           setDayNameVi(json.data.day_name || "");
+
+          const firstClassAvail = classesList.find((c) => !c.is_full);
+          if (firstClassAvail) {
+            setSelectedClassId(firstClassAvail.class_id);
+          } else if (classesList.length > 0) {
+            setSelectedClassId(classesList[0].class_id);
+          } else {
+            setSelectedClassId("");
+          }
 
           const firstNonFull = supportedSlots.find((s) => !s.is_full);
           if (firstNonFull) {
@@ -452,6 +484,7 @@ export default function ParentPortal() {
           makeup_id: schedulingItem.id,
           makeup_date: makeupDate,
           time_slot_id: selectedSlotId,
+          class_id: selectedClassId || null,
           makeup_time: makeupTime,
           note: makeupNote.trim(),
         }),
@@ -1547,12 +1580,12 @@ export default function ParentPortal() {
                 />
               </div>
 
-              {/* Slot picker with occupancy status */}
+              {/* 2. Chọn Lớp Học Trong Ngày & Ca Giáo Viên */}
               {makeupDate && (
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                      2. Chọn khung giờ mở cửa trong ngày ({dayNameVi}):
+                      2. Chọn lớp học ({dayNameVi}):
                     </label>
                     {dayNameVi && (
                       <span className="px-2 py-0.5 rounded-md text-[11px] font-black bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300">
@@ -1562,8 +1595,72 @@ export default function ParentPortal() {
                   </div>
 
                   {isLoadingOccupancy ? (
-                    <div className="py-4 text-center text-xs text-slate-400">
+                    <div className="py-3 text-center text-xs text-slate-400">
                       Đang kiểm tra sĩ số các lớp trong {dayNameVi} ({makeupDate})...
+                    </div>
+                  ) : occupancyClasses.length === 0 ? (
+                    <div className="p-2.5 text-xs text-center text-slate-500 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl">
+                      Chưa có lớp học cố định trong ngày {dayNameVi}. Phụ huynh chọn ca mở cửa bên dưới.
+                    </div>
+                  ) : (
+                    <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                      {occupancyClasses.map((cls) => {
+                        const isPicked = selectedClassId === cls.class_id;
+                        return (
+                          <div
+                            key={cls.class_id}
+                            onClick={() => {
+                              if (!cls.is_full) {
+                                setSelectedClassId(cls.class_id);
+                              }
+                            }}
+                            className={`p-2.5 rounded-xl border text-xs transition cursor-pointer flex flex-col gap-1 ${
+                              cls.is_full
+                                ? "opacity-60 bg-rose-50/40 dark:bg-rose-950/20 border-rose-200 cursor-not-allowed select-none"
+                                : isPicked
+                                ? "bg-amber-50 dark:bg-amber-950/40 border-amber-500 ring-2 ring-amber-500/20"
+                                : "bg-white dark:bg-slate-800 border-slate-200 hover:border-amber-300"
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="font-bold text-slate-900 dark:text-white">
+                                {cls.class_name} ({cls.subject_name} {cls.room ? `• ${cls.room}` : ""})
+                              </span>
+                              <span className={`text-[10px] font-bold ${cls.is_full ? "text-rose-600" : "text-emerald-600"}`}>
+                                {cls.is_full ? `Hết chỗ (${cls.student_count}/${cls.max_capacity})` : `Còn ${cls.remaining_slots} chỗ`}
+                              </span>
+                            </div>
+
+                            {cls.shifts && cls.shifts.length > 0 && (
+                              <div className="flex items-center gap-1 flex-wrap text-[10px] text-slate-500 dark:text-slate-400">
+                                <span className="font-medium text-slate-400">Ca GV:</span>
+                                {cls.shifts.map((sh, idx) => (
+                                  <span key={idx} className="bg-slate-100 dark:bg-slate-700 px-1.5 py-0.2 rounded font-semibold text-slate-700 dark:text-slate-200">
+                                    {sh.teacher_name} ({sh.start_time} - {sh.end_time})
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Slot picker with occupancy status */}
+              {makeupDate && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      3. Chọn khung giờ mở cửa trong ngày ({dayNameVi}):
+                    </label>
+                  </div>
+
+                  {isLoadingOccupancy ? (
+                    <div className="py-2 text-center text-xs text-slate-400">
+                      Đang tải khung giờ...
                     </div>
                   ) : occupancySlots.length === 0 ? (
                     <div className="p-3 text-xs text-center text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl">
@@ -1633,6 +1730,42 @@ export default function ParentPortal() {
                   )}
                 </div>
               )}
+
+              {/* Thông báo đổi ca giáo viên (nếu học vắt qua 2 ca của 2 GV) hoặc thông tin giáo viên phụ trách */}
+              {(() => {
+                if (!makeupTime || !makeupTime.includes("-")) return null;
+                const [mStart, mEnd] = makeupTime.split("-").map((s) => s.trim());
+                if (!mStart || !mEnd) return null;
+
+                const pickedClass = occupancyClasses.find((c) => c.class_id === selectedClassId) || occupancyClasses[0];
+                if (!pickedClass || !pickedClass.shifts || pickedClass.shifts.length === 0) return null;
+
+                const detection = detectShiftTeachers(mStart, mEnd, pickedClass.shifts);
+
+                if (detection.hasMultipleTeachers) {
+                  return (
+                    <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/50 border border-amber-300 dark:border-amber-800 text-xs text-amber-900 dark:text-amber-200 flex items-start gap-2 animate-in fade-in">
+                      <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                      <div>
+                        <strong className="block font-bold">Lưu ý đổi ca giáo viên:</strong>
+                        <p className="mt-0.5 leading-relaxed">{detection.alertMessage}</p>
+                      </div>
+                    </div>
+                  );
+                } else if (detection.singleTeacherName) {
+                  return (
+                    <div className="p-2.5 rounded-xl bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900/40 text-xs text-indigo-900 dark:text-indigo-200 flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <GraduationCap className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                        <span>
+                          Giáo viên đứng lớp: <strong>{detection.singleTeacherName}</strong> ({makeupTime})
+                        </span>
+                      </div>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">

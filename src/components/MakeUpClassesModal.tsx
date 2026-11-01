@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Student, MakeUpClass, TimeSlot } from "@/lib/types";
 import { useToast } from "@/components/Toast";
+import { detectShiftTeachers, ShiftDetectionResult } from "@/lib/shiftDetection";
 import {
   Calendar,
   Clock,
@@ -29,6 +30,8 @@ import {
   HelpCircle,
   TrendingDown,
   TrendingUp,
+  School,
+  GraduationCap,
 } from "lucide-react";
 
 interface SlotOccupancyInfo {
@@ -46,6 +49,24 @@ interface SlotOccupancyInfo {
   is_crowded: boolean;
   is_full: boolean;
   is_day_supported: boolean;
+}
+
+interface ClassOccupancyInfo {
+  class_id: string;
+  class_name: string;
+  subject_name: string;
+  room?: string;
+  max_capacity: number;
+  student_count: number;
+  remaining_slots: number;
+  is_full: boolean;
+  shifts: Array<{
+    teacher_id: string;
+    teacher_name: string;
+    start_time: string;
+    end_time: string;
+    role?: string;
+  }>;
 }
 
 interface LedgerHistoryItem {
@@ -96,6 +117,7 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
   const [schedulingItem, setSchedulingItem] = useState<MakeUpClass | null>(null);
   const [makeupDate, setMakeupDate] = useState<string>("");
   const [selectedSlotId, setSelectedSlotId] = useState<string>("");
+  const [selectedClassId, setSelectedClassId] = useState<string>("");
   const [makeupStartTime, setMakeupStartTime] = useState<string>("18:00");
   const [makeupEndTime, setMakeupEndTime] = useState<string>("19:00");
   const [makeupMinutes, setMakeupMinutes] = useState<number>(60);
@@ -112,8 +134,9 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Kiểm tra sức chứa phòng học
+  // Kiểm tra sức chứa phòng học & Lớp học
   const [dayOccupancy, setDayOccupancy] = useState<SlotOccupancyInfo[]>([]);
+  const [dayClassesOccupancy, setDayClassesOccupancy] = useState<ClassOccupancyInfo[]>([]);
   const [isLoadingOccupancy, setIsLoadingOccupancy] = useState(false);
   const [dayNameVi, setDayNameVi] = useState("");
 
@@ -283,8 +306,19 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
         const json = await res.json();
         if (json.success) {
           const supportedSlots = (json.data.slots as SlotOccupancyInfo[]).filter((s) => s.is_day_supported);
+          const classesList = (json.data.classes as ClassOccupancyInfo[]) || [];
           setDayOccupancy(supportedSlots);
+          setDayClassesOccupancy(classesList);
           setDayNameVi(json.data.day_name || "");
+
+          const firstClassAvail = classesList.find((c) => !c.is_full);
+          if (firstClassAvail) {
+            setSelectedClassId(firstClassAvail.class_id);
+          } else if (classesList.length > 0) {
+            setSelectedClassId(classesList[0].class_id);
+          } else {
+            setSelectedClassId("");
+          }
 
           const firstAvailable = supportedSlots.find((s) => !s.is_full);
           if (firstAvailable) {
@@ -404,6 +438,7 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
           makeup_id: schedulingItem.id,
           makeup_date: makeupDate,
           makeup_slot_id: selectedSlotId || null,
+          class_id: selectedClassId || null,
           makeup_start_time: makeupStartTime,
           makeup_end_time: makeupEndTime,
           makeup_minutes: makeupMinutes,
@@ -761,6 +796,11 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
                               </span>
                               <strong className="font-bold">{mk.makeup_date}</strong>
                               <span>({mk.makeup_time || `${mk.makeup_start_time} - ${mk.makeup_end_time}`})</span>
+                              {mk.class_name && (
+                                <span className="px-2 py-0.2 rounded-md bg-purple-100 dark:bg-purple-900/60 text-purple-800 dark:text-purple-300 text-[10px] font-bold">
+                                  Lớp: {mk.class_name}
+                                </span>
+                              )}
                               <span className="px-2 py-0.2 rounded-md bg-indigo-100 dark:bg-indigo-900/60 text-indigo-800 dark:text-indigo-300 text-[10px] font-black">
                                 Thời lượng bù: {makeupHoursText} ({mk.makeup_minutes || 60}p)
                               </span>
@@ -1097,76 +1137,180 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
                     />
                   </div>
 
-                  {/* 2. Chọn Khung Giờ & Kiểm Tra Sĩ Số */}
+                  {/* 2. Chọn Lớp Học Trong Ngày & Ca Giáo Viên Đứng Lớp */}
+                  {makeupDate && (
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">
+                          2. Chọn Lớp Học Trong Ngày ({dayNameVi})
+                        </label>
+                        {isLoadingOccupancy && (
+                          <span className="text-[10px] text-indigo-600 animate-pulse font-bold">
+                            Đang kiểm tra lớp & sĩ số...
+                          </span>
+                        )}
+                      </div>
+
+                      {dayClassesOccupancy.length === 0 ? (
+                        <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 text-center text-xs text-slate-400">
+                          Chưa có lớp học nào được cấu hình trong ngày {dayNameVi}. Sẽ xếp theo ca mở cửa cơ sở.
+                        </div>
+                      ) : (
+                        <div className="space-y-2 max-h-44 overflow-y-auto pr-1 scrollbar-thin">
+                          {dayClassesOccupancy.map((cls) => {
+                            const isPicked = selectedClassId === cls.class_id;
+                            return (
+                              <div
+                                key={cls.class_id}
+                                onClick={() => {
+                                  if (!cls.is_full) {
+                                    setSelectedClassId(cls.class_id);
+                                  }
+                                }}
+                                className={`p-2.5 rounded-2xl border transition cursor-pointer flex flex-col gap-1.5 ${
+                                  cls.is_full
+                                    ? "bg-rose-50/50 dark:bg-rose-950/20 border-rose-200 opacity-60 cursor-not-allowed"
+                                    : isPicked
+                                    ? "bg-indigo-50/90 dark:bg-indigo-950/50 border-indigo-600 shadow-xs ring-1 ring-indigo-500/30"
+                                    : "bg-white dark:bg-slate-800 border-slate-200 hover:border-slate-300"
+                                }`}
+                              >
+                                <div className="flex items-center justify-between gap-2">
+                                  <div className="flex items-center gap-2">
+                                    <div
+                                      className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center ${
+                                        isPicked ? "border-indigo-600 bg-indigo-600" : "border-slate-300"
+                                      }`}
+                                    >
+                                      {isPicked && <div className="w-1.5 h-1.5 bg-white rounded-full" />}
+                                    </div>
+                                    <span className="font-extrabold text-xs text-slate-900 dark:text-white">
+                                      {cls.class_name}
+                                    </span>
+                                    <span className="text-[10px] px-2 py-0.2 rounded-md bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-medium">
+                                      {cls.subject_name} {cls.room ? `• ${cls.room}` : ""}
+                                    </span>
+                                  </div>
+
+                                  <div className="text-[10px] font-bold">
+                                    {cls.is_full ? (
+                                      <span className="text-rose-600 font-extrabold">Hết chỗ ({cls.student_count}/{cls.max_capacity})</span>
+                                    ) : (
+                                      <span className="text-emerald-600 font-extrabold">Còn {cls.remaining_slots} chỗ ({cls.student_count}/{cls.max_capacity})</span>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {/* Danh sách các ca giáo viên trong lớp */}
+                                {cls.shifts && cls.shifts.length > 0 && (
+                                  <div className="flex items-center gap-1.5 flex-wrap pl-5 text-[11px] text-slate-600 dark:text-slate-400">
+                                    <span className="text-[10px] font-semibold text-slate-400">Ca giáo viên:</span>
+                                    {cls.shifts.map((sh, idx) => (
+                                      <span
+                                        key={idx}
+                                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-white/80 dark:bg-slate-900/80 border border-slate-200/80 dark:border-slate-700 text-[10px] font-bold text-slate-700 dark:text-slate-200"
+                                      >
+                                        <GraduationCap className="w-3 h-3 text-indigo-600" />
+                                        <span>{sh.teacher_name}</span>
+                                        <span className="text-slate-400 font-mono font-normal">({sh.start_time} - {sh.end_time})</span>
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* 3. Chọn Khung Giờ Mở Cửa Hoặc Giờ Học Bắt Đầu */}
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
                       <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider block">
-                        2. Chọn Ca Học Mở Cửa ({dayNameVi || "Vui lòng chọn ngày trước"})
+                        3. Chọn Khung Giờ Học Bù
                       </label>
-                      {isLoadingOccupancy && (
-                        <span className="text-[10px] text-indigo-600 animate-pulse font-bold">
-                          Đang kiểm tra sĩ số...
-                        </span>
-                      )}
+                      <span className="text-[10px] font-mono text-slate-400">
+                        Giờ dự kiến: {makeupStartTime} - {makeupEndTime}
+                      </span>
                     </div>
 
                     {!makeupDate ? (
                       <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 text-center text-xs text-slate-400">
-                        Vui lòng chọn ngày học bù ở bước 1 để xem các khung giờ và sĩ số
-                      </div>
-                    ) : dayOccupancy.length === 0 ? (
-                      <div className="p-3 bg-amber-50 dark:bg-amber-950/40 rounded-2xl border border-amber-200 dark:border-amber-800 text-center text-xs text-amber-800 dark:text-amber-300 font-medium">
-                        Ngày {dayNameVi} ({makeupDate}) không có ca mở cửa nào phù hợp.
+                        Vui lòng chọn ngày học bù ở bước 1 để xem các khung giờ
                       </div>
                     ) : (
-                      <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1 scrollbar-thin">
-                        {dayOccupancy.map((slot) => {
-                          const isSelected = selectedSlotId === slot.slot_id;
-                          return (
-                            <div
-                              key={slot.slot_id}
-                              onClick={() => {
-                                if (!slot.is_full) {
-                                  setSelectedSlotId(slot.slot_id);
-                                  handleUpdateMakeupTimes(slot.start_time, makeupMinutes);
-                                }
-                              }}
-                              className={`p-2.5 rounded-2xl border transition cursor-pointer flex items-center justify-between gap-2 ${
-                                slot.is_full
-                                  ? "bg-rose-50/50 dark:bg-rose-950/20 border-rose-200 opacity-60 cursor-not-allowed"
-                                  : isSelected
-                                  ? "bg-indigo-50 dark:bg-indigo-950/40 border-indigo-600 shadow-xs"
-                                  : "bg-white dark:bg-slate-800 border-slate-200 hover:border-slate-300"
-                              }`}
-                            >
-                              <div className="flex items-center gap-2">
-                                <div className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center ${isSelected ? "border-indigo-600 bg-indigo-600" : "border-slate-300"}`}>
-                                  {isSelected && <div className="w-1.5 h-1.5 bg-white rounded-full" />}
-                                </div>
-                                <span className="font-bold text-xs text-slate-800 dark:text-slate-100">
-                                  {slot.slot_name} ({slot.time_range})
-                                </span>
-                              </div>
+                      <div className="space-y-2">
+                        {/* Gợi ý từ ca mở cửa */}
+                        {dayOccupancy.length > 0 && (
+                          <div className="space-y-1 max-h-28 overflow-y-auto pr-1 scrollbar-thin">
+                            {dayOccupancy.map((slot) => {
+                              const isSelected = selectedSlotId === slot.slot_id;
+                              return (
+                                <div
+                                  key={slot.slot_id}
+                                  onClick={() => {
+                                    if (!slot.is_full) {
+                                      setSelectedSlotId(slot.slot_id);
+                                      handleUpdateMakeupTimes(slot.start_time, makeupMinutes);
+                                    }
+                                  }}
+                                  className={`p-2 rounded-xl border transition cursor-pointer flex items-center justify-between gap-2 text-xs ${
+                                    slot.is_full
+                                      ? "bg-rose-50/50 dark:bg-rose-950/20 border-rose-200 opacity-60 cursor-not-allowed"
+                                      : isSelected
+                                      ? "bg-indigo-50 dark:bg-indigo-950/40 border-indigo-600 shadow-xs"
+                                      : "bg-white dark:bg-slate-800 border-slate-200 hover:border-slate-300"
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <div className={`w-3 h-3 rounded-full border flex items-center justify-center ${isSelected ? "border-indigo-600 bg-indigo-600" : "border-slate-300"}`}>
+                                      {isSelected && <div className="w-1 h-1 bg-white rounded-full" />}
+                                    </div>
+                                    <span className="font-bold text-[11px] text-slate-800 dark:text-slate-100">
+                                      Ca cơ sở: {slot.time_range}
+                                    </span>
+                                  </div>
 
-                              <div className="text-[10px] font-bold">
-                                {slot.is_full ? (
-                                  <span className="text-rose-600">Hết chỗ ({slot.total_count}/{slot.max_capacity})</span>
-                                ) : (
-                                  <span className="text-emerald-600">Còn {slot.max_capacity - slot.total_count} chỗ</span>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
+                                  <div className="text-[10px] font-bold">
+                                    {slot.is_full ? (
+                                      <span className="text-rose-600">Hết chỗ ({slot.total_count}/{slot.max_capacity})</span>
+                                    ) : (
+                                      <span className="text-emerald-600">Còn {slot.max_capacity - slot.total_count} chỗ</span>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+
+                        {/* Tùy chỉnh giờ bắt đầu cụ thể */}
+                        <div className="flex items-center gap-2 pt-1">
+                          <label className="text-[11px] font-bold text-slate-600 dark:text-slate-300 shrink-0">
+                            Giờ bắt đầu bù:
+                          </label>
+                          <input
+                            type="time"
+                            value={makeupStartTime}
+                            onChange={(e) => handleUpdateMakeupTimes(e.target.value, makeupMinutes)}
+                            className="px-2.5 py-1 text-xs font-bold font-mono rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 outline-none focus:ring-2 focus:ring-indigo-500"
+                          />
+                          <span className="text-slate-400 text-xs">đến</span>
+                          <span className="text-xs font-bold font-mono text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 px-2.5 py-1 rounded-xl border border-indigo-100 dark:border-indigo-900">
+                            {makeupEndTime}
+                          </span>
+                        </div>
                       </div>
                     )}
                   </div>
 
-                  {/* 3. Chọn Số Giờ Muốn Bù Trong Ca (Khấu Trừ) */}
+                  {/* 4. Chọn Số Giờ Muốn Bù Trong Ca (Khấu Trừ) */}
                   <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/80 space-y-2">
                     <div className="flex items-center justify-between">
                       <label className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300">
-                        3. Chọn thời lượng muốn bù
+                        4. Chọn thời lượng muốn bù
                       </label>
                       <span className="text-xs font-black text-indigo-600 dark:text-indigo-400">
                         Khấu trừ: -{fmtHoursAndMinutes(makeupMinutes)}
@@ -1209,6 +1353,54 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
                       </div>
                     )}
                   </div>
+
+                  {/* 5. CẢNH BÁO ĐỔI CA GIÁO VIÊN HOẶC THÔNG TIN GIÁO VIÊN ĐỨNG LỚP */}
+                  {(() => {
+                    const pickedClass = dayClassesOccupancy.find((c) => c.class_id === selectedClassId) || dayClassesOccupancy[0];
+                    if (!pickedClass || !pickedClass.shifts || pickedClass.shifts.length === 0) return null;
+                    const detection = detectShiftTeachers(makeupStartTime, makeupEndTime, pickedClass.shifts);
+
+                    if (detection.hasMultipleTeachers) {
+                      return (
+                        <div className="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/50 border border-amber-300 dark:border-amber-700/80 flex items-start gap-2.5 animate-in fade-in slide-in-from-top-1">
+                          <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                          <div className="text-xs space-y-1">
+                            <p className="font-extrabold text-amber-900 dark:text-amber-200 flex items-center gap-1.5">
+                              <span>Thông báo đổi ca giáo viên:</span>
+                            </p>
+                            <p className="text-amber-800 dark:text-amber-300 leading-relaxed font-medium">
+                              {detection.alertMessage}
+                            </p>
+                            <div className="flex items-center gap-1.5 pt-0.5 flex-wrap">
+                              {detection.overlappingTeachers.map((ov, oIdx) => (
+                                <span
+                                  key={oIdx}
+                                  className="px-2 py-0.5 rounded-lg bg-amber-100/80 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200 text-[10px] font-bold"
+                                >
+                                  {ov.teacher_name}: {ov.time_label} ({ov.duration_minutes} phút)
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    } else if (detection.singleTeacherName) {
+                      return (
+                        <div className="p-2.5 rounded-2xl bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900/40 flex items-center justify-between text-xs text-indigo-900 dark:text-indigo-200">
+                          <div className="flex items-center gap-2">
+                            <GraduationCap className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                            <span>
+                              Giáo viên đứng lớp: <strong>{detection.singleTeacherName}</strong> ({makeupStartTime} - {makeupEndTime})
+                            </span>
+                          </div>
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 font-bold">
+                            Trọn 1 ca
+                          </span>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
 
                   {/* Ghi chú */}
                   <div>

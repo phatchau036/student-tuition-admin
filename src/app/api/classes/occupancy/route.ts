@@ -73,6 +73,79 @@ export async function GET(req: Request) {
       args: [dateStr, schoolId],
     });
 
+    // 6. Get all active classes for this school
+    const classesRes = await db.execute({
+      sql: `SELECT c.*, sub.name as subject_name 
+            FROM classes c 
+            LEFT JOIN subjects sub ON c.subject_id = sub.id
+            WHERE (c.school_id = ? OR c.school_id = 'school-default' OR ? = 'school-default' OR ? IS NULL OR ? = '')
+              AND (c.status = 'active' OR c.status IS NULL OR c.status = '')
+            ORDER BY c.name ASC`,
+      args: [schoolId, schoolId, schoolId, schoolId],
+    });
+
+    // Map teacher id to name
+    const teacherNameMap: Record<string, string> = {};
+    for (const tc of teachersRes.rows) {
+      teacherNameMap[String(tc.id)] = String(tc.name);
+    }
+
+    // Process classes operating on this day (dayName)
+    const classesOccupancy: any[] = [];
+    for (const cRow of classesRes.rows) {
+      const cId = String(cRow.id);
+      let schedList: any[] = [];
+      try {
+        if (cRow.schedule_json) schedList = JSON.parse(String(cRow.schedule_json));
+      } catch {}
+
+      // Lớp có mở cửa vào Thứ này không?
+      const openOnDay = schedList.some((sc) => !sc.day || sc.day === "Tất cả các ngày" || sc.day === dayName);
+      if (!openOnDay && schedList.length > 0) continue;
+
+      let assignList: any[] = [];
+      try {
+        if (cRow.teacher_assignments_json) assignList = JSON.parse(String(cRow.teacher_assignments_json));
+      } catch {}
+
+      // Lọc các ca phân công của giáo viên trong ngày này
+      const shiftsOnDay = assignList.filter((a) => !a.day || a.day === "Tất cả các ngày" || a.day === dayName);
+
+      // Đếm học sinh chính khóa của lớp học vào ngày này
+      const classStudents = studentsRes.rows.filter((st: any) => String(st.class_id || "") === cId);
+      const activeClassStudentsCount = classStudents.filter((st: any) => {
+        const regDays = String(st.registered_days || "");
+        if (regDays.includes(dayName)) return true;
+        const parsed = parseStudentScheduleSlots({
+          schedule_details_json: String(st.schedule_details_json || "[]"),
+          study_time_detail: String(st.study_time_detail || ""),
+          registered_days: regDays,
+        });
+        return parsed.some((p) => p.day === dayName);
+      }).length;
+
+      const maxCap = Number(cRow.max_students || 15);
+      const remaining = Math.max(0, maxCap - activeClassStudentsCount);
+
+      classesOccupancy.push({
+        class_id: cId,
+        class_name: String(cRow.name),
+        subject_name: String(cRow.subject_name || "Piano"),
+        room: String(cRow.room || ""),
+        max_capacity: maxCap,
+        student_count: activeClassStudentsCount,
+        remaining_slots: remaining,
+        is_full: activeClassStudentsCount >= maxCap,
+        shifts: shiftsOnDay.map((sh) => ({
+          teacher_id: sh.teacher_id,
+          teacher_name: sh.teacher_name || teacherNameMap[sh.teacher_id] || "Giáo viên",
+          start_time: sh.start_time,
+          end_time: sh.end_time,
+          role: sh.role || "",
+        })),
+      });
+    }
+
     const slotsOccupancy = slotsRes.rows.map((slot) => {
       const slotId = String(slot.id);
       const slotDays = String(slot.days || "");
@@ -211,6 +284,7 @@ export async function GET(req: Request) {
         threshold_percent: thresholdPercent,
         capacity_mode: capacityMode,
         slots: slotsOccupancy,
+        classes: classesOccupancy,
       },
     });
   } catch (error: unknown) {
