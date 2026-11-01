@@ -954,36 +954,61 @@ export const ClassManagementModal: React.FC<ClassManagementModalProps> = ({
                           }
 
                           const isSlotFull = slotStudentCount >= cls.max_students;
+                          const slotPercent = Math.min(100, Math.round((slotStudentCount / (cls.max_students || 15)) * 100));
 
                           return (
                             <div
                               key={idx}
-                              className="flex items-center justify-between p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-700 text-xs shadow-2xs"
+                              className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-700 text-xs shadow-2xs space-y-2"
                             >
-                              <div className="flex items-center gap-2 min-w-0">
-                                <span className="font-bold text-slate-800 dark:text-slate-200 truncate">
-                                  {tcObj?.name || "Chưa phân công"}
-                                </span>
-                                {ta.role && (
-                                  <span className="text-[10px] text-slate-400 truncate">({ta.role})</span>
-                                )}
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <span className="font-bold text-slate-800 dark:text-slate-200 truncate">
+                                    {tcObj?.name || "Chưa phân công"}
+                                  </span>
+                                  {ta.role && (
+                                    <span className="text-[10px] text-slate-400 truncate">({ta.role})</span>
+                                  )}
+                                </div>
+
+                                <div className="flex items-center gap-2 shrink-0">
+                                  {/* Hiển thị sĩ số của riêng ca dạy này trên sĩ số tối đa /15 */}
+                                  <span className={`text-[11px] font-black px-2 py-0.5 rounded-lg border ${
+                                    isSlotFull
+                                      ? "bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 border-rose-200 dark:border-rose-900"
+                                      : slotStudentCount > 0
+                                      ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300 border-indigo-200 dark:border-indigo-900"
+                                      : "bg-slate-50 text-slate-500 dark:bg-slate-800 dark:text-slate-400 border-slate-200 dark:border-slate-700"
+                                  }`}>
+                                    {slotStudentCount}/{cls.max_students} HS
+                                  </span>
+
+                                  <span className="font-mono text-[11px] font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-lg">
+                                    {ta.start_time} - {ta.end_time}
+                                  </span>
+                                </div>
                               </div>
 
-                              <div className="flex items-center gap-2 shrink-0">
-                                {/* Hiển thị sĩ số của riêng ca dạy này trên sĩ số tối đa /15 */}
-                                <span className={`text-[11px] font-black px-2 py-0.5 rounded-lg border ${
-                                  isSlotFull
-                                    ? "bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 border-rose-200 dark:border-rose-900"
-                                    : slotStudentCount > 0
-                                    ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300 border-indigo-200 dark:border-indigo-900"
-                                    : "bg-slate-50 text-slate-500 dark:bg-slate-800 dark:text-slate-400 border-slate-200 dark:border-slate-700"
-                                }`}>
-                                  {slotStudentCount}/{cls.max_students} HS
-                                </span>
-
-                                <span className="font-mono text-[11px] font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-lg">
-                                  {ta.start_time} - {ta.end_time}
-                                </span>
+                              {/* ⭐ THANH HIỂN THỊ PHẦN TRĂM SĨ SỐ HỌC SINH CỦA CA DẠY NÀY */}
+                              <div className="space-y-1">
+                                <div className="flex items-center justify-between text-[10px] text-slate-400 font-medium">
+                                  <span>Tỷ lệ lấp đầy ca:</span>
+                                  <span className="font-bold text-slate-600 dark:text-slate-300">{slotPercent}%</span>
+                                </div>
+                                <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                                  <div
+                                    style={{ width: `${slotPercent}%` }}
+                                    className={`h-full rounded-full transition-all duration-300 ${
+                                      isSlotFull
+                                        ? "bg-rose-500"
+                                        : slotPercent >= 80
+                                        ? "bg-amber-500"
+                                        : slotPercent > 0
+                                        ? "bg-indigo-600"
+                                        : "bg-transparent"
+                                    }`}
+                                  />
+                                </div>
                               </div>
                             </div>
                           );

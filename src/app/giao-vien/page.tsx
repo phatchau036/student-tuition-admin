@@ -797,17 +797,37 @@ export default function TeacherPortal() {
                                 }
                               }
 
+                              const caPercent = Math.min(100, Math.round((caStudentsCount / (cls.max_students || 15)) * 100));
+
                               return (
                                 <div
                                   key={idx}
-                                  className="flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-bold bg-white dark:bg-slate-900 border border-emerald-300 dark:border-emerald-800 shadow-xs"
+                                  className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-emerald-300 dark:border-emerald-800 shadow-xs space-y-1.5"
                                 >
-                                  <span className="text-slate-800 dark:text-slate-200">
-                                    {ma.day && ma.day !== "Tất cả các ngày" ? `${ma.day}: ` : ""}{ma.start_time} - {ma.end_time} {ma.role ? `(${ma.role})` : ""}
-                                  </span>
-                                  <span className="font-mono text-[11px] font-black px-2 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300">
-                                    {caStudentsCount}/{cls.max_students} HS
-                                  </span>
+                                  <div className="flex items-center justify-between text-xs font-bold">
+                                    <span className="text-slate-800 dark:text-slate-200">
+                                      {ma.day && ma.day !== "Tất cả các ngày" ? `${ma.day}: ` : ""}{ma.start_time} - {ma.end_time} {ma.role ? `(${ma.role})` : ""}
+                                    </span>
+                                    <span className="font-mono text-[11px] font-black px-2 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300">
+                                      {caStudentsCount}/{cls.max_students} HS
+                                    </span>
+                                  </div>
+
+                                  {/* Thanh tỷ lệ phần trăm */}
+                                  <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                                    <div
+                                      style={{ width: `${caPercent}%` }}
+                                      className={`h-full rounded-full transition-all duration-300 ${
+                                        caStudentsCount >= cls.max_students
+                                          ? "bg-rose-500"
+                                          : caPercent >= 80
+                                          ? "bg-amber-500"
+                                          : caPercent > 0
+                                          ? "bg-emerald-600"
+                                          : "bg-transparent"
+                                      }`}
+                                    />
+                                  </div>
                                 </div>
                               );
                             })}
