@@ -897,30 +897,16 @@ export const ClassManagementModal: React.FC<ClassManagementModalProps> = ({
                       </div>
                     </div>
 
-                    {/* Sĩ số của LỚP */}
-                    <div>
-                      <div className="flex items-center justify-between text-xs mb-1">
-                        <span className="text-slate-500">
-                          Sĩ số lớp: <strong className="text-slate-900 dark:text-white">{cls.student_count || 0}/{cls.max_students} học sinh</strong>
+                    {/* Sĩ số của LỚP: chỉ ghi số học sinh thực tế */}
+                    <div className="flex items-center justify-between text-xs py-0.5">
+                      <span className="text-slate-500 font-medium">
+                        Sĩ số lớp: <strong className="text-slate-900 dark:text-white font-bold">{cls.student_count || 0} học sinh</strong>
+                      </span>
+                      {cls.room && (
+                        <span className="text-[11px] font-semibold text-slate-400">
+                          {cls.room}
                         </span>
-                        {isFull ? (
-                          <span className="text-[10px] font-black text-rose-600 bg-rose-50 dark:bg-rose-950/60 px-2 py-0.2 rounded-md">
-                            Đã Đầy Lớp
-                          </span>
-                        ) : (
-                          <span className="text-[10px] font-semibold text-emerald-600">
-                            Còn {cls.max_students - (cls.student_count || 0)} chỗ
-                          </span>
-                        )}
-                      </div>
-                      <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                        <div
-                          style={{ width: `${Math.min(100, Math.round(((cls.student_count || 0) / cls.max_students) * 100))}%` }}
-                          className={`h-full rounded-full transition-all duration-300 ${
-                            isFull ? "bg-rose-500" : (cls.student_count || 0) / cls.max_students >= 0.8 ? "bg-amber-500" : "bg-indigo-600"
-                          }`}
-                        />
-                      </div>
+                      )}
                     </div>
 
                     {/* ⭐ DANH SÁCH GIÁO VIÊN ĐỨNG CA TRONG LỚP NÀY */}
@@ -929,27 +915,76 @@ export const ClassManagementModal: React.FC<ClassManagementModalProps> = ({
                         <span className="flex items-center gap-1 text-emerald-700 dark:text-emerald-400">
                           <GraduationCap className="w-3.5 h-3.5" /> Giáo viên phụ trách ({teacherAssignmentsList.length} ca):
                         </span>
+                        <span className="text-[10px] text-slate-400">Sĩ số tối đa: {cls.max_students} HS/ca</span>
                       </div>
 
-                      <div className="space-y-1">
+                      <div className="space-y-1.5">
                         {teacherAssignmentsList.map((ta, idx) => {
                           const tcObj = teachers.find((t) => t.id === ta.teacher_id);
+                          
+                          // Đếm số lượng học sinh học trùng với khung giờ ca dạy này của giáo viên
+                          let slotStudentCount = 0;
+                          const [taSh] = (ta.start_time || "00:00").split(":").map(Number);
+                          const [taEh] = (ta.end_time || "23:59").split(":").map(Number);
+
+                          const classStudents = students.filter((s) => s.class_id === cls.id && s.status !== "dropped");
+                          for (const st of classStudents) {
+                            let matchSlot = false;
+                            if (st.schedule_details_json) {
+                              try {
+                                const parsed = JSON.parse(st.schedule_details_json);
+                                if (Array.isArray(parsed)) {
+                                  matchSlot = parsed.some((item: any) => {
+                                    const matchDay = !ta.day || ta.day === "Tất cả các ngày" || ta.day === item.day;
+                                    if (!matchDay) return false;
+                                    if (!item.start_time) return true;
+                                    const [stH] = item.start_time.split(":").map(Number);
+                                    return stH >= taSh && stH < taEh;
+                                  });
+                                }
+                              } catch {}
+                            } else if (st.study_time_detail) {
+                              const match = st.study_time_detail.match(/(\d{1,2})(?::(\d{2})|h)/);
+                              if (match) {
+                                const stH = parseInt(match[1], 10);
+                                matchSlot = stH >= taSh && stH < taEh;
+                              }
+                            }
+                            if (matchSlot) slotStudentCount++;
+                          }
+
+                          const isSlotFull = slotStudentCount >= cls.max_students;
+
                           return (
                             <div
                               key={idx}
-                              className="flex items-center justify-between p-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-700 text-xs"
+                              className="flex items-center justify-between p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-700 text-xs shadow-2xs"
                             >
-                              <div className="flex items-center gap-1.5">
-                                <span className="font-bold text-slate-800 dark:text-slate-200">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className="font-bold text-slate-800 dark:text-slate-200 truncate">
                                   {tcObj?.name || "Chưa phân công"}
                                 </span>
                                 {ta.role && (
-                                  <span className="text-[10px] text-slate-400">({ta.role})</span>
+                                  <span className="text-[10px] text-slate-400 truncate">({ta.role})</span>
                                 )}
                               </div>
-                              <span className="font-mono text-[11px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-1.5 py-0.2 rounded">
-                                {ta.start_time} - {ta.end_time}
-                              </span>
+
+                              <div className="flex items-center gap-2 shrink-0">
+                                {/* Hiển thị sĩ số của riêng ca dạy này trên sĩ số tối đa /15 */}
+                                <span className={`text-[11px] font-black px-2 py-0.5 rounded-lg border ${
+                                  isSlotFull
+                                    ? "bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 border-rose-200 dark:border-rose-900"
+                                    : slotStudentCount > 0
+                                    ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300 border-indigo-200 dark:border-indigo-900"
+                                    : "bg-slate-50 text-slate-500 dark:bg-slate-800 dark:text-slate-400 border-slate-200 dark:border-slate-700"
+                                }`}>
+                                  {slotStudentCount}/{cls.max_students} HS
+                                </span>
+
+                                <span className="font-mono text-[11px] font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-lg">
+                                  {ta.start_time} - {ta.end_time}
+                                </span>
+                              </div>
                             </div>
                           );
                         })}

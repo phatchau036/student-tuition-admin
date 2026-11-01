@@ -57,6 +57,7 @@ interface Student {
   level_id: string;
   level_name: string;
   level_surcharge: number;
+  class_id?: string;
   class_name?: string;
   class_room?: string;
   duration_mode: string;
@@ -750,31 +751,66 @@ export default function TeacherPortal() {
                         </div>
 
                         <div className="text-right shrink-0">
-                          <span className={`text-xs font-black px-2.5 py-1 rounded-xl ${
-                            isFull
-                              ? "bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300"
-                              : "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300"
-                          }`}>
-                            {cls.student_count || 0}/{cls.max_students} HS
+                          <span className="text-xs font-bold px-2.5 py-1 rounded-xl bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                            {cls.student_count || 0} học sinh
                           </span>
                         </div>
                       </div>
 
-                      {/* ⭐ CA DẠY CỤ THỂ CỦA THẦY/CÔ NÀY TRONG LỚP (Ví dụ: 17h-18h Cô Điệp) */}
+                      {/* ⭐ CA DẠY CỤ THỂ CỦA THẦY/CÔ NÀY TRONG LỚP (Hiển thị sĩ số ca trên /max_students) */}
                       {myAssignments.length > 0 && (
-                        <div className="p-2.5 rounded-xl bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/60 text-xs space-y-1">
-                          <div className="text-[11px] font-black uppercase text-emerald-800 dark:text-emerald-300 flex items-center gap-1">
-                            <Clock className="w-3.5 h-3.5 text-emerald-600" /> Ca phân công của Thầy/Cô:
+                        <div className="p-2.5 rounded-xl bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/60 text-xs space-y-1.5">
+                          <div className="text-[11px] font-black uppercase text-emerald-800 dark:text-emerald-300 flex items-center justify-between">
+                            <span className="flex items-center gap-1">
+                              <Clock className="w-3.5 h-3.5 text-emerald-600" /> Ca phân công của Thầy/Cô:
+                            </span>
+                            <span className="text-[10px] text-slate-500 font-semibold">Tối đa: {cls.max_students} HS/ca</span>
                           </div>
-                          <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
-                            {myAssignments.map((ma, idx) => (
-                              <span
-                                key={idx}
-                                className="px-2.5 py-1 rounded-lg text-xs font-black bg-white dark:bg-slate-900 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 font-mono shadow-xs"
-                              >
-                                {ma.day && ma.day !== "Tất cả các ngày" ? `${ma.day}: ` : ""}{ma.start_time} - {ma.end_time} {ma.role ? `(${ma.role})` : ""}
-                              </span>
-                            ))}
+                          <div className="flex flex-col gap-1.5 pt-0.5">
+                            {myAssignments.map((ma, idx) => {
+                              const [mSh] = (ma.start_time || "00:00").split(":").map(Number);
+                              const [mEh] = (ma.end_time || "23:59").split(":").map(Number);
+                              let caStudentsCount = 0;
+                              for (const st of students) {
+                                if (st.class_id === cls.id) {
+                                  let match = false;
+                                  if (st.schedule_details_json) {
+                                    try {
+                                      const p = JSON.parse(st.schedule_details_json);
+                                      if (Array.isArray(p)) {
+                                        match = p.some((item: any) => {
+                                          const matchD = !ma.day || ma.day === "Tất cả các ngày" || ma.day === item.day;
+                                          if (!matchD) return false;
+                                          const [sH] = (item.start_time || "18:00").split(":").map(Number);
+                                          return sH >= mSh && sH < mEh;
+                                        });
+                                      }
+                                    } catch {}
+                                  } else if (st.study_time_detail) {
+                                    const m = st.study_time_detail.match(/(\d{1,2})(?::(\d{2})|h)/);
+                                    if (m) {
+                                      const sH = parseInt(m[1], 10);
+                                      match = sH >= mSh && sH < mEh;
+                                    }
+                                  }
+                                  if (match) caStudentsCount++;
+                                }
+                              }
+
+                              return (
+                                <div
+                                  key={idx}
+                                  className="flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-bold bg-white dark:bg-slate-900 border border-emerald-300 dark:border-emerald-800 shadow-xs"
+                                >
+                                  <span className="text-slate-800 dark:text-slate-200">
+                                    {ma.day && ma.day !== "Tất cả các ngày" ? `${ma.day}: ` : ""}{ma.start_time} - {ma.end_time} {ma.role ? `(${ma.role})` : ""}
+                                  </span>
+                                  <span className="font-mono text-[11px] font-black px-2 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300">
+                                    {caStudentsCount}/{cls.max_students} HS
+                                  </span>
+                                </div>
+                              );
+                            })}
                           </div>
                         </div>
                       )}

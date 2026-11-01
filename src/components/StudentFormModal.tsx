@@ -606,7 +606,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                   <option value="">-- Chưa gán lớp --</option>
                   {classes.map((cls) => (
                     <option key={cls.id} value={cls.id}>
-                      {cls.name} {cls.room ? `(${cls.room})` : ""} - {cls.student_count || 0}/{cls.max_students} HS
+                      {cls.name} {cls.room ? `(${cls.room})` : ""} - {cls.student_count || 0} HS
                     </option>
                   ))}
                 </select>
