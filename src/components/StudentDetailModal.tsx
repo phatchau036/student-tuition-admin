@@ -450,7 +450,13 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                   </span>
                 </div>
                 <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
-                  <span className="text-slate-400 font-medium">Giáo viên phụ trách:</span>
+                  <span className="text-slate-400 font-medium">Lớp học tham gia:</span>
+                  <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                    {student.class_name ? `${student.class_name} ${student.class_room ? `(${student.class_room})` : ""}` : "Chưa gán lớp"}
+                  </span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
+                  <span className="text-slate-400 font-medium">Giáo viên phụ trách theo ca:</span>
                   <span className="font-bold text-slate-800 dark:text-slate-200">
                     {student.teacher_name || "Chưa gán giáo viên"}
                   </span>

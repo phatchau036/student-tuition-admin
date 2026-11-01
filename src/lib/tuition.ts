@@ -650,12 +650,16 @@ export function parseStudentScheduleSlots(
 
       if (daysFound.length > 0) {
         for (const d of daysFound) {
+          const startH = parseInt(detectedHourSlot.replace("h", ""), 10) || 18;
+          const classTeachers = findClassTeachersForSlot(d, startH);
+
           results.push({
             day: d,
             hourSlot: detectedHourSlot,
             timeDetail: timeDetail,
             subjectName: segSubject,
-            detectedTeacherId: teacherInSeg,
+            detectedTeacherId: teacherInSeg || classTeachers[0],
+            matchedTeacherIds: classTeachers.length > 0 ? classTeachers : undefined,
           });
         }
       }

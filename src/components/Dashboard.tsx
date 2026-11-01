@@ -1514,14 +1514,15 @@ export default function Dashboard() {
                     </button>
                   </th>
 
-                  <th className="py-2.5 px-2.5 hidden lg:table-cell w-[10%] xl:w-[8%]">
+                  {/* Class Column (Thay thế cho cột gán Giáo viên đơn lẻ) */}
+                  <th className="py-2.5 px-2.5 hidden lg:table-cell w-[12%] xl:w-[10%]">
                     <button
                       type="button"
                       onClick={() => handleHeaderSort("teacher")}
                       className="inline-flex items-center gap-1.5 hover:text-indigo-600 dark:hover:text-indigo-400 cursor-pointer font-black transition"
-                      title="Sắp xếp theo Giáo viên phụ trách"
+                      title="Sắp xếp theo Lớp học & Giáo viên phụ trách"
                     >
-                      <span>{t.col_teacher}</span>
+                      <span>Lớp học</span>
                       {sortField === "teacher" ? (
                         sortOrder === "asc" ? <ArrowUp className="w-3 h-3 text-indigo-600" /> : <ArrowDown className="w-3 h-3 text-indigo-600" />
                       ) : (
@@ -1753,41 +1754,49 @@ export default function Dashboard() {
                           )}
                         </td>
 
-                        {/* Teacher */}
+                        {/* Class & Assigned Teachers Note */}
                         <td className="py-2 px-2.5 hidden lg:table-cell overflow-hidden">
-                          {student.teacher_name && student.teacher_name !== "Chưa gán GV" ? (
-                            <div className="flex flex-col items-start gap-1 max-w-full">
-                              {student.teacher_name.includes(" & ") ? (
-                                student.teacher_name.split(" & ").map((tName, i) => (
-                                  <span
-                                    key={i}
-                                    className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-bold rounded-lg bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-900/50 max-w-full"
-                                  >
-                                    <GraduationCap className="w-3 h-3 text-indigo-600 dark:text-indigo-400 shrink-0" />
-                                    <span className="truncate">{tName.trim()}</span>
-                                  </span>
-                                ))
-                              ) : (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 text-xs font-bold rounded-lg bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-900/50 max-w-full">
-                                  <GraduationCap className="w-3 h-3 text-indigo-600 dark:text-indigo-400 shrink-0" />
-                                  <span className="truncate">{student.teacher_name}</span>
-                                </span>
-                              )}
-                            </div>
-                          ) : (
-                            <span className="text-xs text-slate-400 font-medium italic">{t.no_teacher_assigned}</span>
-                          )}
-                        </td>
-
-                        {/* Level & Subject & Class & Surcharge */}
-                        <td className="py-2 px-2.5 hidden xl:table-cell overflow-hidden">
-                          <div className="flex flex-col items-start gap-1">
-                            {student.class_name && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-black uppercase rounded-md bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 max-w-full">
-                                <Layers className="w-2.5 h-2.5 shrink-0" />
+                          <div className="flex flex-col items-start gap-1 max-w-full">
+                            {student.class_name ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-black uppercase rounded-lg bg-emerald-50 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 max-w-full shadow-2xs">
+                                <Layers className="w-3 h-3 text-emerald-600 dark:text-emerald-400 shrink-0" />
                                 <span className="truncate">{student.class_name} {student.class_room ? `(${student.class_room})` : ""}</span>
                               </span>
+                            ) : (
+                              <span className="text-xs text-slate-400 font-medium italic">Chưa gán lớp</span>
                             )}
+
+                            {/* Ghi chú giáo viên tương ứng đứng lớp */}
+                            {student.teacher_name && student.teacher_name !== "Chưa gán GV" && (
+                              <div className="flex items-center gap-1 flex-wrap max-w-full">
+                                {student.teacher_name.includes(" & ") ? (
+                                  student.teacher_name.split(" & ").map((tName, i) => (
+                                    <span
+                                      key={i}
+                                      className="inline-flex items-center gap-1 px-1.5 py-0.2 text-[10px] font-bold rounded-md bg-indigo-50/80 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-900/40"
+                                      title="Giáo viên phụ trách theo ca"
+                                    >
+                                      <GraduationCap className="w-2.5 h-2.5 text-indigo-500 shrink-0" />
+                                      <span className="truncate">{tName.trim()}</span>
+                                    </span>
+                                  ))
+                                ) : (
+                                  <span
+                                    className="inline-flex items-center gap-1 px-1.5 py-0.2 text-[10px] font-bold rounded-md bg-indigo-50/80 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-900/40"
+                                    title="Giáo viên phụ trách theo ca"
+                                  >
+                                    <GraduationCap className="w-2.5 h-2.5 text-indigo-500 shrink-0" />
+                                    <span className="truncate">{student.teacher_name}</span>
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </td>
+
+                        {/* Level & Subject & Surcharge */}
+                        <td className="py-2 px-2.5 hidden xl:table-cell overflow-hidden">
+                          <div className="flex flex-col items-start gap-1">
                             {student.subject_name && (
                               <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-black uppercase rounded-md bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 max-w-full">
                                 <BookOpen className="w-2.5 h-2.5 shrink-0" />

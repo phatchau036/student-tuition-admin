@@ -568,8 +568,8 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
             </div>
           </div>
 
-          {/* Class, Teacher, Level & Subject */}
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3.5">
+          {/* Class, Level & Subject (Hệ thống tự động xếp giáo viên theo ca của Lớp) */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
                 Lớp học tham gia
@@ -581,9 +581,9 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                   onChange={(e) => {
                     const cId = e.target.value;
                     setClassId(cId);
+                    setTeacherId(""); // Hệ thống tự động xếp giáo viên theo khung giờ của lớp
                     const matchedClass = classes.find((c) => c.id === cId);
                     if (matchedClass) {
-                      if (matchedClass.teacher_id) setTeacherId(matchedClass.teacher_id);
                       if (matchedClass.subject_id) setSubjectId(matchedClass.subject_id);
                       // Tự động gợi ý lịch học nếu lớp có lịch
                       try {
@@ -628,27 +628,6 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                   {subjects.map((sub) => (
                     <option key={sub.id} value={sub.id}>
                       {sub.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
-                Giáo viên phụ trách
-              </label>
-              <div className="relative">
-                <GraduationCap className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
-                <select
-                  value={teacherId}
-                  onChange={(e) => setTeacherId(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 outline-none hover:border-slate-300 transition"
-                >
-                  <option value="">-- Kế thừa từ Lớp học / Chưa gán GV --</option>
-                  {teachers.map((tc) => (
-                    <option key={tc.id} value={tc.id}>
-                      {tc.name} {tc.specialty ? `(${tc.specialty})` : ""}
                     </option>
                   ))}
                 </select>
