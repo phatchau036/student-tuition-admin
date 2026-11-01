@@ -488,32 +488,8 @@ export const TeacherManagementModal: React.FC<TeacherManagementModalProps> = ({
                   </div>
                 </div>
 
-                {/* Sĩ số tối đa & Màu sắc badge */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                  {/* Sĩ số tối đa */}
-                  <div className="p-3 rounded-2xl bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/50 flex flex-col justify-between">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-[11px] font-black text-indigo-900 dark:text-indigo-200">
-                        Sĩ số tối đa / ca
-                      </span>
-                      <Users className="w-3.5 h-3.5 text-indigo-600" />
-                    </div>
-                    <div className="flex items-center gap-2 mt-1">
-                      <input
-                        type="number"
-                        min="1"
-                        max="100"
-                        value={maxStudents}
-                        onChange={(e) => setMaxStudents(Number(e.target.value) || 10)}
-                        className="w-16 px-2.5 py-1.5 text-xs font-black text-center rounded-xl border border-indigo-200 dark:border-indigo-800 bg-white dark:bg-slate-900 text-indigo-700 dark:text-indigo-300 outline-none focus:ring-2 focus:ring-indigo-500 shadow-xs"
-                      />
-                      <span className="text-xs font-bold text-slate-600 dark:text-slate-400">
-                        học sinh/ca
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Màu huy hiệu */}
+                {/* Màu đại diện giáo viên */}
+                <div className="pt-1">
                   <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800 flex flex-col justify-between">
                     <div className="flex items-center justify-between mb-1.5">
                       <span className="text-[11px] font-black text-slate-700 dark:text-slate-300">
@@ -544,164 +520,15 @@ export const TeacherManagementModal: React.FC<TeacherManagementModalProps> = ({
                 </div>
               </div>
 
-              {/* NHÓM 3: PHÂN CÔNG LỊCH DẠY / KHUNG GIỜ */}
-              <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 flex items-center gap-1">
-                    <Clock className="w-3.5 h-3.5" /> Lịch làm việc & Phân ca
-                  </span>
-
-                  {/* Tabs chuyển đổi Lịch mở cửa vs Ca riêng */}
-                  <div className="flex items-center p-0.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-[10px] font-bold">
-                    <button
-                      type="button"
-                      onClick={() => setActiveScheduleTab("slots")}
-                      className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
-                        activeScheduleTab === "slots"
-                          ? "bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-xs"
-                          : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
-                      }`}
-                    >
-                      Ca mở cửa ({assignedSlotIds.length})
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setActiveScheduleTab("custom")}
-                      className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
-                        activeScheduleTab === "custom"
-                          ? "bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-xs"
-                          : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
-                      }`}
-                    >
-                      Ca riêng ({workingShifts.length})
-                    </button>
-                  </div>
+              {/* Hướng dẫn: Phân công giáo viên theo ca trong Quản lý Lớp học */}
+              <div className="p-3.5 rounded-2xl bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900/40 text-xs text-indigo-900 dark:text-indigo-200 flex items-start gap-2.5">
+                <Layers className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
+                <div className="text-[11px] leading-relaxed">
+                  <span className="font-bold">Cơ chế quản lý phân ca:</span>
+                  <p className="text-slate-600 dark:text-slate-300 mt-0.5">
+                    Tại đây chỉ lưu hồ sơ thông tin Thầy/Cô. Để phân công giáo viên vào từng ca dạy cụ thể trong ngày (ví dụ: 17h-18h Cô Điệp, 18h-20h Thầy Phong), bạn mở tính năng <strong>Quản Lý Lớp Học</strong>.
+                  </p>
                 </div>
-
-                {/* TAB 1: CA MỞ CỬA CỦA TRUNG TÂM */}
-                {activeScheduleTab === "slots" && (
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-[11px] text-slate-500">
-                      <span>Chọn các ca giáo viên sẽ nhận học sinh:</span>
-                      {timeSlots.length > 0 && (
-                        <button
-                          type="button"
-                          onClick={selectAllSlots}
-                          className="text-xs font-bold text-indigo-600 hover:underline cursor-pointer"
-                        >
-                          {assignedSlotIds.length === timeSlots.length ? "Bỏ chọn tất cả" : "Chọn tất cả"}
-                        </button>
-                      )}
-                    </div>
-
-                    <div className="space-y-1.5 max-h-36 overflow-y-auto p-2 rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-950/40 scrollbar-thin">
-                      {timeSlots.length === 0 ? (
-                        <div className="py-4 text-center text-xs text-slate-400 italic">
-                          Chưa có ca mở cửa nào trong hệ thống.
-                        </div>
-                      ) : (
-                        timeSlots.map((slot) => {
-                          const isAssigned = assignedSlotIds.includes(slot.id);
-                          return (
-                            <div
-                              key={slot.id}
-                              onClick={() => toggleSlotAssignment(slot.id)}
-                              className={`p-2 rounded-xl border text-xs font-bold cursor-pointer transition flex items-center justify-between gap-2 ${
-                                isAssigned
-                                  ? "bg-indigo-50/90 border-indigo-400/80 text-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-300 dark:border-indigo-800 shadow-xs"
-                                  : "bg-white dark:bg-slate-900 border-slate-200/80 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-700"
-                              }`}
-                            >
-                              <div className="flex items-center gap-2 truncate">
-                                <div
-                                  className={`w-4 h-4 rounded-lg flex items-center justify-center border transition ${
-                                    isAssigned
-                                      ? "bg-indigo-600 border-indigo-600 text-white"
-                                      : "border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800"
-                                  }`}
-                                >
-                                  {isAssigned && <Check className="w-3 h-3 stroke-[3]" />}
-                                </div>
-                                <span className="truncate">{formatTimeSlotLabel(slot)}</span>
-                              </div>
-                              <span className="text-[10px] font-semibold text-slate-400 shrink-0">
-                                {slot.max_students ? `${slot.max_students} HS` : ""}
-                              </span>
-                            </div>
-                          );
-                        })
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* TAB 2: CA RIÊNG TỰ ĐỊNH NGHĨA */}
-                {activeScheduleTab === "custom" && (
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] text-slate-500">
-                        Dành cho giáo viên dạy theo khung giờ đặc biệt:
-                      </span>
-                      <button
-                        type="button"
-                        onClick={handleAddShift}
-                        className="px-2.5 py-1 text-[11px] font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl transition flex items-center gap-1 cursor-pointer shadow-xs active:scale-95"
-                      >
-                        <Plus className="w-3 h-3 stroke-[3]" /> Thêm ca riêng
-                      </button>
-                    </div>
-
-                    <div className="space-y-2 max-h-36 overflow-y-auto p-2 rounded-2xl border border-slate-200/90 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-950/40 scrollbar-thin">
-                      {workingShifts.map((shift, idx) => (
-                        <div
-                          key={shift.id || idx}
-                          className="p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2 shadow-xs"
-                        >
-                          <select
-                            value={shift.day}
-                            onChange={(e) => handleUpdateShift(idx, "day", e.target.value)}
-                            className="px-2 py-1 text-xs font-bold rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 outline-none border-none cursor-pointer"
-                          >
-                            {DAYS_OF_WEEK.map((d) => (
-                              <option key={d} value={d}>{d}</option>
-                            ))}
-                          </select>
-
-                          <div className="flex items-center gap-1 font-mono text-xs">
-                            <input
-                              type="time"
-                              value={shift.start_time}
-                              onChange={(e) => handleUpdateShift(idx, "start_time", e.target.value)}
-                              className="px-1.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 font-bold"
-                            />
-                            <span className="text-slate-400 font-bold">-</span>
-                            <input
-                              type="time"
-                              value={shift.end_time}
-                              onChange={(e) => handleUpdateShift(idx, "end_time", e.target.value)}
-                              className="px-1.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 font-bold"
-                            />
-                          </div>
-
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveShift(idx)}
-                            className="p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition cursor-pointer"
-                            title="Xóa ca này"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      ))}
-
-                      {workingShifts.length === 0 && (
-                        <div className="text-center py-4 text-xs text-slate-400 italic">
-                          Chưa có ca riêng. Mặc định hệ thống áp dụng theo các ca mở cửa.
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
               </div>
 
               {/* Nút Submit phụ trong form */}
@@ -829,37 +656,16 @@ export const TeacherManagementModal: React.FC<TeacherManagementModalProps> = ({
                           )}
                         </div>
 
-                        {/* Thống kê học sinh & Sĩ số */}
+                        {/* Thống kê học sinh */}
                         <div className="flex flex-wrap items-center gap-2 mt-2">
                           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[11px] font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-100 dark:border-emerald-900/50">
                             <UserCheck className="w-3 h-3" /> {tc.student_count || 0} học viên phụ trách
                           </span>
 
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
-                            <Users className="w-3 h-3" /> Tối đa {tc.max_students || 10} HS/ca
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-900/50">
+                            <Layers className="w-3 h-3 text-indigo-500" /> Phân ca tại Quản Lý Lớp Học
                           </span>
                         </div>
-
-                        {/* Ca mở cửa phụ trách */}
-                        {tc.assigned_slot_ids && tc.assigned_slot_ids.length > 0 && (
-                          <div className="flex items-center gap-1 flex-wrap mt-2">
-                            <span className="text-[10px] text-slate-400 font-bold flex items-center gap-1">
-                              <Clock className="w-2.5 h-2.5 text-indigo-500" /> Ca:
-                            </span>
-                            {tc.assigned_slot_ids.map((sId) => {
-                              const matchedSlot = timeSlots.find((s) => s.id === sId);
-                              if (!matchedSlot) return null;
-                              return (
-                                <span
-                                  key={sId}
-                                  className="px-2 py-0.5 rounded-md text-[9px] font-black bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
-                                >
-                                  {matchedSlot.name}
-                                </span>
-                              );
-                            })}
-                          </div>
-                        )}
                       </div>
                     </div>
 
