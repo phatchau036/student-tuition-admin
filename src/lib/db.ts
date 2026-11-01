@@ -488,6 +488,16 @@ export async function initDb() {
   try { await db.execute("ALTER TABLE makeup_classes ADD COLUMN lesson_id TEXT DEFAULT NULL"); } catch {}
   try { await db.execute("ALTER TABLE makeup_classes ADD COLUMN student_name TEXT DEFAULT ''"); } catch {}
   try { await db.execute("ALTER TABLE makeup_classes ADD COLUMN student_phone TEXT DEFAULT ''"); } catch {}
+  // Backfill student_name and student_phone for legacy rows in makeup_classes
+  try {
+    await db.execute(`
+      UPDATE makeup_classes 
+      SET student_name = (SELECT name FROM students WHERE students.id = makeup_classes.student_id),
+          student_phone = (SELECT phone FROM students WHERE students.id = makeup_classes.student_id)
+      WHERE (student_name IS NULL OR student_name = '')
+        AND student_id IN (SELECT id FROM students)
+    `);
+  } catch {}
   try { await db.execute("ALTER TABLE students ADD COLUMN class_id TEXT DEFAULT NULL"); } catch {}
   try { await db.execute("ALTER TABLE classes ADD COLUMN teacher_assignments_json TEXT DEFAULT '[]'"); } catch {}
   try { await db.execute("ALTER TABLE tuition_packages ADD COLUMN original_amount INTEGER DEFAULT 1000000"); } catch {}
