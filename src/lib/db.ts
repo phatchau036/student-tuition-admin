@@ -498,6 +498,24 @@ export async function initDb() {
         AND student_id IN (SELECT id FROM students)
     `);
   } catch {}
+
+  // Dọn dẹp các bản ghi hour_ledger bị cộng dư/trùng lặp do khác ref_type ('makeup_absence' vs 'absence')
+  try {
+    await db.execute(`
+      DELETE FROM hour_ledger 
+      WHERE ref_type = 'absence' 
+        AND created_by = 'sync'
+        AND ref_id IN (
+          SELECT ref_id FROM hour_ledger WHERE ref_type = 'makeup_absence'
+        )
+    `);
+    // Chuẩn hóa toàn bộ 'makeup_absence' về 'absence'
+    await db.execute(`
+      UPDATE hour_ledger 
+      SET ref_type = 'absence' 
+      WHERE ref_type = 'makeup_absence'
+    `);
+  } catch {}
   try { await db.execute("ALTER TABLE students ADD COLUMN class_id TEXT DEFAULT NULL"); } catch {}
   try { await db.execute("ALTER TABLE classes ADD COLUMN teacher_assignments_json TEXT DEFAULT '[]'"); } catch {}
   try { await db.execute("ALTER TABLE tuition_packages ADD COLUMN original_amount INTEGER DEFAULT 1000000"); } catch {}

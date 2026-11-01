@@ -243,11 +243,12 @@ export async function POST(req: Request) {
       });
 
       // ⭐ ĐỒNG BỘ QUỸ GIỜ: Cộng dồn chính xác số giờ này vào Quỹ giờ học bù (hour_ledger)
+      // Dùng refType = "absence" và refId = id để đồng bộ nhất quán và chống ghi trùng lặp (idempotency)
       await appendLedger({
         studentId: student_id,
         type: "REFUND",
         minutes: absMin,
-        refType: "makeup_absence",
+        refType: "absence",
         refId: id,
         note: `Tích lũy giờ nghỉ ngày ${absence_date} (${sTime} - ${eTime}: +${formatMinutes(absMin)})`,
         createdBy: "admin_report_absence",

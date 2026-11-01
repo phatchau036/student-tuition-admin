@@ -460,9 +460,9 @@ export async function syncPendingMakeupsToWallet(studentIds?: string[]): Promise
       const sid = String(mk.student_id);
       const absDate = String(mk.absence_date || "");
 
-      // Kiểm tra xem đã có ledger với ref_id = mkId chưa
+      // Kiểm tra xem đã có ledger với ref_id = mkId chưa (chặn cả ref_type = 'absence' lẫn legacy 'makeup_absence')
       const dup = await db.execute({
-        sql: "SELECT id FROM hour_ledger WHERE ref_type = 'absence' AND ref_id = ? LIMIT 1",
+        sql: "SELECT id FROM hour_ledger WHERE ref_type IN ('absence', 'makeup_absence') AND ref_id = ? LIMIT 1",
         args: [mkId],
       });
       if (dup.rows.length > 0) continue;
