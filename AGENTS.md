@@ -83,7 +83,7 @@ Toàn bộ tài liệu kỹ thuật chi tiết của hệ thống đã được 
 
 ---
 
-## 4. 3 NGUYÊN TẮC BẤT BIẾN CỦA DỰ ÁN
+## 4. 4 NGUYÊN TẮC BẤT BIẾN CỦA DỰ ÁN
 
 1. **BẢO TOÀN DỮ LIỆU & QUY CHUẨN GIT ([docs/GIT_WORKFLOW_RULES.md](./docs/GIT_WORKFLOW_RULES.md)):**
    - **TUYỆT ĐỐI KHÔNG BAO GIỜ commit file `data/admin.db` hoặc bất kỳ file đuôi `.db` nào lên Git**.
@@ -91,12 +91,16 @@ Toàn bộ tài liệu kỹ thuật chi tiết của hệ thống đã được 
 2. **DATABASE MIGRATION BẰNG CODE TRONG `src/lib/db.ts` ([docs/DATABASE.md](./docs/DATABASE.md)):**
    - Bảng mới: dùng `CREATE TABLE IF NOT EXISTS`.
    - Cột mới: luôn bọc trong `try { await db.execute("ALTER TABLE ten_bang ADD COLUMN ten_cot KIEU_DU_LIEU DEFAULT ..."); } catch {}` trong hàm `initDb()`.
-94	3. **PHÂN QUYỀN 4 PHÂN HỆ ĐỘC LẬP & BẢO MẬT NỘI BỘ ([docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)):**
-95	   - `/he-thong` (Super Admin & TpTeam Backoffice): Chỉ cho phép máy nội bộ `127.0.0.1` truy cập, ngoài mạng trả về mã HTTP 404 (giả không tồn tại).
-96	   - **QUY TẮC BẢO MẬT NỘI BỘ TPTEAM (STRICT BACKOFFICE RULE):** Toàn bộ các thông tin, tính năng, quy trình vận hành và đường dẫn nội bộ liên quan đến `/he-thong` (như *Quy trình 3 giai đoạn Chưa làm / Đang làm / Đã làm, phân công task thành viên TpTeam, quản lý hệ thống cơ sở...*) là **NGHIỆP VỤ BẢO MẬT CỦA ĐỘI NGŨ PHÁT TRIỂN TPTEAM**. Tuyệt đối **KHÔNG ĐƯỢC HIỂN THỊ, KHÔNG VIẾT VÀO CHANGELOG DÀNH CHO ADMIN CƠ SỞ**, và không để lộ ra các giao diện public (`/admin`, `/giao-vien`, `/phu-huynh`, `AppInfoModal.tsx`).
-97	   - `/admin` (Quản trị Cơ sở): Quản lý học sinh, giáo viên, gói phí, ca học, Zalo bot, đối soát SePay. Có kiểm tra IP Whitelist nếu cơ sở bật.
-98	   - `/giao-vien` (Cổng Giáo viên): Mobile-first, đăng nhập bằng số điện thoại, xem ca dạy, danh sách học sinh, nhãn `[HỌC BÙ]`, nâng level.
-99	   - `/` hoặc `/phu-huynh` (Cổng Phụ huynh): Tra cứu bằng số điện thoại, xem học phí, báo nghỉ trực tuyến (+1 suất bù), tự chọn ca học bù trống chỗ.
+3. **PHÂN QUYỀN 4 PHÂN HỆ ĐỘC LẬP & BẢO MẬT NỘI BỘ ([docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)):**
+   - `/he-thong` (Super Admin & TpTeam Backoffice): Chỉ cho phép máy nội bộ `127.0.0.1` truy cập, ngoài mạng trả về mã HTTP 404 (giả không tồn tại).
+   - **QUY TẮC BẢO MẬT NỘI BỘ TPTEAM (STRICT BACKOFFICE RULE):** Toàn bộ các thông tin, tính năng, quy trình vận hành và đường dẫn nội bộ liên quan đến `/he-thong` (như *Quy trình 3 giai đoạn Chưa làm / Đang làm / Đã làm, phân công task thành viên TpTeam, quản lý hệ thống cơ sở...*) là **NGHIỆP VỤ BẢO MẬT CỦA ĐỘI NGŨ PHÁT TRIỂN TPTEAM**. Tuyệt đối **KHÔNG ĐƯỢC HIỂN THỊ, KHÔNG VIẾT VÀO CHANGELOG DÀNH CHO ADMIN CƠ SỞ**, và không để lộ ra các giao diện public (`/admin`, `/giao-vien`, `/phu-huynh`, `AppInfoModal.tsx`).
+   - `/admin` (Quản trị Cơ sở): Quản lý học sinh, giáo viên, gói phí, ca học, Zalo bot, đối soát SePay. Có kiểm tra IP Whitelist nếu cơ sở bật.
+   - `/giao-vien` (Cổng Giáo viên): Mobile-first, đăng nhập bằng số điện thoại, xem ca dạy, danh sách học sinh, nhãn `[HỌC BÙ]`, nâng level.
+   - `/` hoặc `/phu-huynh` (Cổng Phụ huynh): Tra cứu bằng số điện thoại, xem học phí, báo nghỉ trực tuyến (+1 suất bù), tự chọn ca học bù trống chỗ.
+4. **QUY TẮC DEPLOY SERVER (STRICT DEPLOYMENT RULE):**
+   - **CHỈ KHI NÀO NGƯỜI DÙNG YÊU CẦU ĐÍCH DANH THÌ MỚI ĐƯỢC PHÉP DEPLOY LÊN SERVER**.
+   - Bình thường khi phát triển, sửa bug, thêm tính năng, refactor hoặc push GitHub: **TUYỆT ĐỐI KHÔNG ĐƯỢC TỰ Ý KẾT NỐI VÀ DEPLOY LÊN MÁY CHỦ (SERVER / VPS / PRODUCTION)**.
+   - Khi không có lệnh deploy từ người dùng, chỉ thực hiện kiểm tra build nội bộ (`npm run build`), commit và push lên GitHub (nếu có yêu cầu push git) rồi dừng lại báo cáo kết quả.
 
 ---
 

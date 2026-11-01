@@ -56,7 +56,16 @@ Hệ thống hỗ trợ cập nhật 1-Click thông qua `scripts/run-upgrade.js`
 
 ---
 
-## 5. NHẬT KÝ TRIỂN KHAI (DEPLOYMENT LOG)
+## 5. QUY TẮC BẢO VỆ MÔI TRƯỜNG PRODUCTION (DEPLOYMENT GUARD RULE)
+
+> ⛔ **NGHIÊM CẤM TỰ Ý DEPLOY LÊN MÁY CHỦ:**
+> - AI Agent tuyệt đối **KHÔNG ĐƯỢC TỰ Ý KẾT NỐI SSH HOẶC CHẠY BẤT KỲ LỆNH DEPLOY NÀO LÊN SERVER (VPS / CLOUD / PRODUCTION)**.
+> - **CHỈ THỰC HIỆN DEPLOY KHI VÀ CHỈ KHI NGƯỜI DÙNG CÓ LỜI YÊU CẦU TRỰC TIẾP VÀ RÕ RÀNG** (Ví dụ: *"Hãy deploy lên server cho tôi"*, *"Kết nối deploy lên VPS..."*).
+> - Mọi thao tác bình thường (fix bug, thêm giao diện, refactor code, commit Git, push GitHub) chỉ thực hiện và test trên môi trường Local Dev rồi dừng lại thông báo, tuyệt đối không đụng vào server nếu không có yêu cầu.
+
+---
+
+## 6. NHẬT KÝ TRIỂN KHAI (DEPLOYMENT LOG)
 
 | Ngày triển khai | Phiên bản | Môi trường | Trạng thái | Người thực hiện |
 |---|---|---|---|---|
