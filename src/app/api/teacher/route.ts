@@ -1,5 +1,65 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
+import { timeToMinutes } from "@/lib/shiftDetection";
+import { TeacherDaySchedule, TeacherAssignedShift } from "@/lib/types";
+
+const DAYS_OF_WEEK = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ Nhật"];
+
+function isTimeOverlap(s1: string, e1: string, s2: string, e2: string): boolean {
+  const start1 = timeToMinutes(s1);
+  const end1 = timeToMinutes(e1);
+  const start2 = timeToMinutes(s2);
+  const end2 = timeToMinutes(e2);
+  return Math.max(start1, start2) < Math.min(end1, end2);
+}
+
+function studentMatchesShift(
+  st: { schedule_details_json?: string; registered_days?: string; study_time_detail?: string },
+  day: string,
+  shiftStart: string,
+  shiftEnd: string
+): boolean {
+  if (st.schedule_details_json) {
+    try {
+      const items = JSON.parse(st.schedule_details_json);
+      if (Array.isArray(items) && items.length > 0) {
+        const dayItem = items.find((it: any) => it.day === day);
+        if (dayItem && dayItem.start_time) {
+          const sEnd = dayItem.end_time || dayItem.start_time;
+          return isTimeOverlap(dayItem.start_time, sEnd, shiftStart, shiftEnd);
+        }
+      }
+    } catch {}
+  }
+  if (st.registered_days && st.registered_days.includes(day)) {
+    if (st.study_time_detail) {
+      const range = st.study_time_detail.match(/(\d{1,2}):(\d{2})\s*[-–to~]\s*(\d{1,2}):(\d{2})/);
+      if (range) {
+        const sStart = `${range[1]}:${range[2]}`;
+        const sEnd = `${range[3]}:${range[4]}`;
+        return isTimeOverlap(sStart, sEnd, shiftStart, shiftEnd);
+      }
+    }
+    return true;
+  }
+  return false;
+}
+
+function getStudentTimeOnDay(
+  st: { schedule_details_json?: string; study_time_detail?: string },
+  day: string
+): string {
+  if (st.schedule_details_json) {
+    try {
+      const items = JSON.parse(st.schedule_details_json);
+      const dayItem = items.find((it: any) => it.day === day);
+      if (dayItem && dayItem.start_time) {
+        return `${dayItem.start_time}${dayItem.end_time ? " - " + dayItem.end_time : ""}`;
+      }
+    } catch {}
+  }
+  return st.study_time_detail || "Theo ca mở";
+}
 
 // API phục vụ Trang Giáo viên: Xem ca dạy, học sinh, phát hiện học sinh học bù và nâng level
 export async function GET(req: Request) {
@@ -76,36 +136,6 @@ export async function GET(req: Request) {
       scheduledMakeupMap[String(row.student_id)] = Number(row.scheduled || 0);
     }
 
-    const regularStudentsRes = await db.execute({
-      sql: `
-        SELECT st.*, 
-               l.level_name, 
-               l.surcharge_amount as level_surcharge,
-               c.name as class_name,
-               c.room as class_room,
-               c.teacher_assignments_json as class_teacher_assignments_json
-        FROM students st
-        LEFT JOIN level_surcharges l ON st.level_id = l.id
-        LEFT JOIN classes c ON st.class_id = c.id
-        WHERE st.teacher_id = ? 
-           OR c.teacher_id = ? 
-           OR c.teacher_assignments_json LIKE ?
-        ORDER BY st.name ASC
-      `,
-      args: [teacherId, teacherId, `%"teacher_id":"${teacherId}"%`],
-    });
-
-    const studentsWithWallet = regularStudentsRes.rows.map((st) => {
-      const sid = String(st.id);
-      const bal = walletMap[sid] || 0;
-      const sched = scheduledMakeupMap[sid] || 0;
-      return {
-        ...st,
-        balance_minutes: bal,
-        available_minutes: bal - sched,
-      };
-    });
-
     // 1.1 Get Classes that this teacher is in charge of (hoặc được phân công giờ dạy trong teacher_assignments_json)
     const allClassesRes = await db.execute(`
       SELECT c.*, 
@@ -134,6 +164,158 @@ export async function GET(req: Request) {
       return false;
     });
 
+    const teacherClassIds = teacherClasses.map((c) => String(c.id));
+
+    // Lấy toàn bộ học sinh đang theo học (không tính học sinh đã nghỉ hẳn 'dropped')
+    const allActiveStudentsRes = await db.execute(`
+      SELECT st.*, 
+             l.level_name, 
+             l.surcharge_amount as level_surcharge,
+             c.name as class_name,
+             c.room as class_room,
+             c.teacher_assignments_json as class_teacher_assignments_json
+      FROM students st
+      LEFT JOIN level_surcharges l ON st.level_id = l.id
+      LEFT JOIN classes c ON st.class_id = c.id
+      WHERE st.status != 'dropped'
+      ORDER BY st.name ASC
+    `);
+
+    // 1.2 Xây dựng Thời Khóa Biểu Tuần (Weekly Schedule) cho giáo viên
+    const weeklySchedule: TeacherDaySchedule[] = DAYS_OF_WEEK.map((day) => {
+      const shifts: TeacherAssignedShift[] = [];
+
+      for (const cls of teacherClasses) {
+        let schList: Array<{ day: string; start_time: string; end_time: string }> = [];
+        try {
+          if (cls.schedule_json) schList = JSON.parse(String(cls.schedule_json));
+        } catch {}
+
+        let assList: Array<{ teacher_id: string; day?: string; start_time: string; end_time: string; role?: string }> = [];
+        try {
+          if (cls.teacher_assignments_json) {
+            const parsed = JSON.parse(String(cls.teacher_assignments_json));
+            if (Array.isArray(parsed)) assList = parsed;
+          }
+        } catch {}
+
+        const myAss = assList.filter((a) => a.teacher_id === teacherId);
+
+        if (myAss.length > 0) {
+          for (const ass of myAss) {
+            const assDays =
+              !ass.day || ass.day === "Tất cả các ngày"
+                ? schList.map((s) => s.day)
+                : DAYS_OF_WEEK.filter((d) => ass.day?.includes(d));
+
+            if (assDays.includes(day)) {
+              shifts.push({
+                id: `shift-${cls.id}-${day}-${ass.start_time}-${ass.end_time}`,
+                class_id: String(cls.id),
+                class_name: String(cls.name),
+                class_code: cls.code ? String(cls.code) : undefined,
+                subject_name: cls.subject_name ? String(cls.subject_name) : undefined,
+                room: cls.room ? String(cls.room) : undefined,
+                day,
+                start_time: ass.start_time,
+                end_time: ass.end_time,
+                role: ass.role || "Đứng lớp",
+                max_students: Number(cls.max_students) || 15,
+                students: [],
+              });
+            }
+          }
+        } else if (cls.teacher_id === teacherId) {
+          const daySch = schList.filter((s) => s.day === day);
+          for (const s of daySch) {
+            shifts.push({
+              id: `shift-${cls.id}-${day}-${s.start_time}-${s.end_time}`,
+              class_id: String(cls.id),
+              class_name: String(cls.name),
+              class_code: cls.code ? String(cls.code) : undefined,
+              subject_name: cls.subject_name ? String(cls.subject_name) : undefined,
+              room: cls.room ? String(cls.room) : undefined,
+              day,
+              start_time: s.start_time,
+              end_time: s.end_time,
+              role: "Chủ nhiệm / Đứng lớp",
+              max_students: Number(cls.max_students) || 15,
+              students: [],
+            });
+          }
+        }
+      }
+
+      // Sắp xếp các ca dạy trong ngày theo giờ bắt đầu tăng dần
+      shifts.sort((a, b) => timeToMinutes(a.start_time) - timeToMinutes(b.start_time));
+
+      // Ghép học sinh thuộc ca dạy
+      for (const shift of shifts) {
+        for (const st of allActiveStudentsRes.rows) {
+          if (st.class_id === shift.class_id || st.teacher_id === teacherId) {
+            if (studentMatchesShift(st as any, day, shift.start_time, shift.end_time)) {
+              shift.students.push({
+                id: String(st.id),
+                name: String(st.name),
+                phone: String(st.phone || ""),
+                student_code: st.student_code ? String(st.student_code) : undefined,
+                level_name: st.level_name ? String(st.level_name) : undefined,
+                time_label: getStudentTimeOnDay(st as any, day),
+              });
+            }
+          }
+        }
+      }
+
+      return {
+        day,
+        shifts,
+        total_students: shifts.reduce((sum, sh) => sum + sh.students.length, 0),
+      };
+    });
+
+    // 1.3 Xác định danh sách học sinh mà giáo viên này phụ trách thực tế
+    const taughtStudentIds = new Set<string>();
+    for (const daySch of weeklySchedule) {
+      for (const sh of daySch.shifts) {
+        for (const st of sh.students) {
+          taughtStudentIds.add(st.id);
+        }
+      }
+    }
+
+    // Bổ sung học sinh được gán kèm trực tiếp teacher_id
+    for (const st of allActiveStudentsRes.rows) {
+      if (st.teacher_id === teacherId) {
+        taughtStudentIds.add(String(st.id));
+      }
+    }
+
+    // Fallback nếu lớp chưa chia ca chi tiết nhưng giáo viên là người đứng lớp duy nhất
+    if (taughtStudentIds.size === 0 && teacherClasses.length > 0) {
+      for (const st of allActiveStudentsRes.rows) {
+        if (teacherClassIds.includes(String(st.class_id))) {
+          const cls = teacherClasses.find((c) => String(c.id) === String(st.class_id));
+          if (cls && cls.teacher_id === teacherId && !cls.teacher_assignments_json) {
+            taughtStudentIds.add(String(st.id));
+          }
+        }
+      }
+    }
+
+    const studentsWithWallet = allActiveStudentsRes.rows
+      .filter((st) => taughtStudentIds.has(String(st.id)))
+      .map((st) => {
+        const sid = String(st.id);
+        const bal = walletMap[sid] || 0;
+        const sched = scheduledMakeupMap[sid] || 0;
+        return {
+          ...st,
+          balance_minutes: bal,
+          available_minutes: bal - sched,
+        };
+      });
+
     // 2. Get MakeUp Students attending classes (Today or Upcoming)
     // Check if there are students who scheduled makeup with this teacher or in slots
     const makeupsRes = await db.execute({
@@ -142,9 +324,13 @@ export async function GET(req: Request) {
         FROM makeup_classes m
         JOIN students st ON m.student_id = st.id
         LEFT JOIN level_surcharges l ON st.level_id = l.id
-        WHERE m.status IN ('scheduled', 'completed')
-        ORDER BY m.makeup_date DESC
+        WHERE (m.makeup_teacher_id = ? 
+               OR st.teacher_id = ? 
+               OR m.class_id IN (SELECT id FROM classes WHERE teacher_id = ? OR teacher_assignments_json LIKE ?))
+          AND m.status IN ('scheduled', 'completed', 'pending')
+        ORDER BY COALESCE(m.makeup_date, m.absence_date) DESC
       `,
+      args: [teacherId, teacherId, teacherId, `%"teacher_id":"${teacherId}"%`],
     });
 
     // 3. Get all Levels for Level upgrade dropdown
@@ -167,6 +353,7 @@ export async function GET(req: Request) {
       data: {
         teacher,
         students: studentsWithWallet,
+        weekly_schedule: weeklySchedule,
         classes: teacherClasses,
         makeups: makeupsRes.rows,
         levels: levelsRes.rows,

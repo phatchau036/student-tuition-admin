@@ -212,6 +212,36 @@ export interface ClassRoom {
   created_at?: string;
 }
 
+export interface TeacherShiftStudent {
+  id: string;
+  name: string;
+  phone?: string;
+  student_code?: string;
+  level_name?: string;
+  time_label?: string;
+}
+
+export interface TeacherAssignedShift {
+  id: string;
+  class_id: string;
+  class_name: string;
+  class_code?: string;
+  subject_name?: string;
+  room?: string;
+  day: string;
+  start_time: string;
+  end_time: string;
+  role?: string;
+  max_students: number;
+  students: TeacherShiftStudent[];
+}
+
+export interface TeacherDaySchedule {
+  day: string;
+  shifts: TeacherAssignedShift[];
+  total_students: number;
+}
+
 export interface SchedulePreset {
   id: string; // "preset-even", "preset-odd", hoặc uuid
   name: string; // Tên kiểu: "Thứ chẵn", "Thứ lẻ", "Cuối tuần", v.v.
