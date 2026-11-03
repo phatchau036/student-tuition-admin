@@ -101,6 +101,9 @@ Toàn bộ tài liệu kỹ thuật chi tiết của hệ thống đã được 
    - **CHỈ KHI NÀO NGƯỜI DÙNG YÊU CẦU ĐÍCH DANH THÌ MỚI ĐƯỢC PHÉP DEPLOY LÊN SERVER**.
    - Bình thường khi phát triển, sửa bug, thêm tính năng, refactor hoặc push GitHub: **TUYỆT ĐỐI KHÔNG ĐƯỢC TỰ Ý KẾT NỐI VÀ DEPLOY LÊN MÁY CHỦ (SERVER / VPS / PRODUCTION)**.
    - Khi không có lệnh deploy từ người dùng, chỉ thực hiện kiểm tra build nội bộ (`npm run build`), commit và push lên GitHub (nếu có yêu cầu push git) rồi dừng lại báo cáo kết quả.
+5. **QUY TẮC QUẢN LÝ TIẾN TRÌNH LOCAL (LOCAL SERVER PROCESS RULE):**
+   - **TUYỆT ĐỐI KHÔNG TỰ Ý CHẠY `npm start` HOẶC `npm run dev` TRONG NỀN**: Người dùng sẽ tự chạy `npm start` / `npm run dev` trên terminal của họ.
+   - Mỗi lần code xong, AI Agent chỉ chạy `npm run build` để kiểm tra typecheck và biên dịch mã nguồn, sau đó dừng lại và báo cáo, không được tự ý spawn tiến trình web server.
 
 ---
 

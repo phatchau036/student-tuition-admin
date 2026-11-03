@@ -146,11 +146,15 @@ export default function TeacherPortal() {
 
   // Check saved session on mount
   useEffect(() => {
-    const savedPhone = localStorage.getItem("teacher_phone");
-    if (savedPhone) {
-      setInputPhone(savedPhone);
-      handleLoginWithPhone(savedPhone);
-    }
+    try {
+      if (typeof window !== "undefined") {
+        const savedPhone = localStorage.getItem("teacher_phone");
+        if (savedPhone) {
+          setInputPhone(savedPhone);
+          handleLoginWithPhone(savedPhone);
+        }
+      }
+    } catch {}
   }, []);
 
   // Login with phone number
@@ -174,8 +178,10 @@ export default function TeacherPortal() {
       if (data.success && data.teacher) {
         setActiveTeacher(data.teacher);
         setIsLoggedIn(true);
-        localStorage.setItem("teacher_phone", phoneToAuth.trim());
-        localStorage.setItem("active_teacher_id", data.teacher.id);
+        if (typeof window !== "undefined") {
+          localStorage.setItem("teacher_phone", phoneToAuth.trim());
+          localStorage.setItem("active_teacher_id", data.teacher.id);
+        }
         await loadTeacherDetails(data.teacher.id);
       } else {
         showToast(data.message || "Không tìm thấy giáo viên với số điện thoại này!", "error");
@@ -190,8 +196,12 @@ export default function TeacherPortal() {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("teacher_phone");
-    localStorage.removeItem("active_teacher_id");
+    try {
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("teacher_phone");
+        localStorage.removeItem("active_teacher_id");
+      }
+    } catch {}
     setIsLoggedIn(false);
     setActiveTeacher(null);
     setStudents([]);
