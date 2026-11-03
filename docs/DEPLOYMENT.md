@@ -71,3 +71,4 @@ Hệ thống hỗ trợ cập nhật 1-Click thông qua `scripts/run-upgrade.js`
 |---|---|---|---|---|
 | 2026-10-26 | v2.5.0 | LAN / Production | Thành công | Admin |
 | 2026-10-29 | v2.6.0 | Local Dev & Test | Ổn định | Main Agent |
+| 2026-11-03 | v2.8.3 | Production (103.252.93.54) | Thành công (HTTP 200 OK) | Main Agent |
