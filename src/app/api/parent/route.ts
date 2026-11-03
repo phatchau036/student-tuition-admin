@@ -10,20 +10,25 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { action, phone } = body;
 
-    // 1. Phụ huynh đăng nhập bằng Số điện thoại
+    // 1. Phụ huynh / Học sinh đăng nhập bằng Số điện thoại HOẶC Mã học viên (HS01, HS02...)
     if (action === "login") {
-      if (!phone || !phone.trim()) {
+      const inputIdentifier = String(phone || "").trim();
+      if (!inputIdentifier) {
         return NextResponse.json(
-          { success: false, message: "Vui lòng nhập số điện thoại lúc đăng ký!" },
+          { success: false, message: "Vui lòng nhập Số điện thoại hoặc Mã học viên!" },
           { status: 400 }
         );
       }
 
-      const cleanPhone = phone.trim().replace(/\D/g, "");
+      const cleanPhone = inputIdentifier.replace(/\D/g, "");
+      const isStudentCodeCandidate = /^HS[-_]?\d+/i.test(inputIdentifier) || cleanPhone.length < 8;
 
-      // Find students matching this phone
-      const studentsRes = await db.execute({
-        sql: `
+      let sql = "";
+      let args: any[] = [];
+
+      if (isStudentCodeCandidate && cleanPhone.length < 8) {
+        // Tìm chính xác theo Mã Học Viên (student_code)
+        sql = `
           SELECT s.*, 
                  COALESCE(sc.name, (SELECT name FROM schools LIMIT 1), 'Trung Tâm Đào Tạo') as school_name,
                  COALESCE(sc.address, (SELECT address FROM schools LIMIT 1), '') as school_address,
@@ -36,17 +41,43 @@ export async function POST(req: Request) {
           LEFT JOIN level_surcharges l ON s.level_id = l.id
           LEFT JOIN teachers tc ON s.teacher_id = tc.id
           LEFT JOIN tuition_packages pkg ON s.tuition_package_id = pkg.id
-          WHERE replace(replace(replace(s.phone, ' ', ''), '.', ''), '-', '') LIKE ?
+          WHERE UPPER(s.student_code) = UPPER(?) OR s.id = ?
           ORDER BY s.created_at DESC
-        `,
-        args: [`%${cleanPhone}%`],
+        `;
+        args = [inputIdentifier, inputIdentifier];
+      } else {
+        // Tìm theo Số Điện Thoại HOẶC Mã Học Viên
+        sql = `
+          SELECT s.*, 
+                 COALESCE(sc.name, (SELECT name FROM schools LIMIT 1), 'Trung Tâm Đào Tạo') as school_name,
+                 COALESCE(sc.address, (SELECT address FROM schools LIMIT 1), '') as school_address,
+                 COALESCE(sc.phone, (SELECT phone FROM schools LIMIT 1), '') as school_phone,
+                 l.level_name, l.surcharge_amount as level_surcharge,
+                 tc.name as teacher_name, tc.phone as teacher_phone, tc.color as teacher_color,
+                 pkg.name as tuition_package_name, pkg.amount as tuition_package_amount
+          FROM students s
+          LEFT JOIN schools sc ON s.school_id = sc.id
+          LEFT JOIN level_surcharges l ON s.level_id = l.id
+          LEFT JOIN teachers tc ON s.teacher_id = tc.id
+          LEFT JOIN tuition_packages pkg ON s.tuition_package_id = pkg.id
+          WHERE (replace(replace(replace(s.phone, ' ', ''), '.', ''), '-', '') LIKE ? AND ? != '')
+             OR UPPER(s.student_code) = UPPER(?)
+          ORDER BY s.created_at DESC
+        `;
+        args = [`%${cleanPhone}%`, cleanPhone, inputIdentifier];
+      }
+
+      // Find students matching this phone or student_code
+      const studentsRes = await db.execute({
+        sql,
+        args,
       });
 
       if (studentsRes.rows.length === 0) {
         return NextResponse.json(
           {
             success: false,
-            message: "Không tìm thấy học sinh nào với số điện thoại này! Vui lòng kiểm tra lại số đã đăng ký với trung tâm.",
+            message: "Không tìm thấy học sinh nào với số điện thoại hoặc mã học viên này! Vui lòng kiểm tra lại.",
           },
           { status: 404 }
         );

@@ -634,9 +634,9 @@ export default function ParentPortal() {
               <div className="w-16 h-16 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 mx-auto flex items-center justify-center">
                 <Phone className="w-8 h-8" />
               </div>
-              <h2 className="text-xl font-bold text-slate-900 dark:text-white">Đăng Nhập Phụ Huynh</h2>
+              <h2 className="text-xl font-bold text-slate-900 dark:text-white">Tra Cứu Học Viên & Học Bù</h2>
               <p className="text-xs text-slate-500">
-                Nhập số điện thoại đã đăng ký với trung tâm để tra cứu lịch học, học phí và đăng ký học bù.
+                Nhập <strong>Số điện thoại</strong> hoặc <strong>Mã học viên</strong> (ví dụ: HS01, HS02...) để tra cứu lịch học, học phí và báo nghỉ học bù.
               </p>
             </div>
 
@@ -649,15 +649,15 @@ export default function ParentPortal() {
             >
               <div>
                 <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                  Số điện thoại đăng ký:
+                  Số điện thoại HOẶC Mã học viên:
                 </label>
                 <input
-                  type="tel"
+                  type="text"
                   required
-                  placeholder="Nhập số điện thoại đã đăng ký"
+                  placeholder="Nhập SĐT hoặc Mã học viên (VD: HS01)"
                   value={phoneNumber}
                   onChange={(e) => setPhoneNumber(e.target.value)}
-                  className="w-full px-4 py-3 text-base font-semibold tracking-wider rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500 text-center"
+                  className="w-full px-4 py-3 text-base font-semibold tracking-wider rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500 text-center uppercase placeholder:normal-case"
                 />
               </div>
 
