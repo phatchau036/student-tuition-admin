@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { ClassRoom, Teacher, Subject, Student, ClassScheduleItem, ClassTeacherAssignment } from "@/lib/types";
 import { useToast } from "@/components/Toast";
+import { formatScheduleCompact, DAYS_ORDER_MAP } from "@/lib/shiftDetection";
 import {
   Layers,
   Plus,
@@ -25,6 +26,8 @@ import {
   ShieldCheck,
   HelpCircle,
   UserPlus,
+  CalendarDays,
+  Sparkles,
 } from "lucide-react";
 
 interface ClassManagementModalProps {
@@ -89,6 +92,9 @@ export const ClassManagementModal: React.FC<ClassManagementModalProps> = ({
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedSubjectFilter, setSelectedSubjectFilter] = useState("ALL");
   const [selectedTeacherFilter, setSelectedTeacherFilter] = useState("ALL");
+
+  // Chế độ xem phân công ca dạy: "by_day" (theo thứ trong tuần) hoặc "by_teacher" (theo giáo viên)
+  const [shiftViewMode, setShiftViewMode] = useState<"by_day" | "by_teacher">("by_day");
 
   const [isSaving, setIsSaving] = useState(false);
   const [classToDelete, setClassToDelete] = useState<ClassRoom | null>(null);
@@ -624,38 +630,45 @@ export const ClassManagementModal: React.FC<ClassManagementModalProps> = ({
                         </button>
                       </div>
 
-                      {/* Khung giờ dạy của giáo viên này */}
-                      <div className="flex items-center justify-between gap-2 text-xs pt-1 border-t border-slate-100 dark:border-slate-800">
-                        <div className="flex items-center gap-1 text-[11px] text-slate-500">
-                          <span>Áp dụng:</span>
-                          <select
-                            value={ta.day || "Tất cả các ngày"}
-                            onChange={(e) => handleUpdateTeacherAssignment(idx, "day", e.target.value)}
-                            className="px-1.5 py-0.5 text-[10px] font-bold rounded bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 outline-none"
-                          >
-                            <option value="Tất cả các ngày">Tất cả ngày mở</option>
-                            {DAYS_OF_WEEK.map((d) => (
-                              <option key={d} value={d}>{d}</option>
-                            ))}
-                          </select>
-                        </div>
+                        {/* Khung giờ dạy của giáo viên này */}
+                        <div className="flex items-center justify-between gap-2 text-xs pt-1 border-t border-slate-100 dark:border-slate-800 flex-wrap">
+                          <div className="flex items-center gap-1 text-[11px] text-slate-500 flex-wrap">
+                            <span className="font-semibold text-slate-600 dark:text-slate-400">Áp dụng:</span>
+                            <select
+                              value={ta.day || "Tất cả các ngày"}
+                              onChange={(e) => handleUpdateTeacherAssignment(idx, "day", e.target.value)}
+                              className="px-2 py-0.5 text-[10px] font-bold rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 outline-none border border-slate-200 dark:border-slate-700"
+                            >
+                              <option value="Tất cả các ngày">🌟 Tất cả các ngày mở</option>
+                              <optgroup label="Tùy chọn nhanh">
+                                <option value="Thứ 2, Thứ 4, Thứ 6">Thứ 2, 4, 6</option>
+                                <option value="Thứ 3, Thứ 5, Thứ 7">Thứ 3, 5, 7</option>
+                                <option value="Thứ 7, Chủ Nhật">Cuối tuần (T7, CN)</option>
+                              </optgroup>
+                              <optgroup label="Từng thứ riêng lẻ">
+                                {DAYS_OF_WEEK.map((d) => (
+                                  <option key={d} value={d}>{d}</option>
+                                ))}
+                              </optgroup>
+                            </select>
+                          </div>
 
-                        <div className="flex items-center gap-1 font-mono text-xs">
-                          <input
-                            type="time"
-                            value={ta.start_time}
-                            onChange={(e) => handleUpdateTeacherAssignment(idx, "start_time", e.target.value)}
-                            className="px-1.5 py-0.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 font-bold"
-                          />
-                          <span className="text-slate-400 font-bold">-</span>
-                          <input
-                            type="time"
-                            value={ta.end_time}
-                            onChange={(e) => handleUpdateTeacherAssignment(idx, "end_time", e.target.value)}
-                            className="px-1.5 py-0.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 font-bold"
-                          />
+                          <div className="flex items-center gap-1 font-mono text-xs">
+                            <input
+                              type="time"
+                              value={ta.start_time}
+                              onChange={(e) => handleUpdateTeacherAssignment(idx, "start_time", e.target.value)}
+                              className="px-1.5 py-0.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 font-bold"
+                            />
+                            <span className="text-slate-400 font-bold">-</span>
+                            <input
+                              type="time"
+                              value={ta.end_time}
+                              onChange={(e) => handleUpdateTeacherAssignment(idx, "end_time", e.target.value)}
+                              className="px-1.5 py-0.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 font-bold"
+                            />
+                          </div>
                         </div>
-                      </div>
                     </div>
                   ))}
 
@@ -861,16 +874,21 @@ export const ClassManagementModal: React.FC<ClassManagementModalProps> = ({
                             )}
                           </div>
 
-                          {/* Khung giờ mở của lớp */}
+                          {/* Khung giờ mở của lớp (Gộp thông minh bằng formatScheduleCompact) */}
                           {scheduleItemsList.length > 0 && (
                             <div className="flex items-center gap-1.5 flex-wrap text-xs text-slate-500 mt-1">
-                              <Clock className="w-3 h-3 text-slate-400" />
-                              <span>Mở cửa:</span>
-                              {scheduleItemsList.map((sc, i) => (
-                                <strong key={i} className="text-slate-700 dark:text-slate-300">
-                                  {sc.day} ({sc.start_time}-{sc.end_time}){i < scheduleItemsList.length - 1 ? ", " : ""}
-                                </strong>
-                              ))}
+                              <Clock className="w-3 h-3 text-indigo-500 shrink-0" />
+                              <span className="font-semibold text-slate-600 dark:text-slate-400">Mở cửa:</span>
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                {formatScheduleCompact(scheduleItemsList).map((txt, i) => (
+                                  <span
+                                    key={i}
+                                    className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-indigo-50 text-indigo-700 dark:bg-indigo-950/70 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-900/40"
+                                  >
+                                    {txt}
+                                  </span>
+                                ))}
+                              </div>
                             </div>
                           )}
                         </div>
@@ -910,116 +928,287 @@ export const ClassManagementModal: React.FC<ClassManagementModalProps> = ({
                     </div>
 
                     {/* ⭐ DANH SÁCH GIÁO VIÊN ĐỨNG CA TRONG LỚP NÀY */}
-                    <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800/80 space-y-1.5 text-xs">
-                      <div className="text-[11px] font-bold text-slate-500 flex items-center justify-between">
-                        <span className="flex items-center gap-1 text-emerald-700 dark:text-emerald-400">
-                          <GraduationCap className="w-3.5 h-3.5" /> Giáo viên phụ trách ({teacherAssignmentsList.length} ca):
+                    <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800/80 space-y-2 text-xs">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <span className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400 font-extrabold text-xs">
+                          <GraduationCap className="w-4 h-4 text-emerald-600" /> Phân công ca dạy ({teacherAssignmentsList.length} ca)
                         </span>
-                        <span className="text-[10px] text-slate-400">Sĩ số tối đa: {cls.max_students} HS/ca</span>
+
+                        {/* Switch Chế độ xem: Theo Tuần / Theo Giáo Viên */}
+                        <div className="flex items-center p-0.5 rounded-xl bg-slate-200/80 dark:bg-slate-700/80 text-[10px] font-bold">
+                          <button
+                            type="button"
+                            onClick={() => setShiftViewMode("by_day")}
+                            className={`px-2 py-0.5 rounded-lg transition ${
+                              shiftViewMode === "by_day"
+                                ? "bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-2xs"
+                                : "text-slate-600 dark:text-slate-300 hover:text-slate-900"
+                            }`}
+                          >
+                            Theo Lịch Tuần
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setShiftViewMode("by_teacher")}
+                            className={`px-2 py-0.5 rounded-lg transition ${
+                              shiftViewMode === "by_teacher"
+                                ? "bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-2xs"
+                                : "text-slate-600 dark:text-slate-300 hover:text-slate-900"
+                            }`}
+                          >
+                            Theo Giáo Viên
+                          </button>
+                        </div>
                       </div>
 
-                      <div className="space-y-1.5">
-                        {teacherAssignmentsList.map((ta, idx) => {
-                          const tcObj = teachers.find((t) => t.id === ta.teacher_id);
-                          
-                          // Đếm số lượng học sinh học trùng với khung giờ ca dạy này của giáo viên
-                          let slotStudentCount = 0;
-                          const [taSh] = (ta.start_time || "00:00").split(":").map(Number);
-                          const [taEh] = (ta.end_time || "23:59").split(":").map(Number);
+                      {teacherAssignmentsList.length === 0 ? (
+                        <div className="text-center py-2 text-slate-400 italic text-[11px]">
+                          Chưa có giáo viên nào được phân công vào lớp này.
+                        </div>
+                      ) : shiftViewMode === "by_day" ? (
+                        /* CHẾ ĐỘ 1: THEO LỊCH TUẦN (Thứ 2 -> Chủ Nhật) */
+                        <div className="space-y-2">
+                          {DAYS_OF_WEEK.map((dayName) => {
+                            // Lọc các ca áp dụng cho thứ này
+                            const dayShifts = teacherAssignmentsList.filter(
+                              (ta) => !ta.day || ta.day === "Tất cả các ngày" || ta.day === dayName
+                            );
+                            if (dayShifts.length === 0) return null;
 
-                          const classStudents = students.filter((s) => s.class_id === cls.id && s.status !== "dropped");
-                          for (const st of classStudents) {
-                            let matchSlot = false;
-                            if (st.schedule_details_json) {
-                              try {
-                                const parsed = JSON.parse(st.schedule_details_json);
-                                if (Array.isArray(parsed)) {
-                                  matchSlot = parsed.some((item: any) => {
-                                    const matchDay = !ta.day || ta.day === "Tất cả các ngày" || ta.day === item.day;
-                                    if (!matchDay) return false;
-                                    if (!item.start_time) return true;
-                                    const [stH] = item.start_time.split(":").map(Number);
-                                    return stH >= taSh && stH < taEh;
-                                  });
-                                }
-                              } catch {}
-                            } else if (st.study_time_detail) {
-                              const match = st.study_time_detail.match(/(\d{1,2})(?::(\d{2})|h)/);
-                              if (match) {
-                                const stH = parseInt(match[1], 10);
-                                matchSlot = stH >= taSh && stH < taEh;
-                              }
-                            }
-                            if (matchSlot) slotStudentCount++;
-                          }
-
-                          const isSlotFull = slotStudentCount >= cls.max_students;
-                          const slotPercent = Math.min(100, Math.round((slotStudentCount / (cls.max_students || 15)) * 100));
-
-                          return (
-                            <div
-                              key={idx}
-                              className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-700 text-xs shadow-2xs space-y-2"
-                            >
-                              <div className="flex items-center justify-between gap-2">
-                                <div className="flex items-center gap-2 min-w-0">
-                                  <span className="font-bold text-slate-800 dark:text-slate-200 truncate">
-                                    {tcObj?.name || "Chưa phân công"}
+                            return (
+                              <div
+                                key={dayName}
+                                className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 space-y-2 shadow-2xs"
+                              >
+                                <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-1.5">
+                                  <span className="font-extrabold text-[11px] text-indigo-700 dark:text-indigo-400 flex items-center gap-1.5">
+                                    <CalendarDays className="w-3.5 h-3.5 text-indigo-600" />
+                                    <span>{dayName}</span>
+                                    <span className="text-[10px] font-normal text-slate-400">({dayShifts.length} ca dạy)</span>
                                   </span>
-                                  {ta.role && (
-                                    <span className="text-[10px] text-slate-400 truncate">({ta.role})</span>
-                                  )}
+                                  <span className="text-[10px] text-slate-400">Sĩ số tối đa: {cls.max_students} HS/ca</span>
                                 </div>
 
-                                <div className="flex items-center gap-2 shrink-0">
-                                  {/* Hiển thị sĩ số của riêng ca dạy này trên sĩ số tối đa /15 */}
-                                  <span className={`text-[11px] font-black px-2 py-0.5 rounded-lg border ${
-                                    isSlotFull
-                                      ? "bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 border-rose-200 dark:border-rose-900"
-                                      : slotStudentCount > 0
-                                      ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300 border-indigo-200 dark:border-indigo-900"
-                                      : "bg-slate-50 text-slate-500 dark:bg-slate-800 dark:text-slate-400 border-slate-200 dark:border-slate-700"
-                                  }`}>
-                                    {slotStudentCount}/{cls.max_students} HS
-                                  </span>
+                                <div className="space-y-1.5">
+                                  {dayShifts.map((ta, sIdx) => {
+                                    const tcObj = teachers.find((t) => t.id === ta.teacher_id);
+                                    const [taSh] = (ta.start_time || "00:00").split(":").map(Number);
+                                    const [taEh] = (ta.end_time || "23:59").split(":").map(Number);
 
-                                  <span className="font-mono text-[11px] font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-lg">
-                                    {ta.start_time} - {ta.end_time}
-                                  </span>
+                                    const classStudents = students.filter((s) => s.class_id === cls.id && s.status !== "dropped");
+                                    let slotStudentCount = 0;
+                                    for (const st of classStudents) {
+                                      let matchSlot = false;
+                                      if (st.schedule_details_json) {
+                                        try {
+                                          const parsed = JSON.parse(st.schedule_details_json);
+                                          if (Array.isArray(parsed)) {
+                                            matchSlot = parsed.some((item: any) => {
+                                              const matchD = !ta.day || ta.day === "Tất cả các ngày" || ta.day === item.day;
+                                              if (!matchD || item.day !== dayName) return false;
+                                              if (!item.start_time) return true;
+                                              const [stH] = item.start_time.split(":").map(Number);
+                                              return stH >= taSh && stH < taEh;
+                                            });
+                                          }
+                                        } catch {}
+                                      } else if (st.study_time_detail) {
+                                        const match = st.study_time_detail.match(/(\d{1,2})(?::(\d{2})|h)/);
+                                        const regDays = String(st.registered_days || "");
+                                        if (match && regDays.includes(dayName)) {
+                                          const stH = parseInt(match[1], 10);
+                                          matchSlot = stH >= taSh && stH < taEh;
+                                        }
+                                      }
+                                      if (matchSlot) slotStudentCount++;
+                                    }
+
+                                    const isSlotFull = slotStudentCount >= cls.max_students;
+                                    const slotPercent = Math.min(100, Math.round((slotStudentCount / (cls.max_students || 15)) * 100));
+
+                                    return (
+                                      <div
+                                        key={sIdx}
+                                        className="p-2 rounded-lg bg-slate-50/70 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 space-y-1"
+                                      >
+                                        <div className="flex items-center justify-between gap-2">
+                                          <div className="flex items-center gap-1.5 min-w-0">
+                                            <span className="font-mono text-[11px] font-bold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-700 px-1.5 py-0.2 rounded border border-slate-200 dark:border-slate-600">
+                                              {ta.start_time} - {ta.end_time}
+                                            </span>
+                                            <span className="font-extrabold text-xs text-slate-900 dark:text-white truncate">
+                                              {tcObj?.name || "Chưa phân công"}
+                                            </span>
+                                            {ta.role && (
+                                              <span className="text-[10px] text-slate-400">({ta.role})</span>
+                                            )}
+                                          </div>
+
+                                          <span
+                                            className={`text-[10px] font-black px-2 py-0.5 rounded-lg border shrink-0 ${
+                                              isSlotFull
+                                                ? "bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 border-rose-200 dark:border-rose-900"
+                                                : slotStudentCount > 0
+                                                ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300 border-indigo-200 dark:border-indigo-900"
+                                                : "bg-white text-slate-500 dark:bg-slate-800 dark:text-slate-400 border-slate-200 dark:border-slate-700"
+                                            }`}
+                                          >
+                                            {slotStudentCount}/{cls.max_students} HS
+                                          </span>
+                                        </div>
+
+                                        <div className="flex items-center gap-2 pt-0.5">
+                                          <div className="flex-1 h-1 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                                            <div
+                                              style={{ width: `${slotPercent}%` }}
+                                              className={`h-full rounded-full transition-all duration-300 ${
+                                                isSlotFull
+                                                  ? "bg-rose-500"
+                                                  : slotPercent >= 80
+                                                  ? "bg-amber-500"
+                                                  : slotPercent > 0
+                                                  ? "bg-indigo-600"
+                                                  : "bg-transparent"
+                                              }`}
+                                            />
+                                          </div>
+                                          <span className="text-[9px] font-bold text-slate-400 font-mono w-7 text-right">
+                                            {slotPercent}%
+                                          </span>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
                                 </div>
                               </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        /* CHẾ ĐỘ 2: THEO GIÁO VIÊN (Gom theo từng Thầy/Cô) */
+                        <div className="space-y-2">
+                          {Array.from(new Set(teacherAssignmentsList.map((ta) => ta.teacher_id))).map((tcId) => {
+                            const tcObj = teachers.find((t) => t.id === tcId);
+                            const tcShifts = teacherAssignmentsList.filter((ta) => ta.teacher_id === tcId);
 
-                              {/* ⭐ THANH HIỂN THỊ PHẦN TRĂM SĨ SỐ HỌC SINH CỦA CA DẠY NÀY */}
-                              <div className="space-y-1">
-                                <div className="flex items-center justify-between text-[10px] text-slate-400 font-medium">
-                                  <span>Tỷ lệ lấp đầy ca:</span>
-                                  <span className="font-bold text-slate-600 dark:text-slate-300">{slotPercent}%</span>
+                            return (
+                              <div
+                                key={tcId}
+                                className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 space-y-2 shadow-2xs"
+                              >
+                                <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-1.5">
+                                  <div className="flex items-center gap-1.5">
+                                    <div className="w-6 h-6 rounded-lg bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 flex items-center justify-center font-bold text-xs">
+                                      {tcObj?.name?.charAt(0) || "G"}
+                                    </div>
+                                    <div>
+                                      <span className="font-extrabold text-xs text-slate-900 dark:text-white">
+                                        {tcObj?.name || "Giáo viên"}
+                                      </span>
+                                      {tcObj?.specialty && (
+                                        <span className="text-[10px] text-slate-400 ml-1.5">({tcObj.specialty})</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-emerald-50 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                                    {tcShifts.length} ca dạy
+                                  </span>
                                 </div>
-                                <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                                  <div
-                                    style={{ width: `${slotPercent}%` }}
-                                    className={`h-full rounded-full transition-all duration-300 ${
-                                      isSlotFull
-                                        ? "bg-rose-500"
-                                        : slotPercent >= 80
-                                        ? "bg-amber-500"
-                                        : slotPercent > 0
-                                        ? "bg-indigo-600"
-                                        : "bg-transparent"
-                                    }`}
-                                  />
+
+                                <div className="space-y-1.5">
+                                  {tcShifts.map((ta, sIdx) => {
+                                    const [taSh] = (ta.start_time || "00:00").split(":").map(Number);
+                                    const [taEh] = (ta.end_time || "23:59").split(":").map(Number);
+
+                                    const classStudents = students.filter((s) => s.class_id === cls.id && s.status !== "dropped");
+                                    let slotStudentCount = 0;
+                                    for (const st of classStudents) {
+                                      let matchSlot = false;
+                                      if (st.schedule_details_json) {
+                                        try {
+                                          const parsed = JSON.parse(st.schedule_details_json);
+                                          if (Array.isArray(parsed)) {
+                                            matchSlot = parsed.some((item: any) => {
+                                              const matchDay = !ta.day || ta.day === "Tất cả các ngày" || ta.day === item.day;
+                                              if (!matchDay) return false;
+                                              if (!item.start_time) return true;
+                                              const [stH] = item.start_time.split(":").map(Number);
+                                              return stH >= taSh && stH < taEh;
+                                            });
+                                          }
+                                        } catch {}
+                                      } else if (st.study_time_detail) {
+                                        const match = st.study_time_detail.match(/(\d{1,2})(?::(\d{2})|h)/);
+                                        if (match) {
+                                          const stH = parseInt(match[1], 10);
+                                          matchSlot = stH >= taSh && stH < taEh;
+                                        }
+                                      }
+                                      if (matchSlot) slotStudentCount++;
+                                    }
+
+                                    const isSlotFull = slotStudentCount >= cls.max_students;
+                                    const slotPercent = Math.min(100, Math.round((slotStudentCount / (cls.max_students || 15)) * 100));
+
+                                    return (
+                                      <div
+                                        key={sIdx}
+                                        className="p-2 rounded-lg bg-slate-50/70 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 space-y-1"
+                                      >
+                                        <div className="flex items-center justify-between gap-2">
+                                          <div className="flex items-center gap-1.5">
+                                            <span className="font-extrabold text-[11px] text-indigo-700 dark:text-indigo-400">
+                                              {ta.day || "Tất cả ngày"}
+                                            </span>
+                                            <span className="font-mono text-[11px] font-bold text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-700 px-1.5 py-0.2 rounded border border-slate-200 dark:border-slate-600">
+                                              {ta.start_time} - {ta.end_time}
+                                            </span>
+                                            {ta.role && (
+                                              <span className="text-[10px] text-slate-400">({ta.role})</span>
+                                            )}
+                                          </div>
+
+                                          <span
+                                            className={`text-[10px] font-black px-2 py-0.5 rounded-lg border shrink-0 ${
+                                              isSlotFull
+                                                ? "bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 border-rose-200 dark:border-rose-900"
+                                                : slotStudentCount > 0
+                                                ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300 border-indigo-200 dark:border-indigo-900"
+                                                : "bg-white text-slate-500 dark:bg-slate-800 dark:text-slate-400 border-slate-200 dark:border-slate-700"
+                                            }`}
+                                          >
+                                            {slotStudentCount}/{cls.max_students} HS
+                                          </span>
+                                        </div>
+
+                                        <div className="flex items-center gap-2 pt-0.5">
+                                          <div className="flex-1 h-1 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                                            <div
+                                              style={{ width: `${slotPercent}%` }}
+                                              className={`h-full rounded-full transition-all duration-300 ${
+                                                isSlotFull
+                                                  ? "bg-rose-500"
+                                                  : slotPercent >= 80
+                                                  ? "bg-amber-500"
+                                                  : slotPercent > 0
+                                                  ? "bg-indigo-600"
+                                                  : "bg-transparent"
+                                              }`}
+                                            />
+                                          </div>
+                                          <span className="text-[9px] font-bold text-slate-400 font-mono w-7 text-right">
+                                            {slotPercent}%
+                                          </span>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
                                 </div>
                               </div>
-                            </div>
-                          );
-                        })}
-
-                        {teacherAssignmentsList.length === 0 && (
-                          <span className="text-[11px] text-slate-400 italic block py-0.5">
-                            Chưa phân công giáo viên đứng ca.
-                          </span>
-                        )}
-                      </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   </div>
                 );

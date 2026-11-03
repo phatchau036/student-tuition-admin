@@ -47,6 +47,72 @@ export function minutesToTime(minutes: number): string {
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }
 
+export const DAYS_ORDER_MAP: Record<string, number> = {
+  "Thứ 2": 1,
+  "Thứ 3": 2,
+  "Thứ 4": 3,
+  "Thứ 5": 4,
+  "Thứ 6": 5,
+  "Thứ 7": 6,
+  "Chủ Nhật": 7,
+};
+
+/**
+ * Gộp các khung giờ mở cửa có cùng giờ thành dải gọn gàng
+ * Ví dụ: Thứ 2 (17:00-20:00), Thứ 3 (17:00-20:00)... Thứ 7 (17:00-20:00)
+ * -> "Thứ 2 – Thứ 7 (17:00 - 20:00)"
+ */
+export function formatScheduleCompact(scheduleItems: Array<{ day: string; start_time: string; end_time: string }>): string[] {
+  if (!Array.isArray(scheduleItems) || scheduleItems.length === 0) return [];
+
+  // Gom nhóm theo khung giờ: "17:00 - 20:00" -> ["Thứ 2", "Thứ 3", "Thứ 4", ...]
+  const groups: Record<string, string[]> = {};
+  for (const item of scheduleItems) {
+    if (!item.day || !item.start_time || !item.end_time) continue;
+    const timeKey = `${item.start_time} - ${item.end_time}`;
+    if (!groups[timeKey]) groups[timeKey] = [];
+    if (!groups[timeKey].includes(item.day)) {
+      groups[timeKey].push(item.day);
+    }
+  }
+
+  const results: string[] = [];
+
+  for (const [timeRange, days] of Object.entries(groups)) {
+    // Sắp xếp các thứ theo tuần
+    days.sort((a, b) => (DAYS_ORDER_MAP[a] || 99) - (DAYS_ORDER_MAP[b] || 99));
+
+    // Kiểm tra xem có phải chuỗi thứ liên tiếp không (VD: Thứ 2, Thứ 3, Thứ 4, Thứ 5, Thứ 6, Thứ 7)
+    let isConsecutive = days.length >= 3;
+    if (isConsecutive) {
+      for (let i = 0; i < days.length - 1; i++) {
+        const curr = DAYS_ORDER_MAP[days[i]];
+        const next = DAYS_ORDER_MAP[days[i + 1]];
+        if (!curr || !next || next !== curr + 1) {
+          isConsecutive = false;
+          break;
+        }
+      }
+    }
+
+    if (days.length === 7) {
+      results.push(`Tất cả các ngày: ${timeRange}`);
+    } else if (isConsecutive) {
+      results.push(`${days[0]} – ${days[days.length - 1]}: ${timeRange}`);
+    } else if (days.length === 3 && days[0] === "Thứ 2" && days[1] === "Thứ 4" && days[2] === "Thứ 6") {
+      results.push(`Thứ 2, 4, 6: ${timeRange}`);
+    } else if (days.length === 3 && days[0] === "Thứ 3" && days[1] === "Thứ 5" && days[2] === "Thứ 7") {
+      results.push(`Thứ 3, 5, 7: ${timeRange}`);
+    } else if (days.length === 2 && days[0] === "Thứ 7" && days[1] === "Chủ Nhật") {
+      results.push(`Cuối tuần T7, CN: ${timeRange}`);
+    } else {
+      results.push(`${days.join(", ")}: ${timeRange}`);
+    }
+  }
+
+  return results;
+}
+
 export function detectShiftTeachers(
   makeupStart: string,
   makeupEnd: string,

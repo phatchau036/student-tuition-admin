@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { formatTimeSlotLabel } from "@/lib/tuition";
+import { formatScheduleCompact } from "@/lib/shiftDetection";
 import { TimeSlot } from "@/lib/types";
 import {
   GraduationCap,
@@ -779,7 +780,7 @@ export default function TeacherPortal() {
                                       const p = JSON.parse(st.schedule_details_json);
                                       if (Array.isArray(p)) {
                                         match = p.some((item: any) => {
-                                          const matchD = !ma.day || ma.day === "Tất cả các ngày" || ma.day === item.day;
+                                          const matchD = !ma.day || ma.day === "Tất cả các ngày" || ma.day.includes(item.day);
                                           if (!matchD) return false;
                                           const [sH] = (item.start_time || "18:00").split(":").map(Number);
                                           return sH >= mSh && sH < mEh;
@@ -835,15 +836,17 @@ export default function TeacherPortal() {
                         </div>
                       )}
 
-                      {/* Khung giờ mở cửa chung của lớp */}
+                      {/* Khung giờ mở cửa chung của lớp (gọn gàng chuyên nghiệp) */}
                       {scheduleItemsList.length > 0 && (
-                        <div className="text-xs text-slate-500 flex items-center gap-1.5 flex-wrap">
+                        <div className="text-xs text-slate-500 flex items-center gap-1.5 flex-wrap pt-1 border-t border-slate-100 dark:border-slate-800">
                           <span className="font-semibold text-slate-700 dark:text-slate-300">Giờ mở lớp chung:</span>
-                          {scheduleItemsList.map((sc, idx) => (
-                            <span key={idx} className="font-mono">
-                              {sc.day} ({sc.start_time}-{sc.end_time}){idx < scheduleItemsList.length - 1 ? ", " : ""}
-                            </span>
-                          ))}
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            {formatScheduleCompact(scheduleItemsList).map((txt, idx) => (
+                              <span key={idx} className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                                {txt}
+                              </span>
+                            ))}
+                          </div>
                         </div>
                       )}
                     </div>

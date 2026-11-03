@@ -108,8 +108,11 @@ export async function GET(req: Request) {
         if (cRow.teacher_assignments_json) assignList = JSON.parse(String(cRow.teacher_assignments_json));
       } catch {}
 
-      // Lọc các ca phân công của giáo viên trong ngày này
-      const shiftsOnDay = assignList.filter((a) => !a.day || a.day === "Tất cả các ngày" || a.day === dayName);
+      // Lọc các ca phân công của giáo viên trong ngày này (hỗ trợ "Thứ 2, Thứ 4, Thứ 6" hoặc "Tất cả các ngày")
+      const shiftsOnDay = assignList.filter((a) => {
+        if (!a.day || a.day === "Tất cả các ngày") return true;
+        return a.day.includes(dayName);
+      });
 
       // Đếm học sinh chính khóa của lớp học vào ngày này
       const classStudents = studentsRes.rows.filter((st: any) => String(st.class_id || "") === cId);

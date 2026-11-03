@@ -498,7 +498,7 @@ export function parseStudentScheduleSlots(
       const assignments = JSON.parse(student.class_teacher_assignments_json);
       if (!Array.isArray(assignments)) return [];
       const matched = assignments.filter((a: any) => {
-        const matchDay = !a.day || a.day === "Tất cả các ngày" || a.day === day;
+        const matchDay = !a.day || a.day === "Tất cả các ngày" || a.day.includes(day);
         if (!matchDay) return false;
         if (!a.start_time || !a.end_time) return true;
         const [sh] = a.start_time.split(":").map(Number);
