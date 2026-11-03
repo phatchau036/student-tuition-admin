@@ -360,10 +360,6 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
       showToast("Vui lòng nhập tên học sinh!", "error");
       return;
     }
-    if (!phone.trim()) {
-      showToast("Vui lòng nhập số điện thoại!", "error");
-      return;
-    }
     if (!levelId) {
       showToast("Vui lòng chọn Level cho học sinh!", "error");
       return;
@@ -512,16 +508,15 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
-                Số điện thoại liên hệ <span className="text-rose-500">*</span>
+                Số điện thoại liên hệ
               </label>
               <div className="relative">
                 <Phone className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
                 <input
                   type="text"
-                  required
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
-                  placeholder="0901234567"
+                  placeholder="0901234567 (Tùy chọn)"
                   className="w-full pl-10 pr-4 py-2.5 text-sm font-mono font-semibold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition"
                 />
               </div>

@@ -1685,10 +1685,16 @@ export default function Dashboard() {
                                 })()}
                               </div>
                               <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                                <span className="font-mono text-[11px] font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1 whitespace-nowrap">
-                                  <Phone className="w-3 h-3 text-slate-400" />
-                                  {student.phone}
-                                </span>
+                                {student.phone ? (
+                                  <span className="font-mono text-[11px] font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1 whitespace-nowrap">
+                                    <Phone className="w-3 h-3 text-slate-400" />
+                                    {student.phone}
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60">
+                                    ⚠️ Chưa có SĐT
+                                  </span>
+                                )}
                                 {student.start_date && (
                                   <span className="hidden xl:flex text-[10px] font-medium text-slate-400 dark:text-slate-500 whitespace-nowrap items-center gap-0.5" title="Ngày bắt đầu nhập học">
                                     • Bắt đầu: {student.start_date}

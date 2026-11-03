@@ -31,6 +31,7 @@ interface SmartExcelImportModalProps {
 }
 
 interface ColumnMapping {
+  studentCode: string; // Tên cột Mã học viên trong file Excel (để cập nhật học viên cũ)
   name: string; // Tên cột trong file Excel
   phone: string;
   level: string;
@@ -62,6 +63,7 @@ export const SmartExcelImportModal: React.FC<SmartExcelImportModalProps> = ({
 
   // Mapping state
   const [mapping, setMapping] = useState<ColumnMapping>({
+    studentCode: "",
     name: "",
     phone: "",
     level: "",
@@ -134,6 +136,7 @@ export const SmartExcelImportModal: React.FC<SmartExcelImportModalProps> = ({
 
     // AUTO GUESS COLUMNS (Cực kỳ thông minh dựa trên từ khóa phổ biến)
     const newMap: ColumnMapping = {
+      studentCode: "",
       name: "",
       phone: "",
       level: "",
@@ -146,6 +149,9 @@ export const SmartExcelImportModal: React.FC<SmartExcelImportModalProps> = ({
 
     headerCols.forEach((col) => {
       const lower = col.toLowerCase();
+      if (!newMap.studentCode && (lower.includes("mã học") || lower.includes("mã hv") || lower.includes("mã hs") || lower === "mã" || lower.includes("code") || lower.includes("student_code") || lower.includes("student code"))) {
+        newMap.studentCode = col;
+      }
       if (!newMap.name && (lower.includes("họ và tên") || lower.includes("họ tên") || lower.includes("tên học") || lower === "tên")) {
         newMap.name = col;
       }
@@ -192,6 +198,7 @@ export const SmartExcelImportModal: React.FC<SmartExcelImportModalProps> = ({
     };
 
     return {
+      student_code: getVal(mapping.studentCode),
       name: getVal(mapping.name),
       phone: getVal(mapping.phone),
       level_name: getVal(mapping.level),
@@ -220,6 +227,7 @@ export const SmartExcelImportModal: React.FC<SmartExcelImportModalProps> = ({
         };
 
         return {
+          student_code: getVal(mapping.studentCode),
           name: getVal(mapping.name),
           phone: getVal(mapping.phone),
           level_name: getVal(mapping.level),
@@ -373,6 +381,34 @@ export const SmartExcelImportModal: React.FC<SmartExcelImportModalProps> = ({
 
               {/* Mapping Form Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800">
+                {/* 0. Mã học viên (Unique Identifier) */}
+                <div className="sm:col-span-2 p-3 rounded-xl bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-900/60">
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <label className="text-xs font-bold text-indigo-900 dark:text-indigo-200 flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+                      Cột Mã Học Viên (Định danh để cập nhật hồ sơ cũ):
+                    </label>
+                    <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-semibold">
+                      Tự sinh mã HS nếu để trống
+                    </span>
+                  </div>
+                  <select
+                    value={mapping.studentCode}
+                    onChange={(e) => setMapping({ ...mapping, studentCode: e.target.value })}
+                    className="w-full px-3 py-2 text-xs font-bold rounded-xl border border-indigo-300 dark:border-indigo-700 bg-white dark:bg-slate-900 text-indigo-900 dark:text-indigo-200 outline-none focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <option value="">-- Để trống (Tự động cấp mã mới & tạo học sinh mới) --</option>
+                    {columns.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-[10.5px] text-indigo-700/80 dark:text-indigo-300/80 mt-1">
+                    💡 <strong>Cơ chế chuẩn:</strong> Dòng nào có Mã học viên sẽ được hệ thống <strong>cập nhật (UPDATE)</strong> thông tin. Dòng nào chưa có Mã học viên sẽ được <strong>tạo mới hoàn toàn</strong> và tự cấp mã tự động.
+                  </p>
+                </div>
+
                 {/* 1. Họ và tên */}
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
@@ -612,6 +648,7 @@ export const SmartExcelImportModal: React.FC<SmartExcelImportModalProps> = ({
                   <table className="w-full text-left text-xs">
                     <thead>
                       <tr className="bg-slate-100 dark:bg-slate-800 text-slate-500 font-bold">
+                        <th className="p-2.5">Mã HV</th>
                         <th className="p-2.5">Họ và tên</th>
                         <th className="p-2.5">Số điện thoại</th>
                         <th className="p-2.5">Level</th>
@@ -621,6 +658,9 @@ export const SmartExcelImportModal: React.FC<SmartExcelImportModalProps> = ({
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                       {mappedPreviewStudents.map((st, i) => (
                         <tr key={i}>
+                          <td className="p-2.5 font-mono font-bold text-indigo-600 dark:text-indigo-400">
+                            {st.student_code || <span className="text-slate-400 font-normal italic">(Tự sinh mã)</span>}
+                          </td>
                           <td className="p-2.5 font-bold text-slate-900 dark:text-white">{st.name || "(Trống)"}</td>
                           <td className="p-2.5 font-mono text-slate-600 dark:text-slate-400">{st.phone || "(Trống)"}</td>
                           <td className="p-2.5">{st.level_name || "(Mặc định)"}</td>

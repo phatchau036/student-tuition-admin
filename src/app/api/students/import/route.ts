@@ -71,6 +71,21 @@ export async function POST(req: Request) {
     });
     const defaultPackageId = defaultPkgRes.rows.length > 0 ? String(defaultPkgRes.rows[0].id) : null;
 
+    // Lấy danh sách tất cả student_code hiện có trong trường để tính toán mã tự tăng chuẩn (HS01, HS02...)
+    const allCodesRes = await db.execute({
+      sql: "SELECT student_code FROM students WHERE school_id = ? OR school_id = 'school-default'",
+      args: [finalSchoolId],
+    });
+    let maxStudentCodeNum = 0;
+    for (const row of allCodesRes.rows) {
+      if (!row.student_code) continue;
+      const m = String(row.student_code).trim().match(/^HS[-_]?0*(\d+)$/i);
+      if (m) {
+        const num = parseInt(m[1], 10);
+        if (num > maxStudentCodeNum) maxStudentCodeNum = num;
+      }
+    }
+
     let importedCount = 0;
     let updatedCount = 0;
     let skippedCount = 0;
@@ -103,11 +118,6 @@ export async function POST(req: Request) {
       if (!name) {
         skippedCount++;
         continue;
-      }
-
-      // If phone is missing, generate a unique placeholder phone based on student code/timestamp
-      if (!phone) {
-        phone = `09${Math.floor(10000000 + Math.random() * 90000000)}`;
       }
 
       // Match or Auto-create Level (Tự động nhận diện & thêm mới vào Setting nếu chưa có)
@@ -189,33 +199,46 @@ export async function POST(req: Request) {
       const hoursPerWeek = parsedSchedule?.hours_per_week || 3;
       const scheduleDetailsJson = parsedSchedule?.schedule_details_json || "[]";
 
-      const formattedZalo = `https://zalo.me/${phone}`;
-      const studentCode = item.student_code
-        ? String(item.student_code).trim()
-        : `HS${Math.floor(1000 + Math.random() * 9000)}`;
+      const formattedZalo = phone ? `https://zalo.me/${phone}` : "";
+      const inputCode = item.student_code ? String(item.student_code).trim() : "";
 
-      // Check if student with same phone already exists in this school
-      const existRes = await db.execute({
-        sql: "SELECT id FROM students WHERE phone = ? AND school_id = ?",
-        args: [phone, finalSchoolId],
-      });
+      // ⭐ CƠ CHẾ ĐỊNH DANH THEO MÃ HỌC VIÊN:
+      // 1. Nếu dòng Excel CÓ mã học viên -> Kiểm tra xem mã đó đã tồn tại trong DB chưa để UPDATE
+      let existingStudentId: string | null = null;
+      if (inputCode) {
+        const existByCode = await db.execute({
+          sql: "SELECT id FROM students WHERE UPPER(student_code) = UPPER(?) AND (school_id = ? OR school_id = 'school-default')",
+          args: [inputCode, finalSchoolId],
+        });
+        if (existByCode.rows.length > 0) {
+          existingStudentId = String(existByCode.rows[0].id);
+        }
+      }
 
-      if (existRes.rows.length > 0) {
-        // Update existing student
-        const existingId = String(existRes.rows[0].id);
+      if (existingStudentId) {
+        // CẬP NHẬT HỌC VIÊN CŨ THEO MÃ HỌC VIÊN (Bổ sung SĐT, đổi giờ học, đổi môn...)
         await db.execute({
           sql: `UPDATE students 
-                SET name = ?, level_id = COALESCE(?, level_id), subject_id = COALESCE(?, subject_id),
+                SET name = ?,
+                    phone = CASE WHEN ? != '' THEN ? ELSE phone END,
+                    zalo_link = CASE WHEN ? != '' THEN ? ELSE zalo_link END,
+                    level_id = COALESCE(?, level_id), 
+                    subject_id = COALESCE(?, subject_id),
                     teacher_id = COALESCE(?, teacher_id),
-                    study_time_detail = COALESCE(?, study_time_detail), start_date = COALESCE(?, start_date),
+                    study_time_detail = COALESCE(?, study_time_detail), 
+                    start_date = COALESCE(?, start_date),
                     registered_days = CASE WHEN ? != '' THEN ? ELSE registered_days END,
                     sessions_per_week = CASE WHEN ? > 0 THEN ? ELSE sessions_per_week END,
                     hours_per_week = CASE WHEN ? > 0 THEN ? ELSE hours_per_week END,
                     schedule_details_json = CASE WHEN ? != '[]' THEN ? ELSE schedule_details_json END,
                     status_note = CASE WHEN ? != '' THEN ? ELSE status_note END
-                WHERE id = ? AND school_id = ?`,
+                WHERE id = ?`,
           args: [
             name,
+            phone,
+            phone,
+            formattedZalo,
+            formattedZalo,
             matchedLevelId || null,
             matchedSubjectId || null,
             matchedTeacherId || null,
@@ -231,13 +254,19 @@ export async function POST(req: Request) {
             scheduleDetailsJson,
             item.note || "",
             item.note || "",
-            existingId,
-            finalSchoolId,
+            existingStudentId,
           ],
         });
         updatedCount++;
       } else {
-        // Insert new student
+        // TẠO HỌC VIÊN MỚI HOÀN TOÀN (Ai chưa có mã hoặc mã mới chưa có trong hệ thống)
+        // Cấp mã duy nhất tự tăng HS01, HS02... (hoặc giữ mã người dùng chỉ định nếu chưa tồn tại)
+        let finalCode = inputCode;
+        if (!finalCode) {
+          maxStudentCodeNum += 1;
+          finalCode = `HS${String(maxStudentCodeNum).padStart(2, "0")}`;
+        }
+
         const id = `stu-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
         await db.execute({
           sql: `INSERT INTO students (
@@ -250,7 +279,7 @@ export async function POST(req: Request) {
           args: [
             id,
             finalSchoolId,
-            studentCode,
+            finalCode,
             name,
             phone,
             formattedZalo,

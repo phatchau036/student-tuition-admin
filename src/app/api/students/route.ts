@@ -349,21 +349,42 @@ export async function POST(req: Request) {
 
     const targetSchoolId = school_id || schoolId || "school-default";
 
-    if (!name || !phone || !level_id) {
+    if (!name || !level_id) {
       return NextResponse.json(
-        { success: false, message: "Vui lòng điền đầy đủ tên, số điện thoại và level!" },
+        { success: false, message: "Vui lòng điền đầy đủ tên học sinh và level!" },
         { status: 400 }
       );
     }
 
     const id = `stu-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
-    const studentCode = `HS${Math.floor(1000 + Math.random() * 9000)}`;
+
+    // Tự sinh mã học viên kế tiếp có dạng HS01, HS02, HS03...
+    let studentCode = "";
+    try {
+      const allCodesRes = await db.execute({
+        sql: "SELECT student_code FROM students WHERE school_id = ? OR school_id = 'school-default'",
+        args: [targetSchoolId],
+      });
+      let maxNum = 0;
+      for (const row of allCodesRes.rows) {
+        if (!row.student_code) continue;
+        const m = String(row.student_code).trim().match(/^HS[-_]?0*(\d+)$/i);
+        if (m) {
+          const num = parseInt(m[1], 10);
+          if (num > maxNum) maxNum = num;
+        }
+      }
+      studentCode = `HS${String(maxNum + 1).padStart(2, "0")}`;
+    } catch {
+      studentCode = `HS${Math.floor(1000 + Math.random() * 9000)}`;
+    }
+
     const formattedZalo =
       zalo_link && zalo_link.trim() !== ""
         ? zalo_link.startsWith("http")
           ? zalo_link
-          : `https://zalo.me/${phone.replace(/\D/g, "")}`
-        : `https://zalo.me/${phone.replace(/\D/g, "")}`;
+          : (phone ? `https://zalo.me/${phone.replace(/\D/g, "")}` : "")
+        : (phone ? `https://zalo.me/${phone.replace(/\D/g, "")}` : "");
 
     await db.execute({
       sql: `INSERT INTO students (
@@ -377,7 +398,7 @@ export async function POST(req: Request) {
         targetSchoolId,
         studentCode,
         name.trim(),
-        phone.trim(),
+        phone ? phone.trim() : "",
         formattedZalo,
         zalo_chat_id ? String(zalo_chat_id).trim() : null,
         level_id,
