@@ -298,20 +298,25 @@ export default function TeacherPortal() {
     }
   };
 
-  // Filter students
+  // Filter students (An toàn tuyệt đối nếu học viên chưa có số điện thoại)
   const filteredStudents = students.filter((s) => {
+    const q = searchQuery.toLowerCase().trim();
+    if (!q) return true;
     return (
-      s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      s.phone.includes(searchQuery) ||
-      (s.level_name && s.level_name.toLowerCase().includes(searchQuery.toLowerCase()))
+      (s.name && s.name.toLowerCase().includes(q)) ||
+      (s.phone && s.phone.includes(q)) ||
+      (s.level_name && s.level_name.toLowerCase().includes(q)) ||
+      (s.class_name && s.class_name.toLowerCase().includes(q))
     );
   });
 
   const filteredMakeups = makeups.filter((m) => {
+    const q = searchQuery.toLowerCase().trim();
+    if (!q) return true;
     return (
-      m.student_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      m.student_phone.includes(searchQuery) ||
-      (m.level_name && m.level_name.toLowerCase().includes(searchQuery.toLowerCase()))
+      (m.student_name && m.student_name.toLowerCase().includes(q)) ||
+      (m.student_phone && m.student_phone.includes(q)) ||
+      (m.level_name && m.level_name.toLowerCase().includes(q))
     );
   });
 
@@ -475,7 +480,7 @@ export default function TeacherPortal() {
                 </div>
 
                 {/* Assigned Teaching Slots Badge */}
-                {activeTeacher.assigned_slot_ids && activeTeacher.assigned_slot_ids.length > 0 && (
+                {Array.isArray(activeTeacher.assigned_slot_ids) && activeTeacher.assigned_slot_ids.length > 0 && (
                   <div className="pt-2 border-t border-white/20 text-xs">
                     <span className="text-blue-200 block text-[10px] uppercase font-bold flex items-center gap-1">
                       <Clock className="w-3 h-3 text-blue-200" /> Ca dạy được phân công:
@@ -671,13 +676,19 @@ export default function TeacherPortal() {
                           <span>Chat Zalo</span>
                         </a>
                       )}
-                      <a
-                        href={`tel:${st.phone}`}
-                        className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/50 dark:text-emerald-300 font-semibold transition"
-                      >
-                        <Phone className="w-3.5 h-3.5 text-emerald-600" />
-                        <span>Gọi Điện</span>
-                      </a>
+                      {st.phone ? (
+                        <a
+                          href={`tel:${st.phone}`}
+                          className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/50 dark:text-emerald-300 font-semibold transition"
+                        >
+                          <Phone className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>Gọi Điện</span>
+                        </a>
+                      ) : (
+                        <span className="text-[11px] text-amber-600 dark:text-amber-400 font-semibold px-2 py-1 rounded-lg bg-amber-50 dark:bg-amber-950/40">
+                          Chưa có SĐT
+                        </span>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -929,22 +940,30 @@ export default function TeacherPortal() {
                     </div>
 
                     <div className="flex items-center justify-end gap-2 pt-1 text-xs">
-                      <a
-                        href={`https://zalo.me/${mk.student_phone.replace(/\D/g, "")}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 text-blue-700 hover:bg-blue-100 font-bold"
-                      >
-                        <MessageCircle className="w-3.5 h-3.5 text-blue-600" />
-                        <span>Chat Zalo</span>
-                      </a>
-                      <a
-                        href={`tel:${mk.student_phone}`}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold transition"
-                      >
-                        <Phone className="w-3.5 h-3.5 text-slate-500" />
-                        <span>Gọi Điện</span>
-                      </a>
+                      {mk.student_phone && (
+                        <a
+                          href={`https://zalo.me/${mk.student_phone.replace(/\D/g, "")}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 text-blue-700 hover:bg-blue-100 font-bold"
+                        >
+                          <MessageCircle className="w-3.5 h-3.5 text-blue-600" />
+                          <span>Chat Zalo</span>
+                        </a>
+                      )}
+                      {mk.student_phone ? (
+                        <a
+                          href={`tel:${mk.student_phone}`}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold transition"
+                        >
+                          <Phone className="w-3.5 h-3.5 text-slate-500" />
+                          <span>Gọi Điện</span>
+                        </a>
+                      ) : (
+                        <span className="text-[11px] text-amber-600 dark:text-amber-400 font-semibold px-2 py-1 rounded-lg bg-amber-50 dark:bg-amber-950/40">
+                          Chưa có SĐT
+                        </span>
+                      )}
                     </div>
                   </div>
                 ))}

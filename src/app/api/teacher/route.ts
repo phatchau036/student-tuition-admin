@@ -38,7 +38,21 @@ export async function GET(req: Request) {
       return NextResponse.json({ success: false, message: "Không tìm thấy giáo viên!" }, { status: 404 });
     }
 
-    const teacher = teacherRes.rows[0];
+    const rawTeacher = teacherRes.rows[0];
+    let parsedAssignedSlotIds: string[] = [];
+    try {
+      if (Array.isArray(rawTeacher.assigned_slot_ids)) {
+        parsedAssignedSlotIds = rawTeacher.assigned_slot_ids;
+      } else if (rawTeacher.assigned_slot_ids) {
+        const p = JSON.parse(String(rawTeacher.assigned_slot_ids));
+        if (Array.isArray(p)) parsedAssignedSlotIds = p;
+      }
+    } catch {}
+
+    const teacher = {
+      ...rawTeacher,
+      assigned_slot_ids: parsedAssignedSlotIds,
+    };
 
     // 1. Get Regular Students of this teacher (kèm thông tin Lớp học và Quỹ Giờ Học Bù)
     const walletRes = await db.execute(`
