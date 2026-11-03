@@ -151,11 +151,11 @@ export async function POST(req: Request) {
           sql: `UPDATE students SET class_id = NULL WHERE class_id = ?`,
           args: [id],
         });
-        // Gán các học sinh mới
+        // Gán các học sinh mới (học sinh vào lớp sẽ do các ca dạy của lớp phụ trách, không ép teacher_id)
         for (const stId of assigned_student_ids) {
           await db.execute({
-            sql: `UPDATE students SET class_id = ?, teacher_id = COALESCE(?, teacher_id) WHERE id = ?`,
-            args: [id, teacher_id || null, stId],
+            sql: `UPDATE students SET class_id = ?, teacher_id = NULL WHERE id = ?`,
+            args: [id, stId],
           });
         }
       }
@@ -193,12 +193,12 @@ export async function POST(req: Request) {
       ],
     });
 
-    // Gán học sinh vào lớp mới tạo
+    // Gán học sinh vào lớp mới tạo (học sinh vào lớp sẽ do các ca dạy của lớp phụ trách, không ép teacher_id)
     if (Array.isArray(assigned_student_ids) && assigned_student_ids.length > 0) {
       for (const stId of assigned_student_ids) {
         await db.execute({
-          sql: `UPDATE students SET class_id = ?, teacher_id = COALESCE(?, teacher_id) WHERE id = ?`,
-          args: [newId, teacher_id || null, stId],
+          sql: `UPDATE students SET class_id = ?, teacher_id = NULL WHERE id = ?`,
+          args: [newId, stId],
         });
       }
     }

@@ -252,7 +252,7 @@ export async function GET(req: Request) {
       // Ghép học sinh thuộc ca dạy
       for (const shift of shifts) {
         for (const st of allActiveStudentsRes.rows) {
-          if (st.class_id === shift.class_id || st.teacher_id === teacherId) {
+          if (st.class_id === shift.class_id || (!st.class_id && st.teacher_id === teacherId)) {
             if (studentMatchesShift(st as any, day, shift.start_time, shift.end_time)) {
               shift.students.push({
                 id: String(st.id),
@@ -284,9 +284,9 @@ export async function GET(req: Request) {
       }
     }
 
-    // Bổ sung học sinh được gán kèm trực tiếp teacher_id
+    // Bổ sung học sinh được kèm riêng (chưa vào lớp) có teacher_id bằng teacherId
     for (const st of allActiveStudentsRes.rows) {
-      if (st.teacher_id === teacherId) {
+      if (!st.class_id && st.teacher_id === teacherId) {
         taughtStudentIds.add(String(st.id));
       }
     }
@@ -317,7 +317,7 @@ export async function GET(req: Request) {
       });
 
     // 2. Get MakeUp Students attending classes (Today or Upcoming)
-    // Check if there are students who scheduled makeup with this teacher or in slots
+    // Check if there are students who scheduled makeup with this teacher or in teacher's classes
     const makeupsRes = await db.execute({
       sql: `
         SELECT m.*, st.name as student_name, st.phone as student_phone, st.level_id, l.level_name
@@ -325,7 +325,7 @@ export async function GET(req: Request) {
         JOIN students st ON m.student_id = st.id
         LEFT JOIN level_surcharges l ON st.level_id = l.id
         WHERE (m.makeup_teacher_id = ? 
-               OR st.teacher_id = ? 
+               OR (st.class_id IS NULL AND st.teacher_id = ?) 
                OR m.class_id IN (SELECT id FROM classes WHERE teacher_id = ? OR teacher_assignments_json LIKE ?))
           AND m.status IN ('scheduled', 'completed', 'pending')
         ORDER BY COALESCE(m.makeup_date, m.absence_date) DESC

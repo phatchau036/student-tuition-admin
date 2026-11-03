@@ -163,7 +163,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
       setSubjectId(studentToEdit.subject_id || (subjects[0]?.id ?? ""));
       setClassId(studentToEdit.class_id || "");
       setTimeSlotId(studentToEdit.time_slot_id || (timeSlots[0]?.id ?? ""));
-      setTeacherId(studentToEdit.teacher_id || (teachers[0]?.id ?? ""));
+      setTeacherId(studentToEdit.class_id ? "" : (studentToEdit.teacher_id || ""));
       setTuitionPackageId(studentToEdit.tuition_package_id || "");
       setStartDate(studentToEdit.start_date || "");
 
@@ -423,7 +423,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
           subject_id: subjectId || null,
           class_id: classId || null,
           time_slot_id: timeSlotId || "",
-          teacher_id: teacherId || null,
+          teacher_id: classId ? null : (teacherId || null),
           tuition_package_id: tuitionPackageId || null,
           start_date: startDate.trim() || null,
           duration_mode: "by_sessions",
