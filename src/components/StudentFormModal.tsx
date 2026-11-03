@@ -16,6 +16,7 @@ import {
   getDayStartTimes,
   getDayEndTimes,
 } from "@/lib/tuition";
+import { checkClassCapacityForSchedule } from "@/lib/shiftDetection";
 import { useToast } from "@/components/Toast";
 import {
   User,
@@ -42,6 +43,8 @@ import {
   Sparkles,
   BookOpen,
   Building2,
+  Users,
+  ShieldAlert,
 } from "lucide-react";
 
 interface StudentFormModalProps {
@@ -57,6 +60,7 @@ interface StudentFormModalProps {
   tuitionPackages?: TuitionPackage[];
   subjects?: Subject[];
   classes?: ClassRoom[];
+  students?: Student[];
   schedulePresets?: SchedulePreset[];
   schoolId?: string;
   defaultDurationMode?: "by_hours" | "by_sessions";
@@ -100,6 +104,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
   tuitionPackages = [],
   subjects = [],
   classes = [],
+  students = [],
   schedulePresets = [],
   schoolId,
   defaultDurationMode = "by_hours",
@@ -308,6 +313,19 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
   });
   const liveTuition = liveBreakdown.finalTuition;
 
+  // Kiểm tra sĩ số thực tế theo ca & ngày của lớp học được chọn
+  const classCapacityCheck = React.useMemo(() => {
+    if (!classId) return null;
+    return checkClassCapacityForSchedule({
+      selectedClassId: classId,
+      selectedDays,
+      sessionTimeStr: fixedSessionTime,
+      classes,
+      allStudents: students,
+      excludeStudentId: studentToEdit?.id,
+    });
+  }, [classId, selectedDays, fixedSessionTime, classes, students, studentToEdit?.id]);
+
   const handleApplyPreset = (preset: SchedulePreset) => {
     setSelectedPresetId(preset.id);
     setSelectedPresetName(preset.name);
@@ -353,6 +371,15 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
 
     if (selectedDays.length === 0) {
       showToast("Vui lòng chọn ít nhất 1 ngày học trong tuần!", "error");
+      return;
+    }
+
+    // Kiểm tra ràng buộc sĩ số tối đa theo ca của lớp
+    if (classCapacityCheck && classCapacityCheck.isOverCapacity) {
+      showToast(
+        classCapacityCheck.warningMessage || "Ca học của lớp đã đạt sĩ số tối đa, không thể lưu thêm học sinh!",
+        "error"
+      );
       return;
     }
 
@@ -585,20 +612,22 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                     const matchedClass = classes.find((c) => c.id === cId);
                     if (matchedClass) {
                       if (matchedClass.subject_id) setSubjectId(matchedClass.subject_id);
-                      // Tự động gợi ý lịch học nếu lớp có lịch
-                      try {
-                        if (matchedClass.schedule_json) {
-                          const parsed = JSON.parse(matchedClass.schedule_json);
-                          if (Array.isArray(parsed) && parsed.length > 0) {
-                            const days = parsed.map((item: any) => item.day);
-                            setSelectedDays(days);
-                            const first = parsed[0];
-                            if (first.start_time && first.end_time) {
-                              setFixedSessionTime(`${first.start_time} - ${first.end_time}`);
+                      // Chỉ gợi ý điền lịch mở của lớp khi tạo học sinh mới hoàn toàn và chưa có ngày nào được chọn
+                      if (!studentToEdit && selectedDays.length === 0) {
+                        try {
+                          if (matchedClass.schedule_json) {
+                            const parsed = JSON.parse(matchedClass.schedule_json);
+                            if (Array.isArray(parsed) && parsed.length > 0) {
+                              const days = parsed.map((item: any) => item.day);
+                              setSelectedDays(days);
+                              const first = parsed[0];
+                              if (first.start_time && first.end_time) {
+                                setFixedSessionTime(`${first.start_time} - ${first.end_time}`);
+                              }
                             }
                           }
-                        }
-                      } catch {}
+                        } catch {}
+                      }
                     }
                   }}
                   className="w-full pl-10 pr-4 py-2.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 outline-none hover:border-slate-300 transition"
@@ -606,7 +635,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                   <option value="">-- Chưa gán lớp --</option>
                   {classes.map((cls) => (
                     <option key={cls.id} value={cls.id}>
-                      {cls.name} {cls.room ? `(${cls.room})` : ""} - {cls.student_count || 0} HS
+                      {cls.name} {cls.room ? `(${cls.room})` : ""} - {cls.student_count || 0}/{cls.max_students || 10} HS
                     </option>
                   ))}
                 </select>
@@ -828,6 +857,106 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                 </div>
               </div>
             </div>
+
+            {/* CẢNH BÁO / THÔNG TIN SĨ SỐ CA HỌC CỦA LỚP */}
+            {classCapacityCheck && (
+              <div
+                className={`p-3.5 rounded-2xl border transition ${
+                  classCapacityCheck.isOverCapacity
+                    ? "bg-rose-50/90 dark:bg-rose-950/40 border-rose-300 dark:border-rose-800"
+                    : classCapacityCheck.peakOccupiedCount >= classCapacityCheck.maxCapacity * 0.8
+                    ? "bg-amber-50/90 dark:bg-amber-950/40 border-amber-300 dark:border-amber-800"
+                    : "bg-emerald-50/90 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/60"
+                }`}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    {classCapacityCheck.isOverCapacity ? (
+                      <div className="w-6 h-6 rounded-lg bg-rose-600 text-white flex items-center justify-center shrink-0">
+                        <ShieldAlert className="w-3.5 h-3.5 stroke-[2.5]" />
+                      </div>
+                    ) : (
+                      <div className="w-6 h-6 rounded-lg bg-indigo-600 text-white flex items-center justify-center shrink-0">
+                        <Users className="w-3.5 h-3.5 stroke-[2.5]" />
+                      </div>
+                    )}
+                    <div>
+                      <span className="text-xs font-black uppercase tracking-wider block text-slate-900 dark:text-white">
+                        Kiểm Tra Sĩ Số Ca Lớp Thực Tế
+                      </span>
+                      <span className="text-[11px] text-slate-600 dark:text-slate-300">
+                        Khung giờ: <strong>{fixedSessionTime || "18:00 - 19:30"}</strong> • Sĩ số tối đa: <strong>{classCapacityCheck.maxCapacity} HS / ca</strong>
+                      </span>
+                    </div>
+                  </div>
+
+                  <span
+                    className={`text-[10px] font-black uppercase px-2.5 py-1 rounded-lg shrink-0 ${
+                      classCapacityCheck.isOverCapacity
+                        ? "bg-rose-600 text-white shadow-xs"
+                        : classCapacityCheck.peakOccupiedCount >= classCapacityCheck.maxCapacity * 0.8
+                        ? "bg-amber-500 text-white"
+                        : "bg-emerald-600 text-white"
+                    }`}
+                  >
+                    {classCapacityCheck.isOverCapacity
+                      ? "⚠️ ĐÃ ĐẦY CA"
+                      : `SĨ SỐ CA: ${classCapacityCheck.peakOccupiedCount}/${classCapacityCheck.maxCapacity} HS`}
+                  </span>
+                </div>
+
+                {/* Danh sách sĩ số từng ngày đã chọn */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 mt-2.5 pt-2 border-t border-slate-200/60 dark:border-slate-800">
+                  {classCapacityCheck.dayDetails.map((dayItem) => {
+                    const percent = Math.min(100, Math.round((dayItem.occupiedCount / (dayItem.maxCapacity || 1)) * 100));
+                    return (
+                      <div
+                        key={dayItem.day}
+                        className={`p-2 rounded-xl border text-[11px] flex flex-col justify-between ${
+                          dayItem.isOverCapacity
+                            ? "bg-rose-100/70 dark:bg-rose-900/50 border-rose-300 dark:border-rose-700 text-rose-900 dark:text-rose-200"
+                            : "bg-white/80 dark:bg-slate-900/80 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between font-bold mb-1">
+                          <span>{dayItem.day}</span>
+                          <span className={`font-black ${dayItem.isOverCapacity ? "text-rose-600 dark:text-rose-400" : "text-indigo-600 dark:text-indigo-400"}`}>
+                            {dayItem.occupiedCount}/{dayItem.maxCapacity}
+                          </span>
+                        </div>
+
+                        {/* Thanh phần trăm sĩ số */}
+                        <div className="w-full bg-slate-200 dark:bg-slate-700 h-1.5 rounded-full overflow-hidden mb-1">
+                          <div
+                            className={`h-full transition-all duration-300 rounded-full ${
+                              dayItem.isOverCapacity
+                                ? "bg-rose-600"
+                                : percent >= 80
+                                ? "bg-amber-500"
+                                : "bg-emerald-500"
+                            }`}
+                            style={{ width: `${percent}%` }}
+                          />
+                        </div>
+
+                        <span className="text-[9px] text-slate-500 dark:text-slate-400 truncate">
+                          {dayItem.isOverCapacity
+                            ? "Hết chỗ nhận thêm"
+                            : `Còn trống ${dayItem.remainingSlots} chỗ`}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {classCapacityCheck.warningMessage && (
+                  <p className="text-[11px] font-bold text-rose-600 dark:text-rose-400 mt-2 flex items-center gap-1.5 bg-rose-100/50 dark:bg-rose-900/30 px-2.5 py-1.5 rounded-lg border border-rose-200 dark:border-rose-800/50">
+                    <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                    <span>{classCapacityCheck.warningMessage}</span>
+                  </p>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Discount Section */}
@@ -936,11 +1065,17 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
             </button>
             <button
               type="submit"
-              disabled={isSaving}
-              className="flex items-center gap-1.5 px-5 py-2.5 text-xs font-black uppercase tracking-wider text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-md shadow-indigo-600/25 transition disabled:opacity-50"
+              disabled={isSaving || Boolean(classCapacityCheck && classCapacityCheck.isOverCapacity)}
+              className="flex items-center gap-1.5 px-5 py-2.5 text-xs font-black uppercase tracking-wider text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-md shadow-indigo-600/25 transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Save className="w-4 h-4 stroke-[2.5]" />
-              {isSaving ? "Đang lưu..." : studentToEdit ? "Lưu thay đổi" : "Tạo học sinh"}
+              {isSaving
+                ? "Đang lưu..."
+                : classCapacityCheck?.isOverCapacity
+                ? "Ca học đã đầy"
+                : studentToEdit
+                ? "Lưu thay đổi"
+                : "Tạo học sinh"}
             </button>
           </div>
         </form>

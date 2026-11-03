@@ -2459,6 +2459,7 @@ export default function Dashboard() {
         tuitionPackages={tuitionPackages}
         subjects={subjects}
         classes={classes}
+        students={students}
         schedulePresets={schedulePresets}
         schoolId={currentSchool?.id}
         defaultDurationMode={durationMode}
