@@ -522,40 +522,47 @@ export function parseStudentScheduleSlots(
       if (Array.isArray(items) && items.length > 0) {
         for (const item of items) {
           if (item.day) {
-            // Tách giờ bắt đầu và chuẩn hóa an toàn tuyệt đối tránh NaN
-            let start = String(item.start_time || "").trim();
-            let end = String(item.end_time || "").trim();
+            // Tách giờ bắt đầu và chuẩn hóa an toàn tuyệt đối, loại bỏ tiền tố thứ để không bị nhầm T2/T3/T4 thành 02:00
+            const rawStart = String(item.start_time || "").trim();
+            const rawEnd = String(item.end_time || "").trim();
             let startHour = 18;
+            let timeDetail = "";
 
-            // Xử lý nếu start_time dính chữ như "T4 (17h - 18h30)" hoặc "17h" hoặc "17:00"
-            const hourMatch = start.replace(/(?:Thứ\s*[2-7]|Chủ\s*Nhật|CN|T[2-7]|S7|C7)\b/gi, " ").match(/(\d{1,2})/);
-            if (hourMatch) {
-              const parsedH = parseInt(hourMatch[1], 10);
-              if (!isNaN(parsedH) && parsedH >= 0 && parsedH <= 23) {
-                startHour = parsedH;
+            const combined = `${rawStart} - ${rawEnd}`;
+            const clean = combined.replace(/(?:Thứ\s*[2-7]|Chủ\s*Nhật|CN|T[2-7]|S7|C7)\b/gi, " ");
+
+            const rangeMatch = clean.match(
+              /(\d{1,2})(?:\s*h\s*(\d{2})?|\s*:\s*(\d{2}))?\s*[-–to~]\s*(\d{1,2})(?:\s*h\s*(\d{2})?|\s*:\s*(\d{2}))?/i
+            );
+
+            if (rangeMatch) {
+              const sH = parseInt(rangeMatch[1], 10);
+              const sM = rangeMatch[2] || rangeMatch[3] || "00";
+              let eH = parseInt(rangeMatch[4], 10);
+              const eM = rangeMatch[5] || rangeMatch[6] || "00";
+              if (!isNaN(sH) && sH >= 0 && sH <= 23) {
+                if (!isNaN(eH) && eH < sH && eH <= 5) eH += 12;
+                const validEH = !isNaN(eH) ? eH : sH + 1;
+                startHour = sH;
+                timeDetail = `${String(sH).padStart(2, "0")}:${sM} - ${String(validEH).padStart(2, "0")}:${eM}`;
+              }
+            } else {
+              const singleMatch = clean.match(/(\d{1,2})(?:\s*h\s*(\d{2})?|\s*:\s*(\d{2}))/i);
+              if (singleMatch) {
+                const sH = parseInt(singleMatch[1], 10);
+                const sM = singleMatch[2] || singleMatch[3] || "00";
+                if (!isNaN(sH) && sH >= 0 && sH <= 23) {
+                  startHour = sH;
+                  timeDetail = `${String(sH).padStart(2, "0")}:${sM} - ${String(sH + 1).padStart(2, "0")}:${sM}`;
+                }
               }
             }
 
-            const slotHourStr = `${String(startHour).padStart(2, "0")}h`;
-            let timeDetail = "";
-
-            if (start && end && !isNaN(startHour)) {
-              const sDigits = start.match(/(\d{1,2})(?::(\d{2})|h(\d{2})?)?/i);
-              const eDigits = end.match(/(\d{1,2})(?::(\d{2})|h(\d{2})?)?/i);
-              const sH = sDigits ? parseInt(sDigits[1], 10) : startHour;
-              const sM = sDigits ? sDigits[2] || sDigits[3] || "00" : "00";
-              let eH = eDigits ? parseInt(eDigits[1], 10) : sH + 1;
-              const eM = eDigits ? eDigits[2] || eDigits[3] || "00" : "00";
-
-              if (eH < sH) {
-                if (sH >= 8 && sH <= 11 && eH === 1) eH = 11;
-                else if (eH <= 5) eH += 12;
-              }
-              timeDetail = `${String(sH).padStart(2, "0")}:${sM} - ${String(eH).padStart(2, "0")}:${eM}`;
-            } else {
+            if (!timeDetail) {
               timeDetail = `${String(startHour).padStart(2, "0")}:00 - ${String(startHour + 1).padStart(2, "0")}:00`;
             }
 
+            const slotHourStr = `${String(startHour).padStart(2, "0")}h`;
             const classTeachers = findClassTeachersForSlot(item.day, startHour);
 
             results.push({
