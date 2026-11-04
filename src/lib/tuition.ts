@@ -521,30 +521,39 @@ export function parseStudentScheduleSlots(
       const items = JSON.parse(student.schedule_details_json);
       if (Array.isArray(items) && items.length > 0) {
         for (const item of items) {
-          if (item.day && item.start_time) {
-            const startHour = parseInt(item.start_time.split(":")[0], 10);
+          if (item.day) {
+            // Tách giờ bắt đầu và chuẩn hóa an toàn tuyệt đối tránh NaN
+            let start = String(item.start_time || "").trim();
+            let end = String(item.end_time || "").trim();
+            let startHour = 18;
+
+            // Xử lý nếu start_time dính chữ như "T4 (17h - 18h30)" hoặc "17h" hoặc "17:00"
+            const hourMatch = start.replace(/(?:Thứ\s*[2-7]|Chủ\s*Nhật|CN|T[2-7]|S7|C7)\b/gi, " ").match(/(\d{1,2})/);
+            if (hourMatch) {
+              const parsedH = parseInt(hourMatch[1], 10);
+              if (!isNaN(parsedH) && parsedH >= 0 && parsedH <= 23) {
+                startHour = parsedH;
+              }
+            }
+
             const slotHourStr = `${String(startHour).padStart(2, "0")}h`;
-            let start = item.start_time.trim();
-            let end = (item.end_time || "").trim();
             let timeDetail = "";
 
-            if (start && end) {
-              const [sH, sM] = start.split(":").map(Number);
-              let [eH, eM] = end.split(":").map(Number);
-              // Tự động chuẩn hóa giờ: ví dụ 09:30 - 01:00 gõ thiếu số 1 thành 11:00, hoặc giờ chiều 1h => 13:00
+            if (start && end && !isNaN(startHour)) {
+              const sDigits = start.match(/(\d{1,2})(?::(\d{2})|h(\d{2})?)?/i);
+              const eDigits = end.match(/(\d{1,2})(?::(\d{2})|h(\d{2})?)?/i);
+              const sH = sDigits ? parseInt(sDigits[1], 10) : startHour;
+              const sM = sDigits ? sDigits[2] || sDigits[3] || "00" : "00";
+              let eH = eDigits ? parseInt(eDigits[1], 10) : sH + 1;
+              const eM = eDigits ? eDigits[2] || eDigits[3] || "00" : "00";
+
               if (eH < sH) {
-                if (sH >= 8 && sH <= 11 && eH === 1) {
-                  eH = 11;
-                } else if (eH <= 5) {
-                  eH += 12;
-                }
-                end = `${String(eH).padStart(2, "0")}:${String(eM || 0).padStart(2, "0")}`;
+                if (sH >= 8 && sH <= 11 && eH === 1) eH = 11;
+                else if (eH <= 5) eH += 12;
               }
-              timeDetail = `${start} - ${end}`;
-            } else if (start) {
-              const [sH, sM] = start.split(":").map(Number);
-              const eH = sH + 1;
-              timeDetail = `${start} - ${String(eH).padStart(2, "0")}:${String(sM || 0).padStart(2, "0")}`;
+              timeDetail = `${String(sH).padStart(2, "0")}:${sM} - ${String(eH).padStart(2, "0")}:${eM}`;
+            } else {
+              timeDetail = `${String(startHour).padStart(2, "0")}:00 - ${String(startHour + 1).padStart(2, "0")}:00`;
             }
 
             const classTeachers = findClassTeachersForSlot(item.day, startHour);
@@ -564,12 +573,26 @@ export function parseStudentScheduleSlots(
   }
 
   // Ưu tiên 2: Phân tích thông minh chuỗi study_time_detail
-  // VD: "Thứ 2: 18:00-19:30 (1.5h) | Thứ 4: 18:00-19:30 (1.5h)", "T6 18h-19h30, t7 9h-10h30", "T2-4-6 (17h-18h)"...
+  // VD: "T2, T4 (17h - 18h30)", "T2 (17h - 18h), T3, T4 (19h - 20h)", "Thứ 2: 18:00-19:30 | Thứ 4: 18:00-19:30"
   const rawText = (student.study_time_detail || "").trim();
   if (rawText && !rawText.toLowerCase().includes("linh hoạt")) {
-    const segments = rawText.split(/[,|;]+/).map((s) => s.trim()).filter(Boolean);
+    let clauses: string[] = [];
+    if (/[|;]/.test(rawText)) {
+      clauses = rawText.split(/[|;]+/).map((s) => s.trim()).filter(Boolean);
+    } else if (/\)\s*,\s*(?=[A-Za-zÀ-ỹ0-9])/.test(rawText)) {
+      clauses = rawText
+        .split(/\)\s*,\s*(?=[A-Za-zÀ-ỹ0-9])/)
+        .map((s, idx, arr) => {
+          let res = s.trim();
+          if (idx < arr.length - 1 && !res.endsWith(")")) res += ")";
+          return res;
+        })
+        .filter(Boolean);
+    } else {
+      clauses = [rawText.trim()];
+    }
 
-    for (const seg of segments) {
+    for (const seg of clauses) {
       // 1. Tìm các ngày thứ có trong đoạn (T2, T3, T4, T5, T6, T7, CN, S7, C7)
       const daysFound: string[] = [];
 
@@ -592,7 +615,6 @@ export function parseStudentScheduleSlots(
       }
 
       // 2. Tách mốc giờ học chuẩn xác:
-      // Loại bỏ dải ngày (T2-4-6) và tiền tố "Thứ 2:", "Thứ 7:" để không bị nuốt số ngày làm số giờ!
       let cleanTime = seg.replace(/T[2-7][-_ ]*[2-7][-_ ]*[2-7]?/gi, " ");
       cleanTime = cleanTime.replace(/(?:Thứ\s*[2-7]|Chủ\s*Nhật|CN|T[2-7]|S7|C7)\s*[:\s-]*/gi, " ");
       cleanTime = cleanTime.replace(/\(\s*\d+(?:\.\d+)?\s*(?:h|tiếng|phút|p)\s*\)/gi, " ");
@@ -611,9 +633,9 @@ export function parseStudentScheduleSlots(
         const endH = parseInt(rangeMatch[4], 10);
         const endM = rangeMatch[5] || rangeMatch[6] || "00";
 
-        if (startH >= 6 && startH <= 22) {
+        if (!isNaN(startH) && startH >= 0 && startH <= 23) {
           detectedHourSlot = `${String(startH).padStart(2, "0")}h`;
-          let endHourNum = endH;
+          let endHourNum = !isNaN(endH) ? endH : startH + 1;
           if (endHourNum < startH && endHourNum <= 5) {
             endHourNum += 12;
           }
@@ -627,7 +649,7 @@ export function parseStudentScheduleSlots(
         if (singleMatch) {
           const startH = parseInt(singleMatch[1], 10);
           const startM = singleMatch[2] || singleMatch[3] || "00";
-          if (startH >= 6 && startH <= 22) {
+          if (!isNaN(startH) && startH >= 0 && startH <= 23) {
             detectedHourSlot = `${String(startH).padStart(2, "0")}h`;
             const endH = startH + 1;
             const startStr = `${String(startH).padStart(2, "0")}:${startM}`;
@@ -711,7 +733,7 @@ export function parseStudyTimeToSchedule(raw?: string): {
   let rawClauses: string[] = [];
   if (/[|;]/.test(str)) {
     rawClauses = str.split(/[|;]+/).map((s) => s.trim()).filter(Boolean);
-  } else {
+  } else if (/\)\s*,\s*(?=[A-Za-zÀ-ỹ0-9])/.test(str)) {
     rawClauses = str
       .split(/\)\s*,\s*(?=[A-Za-zÀ-ỹ0-9])/)
       .map((s, idx, arr) => {
@@ -720,6 +742,8 @@ export function parseStudyTimeToSchedule(raw?: string): {
         return res;
       })
       .filter(Boolean);
+  } else {
+    rawClauses = [str.trim()];
   }
 
   const scheduleItems: Array<{

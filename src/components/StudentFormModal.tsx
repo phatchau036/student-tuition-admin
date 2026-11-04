@@ -385,16 +385,42 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
     const finalStudyTimeDetail = fixedSessionTime.trim() || "18:00 - 19:00";
 
     // Tự động đồng bộ schedule_details_json để ma trận xếp lớp nhận diện chính xác
-    const [startPart, endPart] = (finalStudyTimeDetail.includes("-")
-      ? finalStudyTimeDetail.split("-")
-      : ["18:00", "19:30"]
-    ).map((s) => s.trim());
+    // Chuẩn hóa tách giờ thông minh: tránh trường hợp chuỗi chứa dải ngày như "T2, T4 (17h - 18h30)" làm hỏng start_time
+    const cleanTimeStr = finalStudyTimeDetail.replace(/(?:Thứ\s*[2-7]|Chủ\s*Nhật|CN|T[2-7]|S7|C7)\b/gi, " ");
+    const rangeMatch = cleanTimeStr.match(
+      /(\d{1,2})(?:\s*h\s*(\d{2})?|\s*:\s*(\d{2}))?\s*[-–to~]\s*(\d{1,2})(?:\s*h\s*(\d{2})?|\s*:\s*(\d{2}))?/i
+    );
+    let startPart = "18:00";
+    let endPart = "19:30";
+
+    if (rangeMatch) {
+      const sH = parseInt(rangeMatch[1], 10);
+      const sM = rangeMatch[2] || rangeMatch[3] || "00";
+      let eH = parseInt(rangeMatch[4], 10);
+      const eM = rangeMatch[5] || rangeMatch[6] || "00";
+      if (!isNaN(sH) && sH >= 0 && sH <= 23) {
+        if (!isNaN(eH) && eH < sH && eH <= 5) eH += 12;
+        const validEH = !isNaN(eH) ? eH : sH + 1;
+        startPart = `${String(sH).padStart(2, "0")}:${sM}`;
+        endPart = `${String(validEH).padStart(2, "0")}:${eM}`;
+      }
+    } else {
+      const singleMatch = cleanTimeStr.match(/(\d{1,2})(?:\s*h\s*(\d{2})?|\s*:\s*(\d{2}))/i);
+      if (singleMatch) {
+        const sH = parseInt(singleMatch[1], 10);
+        const sM = singleMatch[2] || singleMatch[3] || "00";
+        if (!isNaN(sH) && sH >= 0 && sH <= 23) {
+          startPart = `${String(sH).padStart(2, "0")}:${sM}`;
+          endPart = `${String(sH + 1).padStart(2, "0")}:${sM}`;
+        }
+      }
+    }
 
     const autoItems: ScheduleItem[] = selectedDays.map((d, idx) => ({
       id: String(idx + 1),
       day: d,
-      start_time: startPart || "18:00",
-      end_time: endPart || "19:30",
+      start_time: startPart,
+      end_time: endPart,
       hours: sessionHours,
     }));
     setScheduleItems(autoItems);

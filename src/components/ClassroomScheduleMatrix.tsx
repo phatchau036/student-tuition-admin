@@ -100,10 +100,13 @@ function getSubjectBorderClass(subjectName?: string): string {
   return SUBJECT_BORDER_COLORS.default;
 }
 
-// Chuyển mốc giờ "08h", "17h" thành định dạng "08:00", "17:00"
+// Chuyển mốc giờ "08h", "17h" thành định dạng "08:00", "17:00" (an toàn tuyệt đối chống NaN)
 function formatHourLabel(h: string): string {
-  const clean = h.replace("h", "");
-  return `${clean.padStart(2, "0")}:00`;
+  if (!h) return "18:00";
+  const clean = h.replace("h", "").trim();
+  const num = parseInt(clean, 10);
+  if (isNaN(num)) return "18:00";
+  return `${String(num).padStart(2, "0")}:00`;
 }
 
 interface StudentSlotEntry {
@@ -319,16 +322,25 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
       }
     });
 
-    // Thêm các giờ từ học sinh thực tế
+    // Thêm các giờ từ học sinh thực tế (lọc bỏ triệt để các giá trị NaN)
     students.forEach((st) => {
       if (st.status === "dropped") return;
       const slots = parseStudentScheduleSlots(st, teachers);
       slots.forEach((s) => {
-        if (s.hourSlot) hourSet.add(s.hourSlot);
+        if (s.hourSlot && s.hourSlot.includes("h")) {
+          const num = parseInt(s.hourSlot.replace("h", ""), 10);
+          if (!isNaN(num) && num >= 0 && num <= 23) {
+            hourSet.add(`${String(num).padStart(2, "0")}h`);
+          }
+        }
       });
     });
 
-    let sorted = Array.from(hourSet).sort((a, b) => parseInt(a, 10) - parseInt(b, 10));
+    let sorted = Array.from(hourSet).sort((a, b) => {
+      const numA = parseInt(a.replace("h", ""), 10) || 0;
+      const numB = parseInt(b.replace("h", ""), 10) || 0;
+      return numA - numB;
+    });
 
     // Nếu người dùng chọn "Ẩn giờ trống", chỉ giữ lại những giờ có ít nhất 1 học sinh theo bộ lọc
     if (hideEmptyHours) {
