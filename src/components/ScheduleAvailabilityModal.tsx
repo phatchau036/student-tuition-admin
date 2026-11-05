@@ -1,26 +1,24 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-import { Student, Teacher, TimeSlot, Subject } from "@/lib/types";
-import { parseStudentScheduleSlots } from "@/lib/tuition";
+import { Student, Teacher, TimeSlot, Subject, ClassRoom } from "@/lib/types";
+import { timeToMinutes } from "@/lib/shiftDetection";
 import { useToast } from "@/components/Toast";
 import {
   CalendarCheck,
-  CheckCircle2,
   Clock,
   Copy,
   Check,
   Sparkles,
-  Users,
   User,
   BookOpen,
-  Filter,
   X,
   MessageSquare,
-  ArrowRight,
   Plus,
   Calendar,
-  Send,
+  Layers,
+  Building2,
+  Users,
 } from "lucide-react";
 
 interface ScheduleAvailabilityModalProps {
@@ -28,9 +26,16 @@ interface ScheduleAvailabilityModalProps {
   onClose: () => void;
   students: Student[];
   teachers: Teacher[];
-  timeSlots: TimeSlot[];
+  classes?: ClassRoom[];
+  timeSlots?: TimeSlot[];
   subjects: Subject[];
-  onSelectSlotToEnroll?: (day: string, time: string, teacherId?: string, subjectId?: string) => void;
+  onSelectSlotToEnroll?: (
+    day: string,
+    time: string,
+    teacherId?: string,
+    subjectId?: string,
+    classId?: string
+  ) => void;
 }
 
 const DAYS_OF_WEEK = [
@@ -43,20 +48,35 @@ const DAYS_OF_WEEK = [
   "Chủ Nhật",
 ];
 
-const DEFAULT_HOURS = ["17h", "18h", "19h", "20h"];
-const WEEKEND_HOURS = ["08h", "09h", "10h", "11h", "17h", "18h", "19h", "20h"];
-
-interface SlotVacancy {
+export interface SlotVacancy {
+  id: string;
   day: string;
   hour: string;
+  startTime: string;
+  endTime: string;
   timeRange: string;
-  teacherId: string;
+  classId?: string;
+  className: string;
+  classCode?: string;
+  room?: string;
+  subjectId?: string;
+  subjectName: string;
+  teacherId?: string;
   teacherName: string;
-  teacherSpecialty: string;
+  teacherSpecialty?: string;
+  role?: string;
   occupied: number;
   capacity: number;
   remaining: number;
   students: string[];
+}
+
+function isTimeOverlap(s1: string, e1: string, s2: string, e2: string): boolean {
+  const start1 = timeToMinutes(s1);
+  const end1 = timeToMinutes(e1);
+  const start2 = timeToMinutes(s2);
+  const end2 = timeToMinutes(e2);
+  return Math.max(start1, start2) < Math.min(end1, end2);
 }
 
 export const ScheduleAvailabilityModal: React.FC<ScheduleAvailabilityModalProps> = ({
@@ -64,13 +84,15 @@ export const ScheduleAvailabilityModal: React.FC<ScheduleAvailabilityModalProps>
   onClose,
   students,
   teachers,
-  timeSlots,
+  classes = [],
+  timeSlots = [],
   subjects,
   onSelectSlotToEnroll,
 }) => {
   const { showToast } = useToast();
 
   const [selectedSubject, setSelectedSubject] = useState<string>("all");
+  const [selectedClass, setSelectedClass] = useState<string>("all");
   const [selectedTeacher, setSelectedTeacher] = useState<string>("all");
   const [selectedDay, setSelectedDay] = useState<string>("all");
   const [onlySpacious, setOnlySpacious] = useState<boolean>(false); // Chỉ hiện ca còn >= 3 chỗ
@@ -81,115 +103,290 @@ export const ScheduleAvailabilityModal: React.FC<ScheduleAvailabilityModalProps>
     return teachers.filter((t) => t.is_active !== 0);
   }, [teachers]);
 
-  // Danh sách các mốc giờ có mở ca
-  const dayHoursMap = useMemo(() => {
-    const map: Record<string, string[]> = {};
-    for (const d of DAYS_OF_WEEK) {
-      const isWeekend = d === "Thứ 7" || d === "Chủ Nhật";
-      const baseHours = isWeekend ? WEEKEND_HOURS : DEFAULT_HOURS;
-      const hourSet = new Set<string>(baseHours);
+  const teacherMap = useMemo(() => {
+    return new Map(teachers.map((t) => [t.id, t]));
+  }, [teachers]);
 
-      timeSlots.forEach((slot) => {
-        if (slot.start_time) {
-          const h = parseInt(slot.start_time.split(":")[0], 10);
-          if (!isNaN(h)) hourSet.add(`${String(h).padStart(2, "0")}h`);
-        }
-      });
+  const subjectMap = useMemo(() => {
+    return new Map(subjects.map((s) => [s.id, s.name]));
+  }, [subjects]);
 
-      map[d] = Array.from(hourSet).sort((a, b) => parseInt(a, 10) - parseInt(b, 10));
-    }
-    return map;
-  }, [timeSlots]);
-
-  // Tính toán chi tiết từng ô và số chỗ còn trống
+  // ⭐ TÍNH TOÁN DANH SÁCH CA TRỐNG CHUẨN XÁC THEO LỚP HỌC & CA PHÂN CÔNG
   const vacanciesByDay = useMemo(() => {
-    // 1. Map học sinh vào ô [day][hour][teacherId]
-    const occupancy: Record<string, Record<string, Record<string, Student[]>>> = {};
-
-    for (const d of DAYS_OF_WEEK) {
-      occupancy[d] = {};
-      const hours = dayHoursMap[d] || DEFAULT_HOURS;
-      for (const h of hours) {
-        occupancy[d][h] = {};
-        for (const tc of activeTeachers) {
-          occupancy[d][h][tc.id] = [];
-        }
-      }
-    }
-
-    // Điền học sinh
-    for (const st of students) {
-      if (st.status === "dropped") continue;
-      const slots = parseStudentScheduleSlots(st, activeTeachers);
-
-      for (const slot of slots) {
-        const d = slot.day;
-        const h = slot.hourSlot;
-        const tId = st.teacher_id || slot.detectedTeacherId;
-
-        if (occupancy[d] && tId && occupancy[d][h] && occupancy[d][h][tId]) {
-          occupancy[d][h][tId].push(st);
-        }
-      }
-    }
-
-    // 2. Tổng hợp danh sách ca còn chỗ theo từng thứ
     const result: Record<string, SlotVacancy[]> = {};
-
     for (const d of DAYS_OF_WEEK) {
       result[d] = [];
-      const hours = dayHoursMap[d] || DEFAULT_HOURS;
+    }
 
-      for (const h of hours) {
-        const hNum = parseInt(h.replace("h", ""), 10);
-        const timeRange = `${String(hNum).padStart(2, "0")}:00 - ${String(hNum + 1).padStart(2, "0")}:00`;
+    const activeStudents = students.filter((s) => s.status !== "dropped");
 
-        for (const tc of activeTeachers) {
-          // Lọc theo bộ môn nếu có chọn
-          if (selectedSubject !== "all") {
-            const subObj = subjects.find((s) => s.id === selectedSubject);
-            const subName = subObj?.name?.toLowerCase() || "";
-            const tcSpec = (tc.specialty || "").toLowerCase();
-            if (subName && !tcSpec.includes(subName) && !subName.includes(tcSpec)) {
-              continue;
+    // TRƯỜNG HỢP 1: TÍNH THEO HỆ THỐNG LỚP HỌC (Mô hình chuẩn của cơ sở)
+    if (classes.length > 0) {
+      for (const cls of classes) {
+        if (cls.status === "closed") continue;
+
+        // Bộ lọc lớp học
+        if (selectedClass !== "all" && cls.id !== selectedClass) continue;
+
+        // Bộ lọc bộ môn
+        if (selectedSubject !== "all" && cls.subject_id !== selectedSubject) continue;
+
+        let schList: Array<{ day: string; start_time: string; end_time: string }> = [];
+        try {
+          if (cls.schedule_json) schList = JSON.parse(cls.schedule_json);
+        } catch {}
+
+        let assList: Array<{
+          id?: string;
+          teacher_id: string;
+          day?: string;
+          start_time: string;
+          end_time: string;
+          role?: string;
+        }> = [];
+        try {
+          if (cls.teacher_assignments_json) assList = JSON.parse(cls.teacher_assignments_json);
+        } catch {}
+
+        const clsCapacity = Number(cls.max_students) || 15;
+        const clsSubName = cls.subject_name || (cls.subject_id ? subjectMap.get(cls.subject_id) : "") || "Piano";
+
+        for (const day of DAYS_OF_WEEK) {
+          // Lớp có mở cửa vào ngày này không?
+          const isOpenToday = schList.some(
+            (s) => !s.day || s.day === "Tất cả các ngày" || s.day === day
+          );
+          if (!isOpenToday) continue;
+
+          // Lọc các ca phân công trong ngày này
+          const dayAss = assList.filter(
+            (a) => !a.day || a.day === "Tất cả các ngày" || a.day.includes(day)
+          );
+
+          if (dayAss.length > 0) {
+            // Có phân công ca cụ thể cho từng giáo viên trong lớp
+            for (const ass of dayAss) {
+              if (selectedTeacher !== "all" && ass.teacher_id !== selectedTeacher) {
+                continue;
+              }
+
+              const tc = teacherMap.get(ass.teacher_id);
+              const matchedStudents: string[] = [];
+
+              for (const st of activeStudents) {
+                if (st.class_id === cls.id) {
+                  let match = false;
+                  if (st.schedule_details_json) {
+                    try {
+                      const items = JSON.parse(st.schedule_details_json);
+                      const dayItem = items.find((it: any) => it.day === day);
+                      if (dayItem && dayItem.start_time) {
+                        const sEnd = dayItem.end_time || dayItem.start_time;
+                        if (isTimeOverlap(dayItem.start_time, sEnd, ass.start_time, ass.end_time)) {
+                          match = true;
+                        }
+                      }
+                    } catch {}
+                  }
+
+                  if (!match && st.registered_days && st.registered_days.includes(day)) {
+                    if (st.study_time_detail) {
+                      const range = st.study_time_detail.match(
+                        /(\d{1,2}):(\d{2})\s*[-–to~]\s*(\d{1,2}):(\d{2})/
+                      );
+                      if (range) {
+                        const sStart = `${range[1]}:${range[2]}`;
+                        const sEnd = `${range[3]}:${range[4]}`;
+                        if (isTimeOverlap(sStart, sEnd, ass.start_time, ass.end_time)) {
+                          match = true;
+                        }
+                      }
+                    } else {
+                      match = true;
+                    }
+                  }
+
+                  if (match) {
+                    matchedStudents.push(st.name);
+                  }
+                }
+              }
+
+              const occupied = matchedStudents.length;
+              const remaining = Math.max(0, clsCapacity - occupied);
+
+              if (remaining > 0) {
+                if (onlySpacious && remaining < 3) continue;
+
+                result[day].push({
+                  id: `vac-${cls.id}-${day}-${ass.start_time}-${ass.teacher_id}`,
+                  day,
+                  hour: ass.start_time.split(":")[0] + "h",
+                  startTime: ass.start_time,
+                  endTime: ass.end_time,
+                  timeRange: `${ass.start_time} - ${ass.end_time}`,
+                  classId: cls.id,
+                  className: cls.name,
+                  classCode: cls.code,
+                  room: cls.room,
+                  subjectId: cls.subject_id,
+                  subjectName: clsSubName,
+                  teacherId: ass.teacher_id,
+                  teacherName: tc ? tc.name : "Giáo viên",
+                  teacherSpecialty: tc?.specialty || clsSubName,
+                  role: ass.role || "Đứng lớp",
+                  occupied,
+                  capacity: clsCapacity,
+                  remaining,
+                  students: matchedStudents,
+                });
+              }
             }
-          }
+          } else {
+            // Lớp mở chung ca theo schedule_json và giáo viên chủ nhiệm
+            const daySchedules = schList.filter(
+              (s) => !s.day || s.day === "Tất cả các ngày" || s.day === day
+            );
 
-          // Lọc theo giáo viên nếu có chọn
-          if (selectedTeacher !== "all" && tc.id !== selectedTeacher) {
-            continue;
-          }
+            for (const s of daySchedules) {
+              if (selectedTeacher !== "all" && cls.teacher_id && cls.teacher_id !== selectedTeacher) {
+                continue;
+              }
 
-          const currentStudents = occupancy[d]?.[h]?.[tc.id] || [];
-          const occupiedCount = currentStudents.length;
-          const capacity = tc.max_students || 10;
-          const remaining = Math.max(0, capacity - occupiedCount);
+              const tc = cls.teacher_id ? teacherMap.get(cls.teacher_id) : undefined;
+              const matchedStudents: string[] = [];
 
-          // Chỉ lấy các ca CÒN CHỖ TRỐNG
-          if (remaining > 0) {
-            if (onlySpacious && remaining < 3) {
-              continue;
+              for (const st of activeStudents) {
+                if (st.class_id === cls.id) {
+                  let match = false;
+                  if (st.schedule_details_json) {
+                    try {
+                      const items = JSON.parse(st.schedule_details_json);
+                      const dayItem = items.find((it: any) => it.day === day);
+                      if (dayItem && dayItem.start_time) {
+                        const sEnd = dayItem.end_time || dayItem.start_time;
+                        if (isTimeOverlap(dayItem.start_time, sEnd, s.start_time, s.end_time)) {
+                          match = true;
+                        }
+                      }
+                    } catch {}
+                  }
+
+                  if (!match && st.registered_days && st.registered_days.includes(day)) {
+                    match = true;
+                  }
+
+                  if (match) matchedStudents.push(st.name);
+                }
+              }
+
+              const occupied = matchedStudents.length;
+              const remaining = Math.max(0, clsCapacity - occupied);
+
+              if (remaining > 0) {
+                if (onlySpacious && remaining < 3) continue;
+
+                result[day].push({
+                  id: `vac-${cls.id}-${day}-${s.start_time}`,
+                  day,
+                  hour: s.start_time.split(":")[0] + "h",
+                  startTime: s.start_time,
+                  endTime: s.end_time,
+                  timeRange: `${s.start_time} - ${s.end_time}`,
+                  classId: cls.id,
+                  className: cls.name,
+                  classCode: cls.code,
+                  room: cls.room,
+                  subjectId: cls.subject_id,
+                  subjectName: clsSubName,
+                  teacherId: cls.teacher_id,
+                  teacherName: tc ? tc.name : "Chưa gán GV",
+                  teacherSpecialty: tc?.specialty || clsSubName,
+                  role: "Chủ nhiệm / Đứng lớp",
+                  occupied,
+                  capacity: clsCapacity,
+                  remaining,
+                  students: matchedStudents,
+                });
+              }
             }
-
-            result[d].push({
-              day: d,
-              hour: h,
-              timeRange,
-              teacherId: tc.id,
-              teacherName: tc.name,
-              teacherSpecialty: tc.specialty || "Piano",
-              occupied: occupiedCount,
-              capacity,
-              remaining,
-              students: currentStudents.map((s) => s.name),
-            });
           }
         }
       }
+    } else {
+      // TRƯỜNG HỢP 2: FALLBACK TÍNH THEO CA CỦA TIME SLOTS / GIÁO VIÊN NẾU CƠ SỞ CHƯA TẠO LỚP
+      for (const d of DAYS_OF_WEEK) {
+        for (const slot of timeSlots) {
+          if (!slot.start_time) continue;
+          const sStart = slot.start_time;
+          const sEnd = slot.end_time || "20:00";
+          const slotCapacity = slot.max_students || 10;
+
+          for (const tc of activeTeachers) {
+            if (selectedTeacher !== "all" && tc.id !== selectedTeacher) continue;
+            if (selectedSubject !== "all") {
+              const subObj = subjects.find((s) => s.id === selectedSubject);
+              if (subObj && tc.specialty && !tc.specialty.toLowerCase().includes(subObj.name.toLowerCase())) {
+                continue;
+              }
+            }
+
+            const matchedStudents: string[] = [];
+            for (const st of activeStudents) {
+              if (st.teacher_id === tc.id && st.registered_days && st.registered_days.includes(d)) {
+                matchedStudents.push(st.name);
+              }
+            }
+
+            const occupied = matchedStudents.length;
+            const remaining = Math.max(0, slotCapacity - occupied);
+            if (remaining > 0) {
+              if (onlySpacious && remaining < 3) continue;
+
+              result[d].push({
+                id: `vac-slot-${slot.id}-${tc.id}-${d}`,
+                day: d,
+                hour: sStart.split(":")[0] + "h",
+                startTime: sStart,
+                endTime: sEnd,
+                timeRange: `${sStart} - ${sEnd}`,
+                className: "Ca mở cửa cơ sở",
+                room: "",
+                subjectName: tc.specialty || "Bộ môn",
+                teacherId: tc.id,
+                teacherName: tc.name,
+                teacherSpecialty: tc.specialty || "GV",
+                role: "Đứng ca",
+                occupied,
+                capacity: slotCapacity,
+                remaining,
+                students: matchedStudents,
+              });
+            }
+          }
+        }
+      }
+    }
+
+    // Sắp xếp các ca trống trong ngày theo giờ bắt đầu tăng dần
+    for (const d of DAYS_OF_WEEK) {
+      result[d].sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime));
     }
 
     return result;
-  }, [students, activeTeachers, dayHoursMap, selectedSubject, selectedTeacher, onlySpacious, subjects]);
+  }, [
+    classes,
+    students,
+    activeTeachers,
+    timeSlots,
+    subjects,
+    selectedSubject,
+    selectedClass,
+    selectedTeacher,
+    onlySpacious,
+    teacherMap,
+    subjectMap,
+  ]);
 
   // Tổng số ca trống tìm được
   const totalAvailableSlots = useMemo(() => {
@@ -202,13 +399,14 @@ export const ScheduleAvailabilityModal: React.FC<ScheduleAvailabilityModalProps>
     return count;
   }, [vacanciesByDay, selectedDay]);
 
-  // Tạo nội dung văn bản tư vấn nhanh cho Zalo / Điện thoại
+  // ⭐ MẪU TIN NHẮN TƯ VẤN ZALO / PHỤ HUYNH CHUẨN XÁC KÈM TÊN LỚP, PHÒNG & GIỜ
   const consultationText = useMemo(() => {
-    const subName = selectedSubject !== "all"
-      ? subjects.find((s) => s.id === selectedSubject)?.name || "Bộ môn"
-      : "các bộ môn";
+    const subName =
+      selectedSubject !== "all"
+        ? subjects.find((s) => s.id === selectedSubject)?.name || "Bộ môn"
+        : "các bộ môn";
 
-    let text = `Dạ Trung Tâm xin gửi Quý Phụ Huynh thông tin các khung giờ học [${subName}] hiện đang CÒN CHỖ:\n\n`;
+    let text = `Dạ Trung Tâm xin gửi Quý Phụ Huynh thông tin các lớp học [${subName}] hiện đang CÒN CHỖ:\n\n`;
 
     const daysToInclude = selectedDay === "all" ? DAYS_OF_WEEK : [selectedDay];
     let hasAny = false;
@@ -219,19 +417,10 @@ export const ScheduleAvailabilityModal: React.FC<ScheduleAvailabilityModalProps>
       hasAny = true;
 
       text += `📅 ${d.toUpperCase()}:\n`;
-      // Gom nhóm theo ca giờ
-      const groupedByHour: Record<string, SlotVacancy[]> = {};
       for (const item of list) {
-        if (!groupedByHour[item.hour]) groupedByHour[item.hour] = [];
-        groupedByHour[item.hour].push(item);
-      }
-
-      for (const h in groupedByHour) {
-        const slotsInHour = groupedByHour[h];
-        const details = slotsInHour
-          .map((s) => `${s.teacherName} (${s.teacherSpecialty}): Còn ${s.remaining} chỗ`)
-          .join(" | ");
-        text += ` • Ca ${h} (${slotsInHour[0].timeRange}): ${details}\n`;
+        const roomDesc = item.room ? ` (${item.room})` : "";
+        const roleDesc = item.role ? ` - ${item.role}` : "";
+        text += ` • ${item.timeRange} | ${item.className}${roomDesc} · GV: ${item.teacherName}${roleDesc} · Còn ${item.remaining} chỗ (Đang học: ${item.occupied}/${item.capacity})\n`;
       }
       text += `\n`;
     }
@@ -249,7 +438,10 @@ export const ScheduleAvailabilityModal: React.FC<ScheduleAvailabilityModalProps>
     if (navigator.clipboard) {
       navigator.clipboard.writeText(consultationText);
       setIsCopied(true);
-      showToast("Đã sao chép nội dung tư vấn! Bạn có thể dán (Ctrl+V) gửi phụ huynh qua Zalo ngay.", "success");
+      showToast(
+        "Đã sao chép nội dung tư vấn! Bạn có thể dán (Ctrl+V) gửi phụ huynh qua Zalo ngay.",
+        "success"
+      );
       setTimeout(() => setIsCopied(false), 3000);
     }
   };
@@ -260,7 +452,7 @@ export const ScheduleAvailabilityModal: React.FC<ScheduleAvailabilityModalProps>
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5 overflow-y-auto font-sans">
       <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl w-full max-w-4xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         {/* Header */}
-        <div className="px-6 py-4.5 border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between bg-gradient-to-r from-amber-500/10 via-indigo-500/5 to-transparent">
+        <div className="px-6 py-4.5 border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between bg-linear-to-r from-amber-500/10 via-indigo-500/5 to-transparent">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center font-black shadow-md shadow-amber-500/25">
               <Sparkles className="w-5 h-5" />
@@ -270,7 +462,7 @@ export const ScheduleAvailabilityModal: React.FC<ScheduleAvailabilityModalProps>
                 <span>Kết Luận Ca Trống & Tư Vấn Tuyển Sinh Nhanh</span>
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Xem nhanh thứ mấy giờ nào còn chỗ theo từng Thầy Cô để tư vấn phụ huynh trong 1 giây
+                Tra cứu chính xác lớp học nào, thứ mấy, phòng nào và giáo viên nào đang còn chỗ
               </p>
             </div>
           </div>
@@ -286,6 +478,25 @@ export const ScheduleAvailabilityModal: React.FC<ScheduleAvailabilityModalProps>
         {/* Toolbar Bộ Lọc Nhanh */}
         <div className="p-4 border-b border-slate-200/80 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-950/30 flex flex-wrap items-center justify-between gap-3 text-xs">
           <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap flex-1">
+            {/* Lọc Lớp Học */}
+            {classes.length > 0 && (
+              <div className="flex items-center gap-1.5 bg-white dark:bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 font-bold">
+                <Layers className="w-3.5 h-3.5 text-blue-600" />
+                <select
+                  value={selectedClass}
+                  onChange={(e) => setSelectedClass(e.target.value)}
+                  className="bg-transparent outline-none text-slate-800 dark:text-slate-200 cursor-pointer"
+                >
+                  <option value="all">Tất cả Lớp học ({classes.length})</option>
+                  {classes.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} {c.room ? `(${c.room})` : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             {/* Lọc Bộ Môn */}
             <div className="flex items-center gap-1.5 bg-white dark:bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 font-bold">
               <BookOpen className="w-3.5 h-3.5 text-indigo-600" />
@@ -314,7 +525,7 @@ export const ScheduleAvailabilityModal: React.FC<ScheduleAvailabilityModalProps>
                 <option value="all">Tất cả Giáo viên ({activeTeachers.length})</option>
                 {activeTeachers.map((tc) => (
                   <option key={tc.id} value={tc.id}>
-                    {tc.name} ({tc.specialty || "GV"})
+                    {tc.name} {tc.specialty ? `(${tc.specialty})` : ""}
                   </option>
                 ))}
               </select>
@@ -388,7 +599,7 @@ export const ScheduleAvailabilityModal: React.FC<ScheduleAvailabilityModalProps>
             <span className="font-extrabold text-slate-800 dark:text-slate-200">
               Tìm thấy <span className="text-emerald-600 text-sm font-black">{totalAvailableSlots} ca</span> còn chỗ tiếp nhận học viên mới:
             </span>
-            <span className="text-slate-400 italic">Bấm &quot;+ Xếp học viên&quot; để ghi danh nhanh vào đúng ca</span>
+            <span className="text-slate-400 italic">Bấm &quot;+ Ghi danh vào ca này&quot; để xếp đúng lớp và giờ học</span>
           </div>
 
           {/* Lưới các Ngày và Ca Trống Chi Tiết */}
@@ -404,7 +615,9 @@ export const ScheduleAvailabilityModal: React.FC<ScheduleAvailabilityModalProps>
                     className="p-3.5 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 text-xs text-slate-400 flex items-center justify-between"
                   >
                     <span className="font-bold">{dayName}: Hiện không có ca trống theo bộ lọc đã chọn</span>
-                    <span className="text-[10px] px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-semibold">Đầy ca</span>
+                    <span className="text-[10px] px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 font-semibold">
+                      Đầy ca
+                    </span>
                   </div>
                 );
               }
@@ -440,51 +653,92 @@ export const ScheduleAvailabilityModal: React.FC<ScheduleAvailabilityModalProps>
 
                   {/* Danh sách các ca của ngày này */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
-                    {list.map((item, idx) => (
-                      <div
-                        key={`${item.day}-${item.hour}-${item.teacherId}-${idx}`}
-                        className="p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-900/40 hover:border-indigo-400 transition flex flex-col justify-between space-y-2 group"
-                      >
-                        <div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-black text-slate-900 dark:text-white">
-                              Ca {item.hour} ({item.timeRange})
-                            </span>
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700">
-                              Còn {item.remaining} chỗ
-                            </span>
-                          </div>
+                    {list.map((item) => {
+                      const percent = Math.min(
+                        100,
+                        Math.round((item.occupied / (item.capacity || 15)) * 100)
+                      );
 
-                          <div className="text-[11px] text-slate-600 dark:text-slate-300 mt-1 flex items-center gap-1.5 font-medium">
-                            <User className="w-3.5 h-3.5 text-indigo-500" />
-                            <span>
-                              <strong>{item.teacherName}</strong> ({item.teacherSpecialty})
-                            </span>
-                          </div>
-
-                          <div className="text-[10px] text-slate-400 mt-0.5">
-                            Hiện có: {item.occupied}/{item.capacity} học viên
-                          </div>
-                        </div>
-
-                        {/* Nút xếp học viên nhanh vào đúng ca này */}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            onClose();
-                            onSelectSlotToEnroll?.(
-                              item.day,
-                              `${item.hour.replace("h", "")}:00`,
-                              item.teacherId
-                            );
-                          }}
-                          className="w-full py-1.5 rounded-lg bg-white dark:bg-slate-800 hover:bg-indigo-600 hover:text-white text-indigo-600 dark:text-indigo-300 border border-indigo-200 dark:border-slate-700 text-[11px] font-black transition flex items-center justify-center gap-1 shadow-2xs cursor-pointer active:scale-95"
+                      return (
+                        <div
+                          key={item.id}
+                          className="p-3.5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-900/40 hover:border-indigo-400 transition flex flex-col justify-between space-y-2.5 group"
                         >
-                          <Plus className="w-3.5 h-3.5" />
-                          <span>Ghi danh vào ca này</span>
-                        </button>
-                      </div>
-                    ))}
+                          <div className="space-y-1.5">
+                            {/* Khung giờ & Chỗ còn */}
+                            <div className="flex items-center justify-between">
+                              <span className="px-2.5 py-0.5 rounded-lg text-xs font-black bg-blue-600 text-white flex items-center gap-1 shadow-xs">
+                                <Clock className="w-3 h-3" />
+                                {item.timeRange}
+                              </span>
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 font-mono">
+                                Còn {item.remaining}/{item.capacity} chỗ
+                              </span>
+                            </div>
+
+                            {/* Tên lớp & Phòng */}
+                            <div className="pt-1 flex items-center justify-between gap-1 flex-wrap">
+                              <strong className="text-sm font-extrabold text-slate-900 dark:text-white flex items-center gap-1">
+                                <Layers className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                                <span>{item.className}</span>
+                              </strong>
+                              {item.room && (
+                                <span className="text-[11px] font-semibold text-slate-500">
+                                  📍 {item.room}
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Giáo viên đứng ca */}
+                            <div className="text-xs text-slate-600 dark:text-slate-300 flex items-center justify-between gap-1">
+                              <span className="flex items-center gap-1">
+                                <User className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                                <strong>{item.teacherName}</strong>
+                              </span>
+                              {item.role && (
+                                <span className="text-[10px] font-bold text-slate-400">
+                                  {item.role}
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Bộ môn */}
+                            <div className="text-[11px] text-slate-500 font-medium">
+                              Môn: <span className="text-indigo-600 dark:text-indigo-400 font-bold">{item.subjectName}</span>
+                            </div>
+
+                            {/* Thanh tiến độ sĩ số */}
+                            <div className="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                              <div
+                                style={{ width: `${percent}%` }}
+                                className={`h-full rounded-full transition-all duration-300 ${
+                                  percent >= 80 ? "bg-amber-500" : percent > 0 ? "bg-emerald-600" : "bg-transparent"
+                                }`}
+                              />
+                            </div>
+                          </div>
+
+                          {/* Nút xếp học viên nhanh vào đúng ca này */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              onClose();
+                              onSelectSlotToEnroll?.(
+                                item.day,
+                                item.startTime,
+                                item.teacherId,
+                                item.subjectId,
+                                item.classId
+                              );
+                            }}
+                            className="w-full py-1.5 rounded-xl bg-white dark:bg-slate-800 hover:bg-indigo-600 hover:text-white text-indigo-600 dark:text-indigo-300 border border-indigo-200 dark:border-slate-700 text-xs font-black transition flex items-center justify-center gap-1 shadow-2xs cursor-pointer active:scale-95"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>Ghi danh vào ca này</span>
+                          </button>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               );
@@ -495,7 +749,7 @@ export const ScheduleAvailabilityModal: React.FC<ScheduleAvailabilityModalProps>
         {/* Footer */}
         <div className="px-6 py-3.5 border-t border-slate-200/80 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/40 flex items-center justify-between text-xs">
           <span className="text-slate-500">
-            Dữ liệu được tính toán theo thời gian thực dựa trên sĩ số học sinh đang học của từng giáo viên.
+            Dữ liệu được đối soát theo thời gian thực dựa trên sĩ số học sinh và phân công ca giảng dạy của từng Lớp học.
           </span>
           <button
             type="button"

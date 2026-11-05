@@ -137,6 +137,7 @@ export default function Dashboard() {
     day?: string;
     time?: string;
     teacherId?: string;
+    classId?: string;
   }>({});
 
   const [isMonthlyModalOpen, setIsMonthlyModalOpen] = useState(false);
@@ -2473,6 +2474,7 @@ export default function Dashboard() {
         defaultHours={defaultHours}
         defaultStudyTime={defaultStudyTime}
         initialTeacherId={slotPrefill.teacherId}
+        initialClassId={slotPrefill.classId}
         initialDay={slotPrefill.day}
         initialStartTime={slotPrefill.time}
       />
@@ -2582,11 +2584,12 @@ export default function Dashboard() {
         onClose={() => setIsAvailabilityModalOpen(false)}
         students={students}
         teachers={teachers}
+        classes={classes}
         timeSlots={timeSlots}
         subjects={subjects}
-        onSelectSlotToEnroll={(day, time, tcId, subId) => {
+        onSelectSlotToEnroll={(day, time, tcId, subId, clsId) => {
           setStudentToEdit(null);
-          setSlotPrefill({ day, time, teacherId: tcId });
+          setSlotPrefill({ day, time, teacherId: tcId, classId: clsId });
           setIsStudentModalOpen(true);
         }}
       />

@@ -68,6 +68,7 @@ interface StudentFormModalProps {
   defaultHours?: number;
   defaultStudyTime?: string;
   initialTeacherId?: string;
+  initialClassId?: string;
   initialDay?: string;
   initialStartTime?: string;
 }
@@ -112,6 +113,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
   defaultHours = 3,
   defaultStudyTime = "18:00 - 19:00",
   initialTeacherId,
+  initialClassId,
   initialDay,
   initialStartTime,
 }) => {
@@ -221,8 +223,9 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
       setZaloChatId("");
       setLevelId(levels[0]?.id || "");
       setSubjectId(subjects[0]?.id || "");
+      setClassId(initialClassId || "");
       setTimeSlotId(timeSlots[0]?.id || "");
-      setTeacherId(initialTeacherId || teachers[0]?.id || "");
+      setTeacherId(initialClassId ? "" : (initialTeacherId || teachers[0]?.id || ""));
       setTuitionPackageId(tuitionPackages[0]?.id || "");
       setStartDate(new Date().toISOString().slice(0, 10)); // Mặc định vào ngày hiện tại
       setDurationMode(defaultDurationMode);
