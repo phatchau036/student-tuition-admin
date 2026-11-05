@@ -100,6 +100,8 @@ interface SlotOccupancy {
   slot_id: string;
   slot_name: string;
   time_range: string;
+  start_time?: string;
+  end_time?: string;
   days?: string;
   max_capacity: number;
   regular_count: number;
@@ -408,19 +410,39 @@ export default function ParentPortal() {
           const firstClassAvail = classesList.find((c) => !c.is_full);
           if (firstClassAvail) {
             setSelectedClassId(firstClassAvail.class_id);
+            // Tìm slot tương ứng với ca của lớp
+            const matchedSlot = supportedSlots.find((s) => {
+              if (firstClassAvail.shifts && firstClassAvail.shifts.length > 0) {
+                const sStart = firstClassAvail.shifts[0].start_time;
+                const sEnd = firstClassAvail.shifts[firstClassAvail.shifts.length - 1].end_time;
+                const slotS = s.start_time || s.time_range.split("-")[0]?.trim() || "";
+                const slotE = s.end_time || s.time_range.split("-")[1]?.trim() || "";
+                return slotS <= sStart && slotE >= sEnd;
+              }
+              return false;
+            }) || supportedSlots.find((s) => !s.is_full) || supportedSlots[0];
+
+            if (matchedSlot) {
+              setSelectedSlotId(matchedSlot.slot_id);
+              setMakeupTime(matchedSlot.time_range);
+            }
           } else if (classesList.length > 0) {
             setSelectedClassId(classesList[0].class_id);
+            const firstSlot = supportedSlots[0];
+            if (firstSlot) {
+              setSelectedSlotId(firstSlot.slot_id);
+              setMakeupTime(firstSlot.time_range);
+            }
           } else {
             setSelectedClassId("");
-          }
-
-          const firstNonFull = supportedSlots.find((s) => !s.is_full);
-          if (firstNonFull) {
-            setSelectedSlotId(firstNonFull.slot_id);
-            setMakeupTime(firstNonFull.time_range);
-          } else {
-            setSelectedSlotId("");
-            setMakeupTime("");
+            const firstNonFull = supportedSlots.find((s) => !s.is_full);
+            if (firstNonFull) {
+              setSelectedSlotId(firstNonFull.slot_id);
+              setMakeupTime(firstNonFull.time_range);
+            } else {
+              setSelectedSlotId("");
+              setMakeupTime("");
+            }
           }
         }
       } catch {
@@ -1583,6 +1605,21 @@ export default function ParentPortal() {
                             onClick={() => {
                               if (!cls.is_full) {
                                 setSelectedClassId(cls.class_id);
+                                // Đồng bộ tự động slot tương ứng của lớp
+                                const matchedSlot = occupancySlots.find((s) => {
+                                  if (cls.shifts && cls.shifts.length > 0) {
+                                    const sStart = cls.shifts[0].start_time;
+                                    const sEnd = cls.shifts[cls.shifts.length - 1].end_time;
+                                    const slotS = s.start_time || s.time_range.split("-")[0]?.trim() || "";
+                                    const slotE = s.end_time || s.time_range.split("-")[1]?.trim() || "";
+                                    return slotS <= sStart && slotE >= sEnd;
+                                  }
+                                  return false;
+                                }) || occupancySlots[0];
+                                if (matchedSlot) {
+                                  setSelectedSlotId(matchedSlot.slot_id);
+                                  setMakeupTime(matchedSlot.time_range);
+                                }
                               }
                             }}
                             className={`p-2.5 rounded-xl border text-xs transition cursor-pointer flex flex-col gap-1 ${
@@ -1641,17 +1678,24 @@ export default function ParentPortal() {
                     <div className="space-y-2">
                       {occupancySlots.map((slot) => {
                         const isSelected = selectedSlotId === slot.slot_id;
+                        const currentPickedClass = occupancyClasses.find((c) => c.class_id === selectedClassId);
+                        // Nếu lớp đang chọn còn chỗ thì khung giờ ca đó không bị khóa
+                        const isSlotDisabled = currentPickedClass ? currentPickedClass.is_full : slot.is_full;
+                        const slotDisplayCount = currentPickedClass ? currentPickedClass.student_count : (slot.total_occupied ?? slot.total_count ?? 0);
+                        const slotDisplayMax = currentPickedClass ? currentPickedClass.max_capacity : slot.max_capacity;
+                        const slotDisplayRemaining = currentPickedClass ? currentPickedClass.remaining_slots : Math.max(0, slot.max_capacity - (slot.total_occupied ?? slot.total_count ?? 0));
+
                         return (
                           <div
                             key={slot.slot_id}
                             onClick={() => {
-                              if (!slot.is_full) {
+                              if (!isSlotDisabled) {
                                 setSelectedSlotId(slot.slot_id);
                                 setMakeupTime(slot.time_range);
                               }
                             }}
                             className={`p-3 rounded-xl border text-xs transition flex items-center justify-between ${
-                              slot.is_full
+                              isSlotDisabled
                                 ? "opacity-60 bg-rose-50/40 dark:bg-rose-950/20 border-rose-200 dark:border-rose-900/50 cursor-not-allowed select-none"
                                 : isSelected
                                 ? "bg-amber-50 dark:bg-amber-950/40 border-amber-500 ring-2 ring-amber-500/20 cursor-pointer"
@@ -1660,21 +1704,21 @@ export default function ParentPortal() {
                           >
                             <div>
                               <div className="flex items-center gap-2">
-                                <span className={`font-bold ${slot.is_full ? "text-slate-400 line-through" : "text-slate-900 dark:text-white"}`}>
+                                <span className={`font-bold ${isSlotDisabled ? "text-slate-400 line-through" : "text-slate-900 dark:text-white"}`}>
                                   {slot.time_range}
                                 </span>
-                                {slot.is_full ? (
+                                {isSlotDisabled ? (
                                   <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border border-rose-300 flex items-center gap-1">
-                                    <AlertCircle className="w-3 h-3" /> Hết suất ({slot.total_occupied ?? slot.total_count ?? 0}/{slot.max_capacity})
+                                    <AlertCircle className="w-3 h-3" /> Hết suất ({slotDisplayCount}/{slotDisplayMax})
                                   </span>
                                 ) : slot.is_crowded ? (
                                   <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 flex items-center gap-1">
                                     <AlertTriangle className="w-3 h-3 text-amber-600" />
-                                    Lớp đông ({slot.total_occupied ?? slot.total_count ?? 0}/{slot.max_capacity})
+                                    Lớp đông ({slotDisplayCount}/{slotDisplayMax})
                                   </span>
                                 ) : (
                                   <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
-                                    Còn {Math.max(0, slot.max_capacity - (slot.total_occupied ?? slot.total_count ?? 0))} chỗ ({slot.total_occupied ?? slot.total_count ?? 0}/{slot.max_capacity})
+                                    Còn {slotDisplayRemaining} chỗ ({slotDisplayCount}/{slotDisplayMax})
                                   </span>
                                 )}
                               </div>
@@ -1684,10 +1728,10 @@ export default function ParentPortal() {
                             <input
                               type="radio"
                               name="slot"
-                              disabled={slot.is_full}
+                              disabled={isSlotDisabled}
                               checked={isSelected}
                               onChange={() => {
-                                if (!slot.is_full) {
+                                if (!isSlotDisabled) {
                                   setSelectedSlotId(slot.slot_id);
                                   setMakeupTime(slot.time_range);
                                 }

@@ -301,7 +301,7 @@ export async function POST(req: Request) {
 
     /* ---------- 4. SCHEDULE MAKEUP (Xếp bù trừ số dư khả dụng) ---------- */
     if (action === "schedule_makeup") {
-      const { student_id, date, start_time, minutes, slot_id, subject_id } = body;
+      const { student_id, date, start_time, minutes, slot_id, subject_id, class_id } = body;
       if (!student_id || !date || !start_time) {
         return NextResponse.json({ success: false, message: "Thiếu thông tin ngày/giờ học bù!" }, { status: 400 });
       }
@@ -353,8 +353,43 @@ export async function POST(req: Request) {
         }
       }
 
-      // Kiểm tra sĩ số theo slot (giữ logic by_slot/by_teacher từ makeups cũ)
-      if (slot_id) {
+      // Kiểm tra sĩ số: ưu tiên theo Lớp học nếu có class_id
+      if (class_id) {
+        const clsRes = await db.execute({
+          sql: "SELECT * FROM classes WHERE id = ?",
+          args: [class_id],
+        });
+        if (clsRes.rows.length > 0) {
+          const cRow = clsRes.rows[0];
+          const classMax = Number(cRow.max_students || 15);
+          const [y, m, d] = date.split("-").map(Number);
+          const dateObj = new Date(y, m - 1, d);
+          const dayIdx = dateObj.getDay();
+          const dayName = dayIdx === 0 ? "Chủ Nhật" : `Thứ ${dayIdx + 1}`;
+
+          const regularRes = await db.execute({
+            sql: "SELECT id, registered_days FROM students WHERE class_id = ? AND status != 'dropped'",
+            args: [class_id],
+          });
+          let regularCount = 0;
+          for (const st of regularRes.rows) {
+            if (String(st.registered_days || "").includes(dayName)) regularCount++;
+          }
+
+          const makeupRes = await db.execute({
+            sql: `SELECT COUNT(*) as cnt FROM lessons WHERE date = ? AND kind = 'makeup' AND status = 'scheduled' AND class_id = ?`,
+            args: [date, class_id],
+          });
+          const makeupCount = Number(makeupRes.rows[0]?.cnt || 0);
+
+          if (regularCount + makeupCount >= classMax) {
+            return NextResponse.json(
+              { success: false, message: `Lớp ${cRow.name} đã đủ sĩ số (${regularCount + makeupCount}/${classMax} - HẾT CHỖ). Vui lòng chọn ca hoặc lớp khác!` },
+              { status: 400 }
+            );
+          }
+        }
+      } else if (slot_id) {
         const defaultMaxCapacity = Number(settingsMap["max_students_per_slot"] || 10);
         const capacityMode = settingsMap["capacity_mode"] || "by_slot";
         const [y, m, d] = date.split("-").map(Number);
@@ -363,11 +398,56 @@ export async function POST(req: Request) {
         const dayName = dayIdx === 0 ? "Chủ Nhật" : `Thứ ${dayIdx + 1}`;
 
         let maxCapacity = defaultMaxCapacity;
+
+        const slotCheck = await db.execute({
+          sql: "SELECT * FROM time_slots WHERE id = ?",
+          args: [slot_id],
+        });
+        const slotStartTime = slotCheck.rows.length > 0 ? String(slotCheck.rows[0].start_time || "17:00") : "17:00";
+        const slotEndTime = slotCheck.rows.length > 0 ? String(slotCheck.rows[0].end_time || "20:00") : "20:00";
+
+        const classesAllRes = await db.execute("SELECT * FROM classes WHERE status = 'active' OR status IS NULL OR status = ''");
+        const classesInSlot = classesAllRes.rows.filter((cRow) => {
+          let schedList: any[] = [];
+          try {
+            if (cRow.schedule_json) schedList = JSON.parse(String(cRow.schedule_json));
+          } catch {}
+          const dayMatch = schedList.some((sc) => !sc.day || sc.day === "Tất cả các ngày" || sc.day === dayName);
+          if (!dayMatch && schedList.length > 0) return false;
+          if (schedList.length === 0) return true;
+          return schedList.some((sc) => {
+            if (sc.day && sc.day !== "Tất cả các ngày" && sc.day !== dayName) return false;
+            const cStart = sc.start_time || "17:00";
+            const cEnd = sc.end_time || "20:00";
+            return cStart < slotEndTime && cEnd > slotStartTime;
+          });
+        });
+        const totalClassCap = classesInSlot.reduce((sum, cRow) => sum + Number(cRow.max_students || defaultMaxCapacity), 0);
+
         if (capacityMode === "by_teacher") {
           const teachersRes = await db.execute("SELECT * FROM teachers WHERE is_active = 1");
           let capTotal = 0;
-          let matched = 0;
+          const countedTids = new Set<string>();
+
+          for (const cRow of classesInSlot) {
+            let assignList: any[] = [];
+            try {
+              if (cRow.teacher_assignments_json) assignList = JSON.parse(String(cRow.teacher_assignments_json));
+            } catch {}
+            for (const a of assignList) {
+              if (!a.day || a.day === "Tất cả các ngày" || a.day.includes(dayName)) {
+                if (a.teacher_id && !countedTids.has(String(a.teacher_id))) {
+                  countedTids.add(String(a.teacher_id));
+                  const tc = teachersRes.rows.find((t) => String(t.id) === String(a.teacher_id));
+                  capTotal += Number(tc?.max_students || defaultMaxCapacity);
+                }
+              }
+            }
+          }
+
           for (const tc of teachersRes.rows) {
+            const tid = String(tc.id);
+            if (countedTids.has(tid)) continue;
             let assignedSlots: string[] = [];
             let shifts: Array<{ day?: string }> = [];
             try {
@@ -381,17 +461,17 @@ export async function POST(req: Request) {
               }
             } catch {}
             if (assignedSlots.includes(String(slot_id)) || shifts.some((s) => s.day === dayName)) {
-              matched++;
+              countedTids.add(tid);
               capTotal += Number(tc.max_students || defaultMaxCapacity);
             }
           }
-          if (matched > 0) maxCapacity = capTotal;
+          if (capTotal > 0) maxCapacity = capTotal;
         } else {
-          const slotCheck = await db.execute({
-            sql: "SELECT max_students FROM time_slots WHERE id = ?",
-            args: [slot_id],
-          });
           if (slotCheck.rows.length > 0) maxCapacity = Number(slotCheck.rows[0].max_students || defaultMaxCapacity);
+        }
+
+        if (totalClassCap > 0) {
+          maxCapacity = Math.max(maxCapacity, totalClassCap);
         }
 
         // Đếm học sinh cố định trùng ca & ngày

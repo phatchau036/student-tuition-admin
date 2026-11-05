@@ -518,6 +518,7 @@ export async function initDb() {
     `);
   } catch {}
   try { await db.execute("ALTER TABLE students ADD COLUMN class_id TEXT DEFAULT NULL"); } catch {}
+  try { await db.execute("ALTER TABLE lessons ADD COLUMN class_id TEXT DEFAULT NULL"); } catch {}
   try { await db.execute("ALTER TABLE classes ADD COLUMN teacher_assignments_json TEXT DEFAULT '[]'"); } catch {}
   try { await db.execute("ALTER TABLE tuition_packages ADD COLUMN original_amount INTEGER DEFAULT 1000000"); } catch {}
   try { await db.execute("ALTER TABLE tuition_packages ADD COLUMN discount_type TEXT DEFAULT 'none'"); } catch {}
