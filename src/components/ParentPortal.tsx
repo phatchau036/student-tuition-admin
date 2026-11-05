@@ -171,10 +171,18 @@ export default function ParentPortal() {
   const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
 
   // Bank Info & Zalo Bot Info from API
-  const [bankInfo, setBankInfo] = useState<{ bank_name: string; account_number: string; prefix: string }>({
+  const [bankInfo, setBankInfo] = useState<{
+    bank_name: string;
+    account_number: string;
+    prefix: string;
+    is_configured?: boolean;
+    reconciliation_mode?: string;
+  }>({
     bank_name: "",
     account_number: "",
     prefix: "HP",
+    is_configured: false,
+    reconciliation_mode: "manual",
   });
   const [zaloBotInfo, setZaloBotInfo] = useState<{ name: string; is_configured: boolean }>({
     name: "",
@@ -185,11 +193,6 @@ export default function ParentPortal() {
   const [isZaloModalOpen, setIsZaloModalOpen] = useState(false);
   const [studentZaloChatIdInput, setStudentZaloChatIdInput] = useState("");
   const [isSubmittingZalo, setIsSubmittingZalo] = useState(false);
-
-  // Tuition Payment Confirmation Modal State
-  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
-  const [paymentNote, setPaymentNote] = useState("");
-  const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
 
   // Active Tab for Parent Portal
   const [activeParentTab, setActiveParentTab] = useState<"schedule" | "tuition" | "contact">("schedule");
@@ -311,42 +314,6 @@ export default function ParentPortal() {
       showToast("Lỗi kết nối máy chủ!", "error");
     } finally {
       setIsSubmittingZalo(false);
-    }
-  };
-
-  // Handle Confirm Tuition Payment
-  const handleConfirmPayment = async () => {
-    if (!activeStudent) return;
-    const amountToPay = activeStudent.is_overdue && activeStudent.total_tuition_due
-      ? activeStudent.total_tuition_due
-      : activeStudent.current_tuition;
-
-    try {
-      setIsSubmittingPayment(true);
-      const res = await fetch("/api/parent", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "confirm_payment",
-          student_id: activeStudent.id,
-          month: activeStudent.current_month,
-          amount: amountToPay,
-          note: paymentNote.trim() || undefined,
-        }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        showToast(data.message, "success");
-        setIsPaymentModalOpen(false);
-        setPaymentNote("");
-        await refreshStudentData();
-      } else {
-        showToast(data.message || "Ghi nhận thanh toán thất bại!", "error");
-      }
-    } catch {
-      showToast("Lỗi kết nối máy chủ!", "error");
-    } finally {
-      setIsSubmittingPayment(false);
     }
   };
 
@@ -801,7 +768,7 @@ export default function ParentPortal() {
                 }`}
               >
                 <CreditCard className="w-3.5 h-3.5" />
-                <span className="truncate">Học phí & QR</span>
+                <span className="truncate">{bankInfo.account_number && bankInfo.bank_name ? "Học phí & QR" : "Học phí"}</span>
                 {activeStudent && !activeStudent.is_paid && (
                   <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse absolute top-1.5 right-1.5" />
                 )}
@@ -1219,10 +1186,10 @@ export default function ParentPortal() {
                     </div>
                   </div>
 
-                  {/* If Not Paid: Show Payment Guide & 1-Click Confirmation */}
+                  {/* If Not Paid: Show Payment Guide or Tuition Notice */}
                   {!activeStudent.is_paid && (
                     <div className="space-y-3 pt-1">
-                      {/* VietQR Quick Scan Box if bank info is set */}
+                      {/* Chỉ hiển thị khung VietQR quét mã chuyển khoản khi trung tâm CÓ thiết lập thanh toán tự đối soát SePay */}
                       {bankInfo.account_number && bankInfo.bank_name ? (
                         <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700 flex flex-col sm:flex-row items-center gap-3.5">
                           <div className="w-32 h-32 rounded-xl bg-white p-1.5 shadow-xs border border-slate-200 shrink-0 flex items-center justify-center">
@@ -1235,7 +1202,7 @@ export default function ParentPortal() {
 
                           <div className="space-y-2 text-xs text-slate-600 dark:text-slate-300 flex-1 w-full">
                             <p className="font-bold text-slate-900 dark:text-white flex items-center gap-1 text-xs">
-                              <QrCode className="w-3.5 h-3.5 text-emerald-600" /> Quét mã VietQR chuyển khoản nhanh:
+                              <QrCode className="w-3.5 h-3.5 text-emerald-600" /> Quét mã VietQR chuyển khoản (Tự động đối soát):
                             </p>
                             <div className="flex items-center justify-between bg-white dark:bg-slate-900 px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700">
                               <span>Ngân hàng: <strong className="text-slate-900 dark:text-white uppercase">{bankInfo.bank_name}</strong></span>
@@ -1270,19 +1237,23 @@ export default function ParentPortal() {
                                 <span>Copy</span>
                               </button>
                             </div>
+
+                            <p className="text-[11px] text-emerald-700 dark:text-emerald-300 font-semibold italic">
+                              Hệ thống tự động ghi nhận học phí ngay khi chuyển khoản đúng cú pháp trên.
+                            </p>
                           </div>
                         </div>
-                      ) : null}
-
-                      {/* Confirm Button */}
-                      <button
-                        type="button"
-                        onClick={() => setIsPaymentModalOpen(true)}
-                        className="w-full py-3 px-4 text-xs font-black rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] text-white shadow-md shadow-emerald-600/30 transition flex items-center justify-center gap-2"
-                      >
-                        <CheckCircle2 className="w-4 h-4" />
-                        <span>Tôi Đã Đóng Học Phí (Xác Nhận & Ghi Nhận Ngay)</span>
-                      </button>
+                      ) : (
+                        <div className="p-3.5 rounded-2xl bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/60 text-xs text-amber-900 dark:text-amber-200 flex items-start gap-2.5">
+                          <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                          <div className="space-y-1">
+                            <p className="font-bold">Quý Phụ Huynh vui lòng đóng học phí cho bé tại văn phòng trung tâm:</p>
+                            <p className="text-[11px] opacity-90 leading-relaxed">
+                              Quý Phụ Huynh có thể đóng trực tiếp bằng tiền mặt hoặc liên hệ bộ phận kế toán trung tâm để hoàn tất học phí cho bé.
+                            </p>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -2026,91 +1997,6 @@ export default function ParentPortal() {
                   </button>
                 </div>
               </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modal Xác Nhận Đã Đóng Học Phí (Phụ Huynh) */}
-      {isPaymentModalOpen && activeStudent && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in font-sans">
-          <div className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 flex items-center justify-center">
-                  <CheckCircle2 className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-base font-black text-slate-900 dark:text-white">
-                    Xác Nhận Đã Đóng Học Phí
-                  </h3>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                    Ghi nhận thanh toán cho bé {activeStudent.name}
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsPaymentModalOpen(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="p-4 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60 space-y-2 text-xs">
-              <div className="flex justify-between">
-                <span className="text-slate-600 dark:text-slate-400">Kỳ học phí:</span>
-                <span className="font-bold text-slate-900 dark:text-white">
-                  {formatMonthDisplay(activeStudent.current_month, monthFormat)}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-600 dark:text-slate-400">Học sinh:</span>
-                <span className="font-bold text-slate-900 dark:text-white">{activeStudent.name} ({activeStudent.student_code || activeStudent.phone})</span>
-              </div>
-              <div className="flex justify-between pt-1 border-t border-emerald-200/60 dark:border-emerald-800/60 text-sm font-black">
-                <span className="text-emerald-900 dark:text-emerald-200">Số tiền xác nhận đã nộp:</span>
-                <span className="text-emerald-700 dark:text-emerald-300">
-                  {formatVND(
-                    activeStudent.is_overdue && activeStudent.total_tuition_due
-                      ? activeStudent.total_tuition_due
-                      : activeStudent.current_tuition
-                  )}
-                </span>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                Ghi chú thêm (Tùy chọn):
-              </label>
-              <input
-                type="text"
-                placeholder="Ví dụ: Đã chuyển khoản qua Vietcombank lúc 10h, tiền mặt..."
-                value={paymentNote}
-                onChange={(e) => setPaymentNote(e.target.value)}
-                className="w-full px-3.5 py-2.5 text-xs rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-emerald-500"
-              />
-            </div>
-
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-              <button
-                type="button"
-                onClick={() => setIsPaymentModalOpen(false)}
-                className="px-3.5 py-2 text-xs font-semibold rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
-              >
-                Hủy bỏ
-              </button>
-              <button
-                type="button"
-                disabled={isSubmittingPayment}
-                onClick={handleConfirmPayment}
-                className="px-4 py-2 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-600/30 flex items-center gap-1.5 disabled:opacity-50"
-              >
-                <CheckCircle2 className="w-4 h-4" />
-                <span>{isSubmittingPayment ? "Đang ghi nhận..." : "Xác Nhận Đã Đóng"}</span>
-              </button>
             </div>
           </div>
         </div>

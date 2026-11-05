@@ -83,24 +83,31 @@ export async function POST(req: Request) {
         );
       }
 
-      // Get base tuition, month format & bank settings for VietQR
-      const settingsRes = await db.execute("SELECT key, value FROM settings WHERE key IN ('base_tuition', 'month_format', 'sepay_bank_name', 'sepay_account_number', 'sepay_prefix', 'zalo_bot_name', 'zalo_bot_token')");
+      // Get base tuition, month format & bank settings for VietQR (SePay tự động đối soát)
+      const settingsRes = await db.execute("SELECT key, value FROM settings WHERE key IN ('base_tuition', 'month_format', 'sepay_bank_name', 'sepay_account_number', 'sepay_prefix', 'sepay_api_key', 'reconciliation_mode', 'zalo_bot_name', 'zalo_bot_token')");
       let baseTuition = 1000000;
       let monthFormat = "vietnamese";
       let sepayBankName = "";
       let sepayAccountNumber = "";
       let sepayPrefix = "HP";
+      let sepayApiKey = "";
+      let reconciliationMode = "manual";
       let zaloBotName = "";
       let isBotConfigured = false;
       for (const row of settingsRes.rows) {
         if (row.key === "base_tuition") baseTuition = Number(row.value) || 1000000;
         if (row.key === "month_format") monthFormat = String(row.value) || "vietnamese";
-        if (row.key === "sepay_bank_name") sepayBankName = String(row.value || "");
-        if (row.key === "sepay_account_number") sepayAccountNumber = String(row.value || "");
-        if (row.key === "sepay_prefix") sepayPrefix = String(row.value || "HP");
+        if (row.key === "sepay_bank_name") sepayBankName = String(row.value || "").trim();
+        if (row.key === "sepay_account_number") sepayAccountNumber = String(row.value || "").trim();
+        if (row.key === "sepay_prefix") sepayPrefix = String(row.value || "HP").trim();
+        if (row.key === "sepay_api_key") sepayApiKey = String(row.value || "").trim();
+        if (row.key === "reconciliation_mode") reconciliationMode = String(row.value || "manual");
         if (row.key === "zalo_bot_name") zaloBotName = String(row.value || "");
         if (row.key === "zalo_bot_token" && row.value) isBotConfigured = true;
       }
+
+      // Trung tâm chỉ bật hiển thị QR chuyển khoản khi có đầy đủ cấu hình SePay tự đối soát
+      const isSepayConfigured = Boolean(sepayBankName && sepayAccountNumber);
 
       // Current month
       const now = new Date();
@@ -293,6 +300,8 @@ export async function POST(req: Request) {
             bank_name: sepayBankName,
             account_number: sepayAccountNumber,
             prefix: sepayPrefix,
+            is_configured: isSepayConfigured,
+            reconciliation_mode: reconciliationMode,
           },
           zalo_bot: {
             name: zaloBotName,
