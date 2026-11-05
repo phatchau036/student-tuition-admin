@@ -47,6 +47,14 @@ export function minutesToTime(minutes: number): string {
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }
 
+/**
+ * Kiểm tra 2 khoảng thời gian [s1, e1] và [s2, e2] có giao nhau không (time overlap)
+ */
+export function isTimeOverlap(s1: string, e1: string, s2: string, e2: string): boolean {
+  if (!s1 || !e1 || !s2 || !e2) return true;
+  return s1 < e2 && s2 < e1;
+}
+
 export const DAYS_ORDER_MAP: Record<string, number> = {
   "Thứ 2": 1,
   "Thứ 3": 2,

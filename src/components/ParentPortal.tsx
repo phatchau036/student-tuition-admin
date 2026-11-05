@@ -37,15 +37,20 @@ import { formatVND, formatMonthDisplay, generateUpcomingStudentSchedule, Upcomin
 import { MonthFormat, AppLanguage } from "@/lib/types";
 import { useLanguage } from "@/lib/i18n";
 import { useTheme } from "@/lib/ThemeContext";
-import { detectShiftTeachers } from "@/lib/shiftDetection";
+import { detectShiftTeachers, isTimeOverlap } from "@/lib/shiftDetection";
 
 interface MakeupItem {
   id: string;
   absence_date: string;
   absence_reason?: string;
+  absence_minutes?: number;
   status: "pending" | "scheduled" | "completed";
   makeup_date?: string;
   makeup_time?: string;
+  makeup_start_time?: string;
+  makeup_end_time?: string;
+  makeup_minutes?: number;
+  class_id?: string;
   note?: string;
 }
 
@@ -130,6 +135,17 @@ interface ParentClassOccupancy {
     start_time: string;
     end_time: string;
     role?: string;
+    student_count?: number;
+    max_capacity?: number;
+    remaining_slots?: number;
+    is_full?: boolean;
+  }>;
+  students_in_day?: Array<{
+    id: string;
+    name: string;
+    start_time: string;
+    end_time: string;
+    kind: "regular" | "makeup";
   }>;
 }
 
@@ -150,19 +166,35 @@ export default function ParentPortal() {
   const [isSubmittingAbsence, setIsSubmittingAbsence] = useState(false);
 
   // Makeup scheduling modal
-
-  // Makeup scheduling modal
   const [schedulingItem, setSchedulingItem] = useState<MakeupItem | null>(null);
   const [makeupDate, setMakeupDate] = useState("");
   const [selectedSlotId, setSelectedSlotId] = useState("");
   const [selectedClassId, setSelectedClassId] = useState("");
   const [makeupTime, setMakeupTime] = useState("");
+  const [makeupStartTime, setMakeupStartTime] = useState("18:00");
+  const [makeupEndTime, setMakeupEndTime] = useState("19:00");
+  const [makeupMinutes, setMakeupMinutes] = useState(60);
   const [makeupNote, setMakeupNote] = useState("");
   const [occupancySlots, setOccupancySlots] = useState<SlotOccupancy[]>([]);
   const [occupancyClasses, setOccupancyClasses] = useState<ParentClassOccupancy[]>([]);
   const [isLoadingOccupancy, setIsLoadingOccupancy] = useState(false);
   const [dayNameVi, setDayNameVi] = useState("");
   const [isSubmittingMakeup, setIsSubmittingMakeup] = useState(false);
+
+  // Cập nhật giờ học bù và thời lượng
+  const handleUpdateMakeupTimes = (start: string, minutes: number) => {
+    setMakeupStartTime(start);
+    setMakeupMinutes(minutes);
+    const [sh, sm] = start.split(":").map(Number);
+    if (!isNaN(sh)) {
+      const totalM = sh * 60 + (sm || 0) + minutes;
+      const eh = Math.floor(totalM / 60);
+      const em = totalM % 60;
+      const endStr = `${String(eh).padStart(2, "0")}:${String(em).padStart(2, "0")}`;
+      setMakeupEndTime(endStr);
+      setMakeupTime(`${start} - ${endStr}`);
+    }
+  };
 
   // Feedback modal for parents
   const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
@@ -407,9 +439,18 @@ export default function ParentPortal() {
           setOccupancyClasses(classesList);
           setDayNameVi(json.data.day_name || "");
 
-          const firstClassAvail = classesList.find((c) => !c.is_full);
-          if (firstClassAvail) {
+          if (classesList.length > 0) {
+            const firstClassAvail = classesList.find((c) => !c.is_full) || classesList[0];
             setSelectedClassId(firstClassAvail.class_id);
+
+            // Tìm giờ bắt đầu ca của lớp nếu có
+            let initStart = "18:00";
+            if (firstClassAvail.shifts && firstClassAvail.shifts.length > 0) {
+              const firstShift = firstClassAvail.shifts.find((s) => !s.is_full) || firstClassAvail.shifts[0];
+              initStart = firstShift.start_time || "18:00";
+            }
+            handleUpdateMakeupTimes(initStart, makeupMinutes);
+
             // Tìm slot tương ứng với ca của lớp
             const matchedSlot = supportedSlots.find((s) => {
               if (firstClassAvail.shifts && firstClassAvail.shifts.length > 0) {
@@ -424,24 +465,15 @@ export default function ParentPortal() {
 
             if (matchedSlot) {
               setSelectedSlotId(matchedSlot.slot_id);
-              setMakeupTime(matchedSlot.time_range);
-            }
-          } else if (classesList.length > 0) {
-            setSelectedClassId(classesList[0].class_id);
-            const firstSlot = supportedSlots[0];
-            if (firstSlot) {
-              setSelectedSlotId(firstSlot.slot_id);
-              setMakeupTime(firstSlot.time_range);
             }
           } else {
             setSelectedClassId("");
-            const firstNonFull = supportedSlots.find((s) => !s.is_full);
+            const firstNonFull = supportedSlots.find((s) => !s.is_full) || supportedSlots[0];
             if (firstNonFull) {
               setSelectedSlotId(firstNonFull.slot_id);
-              setMakeupTime(firstNonFull.time_range);
+              handleUpdateMakeupTimes(firstNonFull.start_time || "18:00", makeupMinutes);
             } else {
               setSelectedSlotId("");
-              setMakeupTime("");
             }
           }
         }
@@ -458,8 +490,8 @@ export default function ParentPortal() {
   // Handle schedule makeup
   const handleScheduleMakeup = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!schedulingItem || !makeupDate || !selectedSlotId) {
-      showToast("Vui lòng chọn ngày và khung giờ học bù!", "error");
+    if (!schedulingItem || !makeupDate) {
+      showToast("Vui lòng chọn ngày học bù!", "error");
       return;
     }
 
@@ -472,9 +504,12 @@ export default function ParentPortal() {
           action: "schedule_makeup",
           makeup_id: schedulingItem.id,
           makeup_date: makeupDate,
-          time_slot_id: selectedSlotId,
+          time_slot_id: selectedSlotId || null,
           class_id: selectedClassId || null,
-          makeup_time: makeupTime,
+          makeup_time: `${makeupStartTime} - ${makeupEndTime}`,
+          makeup_start_time: makeupStartTime,
+          makeup_end_time: makeupEndTime,
+          makeup_minutes: makeupMinutes,
           note: makeupNote.trim(),
         }),
       });
@@ -1067,8 +1102,10 @@ export default function ParentPortal() {
                             onClick={() => {
                               setSchedulingItem(mk);
                               setMakeupDate("");
+                              const initialMin = mk.absence_minutes ? Math.min(mk.absence_minutes, 120) : 60;
+                              handleUpdateMakeupTimes("18:00", initialMin);
                             }}
-                            className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shadow-xs transition shrink-0"
+                            className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shadow-xs transition shrink-0 cursor-pointer"
                           >
                             Chọn Lịch Bù
                           </button>
@@ -1657,105 +1694,196 @@ export default function ParentPortal() {
                 </div>
               )}
 
-              {/* Slot picker with occupancy status */}
+              {/* 3. Chọn giờ học bù cụ thể & sĩ số thời gian thực */}
               {makeupDate && (
-                <div className="space-y-2">
+                <div className="space-y-3.5 p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80">
                   <div className="flex items-center justify-between">
-                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                      3. Chọn khung giờ mở cửa trong ngày ({dayNameVi}):
+                    <label className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+                      <Clock className="w-4 h-4 text-amber-600" />
+                      <span>3. Chọn giờ học bù cụ thể:</span>
                     </label>
+                    <span className="text-[11px] font-mono font-bold text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-950/60 px-2 py-0.5 rounded-md">
+                      {makeupStartTime} - {makeupEndTime} ({makeupMinutes} phút)
+                    </span>
                   </div>
 
-                  {isLoadingOccupancy ? (
-                    <div className="py-2 text-center text-xs text-slate-400">
-                      Đang tải khung giờ...
-                    </div>
-                  ) : occupancySlots.length === 0 ? (
-                    <div className="p-3 text-xs text-center text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl">
-                      Ngày <strong>{dayNameVi} ({makeupDate})</strong> cơ sở không có ca mở cửa nào phù hợp. Vui lòng chọn một ngày khác!
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {occupancySlots.map((slot) => {
-                        const isSelected = selectedSlotId === slot.slot_id;
-                        const currentPickedClass = occupancyClasses.find((c) => c.class_id === selectedClassId);
-                        // Nếu lớp đang chọn còn chỗ thì khung giờ ca đó không bị khóa
-                        const isSlotDisabled = currentPickedClass ? currentPickedClass.is_full : slot.is_full;
-                        const slotDisplayCount = currentPickedClass ? currentPickedClass.student_count : (slot.total_occupied ?? slot.total_count ?? 0);
-                        const slotDisplayMax = currentPickedClass ? currentPickedClass.max_capacity : slot.max_capacity;
-                        const slotDisplayRemaining = currentPickedClass ? currentPickedClass.remaining_slots : Math.max(0, slot.max_capacity - (slot.total_occupied ?? slot.total_count ?? 0));
+                  {/* A. Gợi ý chọn nhanh theo ca giáo viên của lớp */}
+                  {(() => {
+                    const pickedClass = occupancyClasses.find((c) => c.class_id === selectedClassId) || occupancyClasses[0];
+                    if (!pickedClass || !pickedClass.shifts || pickedClass.shifts.length === 0) return null;
+                    return (
+                      <div className="space-y-1.5">
+                        <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 block">
+                          Chọn nhanh theo ca giáo viên trong lớp:
+                        </span>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {pickedClass.shifts.map((sh, idx) => {
+                            const isShiftPicked = makeupStartTime === sh.start_time;
+                            return (
+                              <button
+                                key={idx}
+                                type="button"
+                                disabled={sh.is_full}
+                                onClick={() => {
+                                  handleUpdateMakeupTimes(sh.start_time, makeupMinutes);
+                                  const matchedSlot = occupancySlots.find((s) => {
+                                    const slotS = s.start_time || s.time_range.split("-")[0]?.trim() || "";
+                                    const slotE = s.end_time || s.time_range.split("-")[1]?.trim() || "";
+                                    return slotS <= sh.start_time && slotE >= sh.start_time;
+                                  }) || occupancySlots[0];
+                                  if (matchedSlot) setSelectedSlotId(matchedSlot.slot_id);
+                                }}
+                                className={`p-2.5 rounded-xl border text-left transition flex items-center justify-between gap-2 cursor-pointer ${
+                                  sh.is_full
+                                    ? "opacity-50 bg-rose-50/50 dark:bg-rose-950/20 border-rose-200 cursor-not-allowed"
+                                    : isShiftPicked
+                                    ? "bg-amber-100/80 dark:bg-amber-950/60 border-amber-500 ring-2 ring-amber-500/30 text-amber-900 dark:text-amber-200"
+                                    : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 hover:border-amber-400"
+                                }`}
+                              >
+                                <div>
+                                  <div className="text-[11px] font-bold flex items-center gap-1 text-slate-800 dark:text-white">
+                                    <GraduationCap className="w-3.5 h-3.5 text-amber-600" />
+                                    <span>{sh.teacher_name}</span>
+                                  </div>
+                                  <div className="text-[10px] text-slate-500 dark:text-slate-400 font-mono mt-0.5">
+                                    {sh.start_time} - {sh.end_time}
+                                  </div>
+                                </div>
+                                <div className="text-right">
+                                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                                    sh.is_full
+                                      ? "bg-rose-100 text-rose-700 dark:bg-rose-900/50 dark:text-rose-200"
+                                      : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-200"
+                                  }`}>
+                                    {sh.is_full ? `Hết chỗ (${sh.student_count ?? 0}/${sh.max_capacity ?? 10})` : `Còn ${sh.remaining_slots ?? ((sh.max_capacity ?? 10) - (sh.student_count || 0))} chỗ`}
+                                  </span>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })()}
 
-                        return (
-                          <div
-                            key={slot.slot_id}
-                            onClick={() => {
-                              if (!isSlotDisabled) {
-                                setSelectedSlotId(slot.slot_id);
-                                setMakeupTime(slot.time_range);
-                              }
-                            }}
-                            className={`p-3 rounded-xl border text-xs transition flex items-center justify-between ${
-                              isSlotDisabled
-                                ? "opacity-60 bg-rose-50/40 dark:bg-rose-950/20 border-rose-200 dark:border-rose-900/50 cursor-not-allowed select-none"
-                                : isSelected
-                                ? "bg-amber-50 dark:bg-amber-950/40 border-amber-500 ring-2 ring-amber-500/20 cursor-pointer"
-                                : "bg-white dark:bg-slate-800 border-slate-200 hover:border-amber-300 cursor-pointer"
+                  {/* B. Chọn giờ vào học & Thời lượng bù */}
+                  <div className="space-y-2.5 pt-2 border-t border-slate-200 dark:border-slate-700/60">
+                    <div>
+                      <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                        Hoặc chọn giờ bắt đầu vào học:
+                      </label>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {["17:00", "17:30", "18:00", "18:30", "19:00"].map((tChip) => (
+                          <button
+                            key={tChip}
+                            type="button"
+                            onClick={() => handleUpdateMakeupTimes(tChip, makeupMinutes)}
+                            className={`px-2.5 py-1 rounded-lg text-xs font-mono font-bold transition cursor-pointer ${
+                              makeupStartTime === tChip
+                                ? "bg-amber-600 text-white shadow-xs"
+                                : "bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
                             }`}
                           >
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <span className={`font-bold ${isSlotDisabled ? "text-slate-400 line-through" : "text-slate-900 dark:text-white"}`}>
-                                  {slot.time_range}
-                                </span>
-                                {isSlotDisabled ? (
-                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border border-rose-300 flex items-center gap-1">
-                                    <AlertCircle className="w-3 h-3" /> Hết suất ({slotDisplayCount}/{slotDisplayMax})
-                                  </span>
-                                ) : slot.is_crowded ? (
-                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 flex items-center gap-1">
-                                    <AlertTriangle className="w-3 h-3 text-amber-600" />
-                                    Lớp đông ({slotDisplayCount}/{slotDisplayMax})
-                                  </span>
-                                ) : (
-                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
-                                    Còn {slotDisplayRemaining} chỗ ({slotDisplayCount}/{slotDisplayMax})
-                                  </span>
-                                )}
-                              </div>
-                              <p className="text-[11px] text-slate-500 mt-0.5">{slot.slot_name}</p>
-                            </div>
-
-                            <input
-                              type="radio"
-                              name="slot"
-                              disabled={isSlotDisabled}
-                              checked={isSelected}
-                              onChange={() => {
-                                if (!isSlotDisabled) {
-                                  setSelectedSlotId(slot.slot_id);
-                                  setMakeupTime(slot.time_range);
-                                }
-                              }}
-                              className="text-amber-600 focus:ring-amber-500 disabled:opacity-30 disabled:cursor-not-allowed"
-                            />
-                          </div>
-                        );
-                      })}
+                            {tChip}
+                          </button>
+                        ))}
+                        <input
+                          type="time"
+                          value={makeupStartTime}
+                          onChange={(e) => handleUpdateMakeupTimes(e.target.value, makeupMinutes)}
+                          className="px-2.5 py-1 text-xs font-mono font-bold rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-amber-500"
+                        />
+                      </div>
                     </div>
-                  )}
+
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 block">
+                          Thời lượng buổi học bù:
+                        </label>
+                        <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold">
+                          Khấu trừ: -{makeupMinutes} phút
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-4 gap-1.5">
+                        {[45, 60, 90, 120].map((min) => {
+                          const isPicked = makeupMinutes === min;
+                          return (
+                            <button
+                              key={min}
+                              type="button"
+                              onClick={() => handleUpdateMakeupTimes(makeupStartTime, min)}
+                              className={`py-1.5 px-1 rounded-xl text-xs font-bold border transition text-center cursor-pointer ${
+                                isPicked
+                                  ? "bg-amber-600 text-white border-amber-600 shadow-xs"
+                                  : "bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-amber-300"
+                              }`}
+                            >
+                              <div>{min} phút</div>
+                              <div className="text-[9px] font-normal opacity-80">{min / 60} tiếng</div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* C. Sĩ số thực tế tại khung giờ đã chọn */}
+                  {(() => {
+                    const pickedClass = occupancyClasses.find((c) => c.class_id === selectedClassId) || occupancyClasses[0];
+                    if (!pickedClass) return null;
+                    const overlappingStudents = (pickedClass.students_in_day || []).filter((st) =>
+                      isTimeOverlap(makeupStartTime, makeupEndTime, st.start_time, st.end_time)
+                    );
+                    const currentOverlapCount = overlappingStudents.length;
+                    const activeShift = (pickedClass.shifts || []).find((sh) =>
+                      isTimeOverlap(makeupStartTime, makeupEndTime, sh.start_time, sh.end_time)
+                    );
+                    const currentMaxCap = activeShift?.max_capacity || pickedClass.max_capacity || 15;
+                    const currentRemaining = Math.max(0, currentMaxCap - currentOverlapCount);
+                    const isTimeRangeFull = currentOverlapCount >= currentMaxCap;
+
+                    return (
+                      <div className={`p-2.5 rounded-xl border text-xs flex items-center justify-between ${
+                        isTimeRangeFull
+                          ? "bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-900/60 text-rose-800 dark:text-rose-200"
+                          : "bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-900/60 text-emerald-800 dark:text-emerald-200"
+                      }`}>
+                        <div>
+                          <span className="font-bold block">
+                            Sĩ số thực tế ({makeupStartTime} - {makeupEndTime}):
+                          </span>
+                          <span className="text-[11px] opacity-90">
+                            {currentOverlapCount > 0
+                              ? `Hiện có ${currentOverlapCount} học sinh học trong khoảng giờ này.`
+                              : "Chưa có học sinh nào trùng giờ, phòng học còn rất nhiều chỗ."}
+                          </span>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <span className={`px-2.5 py-1 rounded-lg font-bold text-xs ${
+                            isTimeRangeFull
+                              ? "bg-rose-200 dark:bg-rose-900 text-rose-900 dark:text-rose-100"
+                              : "bg-emerald-200 dark:bg-emerald-900 text-emerald-900 dark:text-emerald-100"
+                          }`}>
+                            {isTimeRangeFull
+                              ? `Hết chỗ (${currentOverlapCount}/${currentMaxCap})`
+                              : `Còn ${currentRemaining} chỗ (${currentOverlapCount}/${currentMaxCap})`}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
 
               {/* Thông báo đổi ca giáo viên (nếu học vắt qua 2 ca của 2 GV) hoặc thông tin giáo viên phụ trách */}
               {(() => {
-                if (!makeupTime || !makeupTime.includes("-")) return null;
-                const [mStart, mEnd] = makeupTime.split("-").map((s) => s.trim());
-                if (!mStart || !mEnd) return null;
-
+                if (!makeupStartTime || !makeupEndTime) return null;
                 const pickedClass = occupancyClasses.find((c) => c.class_id === selectedClassId) || occupancyClasses[0];
                 if (!pickedClass || !pickedClass.shifts || pickedClass.shifts.length === 0) return null;
 
-                const detection = detectShiftTeachers(mStart, mEnd, pickedClass.shifts);
+                const detection = detectShiftTeachers(makeupStartTime, makeupEndTime, pickedClass.shifts);
 
                 if (detection.hasMultipleTeachers) {
                   return (
@@ -1773,7 +1901,7 @@ export default function ParentPortal() {
                       <div className="flex items-center gap-1.5">
                         <GraduationCap className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
                         <span>
-                          Giáo viên đứng lớp: <strong>{detection.singleTeacherName}</strong> ({makeupTime})
+                          Giáo viên đứng lớp: <strong>{detection.singleTeacherName}</strong> ({makeupStartTime} - {makeupEndTime})
                         </span>
                       </div>
                     </div>
@@ -1799,17 +1927,35 @@ export default function ParentPortal() {
                 <button
                   type="button"
                   onClick={() => setSchedulingItem(null)}
-                  className="px-4 py-2 text-xs font-semibold rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                  className="px-4 py-2 text-xs font-semibold rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300 cursor-pointer"
                 >
                   Hủy
                 </button>
-                <button
-                  type="submit"
-                  disabled={isSubmittingMakeup || !selectedSlotId}
-                  className="px-4 py-2 text-xs font-bold rounded-xl bg-amber-600 hover:bg-amber-700 text-white shadow-md shadow-amber-600/30 disabled:opacity-50"
-                >
-                  {isSubmittingMakeup ? "Đang xếp lịch..." : "Xác Nhận Lịch Học Bù"}
-                </button>
+                {(() => {
+                  const pickedClass = occupancyClasses.find((c) => c.class_id === selectedClassId);
+                  let isRangeFull = false;
+                  if (pickedClass) {
+                    const overlappingStudents = (pickedClass.students_in_day || []).filter((st) =>
+                      isTimeOverlap(makeupStartTime, makeupEndTime, st.start_time, st.end_time)
+                    );
+                    const activeShift = (pickedClass.shifts || []).find((sh) =>
+                      isTimeOverlap(makeupStartTime, makeupEndTime, sh.start_time, sh.end_time)
+                    );
+                    const currentMaxCap = activeShift?.max_capacity || pickedClass.max_capacity || 15;
+                    isRangeFull = overlappingStudents.length >= currentMaxCap;
+                  }
+                  const isSubmitDisabled = isSubmittingMakeup || !makeupDate || isRangeFull;
+
+                  return (
+                    <button
+                      type="submit"
+                      disabled={isSubmitDisabled}
+                      className="px-4 py-2 text-xs font-bold rounded-xl bg-amber-600 hover:bg-amber-700 text-white shadow-md shadow-amber-600/30 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                    >
+                      {isSubmittingMakeup ? "Đang xếp lịch..." : isRangeFull ? "Khung Giờ Đã Hết Chỗ" : "Xác Nhận Lịch Học Bù"}
+                    </button>
+                  );
+                })()}
               </div>
             </form>
           </div>

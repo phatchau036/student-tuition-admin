@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
 import { isDayInSlot, parseStudentScheduleSlots } from "@/lib/tuition";
 import { getSchoolIdFromRequest } from "@/lib/authHelper";
+import { isTimeOverlap } from "@/lib/shiftDetection";
 
 // Helper to determine Vietnamese day of week name from YYYY-MM-DD
 function getDayNameVi(dateStr: string): string {
@@ -10,6 +11,37 @@ function getDayNameVi(dateStr: string): string {
   const day = date.getDay(); // 0: CN, 1: T2, 2: T3, ...
   if (day === 0) return "Chủ Nhật";
   return `Thứ ${day + 1}`;
+}
+
+// Trích xuất giờ bắt đầu và kết thúc học trong ngày của học sinh
+function getStudentStudyTimeForDay(st: any, dayName: string): { start_time: string; end_time: string } {
+  let sStart = "";
+  let sEnd = "";
+  if (st.schedule_details_json) {
+    try {
+      const items = JSON.parse(String(st.schedule_details_json));
+      if (Array.isArray(items)) {
+        const item = items.find((it: any) => it.day === dayName);
+        if (item && item.start_time) {
+          sStart = String(item.start_time).trim();
+          sEnd = String(item.end_time || "").trim();
+        }
+      }
+    } catch {}
+  }
+  if (!sStart && st.study_time_detail) {
+    const raw = String(st.study_time_detail).trim();
+    const m = raw.match(/(\d{1,2})(?::(\d{2})|h(\d{2})?)\s*[-–to~]\s*(\d{1,2})(?::(\d{2})|h(\d{2})?)/i);
+    if (m) {
+      const sh = m[1].padStart(2, "0");
+      const sm = (m[2] || m[3] || "00").padStart(2, "0");
+      const eh = m[4].padStart(2, "0");
+      const em = (m[5] || m[6] || "00").padStart(2, "0");
+      sStart = `${sh}:${sm}`;
+      sEnd = `${eh}:${em}`;
+    }
+  }
+  return { start_time: sStart, end_time: sEnd };
 }
 
 export async function GET(req: Request) {
@@ -53,24 +85,30 @@ export async function GET(req: Request) {
     }
 
     // 3. Get all teachers with their assigned slots and working shifts for this school
-    const teachersRes = await db.execute({
-      sql: "SELECT * FROM teachers WHERE is_active = 1 AND school_id = ?",
-      args: [schoolId],
+    let teachersRes = await db.execute({
+      sql: "SELECT * FROM teachers WHERE is_active = 1 AND (school_id = ? OR school_id = 'school-default' OR ? = 'school-default')",
+      args: [schoolId, schoolId],
     });
+    if (teachersRes.rows.length === 0) {
+      teachersRes = await db.execute("SELECT * FROM teachers WHERE is_active = 1");
+    }
 
-    // 4. Get all active students with their registered days, slot & teacher for this school
-    const studentsRes = await db.execute({
-      sql: "SELECT id, name, time_slot_id, teacher_id, registered_days, study_time_detail, schedule_details_json, status FROM students WHERE school_id = ? AND status != 'dropped'",
-      args: [schoolId],
+    // 4. Get all active students with their registered days, slot, class & teacher for this school
+    let studentsRes = await db.execute({
+      sql: "SELECT id, name, class_id, time_slot_id, teacher_id, registered_days, study_time_detail, schedule_details_json, status FROM students WHERE (school_id = ? OR school_id = 'school-default' OR ? = 'school-default') AND status != 'dropped'",
+      args: [schoolId, schoolId],
     });
+    if (studentsRes.rows.length === 0) {
+      studentsRes = await db.execute("SELECT id, name, class_id, time_slot_id, teacher_id, registered_days, study_time_detail, schedule_details_json, status FROM students WHERE status != 'dropped'");
+    }
 
-    // 5. Get all scheduled makeup classes on this date
+    // 5. Get all scheduled makeup classes on this date with times
     const makeupsRes = await db.execute({
-      sql: `SELECT m.id, m.student_id, m.makeup_slot_id, m.makeup_teacher_id, m.makeup_time, m.class_id 
+      sql: `SELECT m.id, m.student_id, m.makeup_slot_id, m.makeup_teacher_id, m.makeup_time, m.makeup_start_time, m.makeup_end_time, m.class_id, s.name as student_name 
             FROM makeup_classes m
             JOIN students s ON m.student_id = s.id
-            WHERE m.makeup_date = ? AND m.status IN ('scheduled', 'completed') AND s.school_id = ?`,
-      args: [dateStr, schoolId],
+            WHERE m.makeup_date = ? AND m.status IN ('scheduled', 'completed') AND (s.school_id = ? OR s.school_id = 'school-default' OR ? = 'school-default')`,
+      args: [dateStr, schoolId, schoolId],
     });
 
     // 6. Get all active classes for this school
@@ -116,7 +154,7 @@ export async function GET(req: Request) {
 
       // Đếm học sinh chính khóa của lớp học vào ngày này
       const classStudents = studentsRes.rows.filter((st: any) => String(st.class_id || "") === cId);
-      const activeClassStudentsCount = classStudents.filter((st: any) => {
+      const classStudentsOnDay = classStudents.filter((st: any) => {
         const regDays = String(st.registered_days || "");
         if (regDays.includes(dayName)) return true;
         const parsed = parseStudentScheduleSlots({
@@ -125,14 +163,83 @@ export async function GET(req: Request) {
           registered_days: regDays,
         });
         return parsed.some((p) => p.day === dayName);
-      }).length;
+      });
 
       // Đếm học sinh học bù được xếp vào lớp này vào ngày này
-      const classMakeupsCount = makeupsRes.rows.filter((mk: any) => String(mk.class_id || "") === cId).length;
-      const totalClassOccupied = activeClassStudentsCount + classMakeupsCount;
+      const classMakeupsOnDay = makeupsRes.rows.filter((mk: any) => String(mk.class_id || "") === cId);
+      const totalClassOccupied = classStudentsOnDay.length + classMakeupsOnDay.length;
 
       const maxCap = Number(cRow.max_students || 15);
       const remaining = Math.max(0, maxCap - totalClassOccupied);
+
+      // Tính toán sĩ số chính xác cho từng Ca của Giáo viên trong lớp
+      const calculatedShifts = shiftsOnDay.map((sh) => {
+        const shStart = sh.start_time || "17:00";
+        const shEnd = sh.end_time || "20:00";
+
+        // Học sinh chính khóa có giờ học giao thoa với ca này
+        const regInShift = classStudentsOnDay.filter((st: any) => {
+          const { start_time: stStart, end_time: stEnd } = getStudentStudyTimeForDay(st, dayName);
+          if (!stStart || !stEnd) return true;
+          return isTimeOverlap(shStart, shEnd, stStart, stEnd);
+        });
+
+        // Học sinh bù có giờ bù giao thoa với ca này
+        const makeupsInShift = classMakeupsOnDay.filter((mk: any) => {
+          const mkStart = String(mk.makeup_start_time || (mk.makeup_time ? mk.makeup_time.split("-")[0]?.trim() : "") || "");
+          const mkEnd = String(mk.makeup_end_time || (mk.makeup_time ? mk.makeup_time.split("-")[1]?.trim() : "") || "");
+          if (!mkStart || !mkEnd) return true;
+          return isTimeOverlap(shStart, shEnd, mkStart, mkEnd);
+        });
+
+        const shiftOccupied = regInShift.length + makeupsInShift.length;
+        const tc = teachersRes.rows.find((t: any) => String(t.id) === String(sh.teacher_id));
+        const shiftMax = tc ? Number(tc.max_students || maxCap) : maxCap;
+        const shiftRemaining = Math.max(0, shiftMax - shiftOccupied);
+
+        return {
+          teacher_id: sh.teacher_id,
+          teacher_name: sh.teacher_name || teacherNameMap[sh.teacher_id] || "Giáo viên",
+          start_time: shStart,
+          end_time: shEnd,
+          role: sh.role || "",
+          student_count: shiftOccupied,
+          max_capacity: shiftMax,
+          remaining_slots: shiftRemaining,
+          is_full: shiftOccupied >= shiftMax,
+        };
+      });
+
+      // Danh sách học sinh trong ngày (kèm khoảng giờ) để client tính sĩ số tức thì theo bất kỳ giờ nào
+      const studentsInDay: Array<{
+        id: string;
+        name: string;
+        start_time: string;
+        end_time: string;
+        kind: "regular" | "makeup";
+      }> = [
+        ...classStudentsOnDay.map((st: any) => {
+          const { start_time, end_time } = getStudentStudyTimeForDay(st, dayName);
+          return {
+            id: String(st.id),
+            name: String(st.name),
+            start_time: start_time || "17:00",
+            end_time: end_time || "20:00",
+            kind: "regular" as const,
+          };
+        }),
+        ...classMakeupsOnDay.map((mk: any) => {
+          const mkStart = String(mk.makeup_start_time || (mk.makeup_time ? String(mk.makeup_time).split("-")[0]?.trim() : "") || "18:00");
+          const mkEnd = String(mk.makeup_end_time || (mk.makeup_time ? String(mk.makeup_time).split("-")[1]?.trim() : "") || "19:00");
+          return {
+            id: String(mk.student_id),
+            name: String(mk.student_name || "Học sinh bù"),
+            start_time: mkStart,
+            end_time: mkEnd,
+            kind: "makeup" as const,
+          };
+        }),
+      ];
 
       classesOccupancy.push({
         class_id: cId,
@@ -143,13 +250,8 @@ export async function GET(req: Request) {
         student_count: totalClassOccupied,
         remaining_slots: remaining,
         is_full: totalClassOccupied >= maxCap,
-        shifts: shiftsOnDay.map((sh) => ({
-          teacher_id: sh.teacher_id,
-          teacher_name: sh.teacher_name || teacherNameMap[sh.teacher_id] || "Giáo viên",
-          start_time: sh.start_time,
-          end_time: sh.end_time,
-          role: sh.role || "",
-        })),
+        shifts: calculatedShifts,
+        students_in_day: studentsInDay,
       });
     }
 

@@ -44,6 +44,7 @@ data/*.db-shm
 
 # local IDE & agent files
 .zcode/
+scripts/remote_deploy.py
 
 # vercel
 .vercel

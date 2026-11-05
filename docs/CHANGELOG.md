@@ -6,6 +6,16 @@
 
 ## 1. LỊCH SỬ PHIÊN BẢN (CHANGELOG)
 
+### [v2.8.4] - 2026-11-06
+- **⭐ NÂNG CẤP CHỌN GIỜ HỌC BÙ CỤ THỂ & TÍNH TOÁN SĨ SỐ THỜI GIAN THỰC THEO CA (ParentPortal.tsx, /api/classes/occupancy, /api/makeups):**
+  - **Khắc phục lỗi sĩ số còn trống không chính xác:** Đồng bộ trường `class_id` trong câu truy vấn SQL học sinh và tích hợp thuật toán so khớp giao thoa thời gian `isTimeOverlap` (`s1 < e2 && s2 < e1`) cho từng ca giảng dạy của giáo viên và từng khoảng thời gian học thực tế của học sinh trong ngày.
+  - **Bổ sung bộ chọn giờ học bù cụ thể cho Cổng Phụ Huynh (`ParentPortal.tsx`):**
+    - Cho phép phụ huynh chọn nhanh trực tiếp theo các ca dạy của giáo viên trong lớp (ví dụ: Ca Cô Điệp 17:00 - 18:00, Ca Thầy Phonk 18:00 - 20:00).
+    - Cung cấp thanh chọn giờ bắt đầu linh hoạt (17:00, 17:30, 18:00, 18:30, 19:00...) và bộ chọn thời lượng học bù (45 phút, 60 phút, 90 phút, 120 phút), tự động tính giờ kết thúc.
+    - Hiển thị sĩ số còn trống thực tế tức thì cho khung giờ đã chọn: phản ánh chính xác số lượng học sinh đang học trong khoảng giờ đó và tự động khóa nút khi khung giờ đã đầy chỗ.
+    - Tự động nhận diện giáo viên đứng lớp hoặc hiển thị thông báo đổi ca nếu học vắt qua 2 ca của 2 giáo viên.
+  - **Kiểm tra sĩ số theo khung giờ bù trong API `/api/makeups`:** Khi phụ huynh hoặc admin gửi yêu cầu xếp lịch bù, hệ thống kiểm tra sĩ số theo đúng khoảng thời gian bù thực tế `[makeup_start_time, makeup_end_time]` và ca giáo viên tương ứng, tránh việc từ chối nhầm học sinh khi lớp còn chỗ ở ca khác.
+
 ### [v2.8.3] - 2026-10-31
 - **⭐ HỆ THỐNG QUẢN LÝ LỚP HỌC, PHÂN BỔ SĨ SỐ & THỜI KHÓA BIỂU ĐỨNG LỚP:**
   - **Quản lý danh mục Lớp Học (`ClassManagementModal.tsx` & `/api/classes`):** Định nghĩa số lượng lớp học (Lớp Piano K1, Guitar Đệm Hát, Thanh Nhạc Nhóm...), phân bổ Sĩ số tối đa (Max Capacity) cho từng lớp, gán Phòng học và cấu hình Thời khóa biểu các ca trong tuần.
