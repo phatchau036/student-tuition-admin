@@ -6,6 +6,13 @@
 
 ## 1. LỊCH SỬ PHIÊN BẢN (CHANGELOG)
 
+### [v2.8.5] - 2026-11-06
+- **⭐ HỆ THỐNG XUẤT BIÊN LAI ĐIỆN TỬ VÀ LƯU VẾT SỔ BIÊN LAI GIẤY (e-Receipt System):**
+  - **Tích hợp mã Biên lai (Giấy):** Thêm trường `receipt_number` vào form Đối soát học phí (`QuickAuditModal`), cho phép lễ tân/admin nhập số biên lai đã viết tay trên sổ để đồng bộ chứng từ với phần mềm.
+  - **Biên lai điện tử (e-Receipt Component):** Thiết kế hoàn toàn mới component `ReceiptModal.tsx` lấy cảm hứng từ màn hình biên lai chuyển khoản ngân hàng (Momo/Techcombank) cực kỳ hiện đại. 
+  - **Cơ chế tải ảnh thông minh (`html2canvas`):** Admin có thể tải trực tiếp hoá đơn thanh toán dưới dạng Ảnh chất lượng cao (PNG/JPG) chỉ với 1 click để gửi thẳng qua Zalo cho Phụ huynh, không cần chụp ảnh màn hình thủ công.
+  - **Tra cứu và tải Biên lai phía Phụ huynh:** Phụ huynh đăng nhập vào `ParentPortal`, truy cập tab Học Phí, đối với các tháng ĐÃ THANH TOÁN sẽ xuất hiện nút xem và tải Biên Lai, đảm bảo tính minh bạch tài chính.
+
 ### [v2.8.4] - 2026-11-06
 - **⭐ NÂNG CẤP CHỌN GIỜ HỌC BÙ CỤ THỂ & TÍNH TOÁN SĨ SỐ THỜI GIAN THỰC THEO CA (ParentPortal.tsx, /api/classes/occupancy, /api/makeups):**
   - **Khắc phục lỗi sĩ số còn trống không chính xác:** Đồng bộ trường `class_id` trong câu truy vấn SQL học sinh và tích hợp thuật toán so khớp giao thoa thời gian `isTimeOverlap` (`s1 < e2 && s2 < e1`) cho từng ca giảng dạy của giáo viên và từng khoảng thời gian học thực tế của học sinh trong ngày.

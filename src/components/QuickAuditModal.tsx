@@ -1,9 +1,10 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Student, MonthFormat, TuitionPackage } from "@/lib/types";
+import { Student, MonthFormat, TuitionPackage, StudentPayment } from "@/lib/types";
 import { formatVND, formatMonthDisplay, getPreviousMonthStr, getNextMonthStr } from "@/lib/tuition";
 import { useToast } from "@/components/Toast";
+import { ReceiptModal } from "./ReceiptModal";
 import {
   CheckCircle2,
   AlertCircle,
@@ -43,7 +44,12 @@ export const QuickAuditModal: React.FC<QuickAuditModalProps> = ({
   const [selectedPackageId, setSelectedPackageId] = useState<string>("");
   const [customAmount, setCustomAmount] = useState<number>(0);
   const [auditNote, setAuditNote] = useState<string>("");
+  const [receiptNumber, setReceiptNumber] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Trạng thái modal e-receipt
+  const [isReceiptOpen, setIsReceiptOpen] = useState(false);
+  const [currentPaymentRecord, setCurrentPaymentRecord] = useState<StudentPayment | null>(null);
 
   // Danh sách các tháng hiển thị (từ 5 tháng trước đến 3 tháng tới)
   const [monthsList, setMonthsList] = useState<string[]>([]);
@@ -126,13 +132,34 @@ export const QuickAuditModal: React.FC<QuickAuditModalProps> = ({
           package_id: selectedPackageId || undefined,
           amount: customAmount,
           note: auditNote.trim(),
+          receipt_number: receiptNumber.trim() || undefined,
         }),
       });
       const data = await res.json();
       if (data.success) {
         showToast(data.message, "success");
         onSuccess();
-        onClose();
+        
+        // Mở popup biên lai điện tử
+        if (data.data?.payment_id) {
+          const nowStr = new Date().toISOString().slice(0, 10);
+          setCurrentPaymentRecord({
+            id: data.data.payment_id,
+            student_id: student.id,
+            package_id: selectedPackageId,
+            package_name: data.data.package_name,
+            amount: customAmount,
+            paid_date: nowStr,
+            start_period: data.data.start_period,
+            end_period: data.data.end_period,
+            status: "paid",
+            note: auditNote.trim(),
+            receipt_number: receiptNumber.trim() || undefined,
+          });
+          setIsReceiptOpen(true);
+        } else {
+          onClose();
+        }
       } else {
         showToast(data.message || "Lỗi khi cập nhật!", "error");
       }
@@ -206,6 +233,7 @@ export const QuickAuditModal: React.FC<QuickAuditModalProps> = ({
           amount: customAmount,
           package_id: selectedPackageId || undefined,
           note: auditNote.trim(),
+          receipt_number: receiptNumber.trim() || undefined,
         }),
       });
 
@@ -427,17 +455,31 @@ export const QuickAuditModal: React.FC<QuickAuditModalProps> = ({
                   </div>
                 </div>
 
-                <div>
-                  <label className="text-[11px] font-semibold text-slate-500 block mb-1">
-                    Ghi chú đối soát (VD: Chuyển khoản VietQR, đóng tiền mặt...):
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Nhập ghi chú thanh toán nếu có..."
-                    value={auditNote}
-                    onChange={(e) => setAuditNote(e.target.value)}
-                    className="w-full px-3 py-1.5 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none"
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <div>
+                    <label className="text-[11px] font-semibold text-slate-500 block mb-1">
+                      Ghi chú đối soát (VD: CK, Tiền mặt):
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Nhập ghi chú thanh toán nếu có..."
+                      value={auditNote}
+                      onChange={(e) => setAuditNote(e.target.value)}
+                      className="w-full px-3 py-1.5 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-semibold text-slate-500 block mb-1">
+                      Số Biên Lai (Giấy) <span className="text-[9px] opacity-70">(Tùy chọn)</span>:
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="VD: 00125..."
+                      value={receiptNumber}
+                      onChange={(e) => setReceiptNumber(e.target.value)}
+                      className="w-full px-3 py-1.5 text-xs font-mono font-bold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
                 </div>
               </div>
             </div>
@@ -544,6 +586,17 @@ export const QuickAuditModal: React.FC<QuickAuditModalProps> = ({
           </button>
         </div>
       </div>
+
+      <ReceiptModal
+        isOpen={isReceiptOpen}
+        onClose={() => {
+          setIsReceiptOpen(false);
+          onClose(); // Đóng modal xác nhận sau khi đóng e-receipt
+        }}
+        student={student}
+        paymentRecord={currentPaymentRecord}
+        monthFormat={monthFormat}
+      />
     </div>
   );
 };

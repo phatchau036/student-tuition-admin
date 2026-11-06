@@ -517,6 +517,8 @@ export async function initDb() {
       WHERE ref_type = 'makeup_absence'
     `);
   } catch {}
+  try { await db.execute("ALTER TABLE student_monthly_tuitions ADD COLUMN receipt_number TEXT DEFAULT NULL"); } catch {}
+  try { await db.execute("ALTER TABLE student_payments ADD COLUMN receipt_number TEXT DEFAULT NULL"); } catch {}
   try { await db.execute("ALTER TABLE students ADD COLUMN class_id TEXT DEFAULT NULL"); } catch {}
   try { await db.execute("ALTER TABLE lessons ADD COLUMN class_id TEXT DEFAULT NULL"); } catch {}
   try { await db.execute("ALTER TABLE classes ADD COLUMN teacher_assignments_json TEXT DEFAULT '[]'"); } catch {}

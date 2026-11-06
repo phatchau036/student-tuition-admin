@@ -38,6 +38,7 @@ import { MonthFormat, AppLanguage } from "@/lib/types";
 import { useLanguage } from "@/lib/i18n";
 import { useTheme } from "@/lib/ThemeContext";
 import { detectShiftTeachers, isTimeOverlap } from "@/lib/shiftDetection";
+import { ReceiptModal } from "./ReceiptModal";
 
 interface MakeupItem {
   id: string;
@@ -99,6 +100,7 @@ interface StudentData {
   available_minutes?: number;
   wallet_ledger?: Array<{ type: string; minutes: number; note: string; created_at: string }>;
   makeups: MakeupItem[];
+  current_payment_record?: any;
 }
 
 interface SlotOccupancy {
@@ -227,6 +229,10 @@ export default function ParentPortal() {
   const [isZaloModalOpen, setIsZaloModalOpen] = useState(false);
   const [studentZaloChatIdInput, setStudentZaloChatIdInput] = useState("");
   const [isSubmittingZalo, setIsSubmittingZalo] = useState(false);
+
+  // Receipt Modal State
+  const [isReceiptOpen, setIsReceiptOpen] = useState(false);
+  const [receiptPaymentRecord, setReceiptPaymentRecord] = useState<any>(null);
 
   // Active Tab for Parent Portal
   const [activeParentTab, setActiveParentTab] = useState<"schedule" | "tuition" | "contact">("schedule");
@@ -1246,7 +1252,7 @@ export default function ParentPortal() {
                   </div>
 
                   {/* If Not Paid: Show Payment Guide or Tuition Notice */}
-                  {!activeStudent.is_paid && (
+                  {!activeStudent.is_paid ? (
                     <div className="space-y-3 pt-1">
                       {/* Chỉ hiển thị khung VietQR quét mã chuyển khoản khi trung tâm CÓ thiết lập thanh toán tự đối soát SePay */}
                       {bankInfo.account_number && bankInfo.bank_name ? (
@@ -1314,7 +1320,21 @@ export default function ParentPortal() {
                         </div>
                       )}
                     </div>
-                  )}
+                  ) : activeStudent.current_payment_record ? (
+                    <div className="pt-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setReceiptPaymentRecord(activeStudent.current_payment_record);
+                          setIsReceiptOpen(true);
+                        }}
+                        className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 font-bold text-xs border border-indigo-200 dark:border-indigo-900/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition cursor-pointer"
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                        <span>Xem & Tải Ảnh Biên Lai Thanh Toán</span>
+                      </button>
+                    </div>
+                  ) : null}
                 </div>
               </div>
             )}

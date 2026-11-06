@@ -89,7 +89,7 @@ export async function POST(req: Request) {
     await initDb();
     const db = getDb();
     const body = await req.json();
-    const { action, student_id, month, package_id, amount, note } = body;
+    const { action, student_id, month, package_id, amount, note, receipt_number } = body;
 
     if (!student_id) {
       return NextResponse.json({ success: false, message: "Thiếu thông tin học sinh!" }, { status: 400 });
@@ -169,9 +169,9 @@ export async function POST(req: Request) {
 
       // Ghi nhận bản ghi thanh toán mới
       await db.execute({
-        sql: `INSERT INTO student_payments (id, student_id, package_id, package_name, amount, paid_date, start_period, end_period, status, note)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'paid', ?)`,
-        args: [paymentId, student_id, targetPackageId, packageName, paymentAmount, todayStr, startPeriod, endPeriod, note || ""],
+        sql: `INSERT INTO student_payments (id, student_id, package_id, package_name, amount, paid_date, start_period, end_period, status, note, receipt_number)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'paid', ?, ?)`,
+        args: [paymentId, student_id, targetPackageId, packageName, paymentAmount, todayStr, startPeriod, endPeriod, note || "", receipt_number || null],
       });
 
       // ⭐ VÍ GIỜ HỌC: Cấp giờ vào ví cho toàn bộ chu kỳ tháng đã đóng (idempotent)
@@ -316,9 +316,9 @@ export async function POST(req: Request) {
               if (nextStart <= ep) {
                 const splitId = `pay-split-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
                 await db.execute({
-                  sql: `INSERT INTO student_payments (id, student_id, package_id, package_name, amount, paid_date, start_period, end_period, status, note)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'paid', ?)`,
-                  args: [splitId, pay.student_id, pay.package_id, pay.package_name, pay.amount, pay.paid_date, nextStart, ep, pay.note || ""],
+                  sql: `INSERT INTO student_payments (id, student_id, package_id, package_name, amount, paid_date, start_period, end_period, status, note, receipt_number)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'paid', ?, ?)`,
+                  args: [splitId, pay.student_id, pay.package_id, pay.package_name, pay.amount, pay.paid_date, nextStart, ep, pay.note || "", pay.receipt_number || null],
                 });
               }
             }
@@ -340,18 +340,19 @@ export async function POST(req: Request) {
           if (checkRes.rows.length === 0) {
             const payId = `pay-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
             await db.execute({
-              sql: `INSERT INTO student_payments (id, student_id, package_id, package_name, amount, paid_date, start_period, end_period, status, note)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'paid', ?)`,
+              sql: `INSERT INTO student_payments (id, student_id, package_id, package_name, amount, paid_date, start_period, end_period, status, note, receipt_number)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'paid', ?, ?)`,
               args: [
                 payId,
                 student_id,
                 package_id || null,
                 "Đã đối soát",
-                Number(amount) || 1000000,
+                amount || 1000000,
                 todayStr,
                 pMonth,
                 pMonth,
                 note || "",
+                body.receipt_number || null,
               ],
             });
 

@@ -90,11 +90,12 @@ export interface StudentPayment {
   package_id?: string;
   package_name?: string;
   amount: number;
-  paid_date: string; // YYYY-MM-DD
-  start_period: string; // YYYY-MM hoặc YYYY-MM-DD
-  end_period: string; // YYYY-MM hoặc YYYY-MM-DD
+  paid_date: string;
+  start_period: string; // YYYY-MM
+  end_period: string; // YYYY-MM
   status: "paid" | "unpaid";
   note?: string;
+  receipt_number?: string;
   created_at?: string;
 }
 
@@ -294,6 +295,7 @@ export interface StudentMonthlyTuition {
   amount: number;
   note: string;
   items_json?: string; // JSON mảng TuitionAdjustmentItem[]
+  receipt_number?: string;
   created_at?: string;
   updated_at?: string;
 }

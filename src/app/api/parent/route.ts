@@ -195,6 +195,7 @@ export async function POST(req: Request) {
           args: [studentId, currentMonth, currentMonth],
         });
         const isPaidThisMonth = curPaymentRes.rows.length > 0;
+        const currentPaymentRecord = isPaidThisMonth ? curPaymentRes.rows[0] : null;
 
         // Check historical unpaid months & overdue debt
         let unpaidCount = isPaidThisMonth ? 0 : 1;
@@ -288,6 +289,7 @@ export async function POST(req: Request) {
             makeup_time: m.makeup_time ? String(m.makeup_time) : undefined,
             note: m.note ? String(m.note) : undefined,
           })),
+          current_payment_record: currentPaymentRecord,
         });
       }
 
