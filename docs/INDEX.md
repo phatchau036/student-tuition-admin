@@ -88,3 +88,5 @@ Mỗi khi Main Agent hoặc Subagent nhận được yêu cầu từ người d�
 | 2026-10-29 | Tối ưu đóng Side Drawer khi click bên ngoài backdrop hoặc phím ESC | `ui-builder` | Đã triển khai và push GitHub |
 | 2026-10-29 | Nâng cấp sáng tạo: Thẻ 1 dòng 28px, Cross-highlighting, Vạch Bây giờ, Chế độ Điểm Nóng | `ui-builder` | Đã hoàn thiện và kiểm thử sạch lỗi biên dịch |
 | 2026-10-30 | ⭐ Hệ thống Kiểu Lịch Học & Ma Trận Tính Thời Lượng tự động (`schedule_presets`) | Main Agent | Hoàn thành: Cài đặt Hình Thức 2 + Form học sinh chọn nhanh kiểu mẫu, build sạch 100% |
+
+| 2026-11-06 | e-Receipt System | Hoàn thiện Biên lai điện tử (html2canvas), hỗ trợ lưu trữ số Biên lai giấy (Receipt_number). Quy trình: không hồi tố biên lai giấy cũ để bảo vệ tính toàn vẹn của báo cáo doanh thu theo ngày. | Main Agent |
