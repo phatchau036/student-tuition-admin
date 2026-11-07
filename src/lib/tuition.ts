@@ -455,6 +455,28 @@ export interface ParsedStudentSchedule {
   subjectName?: string; // Tên bộ môn nếu có ghi riêng (VD: "Piano", "Guitar")
   detectedTeacherId?: string; // ID giáo viên nếu phát hiện từ chuỗi
   matchedTeacherIds?: string[]; // Danh sách các GV đứng ca tương ứng trong lớp (hỗ trợ nhiều GV cùng giờ)
+  startTime?: string;   // "18:00"
+  endTime?: string;     // "20:00"
+  durationMinutes?: number; // 120
+  coveredHours?: string[]; // ["18h", "19h"] - các khung giờ chuẩn mà ca học này diễn ra
+}
+
+/**
+ * Tính toán các khung giờ chuẩn 1 tiếng ("17h", "18h", "19h"...) mà một ca học giao thoa
+ */
+export function calculateCoveredHourSlots(startH: number, startM: number, endH: number, endM: number): string[] {
+  const sMin = startH * 60 + startM;
+  let eMin = endH * 60 + endM;
+  if (eMin <= sMin) eMin = sMin + 60;
+  const hours: string[] = [];
+  for (let h = 0; h < 24; h++) {
+    const slotStart = h * 60;
+    const slotEnd = (h + 1) * 60;
+    if (Math.max(sMin, slotStart) < Math.min(eMin, slotEnd)) {
+      hours.push(`${String(h).padStart(2, "0")}h`);
+    }
+  }
+  return hours.length > 0 ? hours : [`${String(startH).padStart(2, "0")}h`];
 }
 
 // Phân tích lịch học chi tiết của học sinh từ schedule_details_json, study_time_detail và registered_days
@@ -525,7 +547,10 @@ export function parseStudentScheduleSlots(
             // Tách giờ bắt đầu và chuẩn hóa an toàn tuyệt đối, loại bỏ tiền tố thứ để không bị nhầm T2/T3/T4 thành 02:00
             const rawStart = String(item.start_time || "").trim();
             const rawEnd = String(item.end_time || "").trim();
-            let startHour = 18;
+            let startH = 18;
+            let startM = 0;
+            let endH = 19;
+            let endM = 0;
             let timeDetail = "";
 
             const combined = `${rawStart} - ${rawEnd}`;
@@ -543,7 +568,10 @@ export function parseStudentScheduleSlots(
               if (!isNaN(sH) && sH >= 0 && sH <= 23) {
                 if (!isNaN(eH) && eH < sH && eH <= 5) eH += 12;
                 const validEH = !isNaN(eH) ? eH : sH + 1;
-                startHour = sH;
+                startH = sH;
+                startM = parseInt(sM, 10) || 0;
+                endH = validEH;
+                endM = parseInt(eM, 10) || 0;
                 timeDetail = `${String(sH).padStart(2, "0")}:${sM} - ${String(validEH).padStart(2, "0")}:${eM}`;
               }
             } else {
@@ -552,18 +580,23 @@ export function parseStudentScheduleSlots(
                 const sH = parseInt(singleMatch[1], 10);
                 const sM = singleMatch[2] || singleMatch[3] || "00";
                 if (!isNaN(sH) && sH >= 0 && sH <= 23) {
-                  startHour = sH;
+                  startH = sH;
+                  startM = parseInt(sM, 10) || 0;
+                  endH = sH + 1;
+                  endM = startM;
                   timeDetail = `${String(sH).padStart(2, "0")}:${sM} - ${String(sH + 1).padStart(2, "0")}:${sM}`;
                 }
               }
             }
 
             if (!timeDetail) {
-              timeDetail = `${String(startHour).padStart(2, "0")}:00 - ${String(startHour + 1).padStart(2, "0")}:00`;
+              timeDetail = `${String(startH).padStart(2, "0")}:00 - ${String(endH).padStart(2, "0")}:00`;
             }
 
-            const slotHourStr = `${String(startHour).padStart(2, "0")}h`;
-            const classTeachers = findClassTeachersForSlot(item.day, startHour);
+            const slotHourStr = `${String(startH).padStart(2, "0")}h`;
+            const classTeachers = findClassTeachersForSlot(item.day, startH);
+            const covered = calculateCoveredHourSlots(startH, startM, endH, endM);
+            const durMin = (endH * 60 + endM) - (startH * 60 + startM);
 
             results.push({
               day: item.day,
@@ -571,6 +604,10 @@ export function parseStudentScheduleSlots(
               timeDetail: timeDetail,
               detectedTeacherId: detectedTeacherFromNote || classTeachers[0],
               matchedTeacherIds: classTeachers.length > 0 ? classTeachers : undefined,
+              startTime: `${String(startH).padStart(2, "0")}:${String(startM).padStart(2, "0")}`,
+              endTime: `${String(endH).padStart(2, "0")}:${String(endM).padStart(2, "0")}`,
+              durationMinutes: durMin > 0 ? durMin : 60,
+              coveredHours: covered,
             });
           }
         }
@@ -628,6 +665,10 @@ export function parseStudentScheduleSlots(
 
       let detectedHourSlot = "18h";
       let timeDetail = "";
+      let clauseStartH = 18;
+      let clauseStartM = 0;
+      let clauseEndH = 19;
+      let clauseEndM = 0;
 
       // Khớp khoảng giờ: 18:00-19:30, 18h-19h30, 19-20h, 09:00 - 10:30, 18h30 - 20h
       const rangeMatch = cleanTime.match(
@@ -646,6 +687,10 @@ export function parseStudentScheduleSlots(
           if (endHourNum < startH && endHourNum <= 5) {
             endHourNum += 12;
           }
+          clauseStartH = startH;
+          clauseStartM = parseInt(startM, 10) || 0;
+          clauseEndH = endHourNum;
+          clauseEndM = parseInt(endM, 10) || 0;
           const startStr = `${String(startH).padStart(2, "0")}:${startM}`;
           const endStr = `${String(endHourNum).padStart(2, "0")}:${endM}`;
           timeDetail = `${startStr} - ${endStr}`;
@@ -659,6 +704,10 @@ export function parseStudentScheduleSlots(
           if (!isNaN(startH) && startH >= 0 && startH <= 23) {
             detectedHourSlot = `${String(startH).padStart(2, "0")}h`;
             const endH = startH + 1;
+            clauseStartH = startH;
+            clauseStartM = parseInt(startM, 10) || 0;
+            clauseEndH = endH;
+            clauseEndM = clauseStartM;
             const startStr = `${String(startH).padStart(2, "0")}:${startM}`;
             const endStr = `${String(endH).padStart(2, "0")}:${startM}`;
             timeDetail = `${startStr} - ${endStr}`;
@@ -677,6 +726,9 @@ export function parseStudentScheduleSlots(
       // 4. Nhận diện giáo viên riêng trong đoạn này nếu có
       const teacherInSeg = detectTeacher(seg) || detectedTeacherFromNote;
 
+      const covered = calculateCoveredHourSlots(clauseStartH, clauseStartM, clauseEndH, clauseEndM);
+      const durMin = (clauseEndH * 60 + clauseEndM) - (clauseStartH * 60 + clauseStartM);
+
       if (daysFound.length > 0) {
         for (const d of daysFound) {
           const startH = parseInt(detectedHourSlot.replace("h", ""), 10) || 18;
@@ -689,6 +741,10 @@ export function parseStudentScheduleSlots(
             subjectName: segSubject,
             detectedTeacherId: teacherInSeg || classTeachers[0],
             matchedTeacherIds: classTeachers.length > 0 ? classTeachers : undefined,
+            startTime: `${String(clauseStartH).padStart(2, "0")}:${String(clauseStartM).padStart(2, "0")}`,
+            endTime: `${String(clauseEndH).padStart(2, "0")}:${String(clauseEndM).padStart(2, "0")}`,
+            durationMinutes: durMin > 0 ? durMin : 60,
+            coveredHours: covered,
           });
         }
       }
@@ -704,11 +760,16 @@ export function parseStudentScheduleSlots(
     for (const d of daysList) {
       const isWeekend = d.includes("7") || d.toLowerCase().includes("nhật");
       const defaultStartH = isWeekend ? 9 : 18;
+      const slotHour = isWeekend ? "09h" : "18h";
       results.push({
         day: d.startsWith("Thứ") || d === "Chủ Nhật" ? d : `Thứ ${d.replace(/\D/g, "")}`,
-        hourSlot: isWeekend ? "09h" : "18h",
+        hourSlot: slotHour,
         timeDetail: `${String(defaultStartH).padStart(2, "0")}:00 - ${String(defaultStartH + 1).padStart(2, "0")}:00`,
         detectedTeacherId: detectedTeacherFromNote,
+        startTime: `${String(defaultStartH).padStart(2, "0")}:00`,
+        endTime: `${String(defaultStartH + 1).padStart(2, "0")}:00`,
+        durationMinutes: 60,
+        coveredHours: [slotHour],
       });
     }
   }
@@ -720,6 +781,10 @@ export function parseStudentScheduleSlots(
       hourSlot: "18h",
       timeDetail: "18:00 - 19:00",
       detectedTeacherId: detectedTeacherFromNote,
+      startTime: "18:00",
+      endTime: "19:00",
+      durationMinutes: 60,
+      coveredHours: ["18h"],
     });
   }
 

@@ -6,6 +6,13 @@
 
 ## 1. LỊCH SỬ PHIÊN BẢN (CHANGELOG)
 
+### [v2.8.6] - 2026-11-07
+- **⭐ NÂNG CẤP HIỂN THỊ SĨ SỐ THỰC TẾ & NHẬN DIỆN HỌC VIÊN CA KÉO DÀI TRÊN MA TRẬN LỚP (`ClassroomScheduleMatrix.tsx` & `tuition.ts`):**
+  - **Khắc phục triệt để hiểu nhầm sĩ số các khung giờ tiếp theo:** Học viên học các ca kéo dài nhiều tiếng (ví dụ 18:00 - 20:00, 18:30 - 20:00) được tự động phân bổ và hiển thị ở TẤT CẢ các khung giờ mà ca học giao thoa (ví dụ cả khung 18:00 và 19:00).
+  - **Huy hiệu sĩ số thông minh:** Tiêu đề mỗi khung giờ thể hiện chính xác tổng số học viên thực tế đang có mặt trong phòng, kèm badge phân loại trực quan (ví dụ: `6 học viên (+4 ca trước)`) để admin nhìn vào là biết ngay khung giờ đó có đông hay vắng.
+  - **Gắn nhãn nhận diện học viên học tiếp từ ca trước:** Trên thẻ học viên tại các khung giờ tiếp theo, hệ thống gắn nhãn nổi bật `↳ Từ 18:00` kèm viền ấm phân biệt, hiển thị đầy đủ khung giờ thực tế `18:00 - 20:00`.
+  - **Bảo toàn thống kê và lượt học:** Các chỉ số tổng lượt học toàn tuần (`overallStats`) và tổng số học sinh theo ngày (`dayStatsMap`) không bị đếm trùng lặp.
+
 ### [v2.8.5] - 2026-11-06
 - **⭐ HỆ THỐNG XUẤT BIÊN LAI ĐIỆN TỬ VÀ LƯU VẾT SỔ BIÊN LAI GIẤY (e-Receipt System):**
   - **Tích hợp mã Biên lai (Giấy):** Thêm trường `receipt_number` vào form Đối soát học phí (`QuickAuditModal`), cho phép lễ tân/admin nhập số biên lai đã viết tay trên sổ để đồng bộ chứng từ với phần mềm.

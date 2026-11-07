@@ -115,6 +115,10 @@ interface StudentSlotEntry {
   subjectName: string;
   teacherId: string;
   teacherName?: string;
+  isContinuing?: boolean; // true nếu là học viên từ ca trước học tiếp sang ca này
+  startTime?: string;
+  endTime?: string;
+  primaryHour?: string;
 }
 
 export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = ({
@@ -273,15 +277,45 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
 
       for (const slot of parsedSlots) {
         const d = slot.day;
-        const h = slot.hourSlot;
+        if (!data[d]) continue;
 
-        // Nếu ca đó có nhiều giáo viên phụ trách (matchedTeacherIds), đẩy học sinh vào cột của TẤT CẢ các GV đó
-        const targetTeacherIds =
-          slot.matchedTeacherIds && slot.matchedTeacherIds.length > 0
-            ? slot.matchedTeacherIds
-            : [st.teacher_id || slot.detectedTeacherId || "unassigned"];
+        // Các khung giờ mà ca học này giao thoa (ví dụ học 18h-20h thì phủ cả 18h và 19h)
+        const coveredHours =
+          slot.coveredHours && slot.coveredHours.length > 0
+            ? slot.coveredHours
+            : [slot.hourSlot];
 
-        if (data[d]) {
+        for (let idx = 0; idx < coveredHours.length; idx++) {
+          const h = coveredHours[idx];
+          const isContinuing = idx > 0;
+          const currentHNum = parseInt(h.replace("h", ""), 10);
+
+          // Phân giải giáo viên tương ứng cho khung giờ này nếu có phân ca
+          let currentTargetTeacherIds: string[] = [];
+          if (st.class_teacher_assignments_json) {
+            try {
+              const assignments = JSON.parse(st.class_teacher_assignments_json);
+              if (Array.isArray(assignments)) {
+                const matched = assignments.filter((a: any) => {
+                  const matchDay = !a.day || a.day === "Tất cả các ngày" || a.day.includes(d);
+                  if (!matchDay) return false;
+                  if (!a.start_time || !a.end_time) return true;
+                  const [sh] = a.start_time.split(":").map(Number);
+                  const [eh] = a.end_time.split(":").map(Number);
+                  return currentHNum >= sh && currentHNum < eh;
+                });
+                currentTargetTeacherIds = matched.map((m: any) => m.teacher_id).filter(Boolean);
+              }
+            } catch {}
+          }
+
+          if (currentTargetTeacherIds.length === 0) {
+            currentTargetTeacherIds =
+              slot.matchedTeacherIds && slot.matchedTeacherIds.length > 0
+                ? slot.matchedTeacherIds
+                : [st.teacher_id || slot.detectedTeacherId || "unassigned"];
+          }
+
           if (!data[d][h]) {
             data[d][h] = {};
             for (const tc of teachers) {
@@ -290,10 +324,13 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
             data[d][h]["unassigned"] = [];
           }
 
-          for (const resolvedTeacherId of targetTeacherIds) {
+          for (const resolvedTeacherId of currentTargetTeacherIds) {
             const targetTeacherId = data[d][h][resolvedTeacherId] ? resolvedTeacherId : "unassigned";
             const subName = slot.subjectName || st.subject_name || "Piano";
             const tcObj = teachers.find((t) => t.id === targetTeacherId);
+
+            // Tránh thêm trùng cùng 1 học sinh trong cùng 1 ca giờ
+            if (data[d][h][targetTeacherId].some((e) => e.student.id === st.id)) continue;
 
             data[d][h][targetTeacherId].push({
               student: st,
@@ -301,6 +338,10 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
               subjectName: subName,
               teacherId: targetTeacherId,
               teacherName: tcObj?.name || (targetTeacherId === "unassigned" ? "Chờ gán GV" : undefined),
+              isContinuing,
+              startTime: slot.startTime,
+              endTime: slot.endTime,
+              primaryHour: slot.hourSlot,
             });
           }
         }
@@ -322,12 +363,19 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
       }
     });
 
-    // Thêm các giờ từ học sinh thực tế (lọc bỏ triệt để các giá trị NaN)
+    // Thêm các giờ từ học sinh thực tế (kể cả các giờ kéo dài, lọc bỏ triệt để các giá trị NaN)
     students.forEach((st) => {
       if (st.status === "dropped") return;
       const slots = parseStudentScheduleSlots(st, teachers);
       slots.forEach((s) => {
-        if (s.hourSlot && s.hourSlot.includes("h")) {
+        if (Array.isArray(s.coveredHours) && s.coveredHours.length > 0) {
+          s.coveredHours.forEach((ch) => {
+            const num = parseInt(ch.replace("h", ""), 10);
+            if (!isNaN(num) && num >= 0 && num <= 23) {
+              hourSet.add(`${String(num).padStart(2, "0")}h`);
+            }
+          });
+        } else if (s.hourSlot && s.hourSlot.includes("h")) {
           const num = parseInt(s.hourSlot.replace("h", ""), 10);
           if (!isNaN(num) && num >= 0 && num <= 23) {
             hourSet.add(`${String(num).padStart(2, "0")}h`);
@@ -368,20 +416,30 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
   const getSlotFilteredEntries = (day: string, hour: string): StudentSlotEntry[] => {
     const hourMap = matrixData[day]?.[hour] || {};
     const results: StudentSlotEntry[] = [];
+    const seenStudentIds = new Set<string>();
 
     for (const tcId in hourMap) {
       if (selectedTeacherFilter !== "all" && tcId !== selectedTeacherFilter) continue;
       for (const item of hourMap[tcId]) {
         if (isStudentMatched(item.student) && isSubjectMatched(item.subjectName, item.student.subject_id)) {
+          if (selectedTeacherFilter === "all") {
+            if (seenStudentIds.has(item.student.id)) continue;
+            seenStudentIds.add(item.student.id);
+          }
           results.push(item);
         }
       }
     }
 
-    return results;
+    // Sắp xếp: học viên vào ca trước xuất hiện trước hoặc theo giờ bắt đầu
+    return results.sort((a, b) => {
+      const aStart = a.startTime || a.timeDetail.split("-")[0]?.trim() || "00:00";
+      const bStart = b.startTime || b.timeDetail.split("-")[0]?.trim() || "00:00";
+      return aStart.localeCompare(bStart);
+    });
   };
 
-  // Thống kê tổng số lượt học toàn tuần
+  // Thống kê tổng số lượt học toàn tuần (chỉ đếm lượt học chính, không đếm trùng giờ kéo dài)
   const overallStats = useMemo(() => {
     let totalSlots = 0;
     let paidCount = 0;
@@ -394,6 +452,7 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
         if (!hourMap) continue;
         for (const tcId in hourMap) {
           for (const item of hourMap[tcId]) {
+            if (item.isContinuing) continue; // Không tính đếm trùng
             totalSlots++;
             if (item.student.payment_status === "paid") paidCount++;
             else unpaidCount++;
@@ -406,7 +465,7 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
     return { totalSlots, paidCount, unpaidCount, unassignedCount };
   }, [matrixData, allWeekHours]);
 
-  // Thống kê học sinh theo từng ngày
+  // Thống kê học sinh theo từng ngày (chỉ đếm lượt học chính)
   const dayStatsMap = useMemo(() => {
     const map: Record<string, { total: number; unpaid: number; unassigned: number }> = {};
     for (const d of DAYS_OF_WEEK) {
@@ -418,6 +477,7 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
         if (!hourMap) continue;
         for (const tcId in hourMap) {
           for (const item of hourMap[tcId]) {
+            if (item.isContinuing) continue; // Không tính đếm trùng
             total++;
             if (item.student.payment_status !== "paid") unpaid++;
             if (tcId === "unassigned") unassigned++;
@@ -803,7 +863,7 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
                                   </span>
                                 </div>
                               ) : (
-                                entries.map(({ student, timeDetail, subjectName, teacherId }) => {
+                                  entries.map(({ student, timeDetail, subjectName, teacherId, isContinuing, startTime }) => {
                                   const isUnassigned = teacherId === "unassigned" || !student.teacher_id;
                                   const isOverdue = Boolean(student.is_overdue);
                                   const isHighlighted = hoveredStudentId && hoveredStudentId === student.id;
@@ -819,14 +879,14 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
 
                                   return (
                                     <div
-                                      key={student.id}
+                                      key={`${student.id}_${hour}_${isContinuing ? "cont" : "start"}`}
                                       onClick={() => onSelectStudent(student)}
                                       onMouseEnter={(e) => {
                                         setHoveredStudentId(student.id);
                                         const rect = e.currentTarget.getBoundingClientRect();
                                         setHoveredStudent({
                                           student,
-                                          timeDetail,
+                                          timeDetail: isContinuing ? `${timeDetail} (học tiếp từ ca trước)` : timeDetail,
                                           subjectName,
                                           x: rect.right + 10,
                                           y: rect.top,
@@ -843,6 +903,8 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
                                           ? "ring-2 ring-indigo-500 bg-indigo-50/95 dark:bg-indigo-950 shadow-md scale-[1.02] z-10 border-indigo-300 font-bold"
                                           : isDimmed
                                           ? "opacity-35 scale-[0.98]"
+                                          : isContinuing
+                                          ? "bg-amber-50/50 dark:bg-amber-950/25 border-dashed border-amber-300/80 dark:border-amber-700/80 hover:border-amber-400"
                                           : isUnassigned
                                           ? "bg-amber-50/70 dark:bg-amber-950/20 border-dashed border-amber-300/80 dark:border-amber-700/80 hover:border-amber-400"
                                           : "bg-white dark:bg-slate-800/90 border-slate-200/90 dark:border-slate-700/80 hover:border-indigo-400 hover:shadow-2xs"
@@ -852,7 +914,7 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
                                       <div className="flex items-center gap-1 min-w-0">
                                         <span
                                           className="font-bold text-[11px] text-slate-800 dark:text-slate-100 truncate"
-                                          title={`${student.name} (${subjectName})`}
+                                          title={`${student.name} (${subjectName})${isContinuing ? ` - Học tiếp từ ${timeDetail}` : ""}`}
                                         >
                                           {student.name}
                                         </span>
@@ -864,9 +926,16 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
                                         )}
                                       </div>
 
-                                      {/* Thông tin phụ: Giờ học nếu lệch / Nhãn Chờ GV */}
+                                      {/* Thông tin phụ: Giờ học nếu lệch / Nhãn Chờ GV / Nhãn Từ ca trước */}
                                       <div className="flex items-center gap-1 shrink-0">
-                                        {isCustomTime ? (
+                                        {isContinuing ? (
+                                          <span
+                                            className="font-mono text-[8.5px] font-bold text-amber-700 dark:text-amber-300 bg-amber-100/90 dark:bg-amber-950/80 px-1 py-0.2 rounded border border-amber-300 dark:border-amber-700 leading-tight"
+                                            title={`Học viên học tiếp từ ${timeDetail}`}
+                                          >
+                                            ↳ {timeDetail.split("-")[0]?.trim()}
+                                          </span>
+                                        ) : isCustomTime ? (
                                           <span className="font-mono text-[9px] font-bold text-amber-700 dark:text-amber-400 bg-amber-100/80 dark:bg-amber-950/60 px-1 py-0.2 rounded leading-tight">
                                             {timeDetail.split("-")[0]?.trim() || timeDetail}
                                           </span>
@@ -953,6 +1022,8 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
               {allWeekHours.map((hour) => {
                 const hourLabel = formatHourLabel(hour);
                 const entries = getSlotFilteredEntries(activeDay, hour);
+                const continuingCount = entries.filter((e) => e.isContinuing).length;
+                const startingCount = entries.length - continuingCount;
 
                 return (
                   <div
@@ -963,9 +1034,26 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
                       <span className="font-mono font-black text-sm text-indigo-600 dark:text-indigo-400">
                         {hourLabel}
                       </span>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                        {entries.length} học viên
-                      </span>
+                      <div className="flex items-center gap-1">
+                        <span
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
+                            entries.length > 0
+                              ? "bg-slate-200 dark:bg-slate-800 text-slate-800 dark:text-slate-200"
+                              : "bg-slate-100 dark:bg-slate-900 text-slate-400"
+                          }`}
+                          title={`${startingCount} học viên vào ca này${continuingCount > 0 ? `, ${continuingCount} học viên học tiếp từ ca trước sang` : ""}`}
+                        >
+                          {entries.length} học viên
+                        </span>
+                        {continuingCount > 0 && (
+                          <span
+                            className="text-[9.5px] font-bold px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-800 dark:bg-amber-950/70 dark:text-amber-300 border border-amber-300/80 dark:border-amber-700/80"
+                            title={`Có ${continuingCount} học viên đang học tiếp từ ca trước sang (ví dụ học 2 tiếng)`}
+                          >
+                            +{continuingCount} ca trước
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     <div className="space-y-1.5 flex-1 max-h-60 overflow-y-auto scrollbar-thin pr-0.5">
@@ -974,22 +1062,36 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
                           Chưa có học viên nào
                         </div>
                       ) : (
-                        entries.map(({ student, timeDetail, subjectName, teacherName }) => {
+                        entries.map(({ student, timeDetail, subjectName, teacherName, isContinuing, startTime }) => {
                           const isPaid = student.payment_status === "paid";
                           const subBadge = getSubjectBadge(subjectName);
 
                           return (
                             <div
-                              key={student.id}
+                              key={`${student.id}_${hour}_${isContinuing ? "cont" : "start"}`}
                               onClick={() => onSelectStudent(student)}
                               className={`p-2 rounded-xl border text-left cursor-pointer transition ${getSubjectBorderClass(
                                 subjectName
-                              )} border-l-4 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-indigo-400`}
+                              )} border-l-4 ${
+                                isContinuing
+                                  ? "bg-amber-50/40 dark:bg-amber-950/20 border-amber-200/90 dark:border-amber-900/60 hover:border-amber-400"
+                                  : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-indigo-400"
+                              }`}
                             >
                               <div className="flex items-center justify-between gap-1">
-                                <span className="font-bold text-xs text-slate-900 dark:text-white truncate">
-                                  {student.name}
-                                </span>
+                                <div className="flex items-center gap-1.5 min-w-0">
+                                  <span className="font-bold text-xs text-slate-900 dark:text-white truncate">
+                                    {student.name}
+                                  </span>
+                                  {isContinuing && (
+                                    <span
+                                      className="text-[8.5px] font-extrabold uppercase px-1.5 py-0.2 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-800 shrink-0"
+                                      title={`Học viên học tiếp từ ca trước sang (${timeDetail})`}
+                                    >
+                                      ↳ Từ {startTime || timeDetail.split("-")[0]?.trim()}
+                                    </span>
+                                  )}
+                                </div>
                                 {student.is_overdue && (
                                   <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse shrink-0" title="Nợ học phí quá hạn" />
                                 )}
@@ -1068,7 +1170,7 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
                 for (const d of DAYS_OF_WEEK) {
                   for (const h of allWeekHours) {
                     if (matrixData[d]?.[h]?.[tc.id]) {
-                      teacherTotalStudents += matrixData[d][h][tc.id].length;
+                      teacherTotalStudents += matrixData[d][h][tc.id].filter((it) => !it.isContinuing).length;
                     }
                   }
                 }
@@ -1127,19 +1229,21 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
                                       </span>
                                     </div>
                                     <div className="flex flex-wrap gap-1">
-                                      {studentsInSlot.map(({ student, timeDetail }) => (
+                                      {studentsInSlot.map(({ student, timeDetail, isContinuing }) => (
                                         <button
-                                          key={student.id}
+                                          key={`${student.id}_${h}_${isContinuing ? "cont" : "start"}`}
                                           type="button"
                                           onClick={() => onSelectStudent(student)}
                                           className={`text-[10px] px-2 py-0.5 rounded-lg border font-semibold transition cursor-pointer hover:border-indigo-400 ${
-                                            student.payment_status === "paid"
+                                            isContinuing
+                                              ? "bg-amber-50 dark:bg-amber-950/40 border-amber-300 dark:border-amber-800 text-amber-800 dark:text-amber-300"
+                                              : student.payment_status === "paid"
                                               ? "bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200"
                                               : "bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-900/60 text-rose-700 dark:text-rose-300"
                                           }`}
-                                          title="Bấm để xem hồ sơ học viên"
+                                          title={`Bấm để xem hồ sơ học viên${isContinuing ? " (học tiếp từ ca trước)" : ""}`}
                                         >
-                                          {student.name} {timeDetail && `(${timeDetail})`}
+                                          {student.name} {isContinuing && <span className="text-[8.5px] opacity-80">(↳ ca trước)</span>} {timeDetail && `(${timeDetail})`}
                                         </button>
                                       ))}
                                     </div>
@@ -1228,13 +1332,13 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
                     (teacherName && teacherName.toLowerCase().includes(q))
                   );
                 })
-                .map(({ student, timeDetail, subjectName, teacherName }) => {
+                .map(({ student, timeDetail, subjectName, teacherName, isContinuing }) => {
                   const isPaid = student.payment_status === "paid";
                   const subBadge = getSubjectBadge(subjectName);
 
                   return (
                     <div
-                      key={student.id}
+                      key={`${student.id}_${isContinuing ? "cont" : "start"}`}
                       onClick={() => {
                         onSelectStudent(student);
                         setDrawerSlot(null);
@@ -1242,15 +1346,24 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
                       className={`p-3 rounded-2xl border text-left cursor-pointer transition hover:shadow-md ${getSubjectBorderClass(
                         subjectName
                       )} border-l-4 ${
-                        isPaid
+                        isContinuing
+                          ? "bg-amber-50/40 dark:bg-amber-950/20 border-amber-200 dark:border-amber-900/60 hover:border-amber-400"
+                          : isPaid
                           ? "bg-slate-50/60 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 hover:border-indigo-400"
                           : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-indigo-400"
                       }`}
                     >
                       <div className="flex items-center justify-between">
-                        <span className="font-extrabold text-sm text-slate-900 dark:text-white">
-                          {student.name}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-extrabold text-sm text-slate-900 dark:text-white">
+                            {student.name}
+                          </span>
+                          {isContinuing && (
+                            <span className="text-[9.5px] font-extrabold px-2 py-0.2 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-800">
+                              ↳ Học tiếp từ ca trước ({timeDetail})
+                            </span>
+                          )}
+                        </div>
                         {isPaid ? (
                           <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
                             Đã đóng phí
