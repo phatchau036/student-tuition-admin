@@ -909,7 +909,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                         Kiểm Tra Sĩ Số Ca Lớp Thực Tế
                       </span>
                       <span className="text-[11px] text-slate-600 dark:text-slate-300">
-                        Khung giờ: <strong>{fixedSessionTime || "18:00 - 19:30"}</strong> • Sĩ số tối đa: <strong>{classCapacityCheck.maxCapacity} HS / ca</strong>
+                        Khung giờ: <strong>{classCapacityCheck.timeRangeDisplay || fixedSessionTime || "18:00 - 19:30"}</strong> • Sĩ số tối đa: <strong>{classCapacityCheck.maxCapacity} HS / ca</strong>
                       </span>
                     </div>
                   </div>
@@ -968,6 +968,20 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                             ? "Hết chỗ nhận thêm"
                             : `Còn trống ${dayItem.remainingSlots} chỗ`}
                         </span>
+
+                        {dayItem.overlappingStudents && dayItem.overlappingStudents.length > 0 && (
+                          <div className="mt-1.5 pt-1.5 border-t border-slate-200/60 dark:border-slate-700/60 flex flex-wrap gap-1 max-h-16 overflow-y-auto scrollbar-none">
+                            {dayItem.overlappingStudents.map((st) => (
+                              <span
+                                key={st.id}
+                                className="text-[9.5px] font-semibold px-1.5 py-0.2 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 truncate max-w-full"
+                                title={`${st.name} (${st.timeDetail || ""})`}
+                              >
+                                {st.name}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     );
                   })}

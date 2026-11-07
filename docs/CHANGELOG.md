@@ -12,6 +12,10 @@
   - **Huy hiệu sĩ số thông minh:** Tiêu đề mỗi khung giờ thể hiện chính xác tổng số học viên thực tế đang có mặt trong phòng, kèm badge phân loại trực quan (ví dụ: `6 học viên (+4 ca trước)`) để admin nhìn vào là biết ngay khung giờ đó có đông hay vắng.
   - **Gắn nhãn nhận diện học viên học tiếp từ ca trước:** Trên thẻ học viên tại các khung giờ tiếp theo, hệ thống gắn nhãn nổi bật `↳ Từ 18:00` kèm viền ấm phân biệt, hiển thị đầy đủ khung giờ thực tế `18:00 - 20:00`.
   - **Bảo toàn thống kê và lượt học:** Các chỉ số tổng lượt học toàn tuần (`overallStats`) và tổng số học sinh theo ngày (`dayStatsMap`) không bị đếm trùng lặp.
+- **⭐ KHẮC PHỤC LỖI TÍNH SĨ SỐ CA THỰC TẾ TRONG FORM SỬA/THÊM HỌC SINH (`StudentFormModal.tsx` & `shiftDetection.ts`):**
+  - **Sửa lỗi parse thời gian chứa tiền tố thứ:** Trước đó chuỗi như `"T3, T5, T7 (17h30-18h30)"` bị hàm tách chuỗi cũ cắt nhầm thành `00:00` khiến thuật toán giao thoa thời gian không tìm thấy học sinh trùng ca (`0/7`).
+  - **Nâng cấp `extractTimeRangeMinutes` và `normalizeDayOfWeek`:** Chuẩn hóa toàn bộ tên thứ (`T3`, `Thứ 3`, `CN`, `Chủ Nhật`) và trích xuất giờ học chính xác `17:30 - 18:30`.
+  - **Hiển thị danh sách học viên trùng giờ trực tiếp:** Thêm danh sách tên các bạn đang học cùng ca ngay trong thẻ từng thứ của popup Kiểm tra sĩ số để admin biết rõ ai đang học cùng ca với bé.
 
 ### [v2.8.5] - 2026-11-06
 - **⭐ HỆ THỐNG XUẤT BIÊN LAI ĐIỆN TỬ VÀ LƯU VẾT SỔ BIÊN LAI GIẤY (e-Receipt System):**

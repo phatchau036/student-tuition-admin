@@ -34,11 +34,25 @@ export interface ShiftDetectionResult {
 }
 
 export function timeToMinutes(timeStr: string): number {
-  if (!timeStr || !timeStr.includes(":")) return 0;
-  const parts = timeStr.trim().split(":");
-  const h = parseInt(parts[0], 10) || 0;
-  const m = parseInt(parts[1], 10) || 0;
-  return h * 60 + m;
+  if (!timeStr) return 0;
+  const clean = timeStr.trim();
+  if (clean.includes(":")) {
+    const parts = clean.split(":");
+    const h = parseInt(parts[0], 10) || 0;
+    const m = parseInt(parts[1], 10) || 0;
+    return h * 60 + m;
+  }
+  const match = clean.match(/(\d{1,2})(?:\s*h\s*(\d{2})?)/i);
+  if (match) {
+    const h = parseInt(match[1], 10) || 0;
+    const m = parseInt(match[2] || "0", 10) || 0;
+    return h * 60 + m;
+  }
+  const onlyNum = parseInt(clean, 10);
+  if (!isNaN(onlyNum) && onlyNum >= 0 && onlyNum <= 24) {
+    return onlyNum * 60;
+  }
+  return 0;
 }
 
 export function minutesToTime(minutes: number): string {
@@ -230,6 +244,87 @@ export function detectShiftTeachers(
   };
 }
 
+/**
+ * Chuẩn hóa tên Thứ trong tuần: "T3" -> "Thứ 3", "CN" -> "Chủ Nhật"
+ */
+export function normalizeDayOfWeek(d?: string): string {
+  if (!d) return "";
+  const s = d.trim().toLowerCase();
+  if (s.includes("chủ nhật") || s === "cn") return "Chủ Nhật";
+  if (s.includes("thứ 2") || s === "t2" || s === "2") return "Thứ 2";
+  if (s.includes("thứ 3") || s === "t3" || s === "3") return "Thứ 3";
+  if (s.includes("thứ 4") || s === "t4" || s === "4") return "Thứ 4";
+  if (s.includes("thứ 5") || s === "t5" || s === "5") return "Thứ 5";
+  if (s.includes("thứ 6") || s === "t6" || s === "6") return "Thứ 6";
+  if (s.includes("thứ 7") || s === "t7" || s === "7" || s === "s7" || s === "c7") return "Thứ 7";
+  return d.trim();
+}
+
+/**
+ * Trích xuất khoảng thời gian (phút & chuỗi hiển thị) từ chuỗi văn bản bất kỳ
+ * Hỗ trợ các định dạng: "18:00 - 19:30", "T3, T5, T7 (17h30-18h30)", "18h-19h30", "18h", "18:00"
+ */
+export function extractTimeRangeMinutes(str?: string): {
+  startMin: number;
+  endMin: number;
+  startTime: string;
+  endTime: string;
+  display: string;
+} {
+  let sH = 18;
+  let sM = 0;
+  let eH = 19;
+  let eM = 30;
+
+  if (str) {
+    const clean = str.replace(/(?:Thứ\s*[2-7]|Chủ\s*Nhật|CN|T[2-7]|S7|C7)\b/gi, " ");
+    const rangeMatch = clean.match(
+      /(\d{1,2})(?:\s*h\s*(\d{2})?|\s*:\s*(\d{2}))?\s*[-–to~]\s*(\d{1,2})(?:\s*h\s*(\d{2})?|\s*:\s*(\d{2}))?/i
+    );
+
+    if (rangeMatch) {
+      const parsedSH = parseInt(rangeMatch[1], 10);
+      const parsedSM = parseInt(rangeMatch[2] || rangeMatch[3] || "0", 10);
+      let parsedEH = parseInt(rangeMatch[4], 10);
+      const parsedEM = parseInt(rangeMatch[5] || rangeMatch[6] || "0", 10);
+      if (!isNaN(parsedSH) && parsedSH >= 0 && parsedSH <= 23) {
+        if (!isNaN(parsedEH) && parsedEH < parsedSH && parsedEH <= 5) parsedEH += 12;
+        const validEH = !isNaN(parsedEH) ? parsedEH : parsedSH + 1;
+        sH = parsedSH;
+        sM = parsedSM;
+        eH = validEH;
+        eM = parsedEM;
+      }
+    } else {
+      const singleMatch = clean.match(/(\d{1,2})(?:\s*h\s*(\d{2})?|\s*:\s*(\d{2}))/i);
+      if (singleMatch) {
+        const parsedSH = parseInt(singleMatch[1], 10);
+        const parsedSM = parseInt(singleMatch[2] || singleMatch[3] || "0", 10);
+        if (!isNaN(parsedSH) && parsedSH >= 0 && parsedSH <= 23) {
+          sH = parsedSH;
+          sM = parsedSM;
+          eH = parsedSH + 1;
+          eM = parsedSM;
+        }
+      }
+    }
+  }
+
+  const startMin = sH * 60 + sM;
+  let endMin = eH * 60 + eM;
+  if (endMin <= startMin) endMin = startMin + 60;
+  const startTime = `${String(sH).padStart(2, "0")}:${String(sM).padStart(2, "0")}`;
+  const endTime = `${String(eH).padStart(2, "0")}:${String(eM).padStart(2, "0")}`;
+
+  return {
+    startMin,
+    endMin,
+    startTime,
+    endTime,
+    display: `${startTime} - ${endTime}`,
+  };
+}
+
 export interface DayCapacityDetail {
   day: string;
   occupiedCount: number;
@@ -243,6 +338,7 @@ export interface ClassCapacityCheckResult {
   maxCapacity: number;
   peakOccupiedCount: number;
   isOverCapacity: boolean;
+  timeRangeDisplay?: string;
   dayDetails: DayCapacityDetail[];
   warningMessage: string | null;
 }
@@ -254,7 +350,7 @@ export interface ClassCapacityCheckResult {
 export function checkClassCapacityForSchedule(params: {
   selectedClassId: string;
   selectedDays: string[];
-  sessionTimeStr: string; // VD: "18:00 - 19:30" hoặc "17:30 - 19:00"
+  sessionTimeStr: string; // VD: "18:00 - 19:30" hoặc "T3, T5, T7 (17h30-18h30)"
   classes: Array<{ id: string; name: string; max_students?: number }>;
   allStudents: Array<{
     id: string;
@@ -282,17 +378,10 @@ export function checkClassCapacityForSchedule(params: {
     };
   }
 
-  // Phân tích mốc giờ bắt đầu và kết thúc của ca học đang chọn
-  let candStart = 18 * 60; // 18:00
-  let candEnd = 19 * 60 + 30; // 19:30
-  if (sessionTimeStr && sessionTimeStr.includes("-")) {
-    const parts = sessionTimeStr.split("-").map((s) => s.trim());
-    if (parts[0]) candStart = timeToMinutes(parts[0]);
-    if (parts[1]) candEnd = timeToMinutes(parts[1]);
-  }
-  if (candEnd <= candStart) {
-    candEnd = candStart + 90; // Mặc định 1.5h
-  }
+  // Phân tích mốc giờ bắt đầu và kết thúc của ca học ứng viên
+  const candRange = extractTimeRangeMinutes(sessionTimeStr);
+  const candStart = candRange.startMin;
+  const candEnd = candRange.endMin;
 
   // Lọc các học sinh khác trong cùng lớp (bỏ qua học sinh đã nghỉ học 'dropped' và chính học sinh đang sửa)
   const otherClassStudents = allStudents.filter(
@@ -307,25 +396,25 @@ export function checkClassCapacityForSchedule(params: {
   let hasOverload = false;
   const overloadedDays: string[] = [];
 
-  for (const day of selectedDays) {
+  for (const rawDay of selectedDays) {
+    const day = normalizeDayOfWeek(rawDay);
     const overlappingStudentsOnDay: Array<{ id: string; name: string; timeDetail?: string }> = [];
 
     for (const st of otherClassStudents) {
       let isOverlap = false;
       let matchedTimeDetail = "";
 
-      // 1. Kiểm tra từ schedule_details_json
+      // 1. Kiểm tra từ schedule_details_json (chính xác nhất)
       if (st.schedule_details_json) {
         try {
           const items = JSON.parse(st.schedule_details_json);
           if (Array.isArray(items) && items.length > 0) {
-            const dayItem = items.find((it: any) => it.day === day);
+            const dayItem = items.find((it: any) => normalizeDayOfWeek(it.day) === day);
             if (dayItem && dayItem.start_time) {
-              const sStart = timeToMinutes(dayItem.start_time);
-              const sEnd = dayItem.end_time ? timeToMinutes(dayItem.end_time) : sStart + 90;
-              if (Math.max(candStart, sStart) < Math.min(candEnd, sEnd)) {
+              const itemRange = extractTimeRangeMinutes(`${dayItem.start_time} - ${dayItem.end_time || ""}`);
+              if (Math.max(candStart, itemRange.startMin) < Math.min(candEnd, itemRange.endMin)) {
                 isOverlap = true;
-                matchedTimeDetail = `${dayItem.start_time} - ${dayItem.end_time || ""}`;
+                matchedTimeDetail = itemRange.display;
               }
             }
           }
@@ -334,34 +423,73 @@ export function checkClassCapacityForSchedule(params: {
 
       // 2. Kiểm tra từ study_time_detail nếu chưa xác định được từ json
       if (!isOverlap && st.study_time_detail) {
-        const raw = st.study_time_detail;
-        if (raw.includes(day) || !raw.includes("Thứ")) {
-          // Khớp giờ học trong ngày
-          const rangeMatch = raw.match(
-            /(\d{1,2})(?:\s*h\s*(\d{2})?|\s*:\s*(\d{2}))?\s*[-–to~]\s*(\d{1,2})(?:\s*h\s*(\d{2})?|\s*:\s*(\d{2}))?/i
-          );
-          if (rangeMatch) {
-            const sH = parseInt(rangeMatch[1], 10);
-            const sM = parseInt(rangeMatch[2] || rangeMatch[3] || "0", 10);
-            let eH = parseInt(rangeMatch[4], 10);
-            const eM = parseInt(rangeMatch[5] || rangeMatch[6] || "0", 10);
-            if (eH < sH && eH <= 5) eH += 12;
-            const sStart = sH * 60 + sM;
-            const sEnd = eH * 60 + eM;
-            if (Math.max(candStart, sStart) < Math.min(candEnd, sEnd)) {
-              isOverlap = true;
-              matchedTimeDetail = `${String(sH).padStart(2, "0")}:${String(sM).padStart(2, "0")} - ${String(eH).padStart(2, "0")}:${String(eM).padStart(2, "0")}`;
+        const raw = st.study_time_detail.trim();
+        if (raw && !raw.toLowerCase().includes("linh hoạt")) {
+          let clauses: string[] = [raw];
+          if (/[|;]/.test(raw)) {
+            clauses = raw.split(/[|;]+/).map((s) => s.trim()).filter(Boolean);
+          } else if (/\)\s*,\s*(?=[A-Za-zÀ-ỹ0-9])/.test(raw)) {
+            clauses = raw.split(/\)\s*,\s*(?=[A-Za-zÀ-ỹ0-9])/).map((s, idx, arr) => {
+              let res = s.trim();
+              if (idx < arr.length - 1 && !res.endsWith(")")) res += ")";
+              return res;
+            }).filter(Boolean);
+          }
+
+          for (const clause of clauses) {
+            let clauseHasDay = false;
+            if (/T2[-_ ]*4[-_ ]*6/i.test(clause) || /T2[,\s]*T?4[,\s]*T?6/i.test(clause)) {
+              if (["Thứ 2", "Thứ 4", "Thứ 6"].includes(day)) clauseHasDay = true;
+            } else if (/T3[-_ ]*5[-_ ]*7/i.test(clause) || /T3[,\s]*T?5[,\s]*T?7/i.test(clause)) {
+              if (["Thứ 3", "Thứ 5", "Thứ 7"].includes(day)) clauseHasDay = true;
+            } else if (/T2[-_ ]*4/i.test(clause) || /T2[,\s]*T?4\b/i.test(clause)) {
+              if (["Thứ 2", "Thứ 4"].includes(day)) clauseHasDay = true;
+            } else if (/T3[-_ ]*5/i.test(clause) || /T3[,\s]*T?5\b/i.test(clause)) {
+              if (["Thứ 3", "Thứ 5"].includes(day)) clauseHasDay = true;
+            } else {
+              if (/(?:T2|Thứ\s*2)\b/i.test(clause) && day === "Thứ 2") clauseHasDay = true;
+              if (/(?:T3|Thứ\s*3)\b/i.test(clause) && day === "Thứ 3") clauseHasDay = true;
+              if (/(?:T4|Thứ\s*4)\b/i.test(clause) && day === "Thứ 4") clauseHasDay = true;
+              if (/(?:T5|Thứ\s*5)\b/i.test(clause) && day === "Thứ 5") clauseHasDay = true;
+              if (/(?:T6|Thứ\s*6)\b/i.test(clause) && day === "Thứ 6") clauseHasDay = true;
+              if (/(?:T7|Thứ\s*7|S7|C7)\b/i.test(clause) && day === "Thứ 7") clauseHasDay = true;
+              if (/(?:CN|Chủ\s*Nhật)\b/i.test(clause) && day === "Chủ Nhật") clauseHasDay = true;
             }
-          } else if (st.registered_days && st.registered_days.includes(day)) {
-            // Có đăng ký ngày này nhưng không ghi rõ giờ => tính là học cùng ca
-            isOverlap = true;
-            matchedTimeDetail = "Giờ chuẩn";
+
+            // Nếu đoạn này không ghi rõ thứ thì kiểm tra xem học sinh có học ngày này trong registered_days không
+            if (!clauseHasDay && !/(?:Thứ\s*[2-7]|Chủ\s*Nhật|CN|T[2-7]|S7|C7)\b/i.test(clause)) {
+              const reg = st.registered_days || "";
+              const regDays = reg.split(/[,|;]+/).map((d) => normalizeDayOfWeek(d));
+              if (regDays.includes(day)) {
+                clauseHasDay = true;
+              }
+            }
+
+            if (clauseHasDay) {
+              const parsedClause = extractTimeRangeMinutes(clause);
+              if (Math.max(candStart, parsedClause.startMin) < Math.min(candEnd, parsedClause.endMin)) {
+                isOverlap = true;
+                matchedTimeDetail = parsedClause.display;
+                break;
+              }
+            }
           }
         }
-      } else if (!isOverlap && st.registered_days && st.registered_days.includes(day)) {
-        // Chỉ có registered_days
-        isOverlap = true;
-        matchedTimeDetail = "Theo ca mở";
+      }
+
+      // 3. Fallback: chỉ có registered_days
+      if (!isOverlap && st.registered_days) {
+        const regDays = st.registered_days.split(/[,|;]+/).map((d) => normalizeDayOfWeek(d));
+        if (regDays.includes(day)) {
+          // Mặc định ca mở 18:00 - 19:30 (hoặc cuối tuần 09:00 - 10:30)
+          const isWeekend = day.includes("7") || day === "Chủ Nhật";
+          const sMin = (isWeekend ? 9 : 18) * 60;
+          const eMin = sMin + 90;
+          if (Math.max(candStart, sMin) < Math.min(candEnd, eMin)) {
+            isOverlap = true;
+            matchedTimeDetail = isWeekend ? "09:00 - 10:30 (Ca chuẩn)" : "18:00 - 19:30 (Ca chuẩn)";
+          }
+        }
       }
 
       if (isOverlap) {
@@ -405,6 +533,7 @@ export function checkClassCapacityForSchedule(params: {
     maxCapacity,
     peakOccupiedCount: peakOccupied,
     isOverCapacity: hasOverload,
+    timeRangeDisplay: candRange.display,
     dayDetails,
     warningMessage: warningMsg,
   };
