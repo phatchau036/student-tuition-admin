@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
-import { Teacher, TimeSlot } from "@/lib/types";
-import { formatTimeSlotLabel } from "@/lib/tuition";
+import React, { useState, useMemo, useEffect } from "react";
+import { Teacher, TimeSlot, DAYS_OF_WEEK, TeacherLeave } from "@/lib/types";
+import { formatTimeSlotLabel, getDayNameVi } from "@/lib/tuition";
 import { useToast } from "@/components/Toast";
 import {
   GraduationCap,
@@ -29,6 +29,8 @@ import {
   CheckCircle2,
   AlertCircle,
   Hash,
+  CalendarX,
+  UserMinus,
 } from "lucide-react";
 
 interface TeacherManagementModalProps {
@@ -50,7 +52,6 @@ const COLOR_PRESETS = [
 ];
 
 const QUICK_SUBJECTS = ["Piano", "Guitar", "Organ", "Thanh nhạc", "Violin", "Trống", "Hội họa"];
-const DAYS_OF_WEEK = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ Nhật"];
 
 export const TeacherManagementModal: React.FC<TeacherManagementModalProps> = ({
   isOpen,
@@ -85,6 +86,101 @@ export const TeacherManagementModal: React.FC<TeacherManagementModalProps> = ({
   // Custom Delete Confirm state
   const [teacherToDelete, setTeacherToDelete] = useState<Teacher | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Tab chính: Danh sách giáo viên vs Đơn xin nghỉ
+  const [activeMainTab, setActiveMainTab] = useState<"teachers" | "leaves">("teachers");
+  const [teacherLeaves, setTeacherLeaves] = useState<TeacherLeave[]>([]);
+  const [pendingLeavesCount, setPendingLeavesCount] = useState<number>(0);
+  const [isLoadingLeaves, setIsLoadingLeaves] = useState<boolean>(false);
+
+  // Modal xử lý duyệt / từ chối đơn
+  const [actionLeaveModal, setActionLeaveModal] = useState<{
+    isOpen: boolean;
+    leave: TeacherLeave | null;
+    type: "approve" | "reject";
+  }>({ isOpen: false, leave: null, type: "approve" });
+  const [substituteTeacherId, setSubstituteTeacherId] = useState<string>("");
+  const [adminResponseNote, setAdminResponseNote] = useState<string>("");
+  const [isSubmittingLeaveAction, setIsSubmittingLeaveAction] = useState<boolean>(false);
+
+  const loadTeacherLeaves = async () => {
+    try {
+      setIsLoadingLeaves(true);
+      const q = schoolId ? `?school_id=${encodeURIComponent(schoolId)}` : "";
+      const res = await fetch(`/api/admin/teacher-leaves${q}`);
+      const json = await res.json();
+      if (json.success && json.data) {
+        setTeacherLeaves(json.data.leaves || []);
+        setPendingLeavesCount(json.data.pending_count || 0);
+      }
+    } catch {
+      showToast("Không thể tải danh sách đơn xin nghỉ!", "error");
+    } finally {
+      setIsLoadingLeaves(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen) {
+      loadTeacherLeaves();
+    }
+  }, [isOpen, schoolId]);
+
+  const handleOpenLeaveAction = (leave: TeacherLeave, type: "approve" | "reject") => {
+    setActionLeaveModal({ isOpen: true, leave, type });
+    setSubstituteTeacherId(leave.substitute_teacher_id || "");
+    setAdminResponseNote(type === "approve" ? "Đã duyệt nghỉ, chúc thầy/cô việc gia đình thuận lợi!" : "Từ chối do ca dạy đang thiếu giáo viên đứng lớp.");
+  };
+
+  const handleExecuteLeaveAction = async () => {
+    if (!actionLeaveModal.leave) return;
+    try {
+      setIsSubmittingLeaveAction(true);
+      const res = await fetch("/api/admin/teacher-leaves", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: actionLeaveModal.type,
+          leave_id: actionLeaveModal.leave.id,
+          substitute_teacher_id: actionLeaveModal.type === "approve" ? substituteTeacherId || null : null,
+          admin_note: adminResponseNote.trim(),
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        showToast(data.message, "success");
+        setActionLeaveModal({ isOpen: false, leave: null, type: "approve" });
+        loadTeacherLeaves();
+      } else {
+        showToast(data.message || "Thao tác thất bại!", "error");
+      }
+    } catch {
+      showToast("Lỗi kết nối máy chủ!", "error");
+    } finally {
+      setIsSubmittingLeaveAction(false);
+    }
+  };
+
+  const handleDeleteLeave = async (leaveId: string) => {
+    if (!confirm("Bạn có chắc chắn muốn xóa đơn xin nghỉ này không?")) return;
+    try {
+      const res = await fetch("/api/admin/teacher-leaves", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "delete", leave_id: leaveId }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(data.message, "success");
+        loadTeacherLeaves();
+      } else {
+        showToast(data.message || "Xóa thất bại!", "error");
+      }
+    } catch {
+      showToast("Lỗi kết nối máy chủ!", "error");
+    }
+  };
 
   const resetForm = () => {
     setIsEditing(false);
@@ -343,7 +439,46 @@ export const TeacherManagementModal: React.FC<TeacherManagementModalProps> = ({
           </div>
         </div>
 
-        {/* ================= BODY CHÍNH: 2 CỘT HIỆN ĐẠI ================= */}
+        {/* ================= TABS CHÍNH: HỒ SƠ VS ĐƠN XIN NGHỈ ================= */}
+        <div className="px-6 pt-2 border-b border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setActiveMainTab("teachers")}
+              className={`flex items-center gap-2 px-4 py-2.5 text-xs sm:text-sm font-bold border-b-2 transition cursor-pointer ${
+                activeMainTab === "teachers"
+                  ? "border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-400"
+                  : "border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
+              }`}
+            >
+              <Users className="w-4 h-4" />
+              <span>1. Danh Sách & Lịch Giảng Dạy ({teachers.length})</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveMainTab("leaves")}
+              className={`flex items-center gap-2 px-4 py-2.5 text-xs sm:text-sm font-bold border-b-2 transition cursor-pointer ${
+                activeMainTab === "leaves"
+                  ? "border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-400"
+                  : "border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
+              }`}
+            >
+              <CalendarX className="w-4 h-4 text-rose-500" />
+              <span>2. Đơn Xin Nghỉ Của Giáo Viên</span>
+              {pendingLeavesCount > 0 ? (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-500 text-white animate-pulse">
+                  {pendingLeavesCount} chờ duyệt
+                </span>
+              ) : (
+                <span className="text-[11px] text-slate-400 font-semibold">({teacherLeaves.length})</span>
+              )}
+            </button>
+          </div>
+        </div>
+
+        {/* ================= TAB 1: DANH SÁCH GIÁO VIÊN ================= */}
+        {activeMainTab === "teachers" && (
         <div className="p-4 sm:p-6 overflow-hidden flex-1 grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6 bg-slate-50/50 dark:bg-slate-950/30">
           
           {/* ================= CỘT TRÁI (5 PHẦN): FORM NHẬP LIỆU CHUYÊN NGHIỆP ================= */}
@@ -732,17 +867,162 @@ export const TeacherManagementModal: React.FC<TeacherManagementModalProps> = ({
             </div>
           </div>
         </div>
+        )}
+
+        {/* ================= TAB 2: ĐƠN XIN NGHỈ CỦA GIÁO VIÊN ================= */}
+        {activeMainTab === "leaves" && (
+          <div className="p-4 sm:p-6 overflow-y-auto flex-1 space-y-4 bg-slate-50/50 dark:bg-slate-950/30">
+            {/* Header / Filter */}
+            <div className="flex items-center justify-between gap-3 p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs">
+              <div className="space-y-0.5">
+                <h3 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
+                  <CalendarX className="w-4 h-4 text-rose-500" />
+                  <span>Danh Sách Đơn Xin Nghỉ Của Giáo Viên</span>
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Xem lý do xin nghỉ, phê duyệt và phân công giáo viên khác dạy thay
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={loadTeacherLeaves}
+                className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold hover:bg-slate-100 transition cursor-pointer"
+              >
+                Làm mới
+              </button>
+            </div>
+
+            {/* Danh sách đơn xin nghỉ */}
+            {teacherLeaves.length === 0 ? (
+              <div className="py-16 text-center text-slate-400 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-2">
+                <CalendarCheck className="w-10 h-10 mx-auto text-slate-300" />
+                <p className="text-sm font-bold text-slate-700 dark:text-slate-300">
+                  Chưa có đơn xin nghỉ nào từ giáo viên
+                </p>
+                <p className="text-xs text-slate-500">
+                  Khi giáo viên gửi đơn từ Cổng Giáo Viên (/giao-vien), các đơn xin nghỉ sẽ xuất hiện tại đây để bạn phê duyệt.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {teacherLeaves.map((leave) => {
+                  const dayName = getDayNameVi(leave.leave_date);
+                  const [ly, lm, ld] = leave.leave_date.split("-");
+
+                  return (
+                    <div
+                      key={leave.id}
+                      className="p-5 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col justify-between gap-3"
+                    >
+                      <div className="space-y-2.5">
+                        <div className="flex items-start justify-between gap-2 border-b border-slate-100 dark:border-slate-800 pb-2.5">
+                          <div className="flex items-center gap-2">
+                            <div className="w-9 h-9 rounded-xl bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 font-black flex items-center justify-center text-xs">
+                              {leave.teacher_name?.slice(0, 1).toUpperCase()}
+                            </div>
+                            <div>
+                              <h4 className="text-sm font-black text-slate-900 dark:text-white">
+                                {leave.teacher_name}
+                              </h4>
+                              <p className="text-xs text-slate-400">{leave.teacher_phone}</p>
+                            </div>
+                          </div>
+
+                          <div className="text-right shrink-0">
+                            {leave.status === "approved" ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-black bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300">
+                                <Check className="w-3.5 h-3.5" /> Đã duyệt
+                              </span>
+                            ) : leave.status === "rejected" ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-black bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border border-rose-300">
+                                <X className="w-3.5 h-3.5" /> Từ chối
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-black bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 animate-pulse">
+                                <Clock className="w-3.5 h-3.5" /> Chờ duyệt
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Chi tiết ca xin nghỉ */}
+                        <div className="space-y-1 text-xs">
+                          <div className="flex items-center gap-2 font-bold text-slate-800 dark:text-slate-200">
+                            <span className="text-rose-600 dark:text-rose-400">📅 Ngày nghỉ:</span>
+                            <span>{dayName}, {ld}/{lm}/{ly}</span>
+                          </div>
+                          <div className="text-slate-600 dark:text-slate-400">
+                            Ca dạy: <strong className="text-slate-800 dark:text-slate-200">{leave.shift_desc || "Cả ngày"}</strong>
+                          </div>
+                          <div className="text-slate-600 dark:text-slate-400">
+                            Lý do: <span className="italic text-slate-800 dark:text-slate-200">&ldquo;{leave.reason}&rdquo;</span>
+                          </div>
+                          {leave.substitute_teacher_name && (
+                            <div className="text-indigo-600 dark:text-indigo-400 font-bold pt-1">
+                              👤 Người dạy thay: {leave.substitute_teacher_name}
+                            </div>
+                          )}
+                          {leave.admin_note && (
+                            <div className="text-slate-500 text-[11px] pt-0.5">
+                              Phản hồi: &ldquo;{leave.admin_note}&rdquo;
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Nút hành động cho Admin */}
+                      <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800 text-xs">
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteLeave(leave.id)}
+                          className="text-slate-400 hover:text-rose-600 p-1.5 rounded-lg transition cursor-pointer"
+                          title="Xóa bản ghi này"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenLeaveAction(leave, "reject")}
+                            className="px-3 py-1.5 rounded-xl border border-rose-200 dark:border-rose-900/50 hover:bg-rose-50 text-rose-700 dark:text-rose-400 font-bold text-xs transition cursor-pointer"
+                          >
+                            Từ chối
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleOpenLeaveAction(leave, "approve")}
+                            className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm transition cursor-pointer flex items-center gap-1"
+                          >
+                            <Check className="w-3.5 h-3.5" />
+                            <span>{leave.status === "approved" ? "Sửa dạy thay" : "Duyệt & Gán Dạy Thay"}</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* ================= FOOTER ĐỒNG BỘ NÚT BẤM ================= */}
         <div className="px-6 py-4 border-t border-slate-200/80 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-950/60 flex items-center justify-between shrink-0">
           <div className="text-xs text-slate-500 hidden sm:flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-            {isEditing ? (
-              <span>
-                Đang sửa: <strong className="text-amber-600 dark:text-amber-400">{name || "Giáo viên"}</strong>
-              </span>
+            {activeMainTab === "teachers" ? (
+              isEditing ? (
+                <span>
+                  Đang sửa: <strong className="text-amber-600 dark:text-amber-400">{name || "Giáo viên"}</strong>
+                </span>
+              ) : (
+                <span>Hệ thống tự động đồng bộ hồ sơ giáo viên sang Sơ đồ lớp và Cổng GV</span>
+              )
             ) : (
-              <span>Hệ thống tự động đồng bộ hồ sơ giáo viên sang Sơ đồ lớp và Cổng GV</span>
+              <span>Duyệt đơn xin nghỉ và phân công giáo viên đứng ca thay thế</span>
             )}
           </div>
 
@@ -755,17 +1035,119 @@ export const TeacherManagementModal: React.FC<TeacherManagementModalProps> = ({
               Đóng
             </button>
 
-            <button
-              type="submit"
-              form="teacher-management-form"
-              disabled={isSaving}
-              className="px-6 py-2.5 text-xs font-black uppercase tracking-wider text-white bg-indigo-600 hover:bg-indigo-700 transition shadow-lg shadow-indigo-600/30 disabled:opacity-50 cursor-pointer flex items-center gap-2 active:scale-95 rounded-2xl"
-            >
-              <Save className="w-4 h-4" />
-              <span>{isSaving ? "Đang lưu..." : isEditing ? "Cập Nhật Giáo Viên" : "+ Thêm Giáo Viên"}</span>
-            </button>
+            {activeMainTab === "teachers" && (
+              <button
+                type="submit"
+                form="teacher-management-form"
+                disabled={isSaving}
+                className="px-6 py-2.5 text-xs font-black uppercase tracking-wider text-white bg-indigo-600 hover:bg-indigo-700 transition shadow-lg shadow-indigo-600/30 disabled:opacity-50 cursor-pointer flex items-center gap-2 active:scale-95 rounded-2xl"
+              >
+                <Save className="w-4 h-4" />
+                <span>{isSaving ? "Đang lưu..." : isEditing ? "Cập Nhật Giáo Viên" : "+ Thêm Giáo Viên"}</span>
+              </button>
+            )}
           </div>
         </div>
+
+        {/* ================= MODAL DUYỆT / TỪ CHỐI ĐƠN XIN NGHỈ ================= */}
+        {actionLeaveModal.isOpen && actionLeaveModal.leave && (
+          <div className="fixed inset-0 z-60 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4 animate-in fade-in zoom-in-95">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                <h3 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
+                  {actionLeaveModal.type === "approve" ? (
+                    <>
+                      <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                      <span>Phê Duyệt Đơn & Gán Dạy Thay</span>
+                    </>
+                  ) : (
+                    <>
+                      <X className="w-5 h-5 text-rose-600" />
+                      <span>Từ Chối Đơn Xin Nghỉ</span>
+                    </>
+                  )}
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setActionLeaveModal({ isOpen: false, leave: null, type: "approve" })}
+                  className="p-1 rounded-lg text-slate-400 hover:text-slate-600"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80 text-xs space-y-1">
+                <p>
+                  Giáo viên xin nghỉ: <strong className="text-slate-900 dark:text-white">{actionLeaveModal.leave.teacher_name}</strong>
+                </p>
+                <p>
+                  Ngày nghỉ: <strong>{actionLeaveModal.leave.leave_date}</strong> ({actionLeaveModal.leave.shift_desc || "Cả ngày"})
+                </p>
+                <p className="text-slate-600 dark:text-slate-400 italic">
+                  Lý do: &ldquo;{actionLeaveModal.leave.reason}&rdquo;
+                </p>
+              </div>
+
+              {actionLeaveModal.type === "approve" && (
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Phân công giáo viên dạy thay (Tùy chọn)
+                  </label>
+                  <select
+                    value={substituteTeacherId}
+                    onChange={(e) => setSubstituteTeacherId(e.target.value)}
+                    className="w-full px-3 py-2 text-xs font-bold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 outline-none cursor-pointer"
+                  >
+                    <option value="">-- Không gán người dạy thay / Tự học viên tự quản --</option>
+                    {teachers
+                      .filter((t) => t.id !== actionLeaveModal.leave?.teacher_id)
+                      .map((t) => (
+                        <option key={t.id} value={t.id}>
+                          Thầy/Cô {t.name} ({t.specialty || "Giáo viên"})
+                        </option>
+                      ))}
+                  </select>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  {actionLeaveModal.type === "approve" ? "Ghi chú phản hồi cho giáo viên" : "Lý do từ chối gửi giáo viên *"}
+                </label>
+                <textarea
+                  rows={2}
+                  required={actionLeaveModal.type === "reject"}
+                  value={adminResponseNote}
+                  onChange={(e) => setAdminResponseNote(e.target.value)}
+                  placeholder="Nhập nội dung phản hồi gửi đến Cổng Giáo Viên..."
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 outline-none resize-none font-medium"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setActionLeaveModal({ isOpen: false, leave: null, type: "approve" })}
+                  className="px-4 py-2 text-xs font-bold rounded-xl border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 transition cursor-pointer"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="button"
+                  disabled={isSubmittingLeaveAction}
+                  onClick={handleExecuteLeaveAction}
+                  className={`px-5 py-2 text-xs font-bold rounded-xl text-white shadow-md transition cursor-pointer disabled:opacity-50 ${
+                    actionLeaveModal.type === "approve"
+                      ? "bg-emerald-600 hover:bg-emerald-700"
+                      : "bg-rose-600 hover:bg-rose-700"
+                  }`}
+                >
+                  {isSubmittingLeaveAction ? "Đang xử lý..." : actionLeaveModal.type === "approve" ? "Xác Nhận Phê Duyệt" : "Xác Nhận Từ Chối"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ================= MODAL XÁC NHẬN XÓA GIÁO VIÊN ================= */}
         {teacherToDelete && (

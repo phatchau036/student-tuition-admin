@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
-import { getPreviousMonthStr, getNextMonthStr, calculateStudentTuition } from "@/lib/tuition";
+import { getPreviousMonthStr, getNextMonthStr, calculateStudentTuition, computeEndMonth } from "@/lib/tuition";
 import { grantCycleForPayment } from "@/lib/wallet";
 
 // Helper: cấp giờ vào Ví Giờ Học cho toàn bộ chu kỳ tháng đã đóng (idempotent, lỗi không chặn thanh toán)
@@ -25,22 +25,6 @@ async function grantHoursForPeriod(studentId: string, startPeriod: string, endPe
     console.error("grantHoursForPeriod Error (không chặn thanh toán):", err);
     return [];
   }
-}
-
-// Helper: tính toán tháng kết thúc từ tháng bắt đầu và số tháng chu kỳ
-// Ví dụ: addMonthsToPeriod("2026-10", 3) => "2026-12" (10, 11, 12 là 3 tháng)
-function computeEndMonth(startMonth: string, cycleMonths: number): string {
-  if (!startMonth || !startMonth.includes("-")) return startMonth;
-  const [yearStr, monthStr] = startMonth.split("-");
-  let y = parseInt(yearStr, 10);
-  let m = parseInt(monthStr, 10);
-
-  // Cộng thêm (cycleMonths - 1) tháng
-  const totalMonths = m + (cycleMonths - 1);
-  m = ((totalMonths - 1) % 12) + 1;
-  y += Math.floor((totalMonths - 1) / 12);
-
-  return `${y}-${String(m).padStart(2, "0")}`;
 }
 
 // GET /api/payments?student_id=... Lấy danh sách các kỳ thanh toán của học sinh

@@ -19,13 +19,15 @@ export async function POST(req: Request) {
     const cleanUser = username.trim().toLowerCase();
     const cleanPass = password.trim();
 
-    // Check school admin in database
+    // Check school admin in database kèm thông tin vai trò & phân quyền
     const adminRes = await db.execute({
       sql: `
-        SELECT a.id, a.school_id, a.username, a.full_name, a.password,
-               s.name as school_name, s.code as school_code, s.address as school_address, s.phone as school_phone
+        SELECT a.id, a.school_id, a.username, a.full_name, a.password, a.phone, a.role_id, a.is_active, a.is_owner,
+               s.name as school_name, s.code as school_code, s.address as school_address, s.phone as school_phone,
+               r.name as role_name, r.permissions_json
         FROM school_admins a
         JOIN schools s ON a.school_id = s.id
+        LEFT JOIN admin_roles r ON a.role_id = r.id
         WHERE LOWER(a.username) = ? AND a.password = ?
       `,
       args: [cleanUser, cleanPass],
@@ -43,6 +45,29 @@ export async function POST(req: Request) {
 
     const admin = adminRes.rows[0];
 
+    // Kiểm tra tài khoản có bị khóa không
+    if (admin.is_active !== undefined && admin.is_active !== null && Number(admin.is_active) === 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Tài khoản của bạn đã bị tạm khóa! Vui lòng liên hệ Quản lý cơ sở để được kích hoạt lại.",
+        },
+        { status: 403 }
+      );
+    }
+
+    let permissions: string[] = [];
+    if (admin.is_owner === 1 || !admin.role_id) {
+      permissions = ["*"];
+    } else {
+      try {
+        if (admin.permissions_json) {
+          const parsed = JSON.parse(String(admin.permissions_json));
+          if (Array.isArray(parsed)) permissions = parsed;
+        }
+      } catch {}
+    }
+
     const token = Buffer.from(
       `school_admin:${admin.id}:${admin.school_id}:${Date.now()}`
     ).toString("base64");
@@ -55,6 +80,11 @@ export async function POST(req: Request) {
         id: String(admin.id),
         username: String(admin.username),
         full_name: String(admin.full_name),
+        phone: admin.phone ? String(admin.phone) : "",
+        role_id: admin.role_id ? String(admin.role_id) : "",
+        role_name: admin.is_owner === 1 ? "Chủ Cơ Sở (Toàn quyền)" : admin.role_name ? String(admin.role_name) : "Nhân viên",
+        is_owner: Number(admin.is_owner ?? 0),
+        permissions,
         school_id: String(admin.school_id),
         school_name: String(admin.school_name),
         school_code: String(admin.school_code),
@@ -110,10 +140,12 @@ export async function GET(req: Request) {
     const adminId = parts[1];
     const adminRes = await db.execute({
       sql: `
-        SELECT a.id, a.school_id, a.username, a.full_name,
-               s.name as school_name, s.code as school_code, s.address as school_address, s.phone as school_phone
+        SELECT a.id, a.school_id, a.username, a.full_name, a.phone, a.role_id, a.is_active, a.is_owner,
+               s.name as school_name, s.code as school_code, s.address as school_address, s.phone as school_phone,
+               r.name as role_name, r.permissions_json
         FROM school_admins a
         JOIN schools s ON a.school_id = s.id
+        LEFT JOIN admin_roles r ON a.role_id = r.id
         WHERE a.id = ?
       `,
       args: [adminId],
@@ -124,6 +156,24 @@ export async function GET(req: Request) {
     }
 
     const admin = adminRes.rows[0];
+
+    // Chặn nếu tài khoản bị khóa trong thời gian phiên làm việc
+    if (admin.is_active !== undefined && admin.is_active !== null && Number(admin.is_active) === 0) {
+      return NextResponse.json({ success: false, authenticated: false, message: "Tài khoản đã bị tạm khóa!" }, { status: 403 });
+    }
+
+    let permissions: string[] = [];
+    if (admin.is_owner === 1 || !admin.role_id) {
+      permissions = ["*"];
+    } else {
+      try {
+        if (admin.permissions_json) {
+          const parsed = JSON.parse(String(admin.permissions_json));
+          if (Array.isArray(parsed)) permissions = parsed;
+        }
+      } catch {}
+    }
+
     return NextResponse.json({
       success: true,
       authenticated: true,
@@ -131,6 +181,11 @@ export async function GET(req: Request) {
         id: String(admin.id),
         username: String(admin.username),
         full_name: String(admin.full_name),
+        phone: admin.phone ? String(admin.phone) : "",
+        role_id: admin.role_id ? String(admin.role_id) : "",
+        role_name: admin.is_owner === 1 ? "Chủ Cơ Sở (Toàn quyền)" : admin.role_name ? String(admin.role_name) : "Nhân viên",
+        is_owner: Number(admin.is_owner ?? 0),
+        permissions,
         school_id: String(admin.school_id),
         school_name: String(admin.school_name),
         school_code: String(admin.school_code),

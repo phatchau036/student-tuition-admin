@@ -22,21 +22,11 @@ export function getClientIp(req: Request): string {
   return normalizeIp(hostname || "127.0.0.1");
 }
 
-export function normalizeIp(ip: string): string {
+function normalizeIp(ip: string): string {
   // Normalize IPv6 localhost
   if (ip === "::1" || ip === "::ffff:127.0.0.1") return "127.0.0.1";
   if (ip.startsWith("::ffff:")) return ip.replace("::ffff:", "");
   return ip;
-}
-
-export function isLocalhost(req: Request): boolean {
-  const host = (req.headers.get("host") || "").toLowerCase().split(":")[0];
-  const clientIp = getClientIp(req);
-
-  const isLocalHostName = host === "localhost" || host === "127.0.0.1" || host === "[::1]";
-  const isLocalIp = clientIp === "127.0.0.1" || clientIp === "::1";
-
-  return isLocalHostName && isLocalIp;
 }
 
 export function isIpAllowed(clientIp: string, allowedIpsStr: string): boolean {

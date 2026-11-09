@@ -465,19 +465,27 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
     return { totalSlots, paidCount, unpaidCount, unassignedCount };
   }, [matrixData, allWeekHours]);
 
-  // Thống kê học sinh theo từng ngày (chỉ đếm lượt học chính)
+  // Thống kê học sinh theo từng ngày (chỉ đếm lượt học chính, có áp dụng bộ lọc)
   const dayStatsMap = useMemo(() => {
     const map: Record<string, { total: number; unpaid: number; unassigned: number }> = {};
     for (const d of DAYS_OF_WEEK) {
       let total = 0;
       let unpaid = 0;
       let unassigned = 0;
+      const seenStudentIds = new Set<string>();
+
       for (const h of allWeekHours) {
         const hourMap = matrixData[d]?.[h];
         if (!hourMap) continue;
         for (const tcId in hourMap) {
+          if (selectedTeacherFilter !== "all" && tcId !== selectedTeacherFilter) continue;
           for (const item of hourMap[tcId]) {
-            if (item.isContinuing) continue; // Không tính đếm trùng
+            if (item.isContinuing) continue; // Không tính đếm trùng ca kéo dài
+            if (!isStudentMatched(item.student) || !isSubjectMatched(item.subjectName, item.student.subject_id)) continue;
+
+            if (seenStudentIds.has(item.student.id)) continue;
+            seenStudentIds.add(item.student.id);
+
             total++;
             if (item.student.payment_status !== "paid") unpaid++;
             if (tcId === "unassigned") unassigned++;
@@ -487,7 +495,18 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
       map[d] = { total, unpaid, unassigned };
     }
     return map;
-  }, [matrixData, allWeekHours]);
+  }, [matrixData, allWeekHours, selectedTeacherFilter, selectedPaymentStatusFilter, searchQuery, selectedSubjectFilter, isHotspotMode]);
+
+  // Danh sách các ca giờ hiển thị trong chế độ xem Theo Thứ (nếu bật Ẩn ca trống thì chỉ hiện các ca có học sinh của thứ đó)
+  const singleDayHours = useMemo(() => {
+    if (!hideEmptyHours) {
+      return allWeekHours;
+    }
+    return allWeekHours.filter((h) => {
+      const entries = getSlotFilteredEntries(activeDay, h);
+      return entries.length > 0;
+    });
+  }, [allWeekHours, hideEmptyHours, activeDay, matrixData, selectedTeacherFilter, selectedPaymentStatusFilter, searchQuery, selectedSubjectFilter, isHotspotMode]);
 
   return (
     <div className="space-y-4 font-sans animate-in fade-in duration-200">
@@ -994,6 +1013,18 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
                   <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${isActive ? "bg-white/20 text-white" : "bg-slate-100 dark:bg-slate-700 text-slate-500"}`}>
                     {stats.total}
                   </span>
+                  {stats.unpaid > 0 && (
+                    <span
+                      className={`text-[9px] px-1.5 py-0.2 rounded-md font-bold ${
+                        isActive
+                          ? "bg-amber-400 text-slate-900"
+                          : "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300"
+                      }`}
+                      title={`${stats.unpaid} học viên chưa đóng học phí`}
+                    >
+                      {stats.unpaid} nợ
+                    </span>
+                  )}
                 </button>
               );
             })}
@@ -1018,110 +1049,145 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
               </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-              {allWeekHours.map((hour) => {
-                const hourLabel = formatHourLabel(hour);
-                const entries = getSlotFilteredEntries(activeDay, hour);
-                const continuingCount = entries.filter((e) => e.isContinuing).length;
-                const startingCount = entries.length - continuingCount;
-
-                return (
-                  <div
-                    key={hour}
-                    className="border border-slate-200 dark:border-slate-800 rounded-2xl p-3 bg-slate-50/50 dark:bg-slate-950/30 flex flex-col justify-between space-y-2 hover:border-indigo-300 transition"
-                  >
-                    <div className="flex items-center justify-between border-b border-slate-200/80 dark:border-slate-800 pb-1.5">
-                      <span className="font-mono font-black text-sm text-indigo-600 dark:text-indigo-400">
-                        {hourLabel}
-                      </span>
-                      <div className="flex items-center gap-1">
-                        <span
-                          className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
-                            entries.length > 0
-                              ? "bg-slate-200 dark:bg-slate-800 text-slate-800 dark:text-slate-200"
-                              : "bg-slate-100 dark:bg-slate-900 text-slate-400"
-                          }`}
-                          title={`${startingCount} học viên vào ca này${continuingCount > 0 ? `, ${continuingCount} học viên học tiếp từ ca trước sang` : ""}`}
-                        >
-                          {entries.length} học viên
-                        </span>
-                        {continuingCount > 0 && (
-                          <span
-                            className="text-[9.5px] font-bold px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-800 dark:bg-amber-950/70 dark:text-amber-300 border border-amber-300/80 dark:border-amber-700/80"
-                            title={`Có ${continuingCount} học viên đang học tiếp từ ca trước sang (ví dụ học 2 tiếng)`}
-                          >
-                            +{continuingCount} ca trước
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="space-y-1.5 flex-1 max-h-60 overflow-y-auto scrollbar-thin pr-0.5">
-                      {entries.length === 0 ? (
-                        <div className="py-6 text-center text-xs text-slate-400 italic">
-                          Chưa có học viên nào
-                        </div>
-                      ) : (
-                        entries.map(({ student, timeDetail, subjectName, teacherName, isContinuing, startTime }) => {
-                          const isPaid = student.payment_status === "paid";
-                          const subBadge = getSubjectBadge(subjectName);
-
-                          return (
-                            <div
-                              key={`${student.id}_${hour}_${isContinuing ? "cont" : "start"}`}
-                              onClick={() => onSelectStudent(student)}
-                              className={`p-2 rounded-xl border text-left cursor-pointer transition ${getSubjectBorderClass(
-                                subjectName
-                              )} border-l-4 ${
-                                isContinuing
-                                  ? "bg-amber-50/40 dark:bg-amber-950/20 border-amber-200/90 dark:border-amber-900/60 hover:border-amber-400"
-                                  : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-indigo-400"
-                              }`}
-                            >
-                              <div className="flex items-center justify-between gap-1">
-                                <div className="flex items-center gap-1.5 min-w-0">
-                                  <span className="font-bold text-xs text-slate-900 dark:text-white truncate">
-                                    {student.name}
-                                  </span>
-                                  {isContinuing && (
-                                    <span
-                                      className="text-[8.5px] font-extrabold uppercase px-1.5 py-0.2 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-800 shrink-0"
-                                      title={`Học viên học tiếp từ ca trước sang (${timeDetail})`}
-                                    >
-                                      ↳ Từ {startTime || timeDetail.split("-")[0]?.trim()}
-                                    </span>
-                                  )}
-                                </div>
-                                {student.is_overdue && (
-                                  <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse shrink-0" title="Nợ học phí quá hạn" />
-                                )}
-                              </div>
-                              <div className="flex items-center justify-between gap-1 text-[10px] text-slate-500 mt-1">
-                                <span className={`font-bold px-1 rounded ${subBadge.bg} ${subBadge.text}`}>
-                                  {subjectName}
-                                </span>
-                                <span className="font-mono font-bold text-amber-700 dark:text-amber-400">
-                                  {timeDetail || hourLabel}
-                                </span>
-                              </div>
-                            </div>
-                          );
-                        })
-                      )}
-                    </div>
-
+            {singleDayHours.length === 0 ? (
+              <div className="py-12 text-center border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl bg-slate-50/50 dark:bg-slate-950/20">
+                <CalendarCheck className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+                <p className="text-sm font-bold text-slate-700 dark:text-slate-300">
+                  {activeDay} không có ca học nào {hideEmptyHours ? "(đang bật Ẩn ca trống)" : ""}
+                </p>
+                <div className="flex items-center justify-center gap-2 mt-3">
+                  {hideEmptyHours && (
                     <button
                       type="button"
-                      onClick={() => onAddStudentToSlot?.(activeDay, hourLabel)}
-                      className="w-full py-1 text-xs font-bold rounded-lg border border-dashed border-slate-300 dark:border-slate-700 hover:border-indigo-400 hover:text-indigo-600 text-slate-500 text-center transition cursor-pointer flex items-center justify-center gap-1"
+                      onClick={() => setHideEmptyHours(false)}
+                      className="px-3 py-1.5 text-xs font-bold rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 transition"
                     >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>Thêm vào ca {hourLabel}</span>
+                      Hiện tất cả ca trống
                     </button>
-                  </div>
-                );
-              })}
-            </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => onAddStudentToSlot?.(activeDay, "18:00")}
+                    className="px-3.5 py-1.5 text-xs font-bold rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white transition flex items-center gap-1.5"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Thêm học viên vào {activeDay}</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                {singleDayHours.map((hour) => {
+                  const hourLabel = formatHourLabel(hour);
+                  const entries = getSlotFilteredEntries(activeDay, hour);
+                  const continuingCount = entries.filter((e) => e.isContinuing).length;
+                  const startingCount = entries.length - continuingCount;
+
+                  return (
+                    <div
+                      key={hour}
+                      className="border border-slate-200 dark:border-slate-800 rounded-2xl p-3 bg-slate-50/50 dark:bg-slate-950/30 flex flex-col justify-between space-y-2 hover:border-indigo-300 transition"
+                    >
+                      <div className="flex items-center justify-between border-b border-slate-200/80 dark:border-slate-800 pb-1.5">
+                        <span className="font-mono font-black text-sm text-indigo-600 dark:text-indigo-400">
+                          {hourLabel}
+                        </span>
+                        <div className="flex items-center gap-1">
+                          <span
+                            className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
+                              entries.length > 0
+                                ? "bg-slate-200 dark:bg-slate-800 text-slate-800 dark:text-slate-200"
+                                : "bg-slate-100 dark:bg-slate-900 text-slate-400"
+                            }`}
+                            title={`${startingCount} học viên vào ca này${continuingCount > 0 ? `, ${continuingCount} học viên học tiếp từ ca trước sang` : ""}`}
+                          >
+                            {entries.length} học viên
+                          </span>
+                          {continuingCount > 0 && (
+                            <span
+                              className="text-[9.5px] font-bold px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-800 dark:bg-amber-950/70 dark:text-amber-300 border border-amber-300/80 dark:border-amber-700/80"
+                              title={`Có ${continuingCount} học viên đang học tiếp từ ca trước sang (ví dụ học 2 tiếng)`}
+                            >
+                              +{continuingCount} ca trước
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="space-y-1.5 flex-1 max-h-60 overflow-y-auto scrollbar-thin pr-0.5">
+                        {entries.length === 0 ? (
+                          <div className="py-6 text-center text-xs text-slate-400 italic">
+                            Chưa có học viên nào
+                          </div>
+                        ) : (
+                          entries.map(({ student, timeDetail, subjectName, teacherName, isContinuing, startTime }) => {
+                            const isPaid = student.payment_status === "paid";
+                            const subBadge = getSubjectBadge(subjectName);
+
+                            return (
+                              <div
+                                key={`${student.id}_${hour}_${isContinuing ? "cont" : "start"}`}
+                                onClick={() => onSelectStudent(student)}
+                                className={`p-2 rounded-xl border text-left cursor-pointer transition ${getSubjectBorderClass(
+                                  subjectName
+                                )} border-l-4 ${
+                                  isContinuing
+                                    ? "bg-amber-50/40 dark:bg-amber-950/20 border-amber-200/90 dark:border-amber-900/60 hover:border-amber-400"
+                                    : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-indigo-400"
+                                }`}
+                              >
+                                <div className="flex items-center justify-between gap-1">
+                                  <div className="flex items-center gap-1.5 min-w-0">
+                                    <span className="font-bold text-xs text-slate-900 dark:text-white truncate">
+                                      {student.name}
+                                    </span>
+                                    {isContinuing && (
+                                      <span
+                                        className="text-[8.5px] font-extrabold uppercase px-1.5 py-0.2 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-800 shrink-0"
+                                        title={`Học viên học tiếp từ ca trước sang (${timeDetail})`}
+                                      >
+                                        ↳ Từ {startTime || timeDetail.split("-")[0]?.trim()}
+                                      </span>
+                                    )}
+                                  </div>
+                                  {student.is_overdue && (
+                                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse shrink-0" title="Nợ học phí quá hạn" />
+                                  )}
+                                </div>
+                                <div className="flex items-center justify-between gap-1 text-[10px] text-slate-500 mt-1">
+                                  <div className="flex items-center gap-1.5 min-w-0">
+                                    <span className={`font-bold px-1 rounded ${subBadge.bg} ${subBadge.text}`}>
+                                      {subjectName}
+                                    </span>
+                                    {teacherName && (
+                                      <span className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
+                                        • {teacherName}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <span className="font-mono font-bold text-amber-700 dark:text-amber-400 shrink-0">
+                                    {timeDetail || hourLabel}
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => onAddStudentToSlot?.(activeDay, hourLabel)}
+                        className="w-full py-1 text-xs font-bold rounded-lg border border-dashed border-slate-300 dark:border-slate-700 hover:border-indigo-400 hover:text-indigo-600 text-slate-500 text-center transition cursor-pointer flex items-center justify-center gap-1"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Thêm vào ca {hourLabel}</span>
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       )}

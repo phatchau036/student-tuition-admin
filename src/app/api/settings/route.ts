@@ -35,6 +35,11 @@ export async function GET(req: Request) {
     const zaloReminderMode = (settingsMap["zalo_reminder_mode"] as "manual" | "bot") || "manual";
     const zaloBotToken = settingsMap["zalo_bot_token"] || "";
     const zaloBotName = settingsMap["zalo_bot_name"] || "";
+    const zaloAdminChatId = settingsMap["zalo_admin_chat_id"] || "";
+    const zaloNotifyPayment = settingsMap["zalo_notify_payment"] !== "0";
+    const zaloNotifyStudentAbsence = settingsMap["zalo_notify_student_absence"] !== "0";
+    const zaloNotifyTeacherLeave = settingsMap["zalo_notify_teacher_leave"] !== "0";
+    const zaloNotifyParentFeedback = settingsMap["zalo_notify_parent_feedback"] !== "0";
     const zaloOaSecretKey = settingsMap["zalo_oa_secret_key"] || "";
     const zaloAccessToken = settingsMap["zalo_access_token"] || "";
     const zaloTemplateId = settingsMap["zalo_template_id"] || "";
@@ -182,6 +187,11 @@ export async function GET(req: Request) {
         zalo_reminder_mode: zaloReminderMode,
         zalo_bot_token: zaloBotToken,
         zalo_bot_name: zaloBotName,
+        zalo_admin_chat_id: zaloAdminChatId,
+        zalo_notify_payment: zaloNotifyPayment ? 1 : 0,
+        zalo_notify_student_absence: zaloNotifyStudentAbsence ? 1 : 0,
+        zalo_notify_teacher_leave: zaloNotifyTeacherLeave ? 1 : 0,
+        zalo_notify_parent_feedback: zaloNotifyParentFeedback ? 1 : 0,
         zalo_oa_secret_key: zaloOaSecretKey,
         zalo_access_token: zaloAccessToken,
         zalo_template_id: zaloTemplateId,
@@ -228,6 +238,11 @@ export async function POST(req: Request) {
       zalo_reminder_mode,
       zalo_bot_token,
       zalo_bot_name,
+      zalo_admin_chat_id,
+      zalo_notify_payment,
+      zalo_notify_student_absence,
+      zalo_notify_teacher_leave,
+      zalo_notify_parent_feedback,
       zalo_oa_secret_key,
       zalo_access_token,
       zalo_template_id,
@@ -262,6 +277,11 @@ export async function POST(req: Request) {
       zalo_reminder_mode: zalo_reminder_mode !== undefined ? String(zalo_reminder_mode) : undefined,
       zalo_bot_token: zalo_bot_token !== undefined ? String(zalo_bot_token) : undefined,
       zalo_bot_name: zalo_bot_name !== undefined ? String(zalo_bot_name) : undefined,
+      zalo_admin_chat_id: zalo_admin_chat_id !== undefined ? String(zalo_admin_chat_id).trim() : undefined,
+      zalo_notify_payment: zalo_notify_payment !== undefined ? (zalo_notify_payment ? "1" : "0") : undefined,
+      zalo_notify_student_absence: zalo_notify_student_absence !== undefined ? (zalo_notify_student_absence ? "1" : "0") : undefined,
+      zalo_notify_teacher_leave: zalo_notify_teacher_leave !== undefined ? (zalo_notify_teacher_leave ? "1" : "0") : undefined,
+      zalo_notify_parent_feedback: zalo_notify_parent_feedback !== undefined ? (zalo_notify_parent_feedback ? "1" : "0") : undefined,
       zalo_oa_secret_key: zalo_oa_secret_key !== undefined ? String(zalo_oa_secret_key) : undefined,
       zalo_access_token: zalo_access_token !== undefined ? String(zalo_access_token) : undefined,
       zalo_template_id: zalo_template_id !== undefined ? String(zalo_template_id) : undefined,

@@ -32,3 +32,4 @@
 |---|---|---|---|
 | 2026-10-29 | Tốc độ lọc danh sách 300 học sinh | $12\text{ms}$ | Xuất sắc (Rất mượt mà) |
 | 2026-10-29 | API kiểm tra độ đầy sĩ số `/api/classes/occupancy` | $18\text{ms}$ | Xuất sắc |
+| 2026-11-08 | Rà soát dọn dẹp mã nguồn thừa: Xóa dead API `/api/wallet` (600 dòng), hợp nhất helper `computeEndMonth`, `DAYS_OF_WEEK`, `getDayNameVi`, `timeToMinutes` | Giảm 1 endpoint mồ côi, build sạch 100% | Xuất sắc |

@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { formatTimeSlotLabel } from "@/lib/tuition";
+import { formatTimeSlotLabel, getDayNameVi } from "@/lib/tuition";
 import { formatScheduleCompact } from "@/lib/shiftDetection";
-import { TimeSlot, TeacherDaySchedule } from "@/lib/types";
+import { TimeSlot, TeacherDaySchedule, TeacherLeave } from "@/lib/types";
 import {
   GraduationCap,
   Calendar,
@@ -32,6 +32,14 @@ import {
   Check,
   X,
   ExternalLink,
+  Star,
+  BookOpen,
+  Save,
+  RotateCcw,
+  ChevronLeft,
+  ChevronRight,
+  CalendarX,
+  UserMinus,
 } from "lucide-react";
 import { useTheme } from "@/lib/ThemeContext";
 
@@ -122,9 +130,30 @@ export default function TeacherPortal() {
   const [levels, setLevels] = useState<Level[]>([]);
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [activeTab, setActiveTab] = useState<"schedule" | "all" | "classes" | "makeups">("schedule");
+  const [activeTab, setActiveTab] = useState<"attendance" | "schedule" | "classes" | "all" | "makeups" | "leave">("attendance");
   const [selectedDayFilter, setSelectedDayFilter] = useState<string>("ALL");
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Điểm danh & Nhận xét buổi học
+  const [selectedAttendanceDate, setSelectedAttendanceDate] = useState<string>("");
+  const [todayDateStr, setTodayDateStr] = useState<string>("");
+  const [attendanceRecords, setAttendanceRecords] = useState<Record<string, {
+    status: "attended" | "absent_excused" | "absent_unexcused";
+    teacher_notes: string;
+    homework: string;
+    rating: number;
+  }>>({});
+  const [isSavingAttendance, setIsSavingAttendance] = useState(false);
+  const [savedSuccessShiftId, setSavedSuccessShiftId] = useState<string | null>(null);
+
+  // Đơn xin nghỉ của giáo viên
+  const [teacherLeaves, setTeacherLeaves] = useState<TeacherLeave[]>([]);
+  const [leaveDate, setLeaveDate] = useState<string>("");
+  const [leaveShiftDesc, setLeaveShiftDesc] = useState<string>("Cả ngày");
+  const [leaveReason, setLeaveReason] = useState<string>("");
+  const [leaveSubstituteTeacherId, setLeaveSubstituteTeacherId] = useState<string>("");
+  const [allSchoolTeachers, setAllSchoolTeachers] = useState<{ id: string; name: string }[]>([]);
+  const [isSubmittingLeave, setIsSubmittingLeave] = useState<boolean>(false);
 
   // Level Upgrade Modal State
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
@@ -150,6 +179,12 @@ export default function TeacherPortal() {
   // Check saved session on mount
   useEffect(() => {
     try {
+      const today = new Date().toISOString().slice(0, 10);
+      setTodayDateStr(today);
+      setSelectedAttendanceDate(today);
+      setLeaveDate(today);
+      loadAllSchoolTeachers();
+
       if (typeof window !== "undefined") {
         const savedPhone = localStorage.getItem("teacher_phone");
         if (savedPhone) {
@@ -232,6 +267,7 @@ export default function TeacherPortal() {
         setTimeSlots(json.data.time_slots || []);
         setZaloBotName(json.data.zalo_bot_name || "");
         setIsBotConfigured(Boolean(json.data.is_bot_configured));
+        setTeacherLeaves(json.data.leaves || []);
         if (json.data.teacher?.zalo_chat_id) {
           setZaloChatIdInput(json.data.teacher.zalo_chat_id);
         }
@@ -242,6 +278,230 @@ export default function TeacherPortal() {
       showToast("Lỗi kết nối khi tải dữ liệu lớp học", "error");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Tải thông tin điểm danh và nhận xét đã lưu của ngày được chọn
+  const loadAttendanceForDate = async (teacherId: string, dateStr: string) => {
+    try {
+      const res = await fetch(`/api/teacher?teacher_id=${teacherId}&date=${dateStr}`);
+      const json = await res.json();
+      if (json.success && json.data?.lessons_on_date) {
+        const recordsMap: Record<string, any> = {};
+        for (const [key, lesson] of Object.entries(json.data.lessons_on_date as Record<string, any>)) {
+          recordsMap[key] = {
+            status: lesson.status || "attended",
+            teacher_notes: lesson.teacher_notes || "",
+            homework: lesson.homework || "",
+            rating: lesson.rating || 5,
+          };
+        }
+        setAttendanceRecords(recordsMap);
+      }
+    } catch {}
+  };
+
+  useEffect(() => {
+    if (activeTeacher?.id && selectedAttendanceDate) {
+      loadAttendanceForDate(activeTeacher.id, selectedAttendanceDate);
+    }
+  }, [activeTeacher?.id, selectedAttendanceDate]);
+
+  const handleUpdateRecord = (key: string, field: string, value: any) => {
+    setAttendanceRecords((prev) => {
+      const current = prev[key] || {
+        status: "attended",
+        teacher_notes: "",
+        homework: "",
+        rating: 5,
+      };
+      return {
+        ...prev,
+        [key]: {
+          ...current,
+          [field]: value,
+        },
+      };
+    });
+  };
+
+  const [loadingAiKey, setLoadingAiKey] = useState<string | null>(null);
+
+  const handleAiSuggest = async (recordKey: string, studentName: string, subjectName?: string) => {
+    const current = attendanceRecords[recordKey] || {
+      status: "attended",
+      teacher_notes: "",
+      homework: "",
+      rating: 5,
+    };
+    try {
+      setLoadingAiKey(recordKey);
+      const res = await fetch("/api/ai/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "suggest_feedback",
+          student_name: studentName,
+          subject_name: subjectName || "Âm nhạc",
+          rating: current.rating || 5,
+          keywords: current.teacher_notes,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setAttendanceRecords((prev) => ({
+          ...prev,
+          [recordKey]: {
+            ...current,
+            teacher_notes: data.teacher_notes || current.teacher_notes,
+            homework: data.homework || current.homework,
+          },
+        }));
+        showToast("AI đã gợi ý nhận xét và bài tập thành công!", "success");
+      } else {
+        showToast(data.message || "Chưa thể tạo gợi ý AI", "error");
+      }
+    } catch {
+      showToast("Lỗi kết nối khi gọi AI", "error");
+    } finally {
+      setLoadingAiKey(null);
+    }
+  };
+
+  const handleSaveAttendance = async (shiftId: string, shiftStartTime: string, shiftClassId?: string, shiftStudents: any[] = []) => {
+    if (!activeTeacher || shiftStudents.length === 0) return;
+    try {
+      setIsSavingAttendance(true);
+      const recordsToSave = shiftStudents.map((st) => {
+        const key = `${st.id}_${shiftStartTime}`;
+        const rec = attendanceRecords[key] || {
+          status: "attended",
+          teacher_notes: "",
+          homework: "",
+          rating: 5,
+        };
+        return {
+          student_id: st.id,
+          class_id: shiftClassId || null,
+          start_time: shiftStartTime,
+          planned_minutes: 90,
+          status: rec.status,
+          teacher_notes: rec.teacher_notes,
+          homework: rec.homework,
+          rating: rec.rating,
+        };
+      });
+
+      const res = await fetch("/api/teacher", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "save_attendance",
+          teacher_id: activeTeacher.id,
+          date: selectedAttendanceDate,
+          records: recordsToSave,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        showToast(data.message, "success");
+        setSavedSuccessShiftId(shiftId);
+        setTimeout(() => setSavedSuccessShiftId(null), 3000);
+        loadAttendanceForDate(activeTeacher.id, selectedAttendanceDate);
+      } else {
+        showToast(data.message || "Lưu điểm danh thất bại!", "error");
+      }
+    } catch {
+      showToast("Lỗi kết nối máy chủ!", "error");
+    } finally {
+      setIsSavingAttendance(false);
+    }
+  };
+
+  const handleShiftDate = (offsetDays: number) => {
+    const cur = new Date(selectedAttendanceDate);
+    cur.setDate(cur.getDate() + offsetDays);
+    const y = cur.getFullYear();
+    const m = String(cur.getMonth() + 1).padStart(2, "0");
+    const d = String(cur.getDate()).padStart(2, "0");
+    setSelectedAttendanceDate(`${y}-${m}-${d}`);
+  };
+
+  // Lấy danh sách giáo viên khác của trường để gợi ý dạy thay
+  const loadAllSchoolTeachers = async () => {
+    try {
+      const res = await fetch("/api/teacher");
+      const json = await res.json();
+      if (json.success && json.data?.teachers) {
+        setAllSchoolTeachers(
+          (json.data.teachers as any[]).map((t) => ({ id: String(t.id), name: String(t.name) }))
+        );
+      }
+    } catch {}
+  };
+
+  // Gửi đơn xin nghỉ
+  const handleSubmitLeave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeTeacher || !leaveDate || !leaveReason.trim()) {
+      showToast("Vui lòng chọn ngày nghỉ và nhập lý do xin nghỉ!", "error");
+      return;
+    }
+
+    try {
+      setIsSubmittingLeave(true);
+      const res = await fetch("/api/teacher", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "request_leave",
+          teacher_id: activeTeacher.id,
+          leave_date: leaveDate,
+          shift_desc: leaveShiftDesc,
+          reason: leaveReason.trim(),
+          substitute_teacher_id: leaveSubstituteTeacherId || null,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        showToast(data.message, "success");
+        setLeaveReason("");
+        setLeaveSubstituteTeacherId("");
+        loadTeacherDetails(activeTeacher.id);
+      } else {
+        showToast(data.message || "Gửi đơn xin nghỉ thất bại!", "error");
+      }
+    } catch {
+      showToast("Lỗi kết nối máy chủ!", "error");
+    } finally {
+      setIsSubmittingLeave(false);
+    }
+  };
+
+  // Hủy đơn xin nghỉ đang chờ duyệt
+  const handleCancelLeave = async (leaveId: string) => {
+    if (!activeTeacher || !confirm("Bạn có chắc chắn muốn hủy đơn xin nghỉ này không?")) return;
+    try {
+      const res = await fetch("/api/teacher", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "cancel_leave",
+          leave_id: leaveId,
+          teacher_id: activeTeacher.id,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(data.message, "success");
+        loadTeacherDetails(activeTeacher.id);
+      } else {
+        showToast(data.message || "Hủy đơn thất bại!", "error");
+      }
+    } catch {
+      showToast("Lỗi kết nối máy chủ!", "error");
     }
   };
 
@@ -552,11 +812,23 @@ export default function TeacherPortal() {
               </div>
             )}
 
-            {/* Navigation Tabs (Mobile Optimized: 4 Tabs) */}
-            <div className="flex items-center p-1 rounded-2xl bg-slate-200/80 dark:bg-slate-800/80 text-xs font-bold">
+            {/* Navigation Tabs (Mobile Optimized: 5 Tabs) */}
+            <div className="flex items-center p-1 rounded-2xl bg-slate-200/80 dark:bg-slate-800/80 text-xs font-bold overflow-x-auto scrollbar-none gap-1">
+              <button
+                onClick={() => setActiveTab("attendance")}
+                className={`py-2 px-3 rounded-xl transition flex items-center justify-center gap-1.5 shrink-0 ${
+                  activeTab === "attendance"
+                    ? "bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-xs"
+                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
+                }`}
+              >
+                <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                <span>Điểm Danh & Nhận Xét</span>
+              </button>
+
               <button
                 onClick={() => setActiveTab("schedule")}
-                className={`flex-1 py-2.5 rounded-xl transition flex items-center justify-center gap-1.5 ${
+                className={`py-2 px-3 rounded-xl transition flex items-center justify-center gap-1.5 shrink-0 ${
                   activeTab === "schedule"
                     ? "bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs"
                     : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
@@ -567,8 +839,20 @@ export default function TeacherPortal() {
               </button>
 
               <button
+                onClick={() => setActiveTab("classes")}
+                className={`py-2 px-3 rounded-xl transition flex items-center justify-center gap-1.5 shrink-0 ${
+                  activeTab === "classes"
+                    ? "bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-xs"
+                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
+                }`}
+              >
+                <Layers className="w-4 h-4 text-indigo-500" />
+                <span>Lớp Đứng ({classes.length})</span>
+              </button>
+
+              <button
                 onClick={() => setActiveTab("all")}
-                className={`flex-1 py-2.5 rounded-xl transition flex items-center justify-center gap-1.5 ${
+                className={`py-2 px-3 rounded-xl transition flex items-center justify-center gap-1.5 shrink-0 ${
                   activeTab === "all"
                     ? "bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs"
                     : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
@@ -579,20 +863,8 @@ export default function TeacherPortal() {
               </button>
 
               <button
-                onClick={() => setActiveTab("classes")}
-                className={`flex-1 py-2.5 rounded-xl transition flex items-center justify-center gap-1.5 ${
-                  activeTab === "classes"
-                    ? "bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-xs"
-                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
-                }`}
-              >
-                <Layers className="w-4 h-4 text-emerald-500" />
-                <span>Lớp Đứng ({classes.length})</span>
-              </button>
-
-              <button
                 onClick={() => setActiveTab("makeups")}
-                className={`flex-1 py-2.5 rounded-xl transition flex items-center justify-center gap-1.5 ${
+                className={`py-2 px-3 rounded-xl transition flex items-center justify-center gap-1.5 shrink-0 ${
                   activeTab === "makeups"
                     ? "bg-white dark:bg-slate-900 text-amber-600 dark:text-amber-400 shadow-xs"
                     : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
@@ -601,10 +873,22 @@ export default function TeacherPortal() {
                 <CalendarCheck className="w-4 h-4 text-amber-500" />
                 <span>Lịch Bù ({makeups.length})</span>
               </button>
+
+              <button
+                onClick={() => setActiveTab("leave")}
+                className={`py-2 px-3 rounded-xl transition flex items-center justify-center gap-1.5 shrink-0 ${
+                  activeTab === "leave"
+                    ? "bg-white dark:bg-slate-900 text-rose-600 dark:text-rose-400 shadow-xs"
+                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
+                }`}
+              >
+                <CalendarX className="w-4 h-4 text-rose-500" />
+                <span>Báo Nghỉ ({teacherLeaves.length})</span>
+              </button>
             </div>
 
-            {/* Search Bar with Counter & Quick Clear (Ẩn khi đang ở tab Lịch Dạy) */}
-            {activeTab !== "schedule" && (
+            {/* Search Bar with Counter & Quick Clear (Ẩn khi đang ở tab Lịch Dạy, Điểm Danh và Báo Nghỉ) */}
+            {activeTab !== "schedule" && activeTab !== "attendance" && activeTab !== "leave" && (
               <div className="space-y-1.5">
                 <div className="relative">
                   <Search className="w-4 h-4 absolute left-3.5 top-3 text-slate-400" />
@@ -633,7 +917,348 @@ export default function TeacherPortal() {
               </div>
             )}
 
-            {/* TAB 0: THỜI KHÓA BIỂU TUẦN CỦA GIÁO VIÊN */}
+            {/* TAB 0: ĐIỂM DANH & NHẬN XÉT BUỔI HỌC THEO NGÀY */}
+            {activeTab === "attendance" && (() => {
+              const dateToUse = selectedAttendanceDate || todayDateStr || "2026-11-08";
+              const dayNameForAttendance = getDayNameVi(dateToUse);
+              const daySchForAttendance = weeklySchedule.find((d) => d.day === dayNameForAttendance);
+              const shiftsForDate = daySchForAttendance ? daySchForAttendance.shifts : [];
+              const makeupsForDate = makeups.filter(
+                (m) => m.makeup_date === dateToUse && m.status !== "cancelled"
+              );
+              const isToday = Boolean(todayDateStr && dateToUse === todayDateStr);
+
+              const [sy, sm, sd] = dateToUse.split("-");
+
+              return (
+                <div className="space-y-4">
+                  {/* Thanh điều hướng chọn ngày điểm danh */}
+                  <div className="p-4 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xs space-y-3">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400 flex items-center justify-center font-bold">
+                          <CheckCircle2 className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <h3 className="text-sm font-black text-slate-900 dark:text-white">
+                            {dayNameForAttendance}, ngày {sd}/{sm}/{sy}
+                          </h3>
+                          <p className="text-[11px] text-slate-400">
+                            {shiftsForDate.length} ca dạy • Điểm danh học viên & ghi nhận xét bài học
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => handleShiftDate(-1)}
+                          className="p-2 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition"
+                          title="Lùi 1 ngày"
+                        >
+                          <ChevronLeft className="w-4 h-4" />
+                        </button>
+
+                        <input
+                          type="date"
+                          value={dateToUse}
+                          onChange={(e) => {
+                            if (e.target.value) setSelectedAttendanceDate(e.target.value);
+                          }}
+                          className="px-2.5 py-1.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 outline-none"
+                        />
+
+                        <button
+                          type="button"
+                          onClick={() => handleShiftDate(1)}
+                          className="p-2 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition"
+                          title="Tiến 1 ngày"
+                        >
+                          <ChevronRight className="w-4 h-4" />
+                        </button>
+
+                        {!isToday && todayDateStr && (
+                          <button
+                            type="button"
+                            onClick={() => setSelectedAttendanceDate(todayDateStr)}
+                            className="px-2.5 py-1.5 rounded-xl bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 text-xs font-bold hover:bg-emerald-100 transition cursor-pointer"
+                          >
+                            Hôm nay
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Danh sách ca dạy trong ngày để điểm danh */}
+                  {shiftsForDate.length === 0 ? (
+                    <div className="py-12 text-center text-slate-400 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-2">
+                      <CalendarDays className="w-8 h-8 mx-auto text-slate-300" />
+                      <p className="text-xs font-medium">Hôm nay ({dayNameForAttendance}) giáo viên không có ca dạy nào.</p>
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab("schedule")}
+                        className="text-xs font-bold text-blue-600 hover:underline"
+                      >
+                        Xem lịch dạy các ngày khác trong tuần →
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {shiftsForDate.map((shift) => {
+                        const shiftStudents = [
+                          ...shift.students.map((st) => ({ ...st, is_makeup: false })),
+                          ...makeupsForDate
+                            .filter((m) => !shift.students.some((st) => st.id === m.student_id))
+                            .map((m) => ({
+                              id: m.student_id,
+                              name: m.student_name,
+                              phone: m.student_phone,
+                              student_code: undefined,
+                              level_name: m.level_name,
+                              time_label: m.makeup_time || "Học bù",
+                              is_makeup: true,
+                            })),
+                        ];
+
+                        const isSavedThisShift = savedSuccessShiftId === shift.id;
+
+                        return (
+                          <div
+                            key={shift.id}
+                            className="p-4 sm:p-5 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xs space-y-4"
+                          >
+                            {/* Tiêu đề ca học */}
+                            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 gap-2 flex-wrap">
+                              <div>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="px-2.5 py-1 rounded-xl text-xs font-black bg-blue-600 text-white flex items-center gap-1 shadow-xs">
+                                    <Clock className="w-3.5 h-3.5" />
+                                    {shift.start_time} - {shift.end_time}
+                                  </span>
+                                  <strong className="text-sm font-extrabold text-slate-900 dark:text-white">
+                                    {shift.class_name}
+                                  </strong>
+                                  {shift.room && (
+                                    <span className="text-xs text-slate-500 font-medium">📍 {shift.room}</span>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-bold text-slate-500">
+                                  Sĩ số: {shiftStudents.length} học viên
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Danh sách học viên trong ca */}
+                            {shiftStudents.length === 0 ? (
+                              <p className="text-xs text-slate-400 italic py-2">Chưa có học sinh nào trong ca học này.</p>
+                            ) : (
+                              <div className="space-y-3">
+                                {shiftStudents.map((st) => {
+                                  const recordKey = `${st.id}_${shift.start_time}`;
+                                  const currentRecord = attendanceRecords[recordKey] || {
+                                    status: "attended",
+                                    teacher_notes: "",
+                                    homework: "",
+                                    rating: 5,
+                                  };
+
+                                  return (
+                                    <div
+                                      key={st.id}
+                                      className="p-3.5 rounded-2xl bg-slate-50/70 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-700/70 space-y-2.5"
+                                    >
+                                      {/* Header học sinh */}
+                                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                          <div className="w-7 h-7 rounded-xl bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300 font-black flex items-center justify-center text-xs">
+                                            {st.name.slice(0, 1).toUpperCase()}
+                                          </div>
+                                          <div>
+                                            <div className="flex items-center gap-1.5 flex-wrap">
+                                              <strong className="text-xs sm:text-sm font-extrabold text-slate-900 dark:text-white">
+                                                {st.name}
+                                              </strong>
+                                              {st.student_code && (
+                                                <code className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 border border-slate-200 dark:border-slate-700">
+                                                  {st.student_code}
+                                                </code>
+                                              )}
+                                              {st.is_makeup && (
+                                                <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-amber-500 text-white">
+                                                  [HỌC BÙ]
+                                                </span>
+                                              )}
+                                              {/* Huy hiệu hiển thị nếu đã điểm danh ngày hôm đó */}
+                                              {Boolean(attendanceRecords[recordKey]) ? (
+                                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300">
+                                                  <Check className="w-3 h-3" />
+                                                  <span>
+                                                    Đã điểm danh:{" "}
+                                                    {currentRecord.status === "attended"
+                                                      ? "Có mặt"
+                                                      : currentRecord.status === "absent_excused"
+                                                      ? "Vắng có phép"
+                                                      : "Không phép"}
+                                                  </span>
+                                                </span>
+                                              ) : (
+                                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400">
+                                                  Chưa điểm danh
+                                                </span>
+                                              )}
+                                            </div>
+                                            <p className="text-[11px] text-slate-400">
+                                              ⏰ {st.time_label} {st.level_name && `• Trình độ: ${st.level_name}`}
+                                            </p>
+                                          </div>
+                                        </div>
+
+                                        {/* Đánh giá sao 1 -> 5 */}
+                                        <div className="flex items-center gap-1">
+                                          <span className="text-[11px] text-slate-400 font-medium mr-1 hidden sm:inline">
+                                            Đánh giá:
+                                          </span>
+                                          {[1, 2, 3, 4, 5].map((star) => (
+                                            <button
+                                              key={star}
+                                              type="button"
+                                              onClick={() => handleUpdateRecord(recordKey, "rating", star)}
+                                              className="p-0.5 transition hover:scale-110 cursor-pointer"
+                                            >
+                                              <Star
+                                                className={`w-4 h-4 ${
+                                                  star <= currentRecord.rating
+                                                    ? "text-amber-400 fill-amber-400"
+                                                    : "text-slate-300 dark:text-slate-600"
+                                                }`}
+                                              />
+                                            </button>
+                                          ))}
+                                        </div>
+                                      </div>
+
+                                      {/* Bộ chọn 3 trạng thái: Có mặt / Vắng có phép / Vắng không phép */}
+                                      <div className="grid grid-cols-3 gap-1.5 pt-1">
+                                        <button
+                                          type="button"
+                                          onClick={() => handleUpdateRecord(recordKey, "status", "attended")}
+                                          className={`py-1.5 px-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1 border cursor-pointer ${
+                                            currentRecord.status === "attended"
+                                              ? "bg-emerald-600 text-white border-emerald-600 shadow-sm"
+                                              : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-emerald-50"
+                                          }`}
+                                        >
+                                          <CheckCircle2 className="w-3.5 h-3.5" />
+                                          <span>Có mặt</span>
+                                        </button>
+
+                                        <button
+                                          type="button"
+                                          onClick={() => handleUpdateRecord(recordKey, "status", "absent_excused")}
+                                          className={`py-1.5 px-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1 border cursor-pointer ${
+                                            currentRecord.status === "absent_excused"
+                                              ? "bg-amber-500 text-white border-amber-500 shadow-sm"
+                                              : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-amber-50"
+                                          }`}
+                                        >
+                                          <Clock className="w-3.5 h-3.5" />
+                                          <span>Vắng có phép</span>
+                                        </button>
+
+                                        <button
+                                          type="button"
+                                          onClick={() => handleUpdateRecord(recordKey, "status", "absent_unexcused")}
+                                          className={`py-1.5 px-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1 border cursor-pointer ${
+                                            currentRecord.status === "absent_unexcused"
+                                              ? "bg-rose-600 text-white border-rose-600 shadow-sm"
+                                              : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-rose-50"
+                                          }`}
+                                        >
+                                          <X className="w-3.5 h-3.5" />
+                                          <span>Không phép</span>
+                                        </button>
+                                      </div>
+
+                                      {/* Tiêu đề & Nút AI Gợi Ý */}
+                                      <div className="flex items-center justify-between pt-1">
+                                        <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">
+                                          Nhận xét & Dặn dò bài tập:
+                                        </span>
+                                        <button
+                                          type="button"
+                                          disabled={loadingAiKey === recordKey}
+                                          onClick={() => handleAiSuggest(recordKey, st.name, shift.subject_name)}
+                                          className="flex items-center gap-1 px-2.5 py-0.5 text-[10.5px] font-bold rounded-lg bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-950/40 dark:to-indigo-950/40 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800/80 hover:from-purple-100 hover:to-indigo-100 transition shadow-2xs cursor-pointer active:scale-95 disabled:opacity-50"
+                                          title="Bấm để AI tự động soạn nhận xét sư phạm và dặn dò bài tập về nhà"
+                                        >
+                                          <Sparkles className={`w-3 h-3 text-amber-500 ${loadingAiKey === recordKey ? "animate-spin" : ""}`} />
+                                          <span>{loadingAiKey === recordKey ? "AI đang viết..." : "✨ AI Gợi ý"}</span>
+                                        </button>
+                                      </div>
+
+                                      {/* Ô Nhận xét & Bài tập về nhà */}
+                                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-0.5">
+                                        <div>
+                                          <input
+                                            type="text"
+                                            value={currentRecord.teacher_notes}
+                                            onChange={(e) => handleUpdateRecord(recordKey, "teacher_notes", e.target.value)}
+                                            placeholder="Nhận xét buổi học (VD: Em đánh tốt bài mới, tay trái chuẩn...)"
+                                            className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder:text-slate-400 focus:ring-2 focus:ring-emerald-500 outline-none"
+                                          />
+                                        </div>
+
+                                        <div>
+                                          <input
+                                            type="text"
+                                            value={currentRecord.homework}
+                                            onChange={(e) => handleUpdateRecord(recordKey, "homework", e.target.value)}
+                                            placeholder="Bài tập về nhà (VD: Ôn lại trang 14, luyện ngón 15 phút...)"
+                                            className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder:text-slate-400 focus:ring-2 focus:ring-emerald-500 outline-none"
+                                          />
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+
+                            {/* Nút lưu điểm danh cho ca */}
+                            {shiftStudents.length > 0 && (
+                              <div className="pt-2 flex items-center justify-between border-t border-slate-100 dark:border-slate-800">
+                                <div>
+                                  {isSavedThisShift && (
+                                    <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1 animate-in fade-in">
+                                      <Check className="w-4 h-4" /> Đã lưu điểm danh ca này thành công!
+                                    </span>
+                                  )}
+                                </div>
+                                <button
+                                  type="button"
+                                  disabled={isSavingAttendance}
+                                  onClick={() => handleSaveAttendance(shift.id, shift.start_time, shift.class_id, shiftStudents)}
+                                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md shadow-emerald-600/20 disabled:opacity-50 transition cursor-pointer"
+                                >
+                                  <Save className="w-3.5 h-3.5" />
+                                  <span>{isSavingAttendance ? "Đang lưu..." : "Lưu Điểm Danh & Nhận Xét"}</span>
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
+            {/* TAB 1: THỜI KHÓA BIỂU TUẦN CỦA GIÁO VIÊN */}
             {activeTab === "schedule" && (
               <div className="space-y-4">
                 {/* Bộ lọc chọn thứ */}
@@ -1200,6 +1825,216 @@ export default function TeacherPortal() {
                 )}
               </div>
             )}
+
+            {/* TAB 5: GIÁO VIÊN BÁO NGHỈ & XEM PHẢN HỒI DUYỆT */}
+            {activeTab === "leave" && (() => {
+              const dayNameOfLeave = getDayNameVi(leaveDate || todayDateStr);
+              const shiftsOnLeaveDay = weeklySchedule.find((d) => d.day === dayNameOfLeave)?.shifts || [];
+
+              return (
+                <div className="space-y-4">
+                  {/* Form gửi đơn xin nghỉ */}
+                  <form
+                    onSubmit={handleSubmitLeave}
+                    className="p-5 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xs space-y-4"
+                  >
+                    <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100 dark:border-slate-800">
+                      <div className="w-8 h-8 rounded-xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 flex items-center justify-center font-bold">
+                        <CalendarX className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-black text-slate-900 dark:text-white">
+                          Gửi Đơn Xin Nghỉ Dạy
+                        </h3>
+                        <p className="text-[11px] text-slate-400">
+                          Báo nghỉ ca dạy để Ban Quản Lý phê duyệt và phân công người dạy thay
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                      {/* Chọn ngày xin nghỉ */}
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                          Ngày xin nghỉ dạy *
+                        </label>
+                        <input
+                          type="date"
+                          required
+                          value={leaveDate}
+                          onChange={(e) => {
+                            setLeaveDate(e.target.value);
+                            setLeaveShiftDesc("Cả ngày");
+                          }}
+                          className="w-full px-3 py-2 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-rose-500"
+                        />
+                        <span className="text-[11px] text-slate-400 mt-1 block">
+                          Thứ: <strong>{dayNameOfLeave || "---"}</strong>
+                        </span>
+                      </div>
+
+                      {/* Chọn ca xin nghỉ */}
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                          Ca dạy cần xin nghỉ *
+                        </label>
+                        <select
+                          value={leaveShiftDesc}
+                          onChange={(e) => setLeaveShiftDesc(e.target.value)}
+                          className="w-full px-3 py-2 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-rose-500 cursor-pointer"
+                        >
+                          <option value="Cả ngày">Tất cả các ca trong ngày (Nghỉ cả ngày)</option>
+                          {shiftsOnLeaveDay.map((sh) => (
+                            <option key={sh.id} value={`${sh.start_time} - ${sh.end_time} (${sh.class_name})`}>
+                              {sh.start_time} - {sh.end_time}: {sh.class_name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Đề xuất người dạy thay */}
+                      <div className="sm:col-span-2">
+                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                          Giáo viên dạy thay dự kiến (Tùy chọn)
+                        </label>
+                        <select
+                          value={leaveSubstituteTeacherId}
+                          onChange={(e) => setLeaveSubstituteTeacherId(e.target.value)}
+                          className="w-full px-3 py-2 text-xs font-semibold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-rose-500 cursor-pointer"
+                        >
+                          <option value="">-- Chưa có / Nhờ Ban Quản Lý sắp xếp --</option>
+                          {allSchoolTeachers
+                            .filter((t) => t.id !== activeTeacher?.id)
+                            .map((t) => (
+                              <option key={t.id} value={t.id}>
+                                Thầy/Cô {t.name}
+                              </option>
+                            ))}
+                        </select>
+                      </div>
+
+                      {/* Lý do xin nghỉ */}
+                      <div className="sm:col-span-2">
+                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                          Lý do xin nghỉ *
+                        </label>
+                        <textarea
+                          rows={2}
+                          required
+                          value={leaveReason}
+                          onChange={(e) => setLeaveReason(e.target.value)}
+                          placeholder="Ví dụ: Bận việc gia đình đột xuất, bị ốm sốt..."
+                          className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-rose-500 resize-none font-medium"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="pt-2 flex justify-end">
+                      <button
+                        type="submit"
+                        disabled={isSubmittingLeave}
+                        className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-md shadow-rose-600/20 disabled:opacity-50 transition cursor-pointer"
+                      >
+                        <CalendarX className="w-4 h-4" />
+                        <span>{isSubmittingLeave ? "Đang gửi đơn..." : "Gửi Đơn Xin Nghỉ"}</span>
+                      </button>
+                    </div>
+                  </form>
+
+                  {/* Danh sách các đơn đã gửi */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between px-1">
+                      <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                        Lịch sử đơn xin nghỉ ({teacherLeaves.length})
+                      </h4>
+                    </div>
+
+                    {teacherLeaves.length === 0 ? (
+                      <div className="py-10 text-center text-slate-400 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-1">
+                        <CalendarCheck className="w-8 h-8 mx-auto text-slate-300" />
+                        <p className="text-xs font-medium">Bạn chưa gửi đơn xin nghỉ nào.</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {teacherLeaves.map((leave) => {
+                          const [ly, lm, ld] = leave.leave_date.split("-");
+                          const dayName = getDayNameVi(leave.leave_date);
+
+                          return (
+                            <div
+                              key={leave.id}
+                              className="p-4 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 shadow-xs space-y-3"
+                            >
+                              <div className="flex items-start justify-between gap-2 border-b border-slate-100 dark:border-slate-800 pb-2.5">
+                                <div>
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <strong className="text-sm font-black text-slate-900 dark:text-white">
+                                      {dayName}, {ld}/{lm}/{ly}
+                                    </strong>
+                                    <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                                      {leave.shift_desc || "Cả ngày"}
+                                    </span>
+                                  </div>
+                                  <p className="text-xs text-slate-500 mt-1">
+                                    Lý do: <strong>{leave.reason}</strong>
+                                  </p>
+                                </div>
+
+                                <div className="text-right shrink-0">
+                                  {leave.status === "approved" ? (
+                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-black bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300">
+                                      <Check className="w-3.5 h-3.5" /> Đã duyệt
+                                    </span>
+                                  ) : leave.status === "rejected" ? (
+                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-black bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border border-rose-300">
+                                      <X className="w-3.5 h-3.5" /> Từ chối
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-black bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300">
+                                      <Clock className="w-3.5 h-3.5" /> Chờ duyệt
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Thông tin phản hồi & người dạy thay */}
+                              {(leave.substitute_teacher_name || leave.admin_note) && (
+                                <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-slate-700/70 text-xs space-y-1">
+                                  {leave.substitute_teacher_name && (
+                                    <p className="text-indigo-700 dark:text-indigo-300 font-bold flex items-center gap-1.5">
+                                      <span>👤 Giáo viên dạy thay:</span>
+                                      <span className="underline">{leave.substitute_teacher_name}</span>
+                                    </p>
+                                  )}
+                                  {leave.admin_note && (
+                                    <p className="text-slate-600 dark:text-slate-300 italic">
+                                      Phản hồi quản lý: &ldquo;{leave.admin_note}&rdquo;
+                                    </p>
+                                  )}
+                                </div>
+                              )}
+
+                              {/* Nút hủy đơn nếu còn chờ duyệt */}
+                              {leave.status === "pending" && (
+                                <div className="flex justify-end pt-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleCancelLeave(leave.id)}
+                                    className="px-3 py-1.5 text-xs font-bold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl transition cursor-pointer"
+                                  >
+                                    Hủy đơn này
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         )}
       </main>

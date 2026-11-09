@@ -7,17 +7,37 @@ export async function GET(req: Request) {
   let month = "";
   let student_id = "";
   let querySchoolId = "";
+  let type = "";
   try {
     const url = new URL(req.url);
     month = url.searchParams.get("month") || "";
     student_id = url.searchParams.get("student_id") || "";
     querySchoolId = url.searchParams.get("school_id") || "";
+    type = url.searchParams.get("type") || "";
   } catch {}
 
   try {
     await initDb();
     const db = getDb();
     const schoolId = querySchoolId || getSchoolIdFromRequest(req) || "school-default";
+
+    // 0. Lấy lịch sử buổi học & nhận xét của học sinh nếu type === 'lessons'
+    if (type === "lessons" && student_id) {
+      const lessonsRes = await db.execute({
+        sql: `
+          SELECT l.*, tc.name as teacher_name, c.name as class_name, sub.name as subject_name
+          FROM lessons l
+          LEFT JOIN teachers tc ON l.teacher_id = tc.id
+          LEFT JOIN classes c ON l.class_id = c.id
+          LEFT JOIN subjects sub ON l.subject_id = sub.id
+          WHERE l.student_id = ? AND l.status IN ('attended', 'absent_excused', 'absent_unexcused')
+          ORDER BY l.date DESC, l.start_time DESC
+          LIMIT 30
+        `,
+        args: [student_id],
+      });
+      return NextResponse.json({ success: true, data: lessonsRes.rows });
+    }
 
     // 1. Tự động đồng bộ: Nếu học sinh có status = 'reserved' hoặc 'dropped' mà chưa có log trong student_status_logs
     const unloggedStudentsRes = await db.execute({

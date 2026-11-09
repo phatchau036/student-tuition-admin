@@ -1,17 +1,10 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
-import { timeToMinutes } from "@/lib/shiftDetection";
-import { TeacherDaySchedule, TeacherAssignedShift } from "@/lib/types";
-
-const DAYS_OF_WEEK = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ Nhật"];
-
-function isTimeOverlap(s1: string, e1: string, s2: string, e2: string): boolean {
-  const start1 = timeToMinutes(s1);
-  const end1 = timeToMinutes(e1);
-  const start2 = timeToMinutes(s2);
-  const end2 = timeToMinutes(e2);
-  return Math.max(start1, start2) < Math.min(end1, end2);
-}
+import { timeToMinutes, isTimeOverlap } from "@/lib/shiftDetection";
+import { TeacherDaySchedule, TeacherAssignedShift, DAYS_OF_WEEK } from "@/lib/types";
+import { appendLedger } from "@/lib/wallet";
+import { formatMinutes } from "@/lib/tuition";
+import { notifyAdminViaZaloBot } from "@/lib/zaloBot";
 
 function studentMatchesShift(
   st: { schedule_details_json?: string; registered_days?: string; study_time_detail?: string },
@@ -348,6 +341,44 @@ export async function GET(req: Request) {
       if (r.key === "zalo_bot_token" && r.value) isBotConfigured = true;
     }
 
+    // 6. Get attendance/lessons for the selected date if provided
+    const targetDate = searchParams.get("date") || new Date().toISOString().slice(0, 10);
+    const lessonsRes = await db.execute({
+      sql: `SELECT * FROM lessons WHERE date = ?`,
+      args: [targetDate],
+    });
+    const lessonsMap: Record<string, any> = {};
+    for (const r of lessonsRes.rows) {
+      lessonsMap[`${r.student_id}_${r.start_time}`] = {
+        id: String(r.id),
+        student_id: String(r.student_id),
+        date: String(r.date),
+        start_time: String(r.start_time),
+        planned_minutes: Number(r.planned_minutes || 90),
+        actual_minutes: Number(r.actual_minutes || 0),
+        class_id: r.class_id ? String(r.class_id) : undefined,
+        teacher_id: r.teacher_id ? String(r.teacher_id) : undefined,
+        status: String(r.status || "scheduled"),
+        teacher_notes: String(r.teacher_notes || ""),
+        homework: String(r.homework || ""),
+        rating: Number(r.rating || 5),
+      };
+    }
+
+    // 7. Get leave requests submitted by this teacher
+    const leavesRes = await db.execute({
+      sql: `
+        SELECT l.*, sub.name as substitute_teacher_name, c.name as class_name
+        FROM teacher_leaves l
+        LEFT JOIN teachers sub ON l.substitute_teacher_id = sub.id
+        LEFT JOIN classes c ON l.class_id = c.id
+        WHERE l.teacher_id = ?
+        ORDER BY l.leave_date DESC, l.created_at DESC
+        LIMIT 30
+      `,
+      args: [teacherId],
+    });
+
     return NextResponse.json({
       success: true,
       data: {
@@ -360,6 +391,9 @@ export async function GET(req: Request) {
         time_slots: slotsRes.rows,
         zalo_bot_name: zaloBotName,
         is_bot_configured: isBotConfigured,
+        selected_date: targetDate,
+        lessons_on_date: lessonsMap,
+        leaves: leavesRes.rows,
       },
     });
   } catch (error: unknown) {
@@ -470,6 +504,207 @@ export async function POST(req: Request) {
       return NextResponse.json({
         success: true,
         message: `Đã nâng trình độ học sinh lên: ${levelName}!`,
+      });
+    }
+
+    // 4. Giáo viên Điểm danh & Nhận xét buổi học (Có mặt / Vắng có phép / Vắng không phép, Nhận xét, Bài tập, Sao)
+    if (action === "save_attendance") {
+      const { teacher_id, date, records } = body;
+      if (!teacher_id || !date || !Array.isArray(records) || records.length === 0) {
+        return NextResponse.json(
+          { success: false, message: "Vui lòng chọn ngày và danh sách học sinh cần điểm danh!" },
+          { status: 400 }
+        );
+      }
+
+      for (const rec of records) {
+        const { student_id, class_id, start_time, planned_minutes, status, teacher_notes, homework, rating } = rec;
+        if (!student_id || !start_time || !status) continue;
+
+        const pMinutes = Number(planned_minutes) || 90;
+        const actualMin = status === "attended" ? pMinutes : 0;
+        const starRating = Math.min(5, Math.max(1, Number(rating) || 5));
+        const lessonId = `les-${student_id.slice(0, 8)}-${date}-${start_time.replace(":", "")}`;
+
+        // Lưu / cập nhật bảng lessons
+        await db.execute({
+          sql: `
+            INSERT INTO lessons (
+              id, student_id, date, start_time, planned_minutes, actual_minutes,
+              class_id, teacher_id, kind, status, teacher_notes, homework, rating, created_by
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'regular', ?, ?, ?, ?, 'teacher')
+            ON CONFLICT(student_id, date, start_time) DO UPDATE SET
+              status = excluded.status,
+              actual_minutes = excluded.actual_minutes,
+              class_id = COALESCE(excluded.class_id, lessons.class_id),
+              teacher_id = excluded.teacher_id,
+              teacher_notes = excluded.teacher_notes,
+              homework = excluded.homework,
+              rating = excluded.rating
+          `,
+          args: [
+            lessonId,
+            student_id,
+            date,
+            start_time,
+            pMinutes,
+            actualMin,
+            class_id || null,
+            teacher_id,
+            status,
+            teacher_notes ? String(teacher_notes).trim() : "",
+            homework ? String(homework).trim() : "",
+            starRating,
+          ],
+        });
+
+        // Xử lý học bù nếu học sinh này có lịch bù đã xếp vào ngày này
+        if (status === "attended") {
+          const mkCheck = await db.execute({
+            sql: `SELECT id, makeup_minutes, absence_minutes FROM makeup_classes
+                  WHERE student_id = ? AND makeup_date = ? AND status = 'scheduled' LIMIT 1`,
+            args: [student_id, date],
+          });
+          if (mkCheck.rows.length > 0) {
+            const mk = mkCheck.rows[0];
+            const usedMin = Number(mk.makeup_minutes) || Number(mk.absence_minutes) || pMinutes;
+            await db.execute({
+              sql: `UPDATE makeup_classes SET status = 'completed' WHERE id = ?`,
+              args: [mk.id],
+            });
+            await appendLedger({
+              studentId: student_id,
+              type: "CONSUME",
+              minutes: -usedMin,
+              refType: "makeup_completed",
+              refId: String(mk.id),
+              note: `Hoàn thành học bù ngày ${date} lúc ${start_time} (-${formatMinutes(usedMin)})`,
+              createdBy: "teacher_attendance",
+            });
+          }
+        }
+
+        // Tự động tích lũy giờ bù nếu giáo viên đánh dấu vắng có phép
+        if (status === "absent_excused") {
+          const mkExist = await db.execute({
+            sql: `SELECT id FROM makeup_classes WHERE student_id = ? AND absence_date = ? LIMIT 1`,
+            args: [student_id, date],
+          });
+          if (mkExist.rows.length === 0) {
+            const mkId = `mk-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+            await db.execute({
+              sql: `INSERT INTO makeup_classes (
+                      id, student_id, absence_date, absence_reason,
+                      absence_start_time, absence_minutes, status
+                    ) VALUES (?, ?, ?, ?, ?, ?, 'pending')`,
+              args: [
+                mkId,
+                student_id,
+                date,
+                teacher_notes ? `Thầy cô ghi nhận: ${teacher_notes}` : "Điểm danh vắng có phép",
+                start_time,
+                pMinutes,
+              ],
+            });
+            await appendLedger({
+              studentId: student_id,
+              type: "REFUND",
+              minutes: pMinutes,
+              refType: "absence",
+              refId: mkId,
+              note: `Tích lũy giờ nghỉ ngày ${date} (+${formatMinutes(pMinutes)}) từ điểm danh giáo viên`,
+              createdBy: "teacher_attendance",
+            });
+          }
+        }
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: `Đã lưu điểm danh và nhận xét thành công cho ${records.length} học viên!`,
+      });
+    }
+
+    // 5. Giáo viên gửi đơn xin nghỉ dạy
+    if (action === "request_leave") {
+      const { teacher_id, leave_date, shift_desc, start_time, end_time, class_id, reason, substitute_teacher_id } = body;
+      if (!teacher_id || !leave_date || !reason || !String(reason).trim()) {
+        return NextResponse.json(
+          { success: false, message: "Vui lòng chọn ngày nghỉ và nhập lý do xin nghỉ!" },
+          { status: 400 }
+        );
+      }
+
+      const tcRes = await db.execute({
+        sql: "SELECT name, school_id FROM teachers WHERE id = ?",
+        args: [teacher_id],
+      });
+      const teacherName = tcRes.rows.length > 0 && tcRes.rows[0].name ? String(tcRes.rows[0].name) : "Giáo viên";
+      const schoolId = tcRes.rows.length > 0 && tcRes.rows[0].school_id ? String(tcRes.rows[0].school_id) : "school-default";
+      const leaveId = `tl-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+
+      await db.execute({
+        sql: `
+          INSERT INTO teacher_leaves (
+            id, school_id, teacher_id, leave_date, shift_desc, start_time, end_time,
+            class_id, reason, substitute_teacher_id, status
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
+        `,
+        args: [
+          leaveId,
+          schoolId,
+          teacher_id,
+          leave_date,
+          shift_desc || "Cả ngày",
+          start_time || null,
+          end_time || null,
+          class_id || null,
+          String(reason).trim(),
+          substitute_teacher_id || null,
+        ],
+      });
+
+      // 🔔 Bắn thông báo Zalo cho Admin khi giáo viên nộp đơn xin nghỉ
+      let subName = "";
+      if (substitute_teacher_id) {
+        const subRes = await db.execute({
+          sql: "SELECT name FROM teachers WHERE id = ?",
+          args: [substitute_teacher_id],
+        });
+        if (subRes.rows.length > 0) subName = String(subRes.rows[0].name);
+      }
+
+      const msgForAdmin = `👨‍🏫 [GIÁO VIÊN XIN NGHỈ]
+• Giáo viên: ${teacherName}
+• Ngày xin nghỉ: ${leave_date} (${shift_desc || "Cả ngày"})
+• Lý do: ${String(reason).trim()}${subName ? `\n• Đề xuất dạy thay: ${subName}` : ""}
+• Trạng thái: Đang chờ quản lý cơ sở phê duyệt & phân công dạy thay.`;
+
+      notifyAdminViaZaloBot(msgForAdmin, "teacher_leave").catch(() => {});
+
+      return NextResponse.json({
+        success: true,
+        message: "Đã gửi đơn xin nghỉ thành công! Quản lý cơ sở sẽ xem xét và phản hồi.",
+        leave_id: leaveId,
+      });
+    }
+
+    // 6. Giáo viên hủy đơn xin nghỉ đang chờ duyệt
+    if (action === "cancel_leave") {
+      const { leave_id, teacher_id } = body;
+      if (!leave_id || !teacher_id) {
+        return NextResponse.json({ success: false, message: "Thiếu mã đơn xin nghỉ!" }, { status: 400 });
+      }
+
+      await db.execute({
+        sql: "DELETE FROM teacher_leaves WHERE id = ? AND teacher_id = ? AND status = 'pending'",
+        args: [leave_id, teacher_id],
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: "Đã hủy đơn xin nghỉ thành công!",
       });
     }
 

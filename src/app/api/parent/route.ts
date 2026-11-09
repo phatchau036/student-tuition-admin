@@ -174,6 +174,21 @@ export async function POST(req: Request) {
           args: [studentId, currentMonth],
         });
 
+        // Lấy lịch sử buổi học, điểm danh & nhận xét của thầy cô (30 buổi gần nhất)
+        const lessonsHistoryRes = await db.execute({
+          sql: `
+            SELECT l.*, tc.name as teacher_name, c.name as class_name, sub.name as subject_name
+            FROM lessons l
+            LEFT JOIN teachers tc ON l.teacher_id = tc.id
+            LEFT JOIN classes c ON l.class_id = c.id
+            LEFT JOIN subjects sub ON l.subject_id = sub.id
+            WHERE l.student_id = ? AND l.status IN ('attended', 'absent_excused', 'absent_unexcused')
+            ORDER BY l.date DESC, l.start_time DESC
+            LIMIT 30
+          `,
+          args: [studentId],
+        });
+
         const pkgAmount = Number(st.tuition_package_amount || 0);
         const breakdown = calculateStudentTuition({
           packageAmount: st.tuition_package_id && pkgAmount > 0 ? pkgAmount : null,
@@ -288,6 +303,19 @@ export async function POST(req: Request) {
             makeup_date: m.makeup_date ? String(m.makeup_date) : undefined,
             makeup_time: m.makeup_time ? String(m.makeup_time) : undefined,
             note: m.note ? String(m.note) : undefined,
+          })),
+          lesson_history: lessonsHistoryRes.rows.map((r) => ({
+            id: String(r.id),
+            date: String(r.date),
+            start_time: String(r.start_time),
+            actual_minutes: Number(r.actual_minutes || r.planned_minutes || 90),
+            status: String(r.status),
+            teacher_name: r.teacher_name ? String(r.teacher_name) : "Thầy Cô trung tâm",
+            class_name: r.class_name ? String(r.class_name) : "",
+            subject_name: r.subject_name ? String(r.subject_name) : "",
+            teacher_notes: String(r.teacher_notes || ""),
+            homework: String(r.homework || ""),
+            rating: Number(r.rating || 5),
           })),
           current_payment_record: currentPaymentRecord,
         });

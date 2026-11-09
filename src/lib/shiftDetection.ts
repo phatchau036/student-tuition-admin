@@ -7,6 +7,9 @@
  *   không hiện cảnh báo đổi ca mà chỉ ghi nhận giáo viên phụ trách (Thầy Phong).
  */
 
+import { timeToMinutes, minutesToTime } from "@/lib/tuition";
+export { timeToMinutes, minutesToTime };
+
 export interface TeacherShiftItem {
   teacher_id: string;
   teacher_name: string;
@@ -31,34 +34,6 @@ export interface ShiftDetectionResult {
   singleTeacherName: string | null;
   alertMessage: string | null;
   infoMessage: string | null;
-}
-
-export function timeToMinutes(timeStr: string): number {
-  if (!timeStr) return 0;
-  const clean = timeStr.trim();
-  if (clean.includes(":")) {
-    const parts = clean.split(":");
-    const h = parseInt(parts[0], 10) || 0;
-    const m = parseInt(parts[1], 10) || 0;
-    return h * 60 + m;
-  }
-  const match = clean.match(/(\d{1,2})(?:\s*h\s*(\d{2})?)/i);
-  if (match) {
-    const h = parseInt(match[1], 10) || 0;
-    const m = parseInt(match[2] || "0", 10) || 0;
-    return h * 60 + m;
-  }
-  const onlyNum = parseInt(clean, 10);
-  if (!isNaN(onlyNum) && onlyNum >= 0 && onlyNum <= 24) {
-    return onlyNum * 60;
-  }
-  return 0;
-}
-
-export function minutesToTime(minutes: number): string {
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }
 
 /**
@@ -247,7 +222,7 @@ export function detectShiftTeachers(
 /**
  * Chuẩn hóa tên Thứ trong tuần: "T3" -> "Thứ 3", "CN" -> "Chủ Nhật"
  */
-export function normalizeDayOfWeek(d?: string): string {
+function normalizeDayOfWeek(d?: string): string {
   if (!d) return "";
   const s = d.trim().toLowerCase();
   if (s.includes("chủ nhật") || s === "cn") return "Chủ Nhật";
@@ -264,7 +239,7 @@ export function normalizeDayOfWeek(d?: string): string {
  * Trích xuất khoảng thời gian (phút & chuỗi hiển thị) từ chuỗi văn bản bất kỳ
  * Hỗ trợ các định dạng: "18:00 - 19:30", "T3, T5, T7 (17h30-18h30)", "18h-19h30", "18h", "18:00"
  */
-export function extractTimeRangeMinutes(str?: string): {
+function extractTimeRangeMinutes(str?: string): {
   startMin: number;
   endMin: number;
   startTime: string;

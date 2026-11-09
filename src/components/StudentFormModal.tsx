@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Student, LevelSurcharge, TimeSlot, DiscountOption, Teacher, ScheduleItem, TuitionPackage, Subject, SchedulePreset, ClassRoom } from "@/lib/types";
+import { Student, LevelSurcharge, TimeSlot, DiscountOption, Teacher, ScheduleItem, TuitionPackage, Subject, SchedulePreset, ClassRoom, DAYS_OF_WEEK } from "@/lib/types";
 import {
   calculateStudentTuition,
   calculateStandardTuition,
@@ -73,15 +73,7 @@ interface StudentFormModalProps {
   initialStartTime?: string;
 }
 
-const ALL_DAYS = [
-  "Thứ 2",
-  "Thứ 3",
-  "Thứ 4",
-  "Thứ 5",
-  "Thứ 6",
-  "Thứ 7",
-  "Chủ Nhật",
-];
+const ALL_DAYS = DAYS_OF_WEEK;
 
 // Helper to calculate hours between two times "09:00" and "10:30" => 1.5
 function calculateDurationHours(start: string, end: string): number {

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
+import { notifyAdminViaZaloBot } from "@/lib/zaloBot";
 
 export async function GET(req: Request) {
   try {
@@ -83,6 +84,16 @@ export async function POST(req: Request) {
         content.trim(),
       ],
     });
+
+    // 🔔 Bắn thông báo Zalo cho Admin khi có phụ huynh gửi góp ý / đánh giá
+    const starStr = "⭐".repeat(Math.min(5, Math.max(1, Number(rating) || 5)));
+    const msgForAdmin = `💬 [GÓP Ý MỚI TỪ PHỤ HUYNH]
+• Phụ huynh: ${parent_name.trim() || "Phụ huynh"} (SĐT: ${parent_phone.trim() || "—"})
+• Học sinh: ${student_name.trim() || "—"}
+• Đánh giá: ${starStr} (Danh mục: ${category})
+• Nội dung: "${content.trim()}"`;
+
+    notifyAdminViaZaloBot(msgForAdmin, "parent_feedback").catch(() => {});
 
     return NextResponse.json({
       success: true,

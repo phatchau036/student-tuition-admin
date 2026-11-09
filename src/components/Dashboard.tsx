@@ -85,10 +85,14 @@ import { QuickAuditModal } from "./QuickAuditModal";
 import { ClassroomScheduleMatrix } from "./ClassroomScheduleMatrix";
 import { ClassManagementModal } from "./ClassManagementModal";
 import { ScheduleAvailabilityModal } from "./ScheduleAvailabilityModal";
+import { StaffManagementModal } from "./StaffManagementModal";
+import { DailyAttendanceModal } from "./DailyAttendanceModal";
+import { TuitionReminderQueueModal } from "./TuitionReminderQueueModal";
+import { AdminAiAssistantModal } from "./AdminAiAssistantModal";
 import { exportStudentsToExcel } from "@/lib/exportExcel";
 import { useLanguage } from "@/lib/i18n";
 import { useTheme } from "@/lib/ThemeContext";
-import { AppLanguage, ClassRoom } from "@/lib/types";
+import { AppLanguage, ClassRoom, SchoolAdmin } from "@/lib/types";
 
 export default function Dashboard() {
   const { showToast } = useToast();
@@ -113,18 +117,22 @@ export default function Dashboard() {
 
   // Auth states for School Admin
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
-  const [adminUser, setAdminUser] = useState<{
-    id: string;
-    username: string;
-    full_name: string;
-    school_name: string;
-    school_code: string;
-  } | null>(null);
+  const [adminUser, setAdminUser] = useState<SchoolAdmin | null>(null);
   const [loginUsername, setLoginUsername] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [isSubmittingLogin, setIsSubmittingLogin] = useState(false);
 
+  // Helper kiểm tra quyền hạn (Role-Based Access Control)
+  const hasPerm = (permKey: string): boolean => {
+    if (!adminUser) return false;
+    // Chủ cơ sở (is_owner = 1) hoặc có quyền wildcard "*" luôn có toàn quyền
+    if (adminUser.is_owner === 1 || adminUser.permissions?.includes("*")) return true;
+    return Boolean(adminUser.permissions?.includes(permKey));
+  };
+
   // Modals state
+  const [isDailyAttendanceModalOpen, setIsDailyAttendanceModalOpen] = useState(false);
+  const [isStaffModalOpen, setIsStaffModalOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isTeacherModalOpen, setIsTeacherModalOpen] = useState(false);
   const [isClassModalOpen, setIsClassModalOpen] = useState(false);
@@ -155,6 +163,8 @@ export default function Dashboard() {
 
   const [isStatusLogModalOpen, setIsStatusLogModalOpen] = useState(false);
   const [isMonthlySummaryModalOpen, setIsMonthlySummaryModalOpen] = useState(false);
+  const [isTuitionQueueModalOpen, setIsTuitionQueueModalOpen] = useState(false);
+  const [isAiModalOpen, setIsAiModalOpen] = useState(false);
   const [isAppInfoModalOpen, setIsAppInfoModalOpen] = useState(false);
   const [isExcelImportModalOpen, setIsExcelImportModalOpen] = useState(false);
   const [isQuickAuditModalOpen, setIsQuickAuditModalOpen] = useState(false);
@@ -192,6 +202,11 @@ export default function Dashboard() {
   const [zaloReminderMode, setZaloReminderMode] = useState<string>("manual");
   const [zaloBotToken, setZaloBotToken] = useState<string>("");
   const [zaloBotName, setZaloBotName] = useState<string>("");
+  const [zaloAdminChatId, setZaloAdminChatId] = useState<string>("");
+  const [zaloNotifyPayment, setZaloNotifyPayment] = useState<number>(1);
+  const [zaloNotifyStudentAbsence, setZaloNotifyStudentAbsence] = useState<number>(1);
+  const [zaloNotifyTeacherLeave, setZaloNotifyTeacherLeave] = useState<number>(1);
+  const [zaloNotifyParentFeedback, setZaloNotifyParentFeedback] = useState<number>(1);
   const [sepayApiKey, setSepayApiKey] = useState<string>("");
   const [sepayAccountNumber, setSepayAccountNumber] = useState<string>("");
   const [sepayBankName, setSepayBankName] = useState<string>("");
@@ -409,6 +424,11 @@ export default function Dashboard() {
         setZaloReminderMode(json.data.zalo_reminder_mode || "manual");
         setZaloBotToken(json.data.zalo_bot_token || "");
         setZaloBotName(json.data.zalo_bot_name || "");
+        setZaloAdminChatId(json.data.zalo_admin_chat_id || "");
+        setZaloNotifyPayment(json.data.zalo_notify_payment !== undefined ? json.data.zalo_notify_payment : 1);
+        setZaloNotifyStudentAbsence(json.data.zalo_notify_student_absence !== undefined ? json.data.zalo_notify_student_absence : 1);
+        setZaloNotifyTeacherLeave(json.data.zalo_notify_teacher_leave !== undefined ? json.data.zalo_notify_teacher_leave : 1);
+        setZaloNotifyParentFeedback(json.data.zalo_notify_parent_feedback !== undefined ? json.data.zalo_notify_parent_feedback : 1);
         setSepayApiKey(json.data.sepay_api_key || "");
         setSepayAccountNumber(json.data.sepay_account_number || "");
         setSepayBankName(json.data.sepay_bank_name || "");
@@ -915,13 +935,42 @@ export default function Dashboard() {
             </div>
 
             {/* Tổng Kết Tháng Quick Badge */}
+            {hasPerm("revenue.reports") && (
+              <button
+                onClick={() => setIsMonthlySummaryModalOpen(true)}
+                className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl border border-emerald-200 dark:border-emerald-800/60 bg-emerald-50 hover:bg-emerald-100/80 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-300 transition shadow-2xs shrink-0"
+                title="Xem tổng kết thu chi, tình hình đóng học phí và giao dịch SePay tự động"
+              >
+                <BarChart3 className="w-4 h-4 text-emerald-600" />
+                <span>{t.monthly_summary}</span>
+              </button>
+            )}
+
+            {/* Hàng Đợi Nhắc Học Phí Nhanh Zalo Quick Badge */}
+            {(hasPerm("tuition.remind") || hasPerm("tuition.view")) && (
+              <button
+                onClick={() => setIsTuitionQueueModalOpen(true)}
+                className="hidden md:flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl border border-blue-200 dark:border-blue-800/60 bg-blue-50 hover:bg-blue-100/80 dark:bg-blue-950/40 text-blue-900 dark:text-blue-300 transition shadow-2xs shrink-0"
+                title="Mở hàng đợi nhắc học phí nhanh qua Zalo cho danh sách nợ"
+              >
+                <MessageSquare className="w-4 h-4 text-blue-600" />
+                <span>Nhắc Học Phí</span>
+                {students.filter((s) => s.payment_status === "unpaid").length > 0 && (
+                  <span className="px-1.5 py-0.2 rounded-full bg-blue-600 text-white text-[10px] font-black">
+                    {students.filter((s) => s.payment_status === "unpaid").length}
+                  </span>
+                )}
+              </button>
+            )}
+
+            {/* Trợ Lý AI Quick Badge */}
             <button
-              onClick={() => setIsMonthlySummaryModalOpen(true)}
-              className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl border border-emerald-200 dark:border-emerald-800/60 bg-emerald-50 hover:bg-emerald-100/80 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-300 transition shadow-2xs shrink-0"
-              title="Xem tổng kết thu chi, tình hình đóng học phí và giao dịch SePay tự động"
+              onClick={() => setIsAiModalOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl border border-purple-200 dark:border-purple-800/60 bg-gradient-to-r from-purple-50 to-indigo-50 hover:from-purple-100 hover:to-indigo-100 dark:from-purple-950/40 dark:to-indigo-950/40 text-purple-900 dark:text-purple-300 transition shadow-2xs shrink-0 cursor-pointer active:scale-95"
+              title="Mở Trợ Lý AI giải đáp số liệu cơ sở và hướng dẫn tính năng"
             >
-              <BarChart3 className="w-4 h-4 text-emerald-600" />
-              <span>{t.monthly_summary}</span>
+              <Sparkles className="w-4 h-4 text-amber-500 animate-pulse" />
+              <span>Trợ Lý AI</span>
             </button>
 
             {/* Menu Quản Lý Nghiệp Vụ Tập Trung (Consolidated Management Menu) */}
@@ -947,119 +996,193 @@ export default function Dashboard() {
                   className="absolute right-0 top-full mt-2 w-64 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl z-50 p-1.5 space-y-1 animate-in fade-in zoom-in-95"
                   onMouseLeave={() => setIsManagementMenuOpen(false)}
                 >
-                  <button
-                    onClick={() => {
-                      setIsManagementMenuOpen(false);
-                      setIsTeacherModalOpen(true);
-                    }}
-                    className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition text-left"
-                  >
-                    <span className="flex items-center gap-2">
-                      <GraduationCap className="w-4 h-4 text-indigo-600" />
-                      <span>{t.teachers_team}</span>
-                    </span>
-                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
-                      {teachers.length}
-                    </span>
-                  </button>
+                  {/* Quản lý Nhân viên & Phân quyền */}
+                  {hasPerm("staff.manage") && (
+                    <button
+                      onClick={() => {
+                        setIsManagementMenuOpen(false);
+                        setIsStaffModalOpen(true);
+                      }}
+                      className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold rounded-xl text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition text-left"
+                    >
+                      <span className="flex items-center gap-2">
+                        <ShieldCheck className="w-4 h-4 text-indigo-600" />
+                        <span>Tài Khoản & Phân Quyền</span>
+                      </span>
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300">
+                        Phân quyền
+                      </span>
+                    </button>
+                  )}
+
+                  {hasPerm("teachers.manage") && (
+                    <button
+                      onClick={() => {
+                        setIsManagementMenuOpen(false);
+                        setIsTeacherModalOpen(true);
+                      }}
+                      className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition text-left"
+                    >
+                      <span className="flex items-center gap-2">
+                        <GraduationCap className="w-4 h-4 text-indigo-600" />
+                        <span>{t.teachers_team}</span>
+                      </span>
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
+                        {teachers.length}
+                      </span>
+                    </button>
+                  )}
 
                   {/* Quản lý Lớp học & Sĩ số */}
-                  <button
-                    onClick={() => {
-                      setIsManagementMenuOpen(false);
-                      setIsClassModalOpen(true);
-                    }}
-                    className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition text-left"
-                  >
-                    <span className="flex items-center gap-2">
-                      <Layers className="w-4 h-4 text-emerald-600" />
-                      <span>Quản Lý Lớp Học</span>
-                    </span>
-                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
-                      {classes.length} lớp
-                    </span>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      setIsManagementMenuOpen(false);
-                      setSelectedStudentForMakeup(undefined);
-                      setIsMakeupModalOpen(true);
-                    }}
-                    className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition text-left"
-                  >
-                    <span className="flex items-center gap-2">
-                      <CalendarCheck className="w-4 h-4 text-amber-600" />
-                      <span>Báo Nghỉ & Quỹ Giờ Bù</span>
-                    </span>
-                    {totalPendingMakeups > 0 && (
-                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
-                        {totalPendingMakeups} ca chờ
+                  {hasPerm("classes.manage") && (
+                    <button
+                      onClick={() => {
+                        setIsManagementMenuOpen(false);
+                        setIsClassModalOpen(true);
+                      }}
+                      className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition text-left"
+                    >
+                      <span className="flex items-center gap-2">
+                        <Layers className="w-4 h-4 text-emerald-600" />
+                        <span>Quản Lý Lớp Học</span>
                       </span>
-                    )}
-                  </button>
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+                        {classes.length} lớp
+                      </span>
+                    </button>
+                  )}
 
-                  <button
-                    onClick={() => {
-                      setIsManagementMenuOpen(false);
-                      setIsStatusLogModalOpen(true);
-                    }}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition text-left"
-                  >
-                    <History className="w-4 h-4 text-indigo-600" />
-                    <span>{t.status_log}</span>
-                  </button>
+                  {/* Điểm danh & Sổ bài học (Cả Admin hoặc Giáo viên đều điểm danh được) */}
+                  {(hasPerm("attendance.manage") || hasPerm("makeups.manage")) && (
+                    <button
+                      onClick={() => {
+                        setIsManagementMenuOpen(false);
+                        setIsDailyAttendanceModalOpen(true);
+                      }}
+                      className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold rounded-xl text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition text-left"
+                    >
+                      <span className="flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                        <span>Điểm Danh & Sổ Bài Học</span>
+                      </span>
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                        Hôm nay
+                      </span>
+                    </button>
+                  )}
 
-                  <button
-                    onClick={() => {
-                      setIsManagementMenuOpen(false);
-                      setIsMonthlySummaryModalOpen(true);
-                    }}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition text-left"
-                  >
-                    <BarChart3 className="w-4 h-4 text-emerald-600" />
-                    <span>{t.monthly_summary}</span>
-                  </button>
+                  {hasPerm("makeups.manage") && (
+                    <button
+                      onClick={() => {
+                        setIsManagementMenuOpen(false);
+                        setSelectedStudentForMakeup(undefined);
+                        setIsMakeupModalOpen(true);
+                      }}
+                      className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition text-left"
+                    >
+                      <span className="flex items-center gap-2">
+                        <CalendarCheck className="w-4 h-4 text-amber-600" />
+                        <span>Báo Nghỉ & Quỹ Giờ Bù</span>
+                      </span>
+                      {totalPendingMakeups > 0 && (
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                          {totalPendingMakeups} ca chờ
+                        </span>
+                      )}
+                    </button>
+                  )}
+
+                  {hasPerm("students.status") && (
+                    <button
+                      onClick={() => {
+                        setIsManagementMenuOpen(false);
+                        setIsStatusLogModalOpen(true);
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition text-left"
+                    >
+                      <History className="w-4 h-4 text-indigo-600" />
+                      <span>{t.status_log}</span>
+                    </button>
+                  )}
+
+                  {hasPerm("revenue.reports") && (
+                    <button
+                      onClick={() => {
+                        setIsManagementMenuOpen(false);
+                        setIsMonthlySummaryModalOpen(true);
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition text-left"
+                    >
+                      <BarChart3 className="w-4 h-4 text-emerald-600" />
+                      <span>{t.monthly_summary}</span>
+                    </button>
+                  )}
+
+                  {(hasPerm("tuition.remind") || hasPerm("tuition.view")) && (
+                    <button
+                      onClick={() => {
+                        setIsManagementMenuOpen(false);
+                        setIsTuitionQueueModalOpen(true);
+                      }}
+                      className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold rounded-xl text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition text-left"
+                    >
+                      <span className="flex items-center gap-2">
+                        <MessageSquare className="w-4 h-4 text-blue-600" />
+                        <span>Hàng Đợi Nhắc Học Phí</span>
+                      </span>
+                      {students.filter((s) => s.payment_status === "unpaid").length > 0 && (
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300">
+                          {students.filter((s) => s.payment_status === "unpaid").length}
+                        </span>
+                      )}
+                    </button>
+                  )}
+
+                  {hasPerm("students.excel") && (
+                    <>
+                      <div className="my-1 border-t border-slate-100 dark:border-slate-800" />
+
+                      {/* Smart Excel Import */}
+                      <button
+                        onClick={() => {
+                          setIsManagementMenuOpen(false);
+                          setIsExcelImportModalOpen(true);
+                        }}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-xl text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition text-left"
+                      >
+                        <Upload className="w-4 h-4 text-emerald-600" />
+                        <span>{t.excel_import_btn}</span>
+                      </button>
+
+                      {/* Export Excel */}
+                      <button
+                        onClick={() => {
+                          setIsManagementMenuOpen(false);
+                          exportStudentsToExcel(filteredStudents, selectedMonth, currentSchool?.name || "TrungTam");
+                          showToast("Đã xuất file Excel học viên thành công!", "success");
+                        }}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-xl text-indigo-700 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition text-left"
+                      >
+                        <Download className="w-4 h-4 text-indigo-600" />
+                        <span>{t.excel_export_btn}</span>
+                      </button>
+                    </>
+                  )}
 
                   <div className="my-1 border-t border-slate-100 dark:border-slate-800" />
 
-                  {/* Smart Excel Import */}
-                  <button
-                    onClick={() => {
-                      setIsManagementMenuOpen(false);
-                      setIsExcelImportModalOpen(true);
-                    }}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-xl text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition text-left"
-                  >
-                    <Upload className="w-4 h-4 text-emerald-600" />
-                    <span>{t.excel_import_btn}</span>
-                  </button>
-
-                  {/* Export Excel */}
-                  <button
-                    onClick={() => {
-                      setIsManagementMenuOpen(false);
-                      exportStudentsToExcel(filteredStudents, selectedMonth, currentSchool?.name || "TrungTam");
-                      showToast("Đã xuất file Excel học viên thành công!", "success");
-                    }}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-xl text-indigo-700 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition text-left"
-                  >
-                    <Download className="w-4 h-4 text-indigo-600" />
-                    <span>{t.excel_export_btn}</span>
-                  </button>
-
-                  <div className="my-1 border-t border-slate-100 dark:border-slate-800" />
-
-                  <button
-                    onClick={() => {
-                      setIsManagementMenuOpen(false);
-                      setIsSettingsOpen(true);
-                    }}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition text-left"
-                  >
-                    <Settings className="w-4 h-4 text-slate-500" />
-                    <span>{t.settings}</span>
-                  </button>
+                  {hasPerm("settings.manage") && (
+                    <button
+                      onClick={() => {
+                        setIsManagementMenuOpen(false);
+                        setIsSettingsOpen(true);
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition text-left"
+                    >
+                      <Settings className="w-4 h-4 text-slate-500" />
+                      <span>{t.settings}</span>
+                    </button>
+                  )}
 
                   <button
                     onClick={() => {
@@ -1076,16 +1199,18 @@ export default function Dashboard() {
             </div>
 
             {/* Add Student Primary Action */}
-            <button
-              onClick={() => {
-                setStudentToEdit(null);
-                setIsStudentModalOpen(true);
-              }}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-black rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] text-white shadow-md shadow-indigo-600/25 transition shrink-0"
-            >
-              <Plus className="w-4 h-4 stroke-[3]" />
-              <span>{t.add_student}</span>
-            </button>
+            {hasPerm("students.create") && (
+              <button
+                onClick={() => {
+                  setStudentToEdit(null);
+                  setIsStudentModalOpen(true);
+                }}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-black rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] text-white shadow-md shadow-indigo-600/25 transition shrink-0"
+              >
+                <Plus className="w-4 h-4 stroke-[3]" />
+                <span>{t.add_student}</span>
+              </button>
+            )}
 
             {/* Logout Button */}
             <button
@@ -1224,14 +1349,16 @@ export default function Dashboard() {
 
             {mainViewMode === "schedule_matrix" && (
               <div className="flex items-center gap-2 flex-wrap">
-                <button
-                  type="button"
-                  onClick={() => setIsAvailabilityModalOpen(true)}
-                  className="text-xs font-bold px-3 py-1.5 rounded-xl border border-amber-200 dark:border-amber-800/80 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 text-amber-900 dark:text-amber-300 flex items-center gap-1.5 transition cursor-pointer active:scale-95 shadow-2xs"
-                >
-                  <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-                  <span>⚡ Tư Vấn Ca Trống</span>
-                </button>
+                {hasPerm("schedule.consult") && (
+                  <button
+                    type="button"
+                    onClick={() => setIsAvailabilityModalOpen(true)}
+                    className="text-xs font-bold px-3 py-1.5 rounded-xl border border-amber-200 dark:border-amber-800/80 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 text-amber-900 dark:text-amber-300 flex items-center gap-1.5 transition cursor-pointer active:scale-95 shadow-2xs"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                    <span>⚡ Tư Vấn Ca Trống</span>
+                  </button>
+                )}
                 <span className="text-xs font-medium text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/60 px-3 py-1.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 hidden sm:inline-flex items-center gap-1.5">
                   <CalendarCheck className="w-3.5 h-3.5 text-indigo-500" />
                   <span>Lưới 7 ngày toàn tuần đồng bộ, nhấn vào ô trống để thêm nhanh</span>
@@ -1882,6 +2009,11 @@ export default function Dashboard() {
 
                         {/* Monthly Tuition */}
                         <td className="py-2 px-3 overflow-hidden">
+                          {!hasPerm("tuition.view") ? (
+                            <span className="text-sm font-black text-slate-400 dark:text-slate-500 font-mono tracking-widest select-none" title="Bạn không có quyền xem thông tin học phí">
+                              ••••••
+                            </span>
+                          ) : (
                           <div className="flex flex-col min-w-0">
                             <button
                               type="button"
@@ -1954,6 +2086,7 @@ export default function Dashboard() {
                               <span className="text-[10px] font-medium text-slate-400">{t.default_standard}</span>
                             ) : null}
                           </div>
+                          )}
                         </td>
 
                         {/* Đối Soát Phí: Bấm để mở bảng Đối soát nhanh (Chọn Đã đóng / Chưa đóng & Tick chọn từng tháng) */}
@@ -1962,6 +2095,10 @@ export default function Dashboard() {
                             <button
                               type="button"
                               onClick={() => {
+                                if (!hasPerm("tuition.audit")) {
+                                  showToast("Bạn không có quyền thu học phí / đối soát công nợ!", "error");
+                                  return;
+                                }
                                 setStudentForQuickAudit(student);
                                 setIsQuickAuditModalOpen(true);
                               }}
@@ -2080,85 +2217,96 @@ export default function Dashboard() {
                 </button>
 
                 {/* Sửa học phí tháng */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    const st = openRowActionStudent;
-                    setOpenRowActionStudent(null);
-                    setActionMenuPosition(null);
-                    setStudentForMonthly(st);
-                    setIsMonthlyModalOpen(true);
-                  }}
-                  className="w-full flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-xl text-slate-700 dark:text-slate-200 hover:bg-amber-50 hover:text-amber-700 dark:hover:bg-amber-950/50 dark:hover:text-amber-300 transition cursor-pointer"
-                >
-                  <DollarSign className="w-3.5 h-3.5 text-amber-500" />
-                  <span>{t.action_edit_fee}</span>
-                </button>
+                {hasPerm("tuition.override") && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const st = openRowActionStudent;
+                      setOpenRowActionStudent(null);
+                      setActionMenuPosition(null);
+                      setStudentForMonthly(st);
+                      setIsMonthlyModalOpen(true);
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-xl text-slate-700 dark:text-slate-200 hover:bg-amber-50 hover:text-amber-700 dark:hover:bg-amber-950/50 dark:hover:text-amber-300 transition cursor-pointer"
+                  >
+                    <DollarSign className="w-3.5 h-3.5 text-amber-500" />
+                    <span>{t.action_edit_fee}</span>
+                  </button>
+                )}
 
                 {/* Báo nghỉ / Học bù */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    const st = openRowActionStudent;
-                    setOpenRowActionStudent(null);
-                    setActionMenuPosition(null);
-                    setSelectedStudentForMakeup(st.id);
-                    setIsMakeupModalOpen(true);
-                  }}
-                  className="w-full flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-xl text-slate-700 dark:text-slate-200 hover:bg-indigo-50 hover:text-indigo-600 dark:hover:bg-indigo-950/50 dark:hover:text-indigo-300 transition cursor-pointer"
-                >
-                  <CalendarCheck className="w-3.5 h-3.5 text-indigo-500" />
-                  <span>{t.action_makeup}</span>
-                </button>
+                {hasPerm("makeups.manage") && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const st = openRowActionStudent;
+                      setOpenRowActionStudent(null);
+                      setActionMenuPosition(null);
+                      setSelectedStudentForMakeup(st.id);
+                      setIsMakeupModalOpen(true);
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-xl text-slate-700 dark:text-slate-200 hover:bg-indigo-50 hover:text-indigo-600 dark:hover:bg-indigo-950/50 dark:hover:text-indigo-300 transition cursor-pointer"
+                  >
+                    <CalendarCheck className="w-3.5 h-3.5 text-indigo-500" />
+                    <span>{t.action_makeup}</span>
+                  </button>
+                )}
 
                 {/* Bảo lưu / Học tiếp */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    const st = openRowActionStudent;
-                    setOpenRowActionStudent(null);
-                    setActionMenuPosition(null);
-                    setStudentForStatusChange(st);
-                    setIsChangeStatusModalOpen(true);
-                  }}
-                  className="w-full flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
-                >
-                  <PauseCircle className="w-3.5 h-3.5 text-amber-600" />
-                  <span>{openRowActionStudent.status === "reserved" ? t.action_resume : t.action_reserve}</span>
-                </button>
+                {hasPerm("students.status") && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const st = openRowActionStudent;
+                      setOpenRowActionStudent(null);
+                      setActionMenuPosition(null);
+                      setStudentForStatusChange(st);
+                      setIsChangeStatusModalOpen(true);
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+                  >
+                    <PauseCircle className="w-3.5 h-3.5 text-amber-600" />
+                    <span>{openRowActionStudent.status === "reserved" ? t.action_resume : t.action_reserve}</span>
+                  </button>
+                )}
 
                 {/* Chỉnh sửa thông tin */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    const st = openRowActionStudent;
-                    setOpenRowActionStudent(null);
-                    setActionMenuPosition(null);
-                    setStudentToEdit(st);
-                    setIsStudentModalOpen(true);
-                  }}
-                  className="w-full flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
-                >
-                  <Edit2 className="w-3.5 h-3.5 text-slate-500" />
-                  <span>{t.action_edit_info}</span>
-                </button>
-
-                <div className="my-1 border-t border-slate-100 dark:border-slate-800" />
+                {hasPerm("students.edit") && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const st = openRowActionStudent;
+                      setOpenRowActionStudent(null);
+                      setActionMenuPosition(null);
+                      setStudentToEdit(st);
+                      setIsStudentModalOpen(true);
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+                  >
+                    <Edit2 className="w-3.5 h-3.5 text-slate-500" />
+                    <span>{t.action_edit_info}</span>
+                  </button>
+                )}
 
                 {/* Xóa học sinh */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    const st = openRowActionStudent;
-                    setOpenRowActionStudent(null);
-                    setActionMenuPosition(null);
-                    setStudentToDelete(st);
-                  }}
-                  className="w-full flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-xl text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition cursor-pointer"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  <span>{t.action_delete_student}</span>
-                </button>
+                {hasPerm("students.delete") && (
+                  <>
+                    <div className="my-1 border-t border-slate-100 dark:border-slate-800" />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const st = openRowActionStudent;
+                        setOpenRowActionStudent(null);
+                        setActionMenuPosition(null);
+                        setStudentToDelete(st);
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-xl text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition cursor-pointer"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>{t.action_delete_student}</span>
+                    </button>
+                  </>
+                )}
               </div>
             </>,
             document.body
@@ -2202,72 +2350,78 @@ export default function Dashboard() {
             {/* Quick Bulk Actions */}
             <div className="flex items-center gap-1.5 sm:gap-2">
               {/* Bảo lưu hàng loạt */}
-              <button
-                type="button"
-                onClick={() =>
-                  setBulkConfirmModal({
-                    isOpen: true,
-                    action: "reserve",
-                    title: "Bảo lưu hàng loạt",
-                    description: `Bạn có chắc muốn chuyển ${selectedStudentIds.length} học sinh đã chọn sang trạng thái BẢO LƯU?`,
-                  })
-                }
-                className="px-3 py-1.5 text-xs font-bold rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 transition flex items-center gap-1.5 cursor-pointer"
-              >
-                <PauseCircle className="w-3.5 h-3.5" />
-                <span>Bảo Lưu</span>
-              </button>
+              {hasPerm("students.status") && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setBulkConfirmModal({
+                        isOpen: true,
+                        action: "reserve",
+                        title: "Bảo lưu hàng loạt",
+                        description: `Bạn có chắc muốn chuyển ${selectedStudentIds.length} học sinh đã chọn sang trạng thái BẢO LƯU?`,
+                      })
+                    }
+                    className="px-3 py-1.5 text-xs font-bold rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 transition flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <PauseCircle className="w-3.5 h-3.5" />
+                    <span>Bảo Lưu</span>
+                  </button>
 
-              {/* Nghỉ học hàng loạt */}
-              <button
-                type="button"
-                onClick={() =>
-                  setBulkConfirmModal({
-                    isOpen: true,
-                    action: "drop",
-                    title: "Nghỉ học hàng loạt",
-                    description: `Bạn có chắc muốn chuyển ${selectedStudentIds.length} học sinh đã chọn sang trạng thái NGHỈ HỌC?`,
-                  })
-                }
-                className="px-3 py-1.5 text-xs font-bold rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 transition flex items-center gap-1.5 cursor-pointer"
-              >
-                <UserX className="w-3.5 h-3.5" />
-                <span>Nghỉ Học</span>
-              </button>
+                  {/* Nghỉ học hàng loạt */}
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setBulkConfirmModal({
+                        isOpen: true,
+                        action: "drop",
+                        title: "Nghỉ học hàng loạt",
+                        description: `Bạn có chắc muốn chuyển ${selectedStudentIds.length} học sinh đã chọn sang trạng thái NGHỈ HỌC?`,
+                      })
+                    }
+                    className="px-3 py-1.5 text-xs font-bold rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 transition flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <UserX className="w-3.5 h-3.5" />
+                    <span>Nghỉ Học</span>
+                  </button>
 
-              {/* Học tiếp hàng loạt */}
-              <button
-                type="button"
-                onClick={() =>
-                  setBulkConfirmModal({
-                    isOpen: true,
-                    action: "resume",
-                    title: "Học tiếp hàng loạt",
-                    description: `Bạn có chắc muốn kích hoạt ${selectedStudentIds.length} học sinh đã chọn trở lại trạng thái ĐANG HỌC?`,
-                  })
-                }
-                className="px-3 py-1.5 text-xs font-bold rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 transition flex items-center gap-1.5 cursor-pointer"
-              >
-                <UserCheck className="w-3.5 h-3.5" />
-                <span>Học Tiếp</span>
-              </button>
+                  {/* Học tiếp hàng loạt */}
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setBulkConfirmModal({
+                        isOpen: true,
+                        action: "resume",
+                        title: "Học tiếp hàng loạt",
+                        description: `Bạn có chắc muốn kích hoạt ${selectedStudentIds.length} học sinh đã chọn trở lại trạng thái ĐANG HỌC?`,
+                      })
+                    }
+                    className="px-3 py-1.5 text-xs font-bold rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 transition flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <UserCheck className="w-3.5 h-3.5" />
+                    <span>Học Tiếp</span>
+                  </button>
+                </>
+              )}
 
               {/* Xóa hàng loạt */}
-              <button
-                type="button"
-                onClick={() =>
-                  setBulkConfirmModal({
-                    isOpen: true,
-                    action: "delete",
-                    title: "Xóa học sinh hàng loạt",
-                    description: `CẢNH BÁO: Bạn có chắc chắn muốn XÓA VĨNH VIỄN ${selectedStudentIds.length} học sinh đã chọn khỏi hệ thống? Dữ liệu lịch học và học phí liên quan cũng sẽ bị xóa sạch!`,
-                  })
-                }
-                className="px-3 py-1.5 text-xs font-bold rounded-xl bg-rose-600 hover:bg-rose-700 text-white shadow-xs transition flex items-center gap-1.5 cursor-pointer"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>Xóa Hàng Loạt</span>
-              </button>
+              {hasPerm("students.delete") && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setBulkConfirmModal({
+                      isOpen: true,
+                      action: "delete",
+                      title: "Xóa học sinh hàng loạt",
+                      description: `CẢNH BÁO: Thao tác này sẽ xóa vĩnh viễn ${selectedStudentIds.length} học sinh và toàn bộ lịch sử học phí! Bạn có chắc chắn muốn xóa?`,
+                    })
+                  }
+                  className="px-3 py-1.5 text-xs font-bold rounded-xl bg-rose-600 hover:bg-rose-700 text-white transition flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Xóa Hàng Loạt</span>
+                </button>
+              )}
             </div>
 
             {/* Bỏ chọn tất cả */}
@@ -2407,6 +2561,11 @@ export default function Dashboard() {
         initialZaloReminderMode={zaloReminderMode as any}
         initialZaloBotToken={zaloBotToken}
         initialZaloBotName={zaloBotName}
+        initialZaloAdminChatId={zaloAdminChatId}
+        initialZaloNotifyPayment={zaloNotifyPayment}
+        initialZaloNotifyStudentAbsence={zaloNotifyStudentAbsence}
+        initialZaloNotifyTeacherLeave={zaloNotifyTeacherLeave}
+        initialZaloNotifyParentFeedback={zaloNotifyParentFeedback}
         initialTimeSlots={timeSlots}
         initialLevelSurcharges={levels}
         initialDiscountPresets={discountPresets}
@@ -2558,6 +2717,22 @@ export default function Dashboard() {
         onRefreshData={() => loadStudents(selectedMonth)}
       />
 
+      {/* Tuition Reminder Queue Modal (Hàng Đợi Nhắc Học Phí Nhanh Qua Zalo Cho Danh Sách Nợ) */}
+      <TuitionReminderQueueModal
+        isOpen={isTuitionQueueModalOpen}
+        onClose={() => setIsTuitionQueueModalOpen(false)}
+        students={students}
+        initialMonth={selectedMonth}
+        monthFormat={monthFormat}
+        schoolId={currentSchool?.id}
+        schoolName={currentSchool?.name}
+        sepayBankName={sepayBankName}
+        sepayAccountNumber={sepayAccountNumber}
+        sepayPrefix={sepayPrefix}
+        currentAdminName={adminUser?.full_name || adminUser?.username || "Lễ tân"}
+        onRefreshData={() => loadStudents(selectedMonth, undefined, true)}
+      />
+
       {/* App Info & Feedback Modal (Giới thiệu, Changelog & Góp ý) */}
       <AppInfoModal
         isOpen={isAppInfoModalOpen}
@@ -2592,6 +2767,44 @@ export default function Dashboard() {
           setSlotPrefill({ day, time, teacherId: tcId, classId: clsId });
           setIsStudentModalOpen(true);
         }}
+      />
+
+      {/* Staff & Role-Based Permissions Management Modal */}
+      <StaffManagementModal
+        isOpen={isStaffModalOpen}
+        onClose={() => setIsStaffModalOpen(false)}
+        schoolId={currentSchool?.id}
+        schoolName={currentSchool?.name}
+      />
+
+      {/* Daily Attendance & Lesson Log Modal for Admin */}
+      <DailyAttendanceModal
+        isOpen={isDailyAttendanceModalOpen}
+        onClose={() => setIsDailyAttendanceModalOpen(false)}
+        classes={classes}
+        teachers={teachers}
+        students={students}
+        schoolId={currentSchool?.id}
+        onRefresh={handleRefresh}
+      />
+
+      {/* Floating AI Assistant Trigger Button (Bottom Right) */}
+      <button
+        type="button"
+        onClick={() => setIsAiModalOpen(true)}
+        className="fixed bottom-6 right-6 z-40 p-3.5 rounded-2xl bg-gradient-to-br from-purple-600 to-indigo-600 text-white shadow-xl shadow-purple-600/35 hover:scale-105 active:scale-95 transition-all flex items-center gap-2 font-bold text-xs cursor-pointer group"
+        title="Trợ Lý AI Quản Trị Trung Tâm"
+      >
+        <Sparkles className="w-5 h-5 text-amber-300 group-hover:rotate-12 transition-transform" />
+        <span className="hidden md:inline pr-1">Hỏi Trợ Lý AI</span>
+      </button>
+
+      {/* Admin AI Assistant Modal (Cửa Sổ Trợ Lý AI Đa Năng Cho Quản Lý) */}
+      <AdminAiAssistantModal
+        isOpen={isAiModalOpen}
+        onClose={() => setIsAiModalOpen(false)}
+        schoolName={currentSchool?.name}
+        adminName={adminUser?.full_name || adminUser?.username || "Quản lý"}
       />
     </div>
   );

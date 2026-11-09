@@ -114,6 +114,114 @@ export async function POST(req: Request) {
       }
     }
 
+    // 3. Action: Get recent updates to find Chat IDs (getUpdates)
+    if (action === "get_updates" || action === "get_recent_chats") {
+      try {
+        const url = `${ZALO_BOT_BASE_URL}/bot${token}/getUpdates`;
+        const res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ limit: 50 }),
+        });
+
+        const data = await res.json();
+        if (data.ok) {
+          const chatsMap: Record<
+            string,
+            { chat_id: string; from_name: string; text: string; date: number }
+          > = {};
+
+          for (const update of data.result || []) {
+            const msg = update.message || update.edited_message;
+            if (msg && msg.chat?.id) {
+              const cid = String(msg.chat.id);
+              const fname =
+                [msg.from?.first_name, msg.from?.last_name].filter(Boolean).join(" ") ||
+                msg.from?.username ||
+                "Người dùng Zalo";
+              chatsMap[cid] = {
+                chat_id: cid,
+                from_name: fname,
+                text: String(msg.text || ""),
+                date: Number(msg.date || 0),
+              };
+            }
+          }
+
+          const recentChats = Object.values(chatsMap).sort((a, b) => b.date - a.date);
+
+          return NextResponse.json({
+            success: true,
+            message: `Tìm thấy ${recentChats.length} cuộc trò chuyện gần đây với Bot!`,
+            recent_chats: recentChats,
+          });
+        } else {
+          return NextResponse.json({
+            success: false,
+            message: data.description || "Không thể lấy danh sách tin nhắn từ Zalo Bot",
+            data,
+          });
+        }
+      } catch (err: any) {
+        return NextResponse.json({
+          success: false,
+          message: `Lỗi kết nối tới Zalo Bot getUpdates: ${err.message}`,
+        });
+      }
+    }
+
+    // 4. Action: Test admin notification message (test_admin_message)
+    if (action === "test_admin_message") {
+      const adminChatId = String(body.admin_chat_id || chat_id || "").trim();
+      if (!adminChatId) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: "Vui lòng nhập Zalo Chat ID của Admin trước khi thử gửi!",
+          },
+          { status: 400 }
+        );
+      }
+
+      const testContent =
+        text ||
+        `🔔 [XÁC NHẬN KẾT NỐI ZALO BOT]
+Chúc mừng bạn! Zalo Bot đã kết nối thành công với tài khoản Admin của bạn.
+Từ bây giờ, bạn sẽ nhận được thông báo tức thì trên Zalo mỗi khi:
+• Có tiền học phí về tài khoản (SePay)
+• Học sinh nộp đơn báo nghỉ học
+• Giáo viên gửi đơn xin nghỉ dạy
+• Phụ huynh gửi góp ý / đánh giá chất lượng`;
+
+      const url = `${ZALO_BOT_BASE_URL}/bot${token}/sendMessage`;
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chat_id: adminChatId,
+          text: testContent.trim().slice(0, 2000),
+        }),
+      });
+
+      const data = await res.json();
+      if (data.ok) {
+        return NextResponse.json({
+          success: true,
+          message: "Đã gửi tin nhắn thử nghiệm thành công tới Zalo Admin! Vui lòng kiểm tra ứng dụng Zalo của bạn.",
+          data: data.result,
+        });
+      } else {
+        return NextResponse.json(
+          {
+            success: false,
+            message: `Zalo Bot báo lỗi: ${data.description || "Không thể gửi tin nhắn tới Chat ID này"} (Mã: ${data.error_code})`,
+            data,
+          },
+          { status: 400 }
+        );
+      }
+    }
+
     return NextResponse.json({ success: false, message: "Hành động không hợp lệ!" }, { status: 400 });
   } catch (error: unknown) {
     console.error("Zalo Bot API Error:", error);

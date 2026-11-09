@@ -1,6 +1,6 @@
 // Helper sinh tài khoản và mật khẩu thông minh theo quy định hệ thống
 
-export function getInitials(text: string): string {
+function getInitials(text: string): string {
   if (!text) return "";
   // Remove accents
   const normalized = text

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-import { Student, Teacher, TimeSlot, Subject, ClassRoom } from "@/lib/types";
+import { Student, Teacher, TimeSlot, Subject, ClassRoom, DAYS_OF_WEEK } from "@/lib/types";
 import { timeToMinutes } from "@/lib/shiftDetection";
 import { useToast } from "@/components/Toast";
 import {
@@ -37,16 +37,6 @@ interface ScheduleAvailabilityModalProps {
     classId?: string
   ) => void;
 }
-
-const DAYS_OF_WEEK = [
-  "Thứ 2",
-  "Thứ 3",
-  "Thứ 4",
-  "Thứ 5",
-  "Thứ 6",
-  "Thứ 7",
-  "Chủ Nhật",
-];
 
 export interface SlotVacancy {
   id: string;

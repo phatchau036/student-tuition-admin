@@ -1,3 +1,5 @@
+export const DAYS_OF_WEEK: string[] = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ Nhật"];
+
 export interface School {
   id: string;
   name: string; // Tên trường / trung tâm
@@ -17,10 +19,98 @@ export interface SchoolAdmin {
   id: string;
   school_id: string;
   username: string; // Tên đăng nhập
-  password: string; // Mật khẩu
+  password?: string; // Mật khẩu
   full_name: string;
+  phone?: string;
+  role_id?: string;
+  role_name?: string;
+  is_active?: number; // 1: Hoạt động, 0: Khóa
+  is_owner?: number; // 1: Chủ cơ sở (toàn quyền)
+  permissions?: string[];
   created_at?: string;
 }
+
+export interface AdminRole {
+  id: string;
+  school_id: string;
+  name: string;
+  description?: string;
+  permissions_json: string;
+  permissions?: string[];
+  staff_count?: number;
+  created_at?: string;
+}
+
+export interface AdminPermissionItem {
+  id: string;
+  label: string;
+  description: string;
+}
+
+export interface AdminPermissionGroup {
+  id: string;
+  name: string;
+  description: string;
+  items: AdminPermissionItem[];
+}
+
+export const ADMIN_PERMISSION_GROUPS: AdminPermissionGroup[] = [
+  {
+    id: "students",
+    name: "Quản Lý Học Sinh",
+    description: "Xem danh sách, thêm, sửa, xóa, bảo lưu và xuất file học sinh",
+    items: [
+      { id: "students.view", label: "Xem danh sách học sinh", description: "Mở xem bảng học sinh và thông tin chi tiết hồ sơ" },
+      { id: "students.create", label: "Thêm học sinh mới", description: "Tạo hồ sơ học sinh mới vào trung tâm" },
+      { id: "students.edit", label: "Chỉnh sửa học sinh", description: "Sửa thông tin cá nhân, ca học, môn học, gói phí" },
+      { id: "students.delete", label: "Xóa học sinh", description: "Xóa hồ sơ học sinh (đơn lẻ hoặc hàng loạt)" },
+      { id: "students.status", label: "Đổi trạng thái học sinh", description: "Chuyển Bảo lưu, Nghỉ học hoặc cho học tiếp" },
+      { id: "students.excel", label: "Nhập / Xuất Excel", description: "Import học sinh từ file Excel hoặc xuất file danh sách" },
+    ],
+  },
+  {
+    id: "tuition",
+    name: "Học Phí & Doanh Thu",
+    description: "Xem tiền học phí, công nợ, đối soát thu tiền và xem báo cáo tài chính",
+    items: [
+      { id: "tuition.view", label: "Xem học phí & công nợ", description: "Nhìn thấy số tiền học phí, công nợ nợ cũ của học sinh" },
+      { id: "tuition.audit", label: "Thu tiền / Đối soát", description: "Bấm Đã đóng/Chưa đóng, ghi chú thanh toán đối soát" },
+      { id: "tuition.override", label: "Điều chỉnh học phí tháng", description: "Nhập học phí tùy chỉnh cho từng tháng cụ thể" },
+      { id: "tuition.receipt", label: "Xuất biên lai học phí", description: "In hoặc tải biên lai điện tử gửi phụ huynh" },
+      { id: "tuition.remind", label: "Hàng đợi nhắc học phí Zalo", description: "Mở danh sách nợ học phí và thực hiện nhắc nợ qua Zalo hoặc Bot" },
+      { id: "revenue.reports", label: "Xem báo cáo tổng doanh thu", description: "Mở cửa sổ Tổng kết doanh thu tháng và giao dịch SePay" },
+    ],
+  },
+  {
+    id: "schedule",
+    name: "Lịch Học & Điểm Danh / Bù",
+    description: "Xem sơ đồ ma trận phòng học, báo nghỉ, xếp lịch học bù và quỹ giờ",
+    items: [
+      { id: "schedule.matrix", label: "Xem ma trận phòng học", description: "Mở sơ đồ ma trận phân bổ lớp và ca học tuần" },
+      { id: "attendance.manage", label: "Điểm danh & Sổ bài học", description: "Điểm danh theo ngày cho các lớp/ca và ghi nhận xét, bài tập" },
+      { id: "makeups.manage", label: "Quản lý Báo nghỉ & Học bù", description: "Ghi nhận báo nghỉ, xếp ca bù và xem quỹ giờ bù" },
+      { id: "schedule.consult", label: "Tư vấn xếp lịch ca trống", description: "Tra cứu các khung giờ còn trống để tư vấn phụ huynh" },
+    ],
+  },
+  {
+    id: "classes_teachers",
+    name: "Lớp Học & Giáo Viên",
+    description: "Quản lý danh mục lớp học, chia ca và đội ngũ giáo viên",
+    items: [
+      { id: "classes.manage", label: "Quản lý Lớp học", description: "Thêm, sửa, đóng/mở lớp học và phân công ca" },
+      { id: "teachers.manage", label: "Quản lý Giáo viên", description: "Thêm, sửa giáo viên và phân ca đứng lớp" },
+    ],
+  },
+  {
+    id: "settings",
+    name: "Cài Đặt & Nhân Sự",
+    description: "Cấu hình trung tâm và phân quyền tài khoản nhân viên",
+    items: [
+      { id: "settings.manage", label: "Cài đặt hệ thống cơ sở", description: "Mở và chỉnh sửa cài đặt trung tâm (học phí gốc, SePay, Zalo...)" },
+      { id: "staff.manage", label: "Quản lý Nhân viên & Phân quyền", description: "Tạo nhóm quyền, tạo tài khoản và phân quyền nhân viên" },
+    ],
+  },
+];
 
 export interface ScheduleItem {
   id: string;
@@ -276,6 +366,11 @@ export interface SystemSettings {
   zalo_reminder_mode?: ZaloReminderMode; // 'manual' | 'bot'
   zalo_bot_token?: string; // Token từ Zalo Bot Creator (@Zalo Bot Manager)
   zalo_bot_name?: string; // Tên bot Zalo
+  zalo_admin_chat_id?: string; // Chat ID Zalo của Admin nhận thông báo
+  zalo_notify_payment?: number; // 1: Bật, 0: Tắt
+  zalo_notify_student_absence?: number; // 1: Bật, 0: Tắt
+  zalo_notify_teacher_leave?: number; // 1: Bật, 0: Tắt
+  zalo_notify_parent_feedback?: number; // 1: Bật, 0: Tắt
   zalo_oa_secret_key?: string;
   zalo_access_token?: string;
   zalo_template_id?: string;
@@ -496,4 +591,90 @@ export interface SystemTeamMember {
   is_active: number;
   created_at?: string;
 }
+
+// 4. Buổi học, Điểm danh & Sổ liên lạc nhận xét
+export interface LessonRecord {
+  id: string;
+  student_id: string;
+  student_name?: string;
+  student_phone?: string;
+  student_code?: string;
+  date: string;               // YYYY-MM-DD
+  start_time: string;         // HH:MM
+  planned_minutes: number;
+  actual_minutes?: number;
+  class_id?: string;
+  class_name?: string;
+  teacher_id?: string;
+  teacher_name?: string;
+  subject_id?: string;
+  subject_name?: string;
+  kind: "regular" | "makeup";
+  status: "scheduled" | "attended" | "absent_excused" | "absent_unexcused" | "cancelled";
+  teacher_notes?: string;     // Lời nhận xét tiến bộ của thầy cô
+  homework?: string;          // Bài tập về nhà
+  rating?: number;            // Đánh giá sao (1 -> 5)
+  reason?: string;
+  created_by?: string;
+  created_at?: string;
+}
+
+export interface AttendanceRecordInput {
+  student_id: string;
+  student_name?: string;
+  class_id?: string;
+  start_time: string;
+  planned_minutes?: number;
+  status: "attended" | "absent_excused" | "absent_unexcused";
+  teacher_notes?: string;
+  homework?: string;
+  rating?: number;
+}
+
+// 5. Đơn xin nghỉ của giáo viên & Phân công dạy thay
+export interface TeacherLeave {
+  id: string;
+  school_id: string;
+  teacher_id: string;
+  teacher_name?: string;
+  teacher_phone?: string;
+  leave_date: string;
+  shift_desc?: string;
+  start_time?: string;
+  end_time?: string;
+  class_id?: string;
+  class_name?: string;
+  reason: string;
+  substitute_teacher_id?: string;
+  substitute_teacher_name?: string;
+  status: "pending" | "approved" | "rejected";
+  admin_note?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+// 6. Lịch sử nhắc học phí nhanh qua Zalo & Bot
+export interface TuitionReminder {
+  id: string;
+  school_id: string;
+  student_id: string;
+  student_name?: string;
+  student_phone?: string;
+  month: string;
+  amount: number;
+  channel: "zalo_bot" | "zalo_manual";
+  reminded_at: string;
+  reminded_by?: string;
+  note?: string;
+}
+
+export interface StudentReminderStatus {
+  student_id: string;
+  last_reminded_at: string | null;
+  remind_count: number;
+  is_reminded_today: boolean;
+  last_channel: "zalo_bot" | "zalo_manual" | null;
+}
+
+
 

@@ -6,6 +6,42 @@
 
 ## 1. LỊCH SỬ PHIÊN BẢN (CHANGELOG)
 
+### [v2.9.1] - 2026-11-09
+- **⭐ HỆ THỐNG TRỢ LÝ AI ĐA KÊNH CHO ADMIN (CHAT TRỰC TIẾP QUA ZALO BOT & TRÊN WEB DASHBOARD) & HỖ TRỢ GIÁO VIÊN:**
+  - **Admin chat trực tiếp với Zalo Bot trên điện thoại (`/api/zalo-bot/webhook` & `aiBrain.ts`):** Admin mở Zalo nhắn hỏi Bot: *"Doanh thu tháng này là bao nhiêu?", "Còn ai chưa đóng tiền?"...* ➔ AI tự động đọc dữ liệu vận hành thời gian thực của cơ sở và trả lời ngay trên Zalo của Admin.
+  - **Trợ lý AI cẩm nang sử dụng phần mềm:** Admin hỏi: *"Web đã có chức năng này chưa?", "Làm sao để thêm học sinh?", "Cách phân quyền nhân viên?"...* ➔ AI hướng dẫn chi tiết từng bước trên giao diện phần mềm.
+  - **Cửa sổ Trợ Lý AI trên Web Admin (`AdminAiAssistantModal.tsx` & `Dashboard.tsx`):** Nút mở nhanh trên thanh công cụ và nút nổi góc dưới màn hình, tích hợp sẵn các câu hỏi mẫu gợi ý (Doanh thu, tính năng web, soạn thông báo gửi phụ huynh).
+  - **Nút "✨ AI Gợi ý" trên Cổng Giáo Viên (`/giao-vien`) & Điểm Danh Admin (`DailyAttendanceModal.tsx`):** Tự động soạn lời nhận xét sư phạm và dặn dò bài tập về nhà dựa trên số sao đánh giá và từ khóa ghi chú.
+  - **Quản lý cấu hình AI tập trung trong Quản Trị Hệ Thống (`/he-thong`):** Tab mới *Cấu Hình AI Trợ Lý* cho phép thiết lập Endpoint Base URL (hỗ trợ OpenAI/Gemini proxy), API Key, Model ID, nút kiểm tra kết nối (Test connection) và lưu cấu hình. Tuyệt đối không hardcode API key vào mã nguồn.
+- **⭐ SỬA LỖI HIỂN THỊ CA TRỐNG CHẾ ĐỘ XEM "THEO THỨ" (`ClassroomScheduleMatrix.tsx`):**
+  - **Khắc phục ca trống vẫn hiện khi bật "Ẩn ca trống":** Trước đó chế độ xem Theo Thứ (`single_day`) lấy danh sách mốc giờ từ `allWeekHours` (tính gộp cả tuần), khiến các ca mà ngày đó không có học sinh nào (như ca 19:00 Thứ 2) vẫn bị hiển thị card *"0 học viên - Chưa có học viên nào"*. Đã tối ưu hóa danh sách `singleDayHours`: Khi bật "Ẩn ca trống", hệ thống chỉ lọc hiển thị các ca thực tế có học sinh trong ngày được chọn.
+  - **Bổ sung trạng thái ngày trống hoàn toàn:** Nếu ngày đó không có ca học nào (ví dụ Chủ Nhật khi bật Ẩn ca trống), hệ thống hiển thị thông báo trực quan kèm nút mở nhanh ca trống hoặc thêm học viên mới.
+  - **Thống kê chính xác & cảnh báo nợ trên tab thứ:** Bổ sung huy hiệu `{stats.unpaid} nợ` trực tiếp trên các tab chọn thứ (`Thứ 3 1 • 1 nợ`), lọc dữ liệu chính xác theo các dropdown bộ môn, giáo viên và thanh tìm kiếm.
+  - **Hiển thị giáo viên đứng lớp:** Bổ sung tên giáo viên phụ trách (`• Thầy/Cô ...`) trong thẻ học viên chi tiết của chế độ xem Theo Thứ.
+- **⭐ HÀNG ĐỢI NHẮC HỌC PHÍ NHANH QUA ZALO CHO DANH SÁCH NỢ (Tuition Reminder Queue):**
+  - **Tập trung danh sách công nợ toàn cơ sở (`TuitionReminderQueueModal.tsx`):** Tập hợp toàn bộ học sinh chưa đóng học phí tháng hiện tại hoặc còn nợ dồn các tháng trước vào một giao diện tập trung. Cung cấp 4 thẻ thống kê trực quan: *Tổng học sinh cần thu*, *Chưa nhắc hôm nay*, *Đã nhắc hôm nay*, và *Tổng số tiền nợ*.
+  - **Nhắc Zalo siêu tốc chỉ 2 giây:** Tự động tạo mẫu tin nhắn thông báo học phí chuẩn mực, chi tiết (Tên bé, lớp, kỳ học phí, số tiền nợ, thông tin tài khoản ngân hàng, link ảnh quét mã VietQR tự động đúng số tiền và cú pháp). Tự động sao chép vào clipboard và mở thẳng ứng dụng Zalo tới số điện thoại phụ huynh.
+  - **Chống nhắc trùng trong ngày:** Sau khi gửi, dòng học sinh chuyển ngay sang trạng thái `[✓ Đã nhắc hôm nay]` kèm mốc thời gian và số lần đã nhắc trong tháng. Các nhân viên lễ tân khác nhau trong ca trực không lo bị nhắn tin trùng một phụ huynh.
+  - **Gửi tự động qua Zalo Bot:** Hỗ trợ gửi tin nhắn tự động 1-click hoặc gửi hàng loạt (batch) qua Zalo Bot Platform cho các học sinh đã có mã `zalo_chat_id`.
+  - **Cơ sở dữ liệu & API:** Bổ sung bảng `tuition_reminders` trong SQLite lưu vết toàn bộ lịch sử nhắc nợ, kèm API `/api/admin/tuition-reminders`.
+  - **Phân quyền RBAC:** Thêm mã quyền `tuition.remind` ("Hàng đợi nhắc học phí Zalo") vào danh mục phân quyền nhân viên.
+- **⭐ KÊNH THÔNG BÁO TỰ ĐỘNG VỀ ZALO CHO QUẢN LÝ / ADMIN (Zalo Bot Admin Alerts):**
+  - **Thông báo đa sự kiện thời gian thực (`src/lib/zaloBot.ts`):** Zalo Bot tự động gửi tin nhắn báo cáo tức thì về Zalo cá nhân của Admin/Quản lý khi: (1) Tiền học phí chuyển khoản về tài khoản SePay (tự động gạch nợ), (2) Phụ huynh nộp đơn báo nghỉ học, (3) Giáo viên nộp đơn xin nghỉ dạy kèm đề xuất người dạy thay, (4) Phụ huynh gửi góp ý / đánh giá chất lượng.
+  - **Kết nối siêu tốc trong 10 giây trên giao diện Cài Đặt:** Nút *Lấy Chat ID gần đây* gọi `getUpdates` để Admin chỉ cần nhắn 1 tin vào Bot là hệ thống tự điền Chat ID; nút *Gửi Thử Tin Nhắn Admin* kiểm tra chuông ting ting trên Zalo điện thoại.
+  - **Tùy chọn bật/tắt linh hoạt:** 4 công tắc checkbox trong `SettingsModal.tsx` cho phép chủ cơ sở lựa chọn nhận hoặc bỏ qua từng loại thông báo theo nhu cầu.
+
+### [v2.9.0] - 2026-11-08
+- **⭐ HỆ THỐNG ĐIỂM DANH HAI CHIỀU (ADMIN & GIÁO VIÊN) & SỔ LIÊN LẠC ĐIỆN TỬ CHO PHỤ HUYNH:**
+  - **Điểm danh ca dạy theo ngày trên Cổng Giáo Viên (`/giao-vien`):** Bổ sung tab *Điểm Danh & Nhận Xét*, hỗ trợ giáo viên chọn ngày dạy, xem các ca dạy trong ngày và đánh dấu trạng thái từng học viên: *Có mặt*, *Vắng có phép*, *Vắng không phép*.
+  - **Điểm danh & Sổ bài học trên trang Quản Trị Cơ Sở (`/admin` - `DailyAttendanceModal.tsx`):** Admin hoặc Giáo viên đều có thể điểm danh ca dạy ngày hôm đó. Thẻ học sinh hiển thị rõ nhãn `[✓ Đã điểm danh: Có mặt / Vắng]` và **không khóa nút**, luôn cho phép chỉnh sửa bổ sung nhận xét, dặn dò bài tập bất cứ lúc nào.
+  - **Đánh giá sao & Ghi nhận xét buổi học & Giao bài tập về nhà:** Giáo viên/Admin chấm điểm mức độ hoàn thành bài học (1 đến 5 sao), nhập lời nhận xét chi tiết và ghi chú bài tập về nhà dặn dò học viên.
+  - **Tự động đồng bộ Quỹ giờ học bù:** Nếu đánh dấu *Vắng có phép*, hệ thống tự động ghi nhận buổi vắng và cộng dồn số phút vào Quỹ giờ học bù; nếu là buổi học bù, hệ thống tự động đánh dấu hoàn thành và khấu trừ số giờ đã bù.
+  - **Sổ theo dõi học tập trên Cổng Phụ Huynh (`ParentPortal.tsx` & `/api/parent`):** Bổ sung tab *Sổ Học Tập* hiển thị dòng thời gian các buổi học của con, ngày giờ, giáo viên đứng lớp, trạng thái đi học, đánh giá sao, lời nhận xét và bài tập về nhà.
+  - **Xem nhật ký học tập trong hồ sơ học sinh (`StudentDetailModal.tsx`):** Quản trị viên cơ sở có thể tra cứu toàn bộ lịch sử các buổi học, nhận xét của giáo viên và đánh giá sao trực tiếp trong hồ sơ học viên.
+- **⭐ TÍNH NĂNG GIÁO VIÊN BÁO NGHỈ & PHÊ DUYỆT / GÁN DẠY THAY:**
+  - **Gửi đơn xin nghỉ từ Cổng Giáo Viên (`/giao-vien`):** Giáo viên chọn ngày xin nghỉ, chọn ca dạy cụ thể hoặc xin nghỉ cả ngày, nhập lý do và đề xuất giáo viên dạy thay dự kiến. Theo dõi trạng thái đơn (*Chờ duyệt*, *Đã duyệt*, *Từ chối*) và cho phép hủy đơn nếu đang chờ duyệt.
+  - **Quản lý đơn xin nghỉ của giáo viên phía Quản Trị (`TeacherManagementModal.tsx`):** Tab *Đơn Xin Nghỉ Của Giáo Viên* hiển thị số đơn chờ duyệt; Quản trị viên cơ sở có thể phê duyệt (gán giáo viên dạy thay chính thức và ghi chú phản hồi) hoặc từ chối đơn. Bảng `teacher_leaves` lưu vết toàn bộ chứng từ nghỉ dạy.
+
 ### [v2.8.6] - 2026-11-07
 - **⭐ NÂNG CẤP HIỂN THỊ SĨ SỐ THỰC TẾ & NHẬN DIỆN HỌC VIÊN CA KÉO DÀI TRÊN MA TRẬN LỚP (`ClassroomScheduleMatrix.tsx` & `tuition.ts`):**
   - **Khắc phục triệt để hiểu nhầm sĩ số các khung giờ tiếp theo:** Học viên học các ca kéo dài nhiều tiếng (ví dụ 18:00 - 20:00, 18:30 - 20:00) được tự động phân bổ và hiển thị ở TẤT CẢ các khung giờ mà ca học giao thoa (ví dụ cả khung 18:00 và 19:00).

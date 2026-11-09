@@ -65,9 +65,44 @@ export async function initDb() {
       username TEXT NOT NULL UNIQUE,
       password TEXT NOT NULL,
       full_name TEXT NOT NULL,
+      role_id TEXT,
+      phone TEXT,
+      is_active INTEGER DEFAULT 1,
+      is_owner INTEGER DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
   `);
+
+  // Migration cột mới cho school_admins nếu bảng đã tồn tại
+  try {
+    await db.execute("ALTER TABLE school_admins ADD COLUMN role_id TEXT;");
+  } catch {}
+  try {
+    await db.execute("ALTER TABLE school_admins ADD COLUMN phone TEXT;");
+  } catch {}
+  try {
+    await db.execute("ALTER TABLE school_admins ADD COLUMN is_active INTEGER DEFAULT 1;");
+  } catch {}
+  try {
+    await db.execute("ALTER TABLE school_admins ADD COLUMN is_owner INTEGER DEFAULT 0;");
+  } catch {}
+
+  // 0.2 Admin Roles Table (Nhóm quyền / Vai trò của cơ sở)
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS admin_roles (
+      id TEXT PRIMARY KEY,
+      school_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      description TEXT,
+      permissions_json TEXT NOT NULL DEFAULT '[]',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+
+  // Đảm bảo tài khoản admin khởi tạo có cờ is_owner = 1 (toàn quyền)
+  try {
+    await db.execute("UPDATE school_admins SET is_owner = 1 WHERE (is_owner IS NULL OR is_owner = 0) AND (username = 'admin' OR id = 'admin-1')");
+  } catch {}
 
   // 1. Settings Table
   await db.execute(`
@@ -440,6 +475,44 @@ export async function initDb() {
   `);
   await db.execute(`CREATE INDEX IF NOT EXISTS idx_lessons_date ON lessons(date, status);`);
 
+  // 19. Teacher Leaves Table (Đơn xin nghỉ & phê duyệt dạy thay của giáo viên)
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS teacher_leaves (
+      id TEXT PRIMARY KEY,
+      school_id TEXT NOT NULL,
+      teacher_id TEXT NOT NULL,
+      leave_date TEXT NOT NULL,
+      shift_desc TEXT,
+      start_time TEXT,
+      end_time TEXT,
+      class_id TEXT,
+      reason TEXT NOT NULL,
+      substitute_teacher_id TEXT,
+      status TEXT NOT NULL DEFAULT 'pending',
+      admin_note TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+  await db.execute(`CREATE INDEX IF NOT EXISTS idx_teacher_leaves ON teacher_leaves(school_id, teacher_id, leave_date);`);
+
+  // 20. Tuition Reminders Table (Lịch sử nhắc học phí nhanh qua Zalo & Bot)
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS tuition_reminders (
+      id TEXT PRIMARY KEY,
+      school_id TEXT NOT NULL DEFAULT 'school-default',
+      student_id TEXT NOT NULL,
+      month TEXT NOT NULL,                  -- 'YYYY-MM'
+      amount INTEGER NOT NULL DEFAULT 0,    -- Số tiền công nợ tại thời điểm nhắc
+      channel TEXT NOT NULL DEFAULT 'zalo_manual', -- 'zalo_bot' | 'zalo_manual'
+      reminded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      reminded_by TEXT,                     -- Tên hoặc username nhân viên thực hiện
+      note TEXT
+    );
+  `);
+  try { await db.execute(`CREATE INDEX IF NOT EXISTS idx_tuition_reminders ON tuition_reminders(school_id, month, student_id);`); } catch {}
+  try { await db.execute(`CREATE INDEX IF NOT EXISTS idx_tuition_reminders_date ON tuition_reminders(reminded_at);`); } catch {}
+
   // Migrations for school_id & ip restriction
   try { await db.execute("ALTER TABLE schools ADD COLUMN ip_restriction_enabled INTEGER DEFAULT 0"); } catch {}
   try { await db.execute("ALTER TABLE schools ADD COLUMN allowed_ips TEXT DEFAULT ''"); } catch {}
@@ -521,6 +594,10 @@ export async function initDb() {
   try { await db.execute("ALTER TABLE student_payments ADD COLUMN receipt_number TEXT DEFAULT NULL"); } catch {}
   try { await db.execute("ALTER TABLE students ADD COLUMN class_id TEXT DEFAULT NULL"); } catch {}
   try { await db.execute("ALTER TABLE lessons ADD COLUMN class_id TEXT DEFAULT NULL"); } catch {}
+  try { await db.execute("ALTER TABLE lessons ADD COLUMN teacher_id TEXT DEFAULT NULL"); } catch {}
+  try { await db.execute("ALTER TABLE lessons ADD COLUMN teacher_notes TEXT DEFAULT ''"); } catch {}
+  try { await db.execute("ALTER TABLE lessons ADD COLUMN homework TEXT DEFAULT ''"); } catch {}
+  try { await db.execute("ALTER TABLE lessons ADD COLUMN rating INTEGER DEFAULT 5"); } catch {}
   try { await db.execute("ALTER TABLE classes ADD COLUMN teacher_assignments_json TEXT DEFAULT '[]'"); } catch {}
   try { await db.execute("ALTER TABLE tuition_packages ADD COLUMN original_amount INTEGER DEFAULT 1000000"); } catch {}
   try { await db.execute("ALTER TABLE tuition_packages ADD COLUMN discount_type TEXT DEFAULT 'none'"); } catch {}

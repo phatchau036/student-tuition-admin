@@ -1,17 +1,8 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
-import { isDayInSlot, parseStudentScheduleSlots } from "@/lib/tuition";
+import { isDayInSlot, parseStudentScheduleSlots, getDayNameVi } from "@/lib/tuition";
 import { getSchoolIdFromRequest } from "@/lib/authHelper";
 import { isTimeOverlap } from "@/lib/shiftDetection";
-
-// Helper to determine Vietnamese day of week name from YYYY-MM-DD
-function getDayNameVi(dateStr: string): string {
-  const [y, m, d] = dateStr.split("-").map(Number);
-  const date = new Date(y, m - 1, d);
-  const day = date.getDay(); // 0: CN, 1: T2, 2: T3, ...
-  if (day === 0) return "Chủ Nhật";
-  return `Thứ ${day + 1}`;
-}
 
 // Trích xuất giờ bắt đầu và kết thúc học trong ngày của học sinh
 function getStudentStudyTimeForDay(st: any, dayName: string): { start_time: string; end_time: string } {

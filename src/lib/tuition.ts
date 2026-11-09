@@ -213,6 +213,34 @@ export function getCurrentMonthStr(): string {
   return `${year}-${month}`;
 }
 
+/**
+ * Tính toán tháng kết thúc từ chu kỳ gói phí (startMonth + cycleMonths - 1)
+ * Ví dụ: computeEndMonth("2026-10", 3) => "2026-12" (tháng 10, 11, 12 là 3 tháng)
+ */
+export function computeEndMonth(startMonth: string, cycleMonths: number): string {
+  if (!startMonth || !startMonth.includes("-")) return startMonth;
+  const [yearStr, monthStr] = startMonth.split("-");
+  let y = parseInt(yearStr, 10);
+  let m = parseInt(monthStr, 10);
+
+  const totalMonths = m + (cycleMonths - 1);
+  m = ((totalMonths - 1) % 12) + 1;
+  y += Math.floor((totalMonths - 1) / 12);
+
+  return `${y}-${String(m).padStart(2, "0")}`;
+}
+
+/**
+ * Chuyển đổi chuỗi ngày YYYY-MM-DD thành Thứ tiếng Việt ("Thứ 2".."Thứ 7", "Chủ Nhật")
+ */
+export function getDayNameVi(dateStr: string): string {
+  if (!dateStr || !dateStr.includes("-")) return "";
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const date = new Date(y, m - 1, d);
+  const day = date.getDay(); // 0: CN, 1: T2, 2: T3...
+  return day === 0 ? "Chủ Nhật" : `Thứ ${day + 1}`;
+}
+
 const ENGLISH_MONTHS = [
   "January",
   "February",
@@ -464,7 +492,7 @@ export interface ParsedStudentSchedule {
 /**
  * Tính toán các khung giờ chuẩn 1 tiếng ("17h", "18h", "19h"...) mà một ca học giao thoa
  */
-export function calculateCoveredHourSlots(startH: number, startM: number, endH: number, endM: number): string[] {
+function calculateCoveredHourSlots(startH: number, startM: number, endH: number, endM: number): string[] {
   const sMin = startH * 60 + startM;
   let eMin = endH * 60 + endM;
   if (eMin <= sMin) eMin = sMin + 60;

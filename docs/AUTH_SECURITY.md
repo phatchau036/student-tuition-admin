@@ -88,3 +88,4 @@ Hệ thống áp dụng cơ chế xác thực riêng biệt cho từng phân h�
 | 2026-10-29 | `security-auditor` / Main | Kiểm toán Localhost Guard tại `/he-thong` | Đạt - Ngụy trang 404 chuẩn xác |
 | 2026-10-29 | `security-auditor` / Main | Kiểm toán SQL Injection trong `db.ts` & API routes | Đạt - 100% truy vấn dùng parameterized `args` |
 | 2026-10-29 | `security-auditor` / Main | Kiểm toán IP Whitelist cho cơ sở tại `/admin` | Đạt - Kiểm tra `x-forwarded-for` và `x-real-ip` đầy đủ |
+| 2026-11-08 | `security-auditor` / Main | Triển khai Hệ thống Phân quyền theo vai trò (RBAC) cho `/admin` | Hoàn thành - Tạo `admin_roles`, mở rộng `school_admins` (role_id, phone, is_active, is_owner), modal quản lý nhân viên và kiểm soát ẩn/hiện chức năng theo quyền |

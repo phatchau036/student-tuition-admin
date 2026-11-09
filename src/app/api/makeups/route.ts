@@ -2,8 +2,9 @@ import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
 import { getSchoolIdFromRequest } from "@/lib/authHelper";
 import { appendLedger, getWalletBalance, getStudentSessionMinutes } from "@/lib/wallet";
-import { formatMinutes } from "@/lib/tuition";
+import { formatMinutes, getDayNameVi } from "@/lib/tuition";
 import { isTimeOverlap } from "@/lib/shiftDetection";
+import { notifyAdminViaZaloBot } from "@/lib/zaloBot";
 
 export async function GET(req: Request) {
   try {
@@ -211,10 +212,7 @@ export async function POST(req: Request) {
         } else {
           let dayName: string | undefined;
           try {
-            const [y, m, d] = absence_date.split("-").map(Number);
-            const dateObj = new Date(y, m - 1, d);
-            const dayIdx = dateObj.getDay();
-            dayName = dayIdx === 0 ? "Chủ Nhật" : `Thứ ${dayIdx + 1}`;
+            dayName = getDayNameVi(absence_date);
           } catch {}
           absMin = await getStudentSessionMinutes(student_id, dayName);
         }
@@ -282,6 +280,15 @@ export async function POST(req: Request) {
 
       const hoursDisplay = (absMin / 60).toFixed(1).replace(".0", "");
       const newWallet = await getWalletBalance(student_id);
+
+      // 🔔 Bắn thông báo Zalo cho Admin khi có học sinh báo nghỉ
+      const msgForAdmin = `🏥 [HỌC SINH BÁO NGHỈ]
+• Học sinh: ${stName} (SĐT: ${stPhone || "—"})
+• Ngày nghỉ: ${absence_date} (${sTime} - ${eTime})
+• Lý do: ${absence_reason || "Báo nghỉ có phép"}
+• Quỹ giờ bù: Đã tự động cấp +${hoursDisplay}h (${absMin} phút) vào ví giờ.`;
+
+      notifyAdminViaZaloBot(msgForAdmin, "student_absence").catch(() => {});
 
       return NextResponse.json({
         success: true,
@@ -356,11 +363,7 @@ export async function POST(req: Request) {
         if (clsRes.rows.length > 0) {
           const cRow = clsRes.rows[0];
           let classMax = Number(cRow.max_students || 15);
-
-          const [y, m, d] = makeup_date.split("-").map(Number);
-          const dateObj = new Date(y, m - 1, d);
-          const dayIdx = dateObj.getDay();
-          const dayName = dayIdx === 0 ? "Chủ Nhật" : `Thứ ${dayIdx + 1}`;
+          const dayName = getDayNameVi(makeup_date);
 
           // Nếu lớp có phân công ca giáo viên, kiểm tra xem ca nào bao trùm khung giờ bù này
           try {
@@ -452,11 +455,7 @@ export async function POST(req: Request) {
         }
         const defaultMaxCapacity = Number(settingsMap["max_students_per_slot"] || 10);
         const capacityMode = settingsMap["capacity_mode"] || "by_slot";
-
-        const [y, m, d] = makeup_date.split("-").map(Number);
-        const dateObj = new Date(y, m - 1, d);
-        const dayIdx = dateObj.getDay();
-        const dayName = dayIdx === 0 ? "Chủ Nhật" : `Thứ ${dayIdx + 1}`;
+        const dayName = getDayNameVi(makeup_date);
 
         let maxCapacity = defaultMaxCapacity;
 

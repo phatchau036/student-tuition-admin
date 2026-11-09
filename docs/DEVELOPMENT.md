@@ -51,3 +51,4 @@ Tuân thủ tuyệt đối quy định trong [GIT_WORKFLOW_RULES.md](./GIT_WORKF
 | Ngày | Tác vụ | Người thực hiện | Trạng thái |
 |---|---|---|---|
 | 2026-10-29 | Thiết lập chuẩn hóa quy trình phát triển và kiểm soát chất lượng | `code-reviewer` / Main | Đã ban hành |
+| 2026-11-08 | Dọn dẹp dead code: xóa `/api/wallet`, xóa import unused ReceiptModal, loại bỏ duplicate helper `computeEndMonth`, `timeToMinutes`, `DAYS_OF_WEEK` | Main Agent | Hoàn thành |

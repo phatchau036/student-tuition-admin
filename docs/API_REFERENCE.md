@@ -22,14 +22,19 @@
 | `GET` | `/api/classes/occupancy`| Public / Auth | Tính toán sĩ số thời gian thực và kiểm tra ca đầy/đông |
 | `GET/POST` | `/api/teachers` | School Admin | Lấy danh sách GV, phân công ca dạy, cấu hình ca riêng |
 | `PUT/DELETE`| `/api/teachers/[id]` | School Admin | Sửa thông tin hoặc xóa giáo viên |
-| `POST` | `/api/teacher` | Teacher | Đăng nhập giáo viên theo SĐT, nâng Level học sinh |
-| `POST` | `/api/parent` | Parent | Đăng nhập phụ huynh theo SĐT, lấy danh sách con và học phí |
+| `GET/POST` | `/api/teacher` | Teacher | Đăng nhập giáo viên, xem lịch ca, điểm danh & ghi nhận xét, gửi đơn xin nghỉ dạy |
+| `POST` | `/api/parent` | Parent | Đăng nhập phụ huynh theo SĐT, tra cứu học phí, xem sổ theo dõi học tập & bài tập |
 | `POST` | `/api/feedbacks/parent`| Parent | Tiếp nhận đánh giá/góp ý từ phụ huynh gửi cơ sở |
 | `POST` | `/api/feedbacks/system`| School Admin | Gửi góp ý từ cơ sở đến đội ngũ phát triển TpTeam |
 | `POST` | `/api/sepay/webhook` | Webhook | Tiếp nhận biến động số dư SePay, gạch nợ học phí tự động |
 | `GET` | `/api/reconciliation/summary`| School Admin | Tổng kết tài chính tháng, đối soát SePay |
 | `POST` | `/api/zalo-bot` | School Admin | Gửi tin nhắn tự động qua Zalo Bot Platform |
 | `POST` | `/api/admin/auth` | School Admin | Đăng nhập Quản trị viên cơ sở |
+| `GET/POST` | `/api/admin/attendance` | School Admin | Điểm danh & Sổ nhận xét bài học hàng ngày toàn trường |
+| `GET/POST/DELETE` | `/api/admin/teacher-leaves` | School Admin | Quản lý, phê duyệt đơn xin nghỉ và gán giáo viên dạy thay |
+| `GET/POST` | `/api/admin/tuition-reminders` | School Admin | Hàng đợi nhắc học phí Zalo, ghi log nhắc và bắn Zalo Bot |
+| `GET/POST/DELETE` | `/api/admin/roles` | School Admin | Quản lý Nhóm Quyền & Vai Trò nhân viên (RBAC) |
+| `GET/POST/DELETE` | `/api/admin/staff` | School Admin | Quản lý Tài khoản nhân viên, phân vai trò, khóa/mở khóa |
 | `POST` | `/api/admin/change-password`| School Admin | Đổi mật khẩu tài khoản Quản trị cơ sở |
 | `GET` | `/api/admin/check-ip`| School Admin | Kiểm tra IP client có nằm trong Whitelist cơ sở |
 | `GET/POST` | `/api/system` | Super Admin | Quản trị trường (chỉ localhost), sinh mã tài khoản Admin |
@@ -103,3 +108,5 @@
 |---|---|---|---|
 | 2026-10-29 | `/api/classes/occupancy` | Chuẩn hóa | Hỗ trợ trả về `is_crowded` ($\ge 80\%$) và `is_full` ($100\%$) |
 | 2026-10-29 | `/api/sepay/webhook` | Hoàn thiện | Tự nhận diện cú pháp mã học sinh và số điện thoại |
+| 2026-11-09 | `/api/admin/tuition-reminders` | Thêm mới | Lấy trạng thái nhắc phí và xử lý gửi Zalo manual / Bot |
+| 2026-11-09 | `/api/zalo-bot` | Nâng cấp | Thêm action `get_updates` và `test_admin_message` phục vụ thông báo Zalo cho Admin |

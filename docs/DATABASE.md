@@ -262,3 +262,64 @@ Mọi thay đổi database bắt buộc phải tuân theo 2 quy tắc sau:
 **API mới:** `/api/wallet` — `preview_cycle`, `grant_cycle`, `mark_attendance`, `report_absence` (không trừ giờ), `schedule_makeup` (trừ số dư khả dụng, check sĩ số + trùng giờ + bội 30 phút), `cancel_makeup` (không hoàn giờ), `adjust_hours`, `report_unexcused` (trừ giờ theo config), `get_wallet` (sổ cái phân trang).
 
 **Migration:** `node scripts/migrate-hour-wallet.js --dry-run` (xem trước) → bỏ `--dry-run` để thực thi. Idempotent chạy lại an toàn. Chuyển suất bù cũ → ADJUST, lịch bù cũ → lessons.
+
+---
+
+### Bảng 24: `admin_roles` (Hệ thống Phân quyền Nhân viên RBAC)
+```sql
+CREATE TABLE IF NOT EXISTS admin_roles (
+  id TEXT PRIMARY KEY,               -- e.g. 'role-letan-1'
+  school_id TEXT NOT NULL,           -- Thuộc cơ sở nào
+  name TEXT NOT NULL,                -- "Nhân viên Lễ tân", "Kế toán"
+  description TEXT,                  -- Mô tả công việc
+  permissions_json TEXT NOT NULL DEFAULT '[]', -- Mảng JSON các mã quyền
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+```
+- **Mở rộng `school_admins`:** Thêm `role_id TEXT`, `phone TEXT`, `is_active INTEGER DEFAULT 1`, `is_owner INTEGER DEFAULT 0`.
+- **Mở rộng `lessons` (Điểm danh & Sổ liên lạc):** Thêm `teacher_id TEXT`, `teacher_notes TEXT`, `homework TEXT`, `rating INTEGER DEFAULT 5`.
+
+---
+
+### Bảng 25: `teacher_leaves` (Đơn Xin Nghỉ Của Giáo Viên & Phân Công Dạy Thay)
+```sql
+CREATE TABLE IF NOT EXISTS teacher_leaves (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL,
+  teacher_id TEXT NOT NULL,
+  leave_date TEXT NOT NULL,                  -- Ngày xin nghỉ YYYY-MM-DD
+  shift_desc TEXT,                           -- Ca xin nghỉ ("Cả ngày" hoặc ca cụ thể)
+  start_time TEXT,
+  end_time TEXT,
+  class_id TEXT,
+  reason TEXT NOT NULL,                      -- Lý do xin nghỉ
+  substitute_teacher_id TEXT,                -- Giáo viên dạy thay được phân công
+  status TEXT NOT NULL DEFAULT 'pending',    -- 'pending' | 'approved' | 'rejected'
+  admin_note TEXT,                           -- Phản hồi từ quản lý cơ sở
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_teacher_leaves ON teacher_leaves(school_id, teacher_id, leave_date);
+```
+- **Cập nhật ngày 2026-11-08:** Hoàn thành schema Phân quyền cơ sở RBAC, Điểm danh buổi học và Đơn xin nghỉ giáo viên `teacher_leaves`.
+
+---
+
+### Bảng 26: `tuition_reminders` (Lịch Sử Nhắc Học Phí Nhanh Qua Zalo & Bot)
+```sql
+CREATE TABLE IF NOT EXISTS tuition_reminders (
+  id TEXT PRIMARY KEY,
+  school_id TEXT NOT NULL DEFAULT 'school-default',
+  student_id TEXT NOT NULL,
+  month TEXT NOT NULL,                  -- 'YYYY-MM'
+  amount INTEGER NOT NULL DEFAULT 0,    -- Số tiền công nợ tại thời điểm nhắc
+  channel TEXT NOT NULL DEFAULT 'zalo_manual', -- 'zalo_bot' | 'zalo_manual'
+  reminded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  reminded_by TEXT,                     -- Tên hoặc username nhân viên thực hiện
+  note TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_tuition_reminders ON tuition_reminders(school_id, month, student_id);
+CREATE INDEX IF NOT EXISTS idx_tuition_reminders_date ON tuition_reminders(reminded_at);
+```
+- **Cập nhật ngày 2026-11-09:** Thêm bảng `tuition_reminders` phục vụ modal Hàng Đợi Nhắc Học Phí Nhanh, ghi vết kênh nhắc (`zalo_manual` / `zalo_bot`), người nhắc và chống nhắc trùng trong ngày. Bổ sung các settings `zalo_admin_chat_id`, `zalo_notify_payment`, `zalo_notify_student_absence`, `zalo_notify_teacher_leave`, `zalo_notify_parent_feedback` hỗ trợ thông báo tự động cho Admin qua Zalo Bot.
+

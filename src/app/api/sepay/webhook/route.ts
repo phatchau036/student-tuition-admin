@@ -1,20 +1,8 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
 import { grantHoursForPeriodUtil } from "@/lib/wallet";
-
-// Helper: Tính toán tháng kết thúc từ chu kỳ
-function computeEndMonth(startMonth: string, cycleMonths: number): string {
-  if (!startMonth || !startMonth.includes("-")) return startMonth;
-  const [yearStr, monthStr] = startMonth.split("-");
-  let y = parseInt(yearStr, 10);
-  let m = parseInt(monthStr, 10);
-
-  const totalMonths = m + (cycleMonths - 1);
-  m = ((totalMonths - 1) % 12) + 1;
-  y += Math.floor((totalMonths - 1) / 12);
-
-  return `${y}-${String(m).padStart(2, "0")}`;
-}
+import { computeEndMonth } from "@/lib/tuition";
+import { notifyAdminViaZaloBot } from "@/lib/zaloBot";
 
 // Xử lý POST Webhook từ SePay Platform
 export async function POST(req: Request) {
@@ -225,6 +213,17 @@ export async function POST(req: Request) {
 
       // ⭐ VÍ GIỜ HỌC: Cấp giờ vào ví cho toàn bộ chu kỳ đã thanh toán (idempotent, không chặn webhook)
       await grantHoursForPeriodUtil(matchedStudent.id, startPeriod, endPeriod);
+
+      // 🔔 Bắn thông báo tức thì về Zalo của Admin qua Zalo Bot
+      const formattedAmount = Number(transferAmount).toLocaleString("vi-VN");
+      const msgForAdmin = `💰 [HỌC PHÍ VỀ] Nhận thanh toán SePay thành công!
+• Học sinh: ${matchedStudent.name} (SĐT: ${matchedStudent.phone || "—"})
+• Số tiền: ${formattedAmount} đ
+• Kỳ đóng: ${startPeriod} ➔ ${endPeriod}
+• Ngân hàng: ${gateway} (Mã GD: ${referenceCode || code || txIdStr})
+• Trạng thái: Hệ thống đã tự động gạch nợ học phí & cấp giờ học vào ví.`;
+
+      notifyAdminViaZaloBot(msgForAdmin, "payment").catch(() => {});
 
       return NextResponse.json({
         success: true,

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
-import { ClassRoom, Teacher, Subject, Student, ClassScheduleItem, ClassTeacherAssignment } from "@/lib/types";
+import { ClassRoom, Teacher, Subject, Student, ClassScheduleItem, ClassTeacherAssignment, DAYS_OF_WEEK } from "@/lib/types";
 import { useToast } from "@/components/Toast";
 import { formatScheduleCompact, DAYS_ORDER_MAP } from "@/lib/shiftDetection";
 import {
@@ -49,8 +49,6 @@ const COLOR_PRESETS = [
   { val: "purple", name: "Tím Huế", bg: "bg-purple-600" },
   { val: "sky", name: "Da trời", bg: "bg-sky-600" },
 ];
-
-const DAYS_OF_WEEK = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ Nhật"];
 
 export const ClassManagementModal: React.FC<ClassManagementModalProps> = ({
   isOpen,

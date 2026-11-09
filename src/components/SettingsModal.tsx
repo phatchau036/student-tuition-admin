@@ -13,6 +13,7 @@ import {
   CapacityMode,
   AppLanguage,
   SchedulePreset,
+  DAYS_OF_WEEK,
 } from "@/lib/types";
 import { formatVND, formatTimeSlotLabel, formatMonthDisplay, getCurrentMonthStr } from "@/lib/tuition";
 import { useLanguage } from "@/lib/i18n";
@@ -54,6 +55,8 @@ import {
   ArrowUp,
   ArrowDown,
   GripVertical,
+  Bell,
+  Send,
 } from "lucide-react";
 
 interface SettingsModalProps {
@@ -79,6 +82,11 @@ interface SettingsModalProps {
   initialZaloReminderMode?: ZaloReminderMode;
   initialZaloBotToken?: string;
   initialZaloBotName?: string;
+  initialZaloAdminChatId?: string;
+  initialZaloNotifyPayment?: number;
+  initialZaloNotifyStudentAbsence?: number;
+  initialZaloNotifyTeacherLeave?: number;
+  initialZaloNotifyParentFeedback?: number;
   initialZaloOaSecretKey?: string;
   initialZaloAccessToken?: string;
   initialZaloTemplateId?: string;
@@ -91,15 +99,7 @@ interface SettingsModalProps {
   schoolId?: string;
 }
 
-const WEEKDAYS = [
-  "Thứ 2",
-  "Thứ 3",
-  "Thứ 4",
-  "Thứ 5",
-  "Thứ 6",
-  "Thứ 7",
-  "Chủ Nhật",
-];
+const WEEKDAYS = DAYS_OF_WEEK;
 
 const DEFAULT_SCHEDULE_PRESETS: SchedulePreset[] = [
   { id: "preset-even", name: "Thứ chẵn (2-4-6)", days: ["Thứ 2", "Thứ 4", "Thứ 6"], hours_per_session: 1.5, default_start_time: "18:00", is_default: true },
@@ -130,6 +130,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   initialZaloReminderMode = "manual",
   initialZaloBotToken = "",
   initialZaloBotName = "",
+  initialZaloAdminChatId = "",
+  initialZaloNotifyPayment = 1,
+  initialZaloNotifyStudentAbsence = 1,
+  initialZaloNotifyTeacherLeave = 1,
+  initialZaloNotifyParentFeedback = 1,
   initialZaloOaSecretKey = "",
   initialZaloAccessToken = "",
   initialZaloTemplateId = "",
@@ -182,7 +187,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [zaloReminderMode, setZaloReminderMode] = useState<ZaloReminderMode>(initialZaloReminderMode);
   const [zaloBotToken, setZaloBotToken] = useState<string>(initialZaloBotToken);
   const [zaloBotName, setZaloBotName] = useState<string>(initialZaloBotName);
+  const [zaloAdminChatId, setZaloAdminChatId] = useState<string>(initialZaloAdminChatId || "");
+  const [zaloNotifyPayment, setZaloNotifyPayment] = useState<boolean>(initialZaloNotifyPayment !== 0);
+  const [zaloNotifyStudentAbsence, setZaloNotifyStudentAbsence] = useState<boolean>(initialZaloNotifyStudentAbsence !== 0);
+  const [zaloNotifyTeacherLeave, setZaloNotifyTeacherLeave] = useState<boolean>(initialZaloNotifyTeacherLeave !== 0);
+  const [zaloNotifyParentFeedback, setZaloNotifyParentFeedback] = useState<boolean>(initialZaloNotifyParentFeedback !== 0);
   const [isTestingBot, setIsTestingBot] = useState(false);
+  const [isFetchingUpdates, setIsFetchingUpdates] = useState(false);
+  const [isSendingAdminTest, setIsSendingAdminTest] = useState(false);
+  const [recentChatsList, setRecentChatsList] = useState<
+    Array<{ chat_id: string; from_name: string; text: string; date: number }>
+  >([]);
+  const [showRecentChatsModal, setShowRecentChatsModal] = useState(false);
   const [zaloOaSecretKey, setZaloOaSecretKey] = useState<string>(initialZaloOaSecretKey);
   const [zaloAccessToken, setZaloAccessToken] = useState<string>(initialZaloAccessToken);
   const [zaloTemplateId, setZaloTemplateId] = useState<string>(initialZaloTemplateId);
@@ -406,6 +422,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setZaloReminderMode(initialZaloReminderMode || "manual");
     setZaloBotToken(initialZaloBotToken || "");
     setZaloBotName(initialZaloBotName || "");
+    setZaloAdminChatId(initialZaloAdminChatId || "");
+    setZaloNotifyPayment(initialZaloNotifyPayment !== 0);
+    setZaloNotifyStudentAbsence(initialZaloNotifyStudentAbsence !== 0);
+    setZaloNotifyTeacherLeave(initialZaloNotifyTeacherLeave !== 0);
+    setZaloNotifyParentFeedback(initialZaloNotifyParentFeedback !== 0);
     setZaloOaSecretKey(initialZaloOaSecretKey || "");
     setZaloAccessToken(initialZaloAccessToken || "");
     setZaloTemplateId(initialZaloTemplateId || "");
@@ -470,6 +491,75 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       showToast("Lỗi kết nối tới máy chủ API!", "error");
     } finally {
       setIsTestingBot(false);
+    }
+  };
+
+  const handleFetchRecentChats = async () => {
+    if (!zaloBotToken.trim()) {
+      showToast("Vui lòng nhập Zalo Bot Token trước!", "error");
+      return;
+    }
+    try {
+      setIsFetchingUpdates(true);
+      const res = await fetch("/api/zalo-bot", {
+        method: "POST",
+        headers: getRequestHeaders(),
+        body: JSON.stringify({
+          action: "get_updates",
+          bot_token: zaloBotToken.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (data.success && Array.isArray(data.recent_chats)) {
+        setRecentChatsList(data.recent_chats);
+        if (data.recent_chats.length === 0) {
+          showToast(
+            "Chưa thấy tin nhắn nào gửi tới Bot. Hãy mở app Zalo tìm Bot của cơ sở và gửi 1 tin nhắn (VD: 'Hi') rồi bấm lại nút này nhé!",
+            "info"
+          );
+        } else {
+          setShowRecentChatsModal(true);
+        }
+      } else {
+        showToast(data.message || "Không thể lấy tin nhắn từ Bot", "error");
+      }
+    } catch {
+      showToast("Lỗi kết nối máy chủ Zalo Bot!", "error");
+    } finally {
+      setIsFetchingUpdates(false);
+    }
+  };
+
+  const handleTestAdminMessage = async () => {
+    if (!zaloAdminChatId.trim()) {
+      showToast("Vui lòng nhập Zalo Chat ID của Admin trước khi thử!", "error");
+      return;
+    }
+    if (!zaloBotToken.trim()) {
+      showToast("Vui lòng nhập Zalo Bot Token trước!", "error");
+      return;
+    }
+    try {
+      setIsSendingAdminTest(true);
+      const res = await fetch("/api/zalo-bot", {
+        method: "POST",
+        headers: getRequestHeaders(),
+        body: JSON.stringify({
+          action: "test_admin_message",
+          bot_token: zaloBotToken.trim(),
+          admin_chat_id: zaloAdminChatId.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(data.message, "success");
+      } else {
+        showToast(data.message || "Gửi thử thất bại!", "error");
+      }
+    } catch {
+      showToast("Lỗi kết nối máy chủ Zalo Bot!", "error");
+    } finally {
+      setIsSendingAdminTest(false);
     }
   };
 
@@ -802,6 +892,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           zalo_reminder_mode: zaloReminderMode,
           zalo_bot_token: zaloBotToken.trim(),
           zalo_bot_name: zaloBotName.trim(),
+          zalo_admin_chat_id: zaloAdminChatId.trim(),
+          zalo_notify_payment: zaloNotifyPayment ? 1 : 0,
+          zalo_notify_student_absence: zaloNotifyStudentAbsence ? 1 : 0,
+          zalo_notify_teacher_leave: zaloNotifyTeacherLeave ? 1 : 0,
+          zalo_notify_parent_feedback: zaloNotifyParentFeedback ? 1 : 0,
           zalo_oa_secret_key: zaloOaSecretKey,
           zalo_access_token: zaloAccessToken,
           zalo_template_id: zaloTemplateId,
@@ -2180,6 +2275,156 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       </div>
                     </div>
                   </div>
+
+                  {/* PHẦN MỚI: KÊNH THÔNG BÁO TỰ ĐỘNG VỀ ZALO CHO QUẢN LÝ / ADMIN */}
+                  <div className="p-5 rounded-2xl border-2 border-indigo-200 dark:border-indigo-900/60 bg-gradient-to-br from-indigo-50/50 via-white to-blue-50/40 dark:from-slate-900 dark:via-slate-900 dark:to-indigo-950/40 shadow-xs space-y-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-indigo-100 dark:border-indigo-900/60 pb-3">
+                      <div>
+                        <h4 className="text-sm font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+                          <Bell className="w-4 h-4 text-indigo-600" />
+                          <span>Kênh Thông Báo Tự Động Về Zalo Cho Quản Lý / Admin</span>
+                        </h4>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                          Bot sẽ tự động gửi tin nhắn báo cáo tức thì về Zalo cá nhân của bạn khi có biến động tại trung tâm
+                        </p>
+                      </div>
+                      <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300 self-start sm:self-auto">
+                        Thời gian thực
+                      </span>
+                    </div>
+
+                    {/* Ô nhập Chat ID & nút Lấy Chat ID */}
+                    <div className="space-y-2">
+                      <label className="text-[11px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-300 block">
+                        Zalo Chat ID của Quản lý / Admin nhận thông báo *
+                      </label>
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                        <input
+                          type="text"
+                          placeholder="Ví dụ: 123456789 (nhập mã hoặc bấm Lấy Chat ID)"
+                          value={zaloAdminChatId}
+                          onChange={(e) => setZaloAdminChatId(e.target.value)}
+                          className="flex-1 px-3.5 py-2 text-xs font-mono font-bold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"
+                        />
+                        <button
+                          type="button"
+                          disabled={isFetchingUpdates}
+                          onClick={handleFetchRecentChats}
+                          className="flex items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white shrink-0 transition shadow-xs disabled:opacity-50"
+                          title="Lấy danh sách người vừa nhắn tin cho Bot để chọn nhanh Chat ID"
+                        >
+                          <RefreshCw className={`w-3.5 h-3.5 ${isFetchingUpdates ? "animate-spin" : ""}`} />
+                          <span>{isFetchingUpdates ? "Đang dò tìm..." : "Lấy Chat ID gần đây"}</span>
+                        </button>
+                        <button
+                          type="button"
+                          disabled={isSendingAdminTest || !zaloAdminChatId.trim()}
+                          onClick={handleTestAdminMessage}
+                          className="flex items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shrink-0 transition shadow-xs disabled:opacity-50"
+                          title="Gửi 1 tin nhắn thử nghiệm tới Zalo Admin để kiểm tra chuông"
+                        >
+                          <Send className={`w-3.5 h-3.5 ${isSendingAdminTest ? "animate-spin" : ""}`} />
+                          <span>{isSendingAdminTest ? "Đang gửi..." : "Gửi Thử Tin Nhắn"}</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Hướng dẫn 3 bước ngắn gọn */}
+                    <div className="p-3 rounded-xl bg-slate-100/80 dark:bg-slate-800/80 text-xs text-slate-600 dark:text-slate-300 space-y-1 border border-slate-200/60 dark:border-slate-700/60">
+                      <span className="font-bold text-slate-800 dark:text-slate-200 block text-[10px] uppercase tracking-wider">
+                        Cách kết nối Zalo Admin trong 10 giây:
+                      </span>
+                      <p>
+                        • <strong>Bước 1:</strong> Mở app Zalo trên điện thoại, tìm tên Bot{" "}
+                        <strong className="text-indigo-600 dark:text-indigo-400">
+                          {zaloBotName || "của trung tâm"}
+                        </strong>{" "}
+                        và nhắn tin chữ <em>&quot;Hi&quot;</em>.
+                      </p>
+                      <p>
+                        • <strong>Bước 2:</strong> Bấm nút <strong>&quot;Lấy Chat ID gần đây&quot;</strong> ở trên, hệ thống sẽ hiện tên bạn và tự động điền Chat ID.
+                      </p>
+                      <p>
+                        • <strong>Bước 3:</strong> Bấm <strong>&quot;Gửi Thử Tin Nhắn&quot;</strong>, điện thoại của bạn sẽ ting ting nhận tin nhắn xác nhận ngay lập tức!
+                      </p>
+                    </div>
+
+                    {/* 4 Checkbox lựa chọn nhận thông báo */}
+                    <div className="pt-2">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-2">
+                        Tùy chọn sự kiện nhận thông báo trên Zalo:
+                      </span>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        <label className="flex items-center gap-2.5 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 cursor-pointer hover:border-indigo-400 transition">
+                          <input
+                            type="checkbox"
+                            checked={zaloNotifyPayment}
+                            onChange={(e) => setZaloNotifyPayment(e.target.checked)}
+                            className="w-4 h-4 text-indigo-600 rounded-md focus:ring-indigo-500"
+                          />
+                          <div className="text-xs">
+                            <span className="font-bold text-slate-800 dark:text-slate-200 block">
+                              💰 Tiền học phí về tài khoản (SePay)
+                            </span>
+                            <span className="text-[11px] text-slate-400">
+                              Báo khi nhận chuyển khoản và gạch nợ thành công
+                            </span>
+                          </div>
+                        </label>
+
+                        <label className="flex items-center gap-2.5 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 cursor-pointer hover:border-indigo-400 transition">
+                          <input
+                            type="checkbox"
+                            checked={zaloNotifyStudentAbsence}
+                            onChange={(e) => setZaloNotifyStudentAbsence(e.target.checked)}
+                            className="w-4 h-4 text-indigo-600 rounded-md focus:ring-indigo-500"
+                          />
+                          <div className="text-xs">
+                            <span className="font-bold text-slate-800 dark:text-slate-200 block">
+                              🏥 Học sinh nộp đơn báo nghỉ học
+                            </span>
+                            <span className="text-[11px] text-slate-400">
+                              Báo khi phụ huynh gửi báo nghỉ trực tuyến
+                            </span>
+                          </div>
+                        </label>
+
+                        <label className="flex items-center gap-2.5 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 cursor-pointer hover:border-indigo-400 transition">
+                          <input
+                            type="checkbox"
+                            checked={zaloNotifyTeacherLeave}
+                            onChange={(e) => setZaloNotifyTeacherLeave(e.target.checked)}
+                            className="w-4 h-4 text-indigo-600 rounded-md focus:ring-indigo-500"
+                          />
+                          <div className="text-xs">
+                            <span className="font-bold text-slate-800 dark:text-slate-200 block">
+                              👨‍🏫 Giáo viên gửi đơn xin nghỉ dạy
+                            </span>
+                            <span className="text-[11px] text-slate-400">
+                              Báo khi giáo viên xin nghỉ và đề xuất người dạy thay
+                            </span>
+                          </div>
+                        </label>
+
+                        <label className="flex items-center gap-2.5 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 cursor-pointer hover:border-indigo-400 transition">
+                          <input
+                            type="checkbox"
+                            checked={zaloNotifyParentFeedback}
+                            onChange={(e) => setZaloNotifyParentFeedback(e.target.checked)}
+                            className="w-4 h-4 text-indigo-600 rounded-md focus:ring-indigo-500"
+                          />
+                          <div className="text-xs">
+                            <span className="font-bold text-slate-800 dark:text-slate-200 block">
+                              ⭐ Phụ huynh gửi góp ý / đánh giá
+                            </span>
+                            <span className="text-[11px] text-slate-400">
+                              Báo khi nhận được nhận xét chất lượng giảng dạy
+                            </span>
+                          </div>
+                        </label>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
               {/* TAB MỚI: QUẢN LÝ BỘ MÔN / CHƯƠNG TRÌNH HỌC */}
@@ -2730,6 +2975,79 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           )}
         </div>
       </div>
+
+      {/* POPUP CHỌN CHAT ID TỪ TIN NHẮN GẦN ĐÂY VỚI BOT */}
+      {showRecentChatsModal && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-3 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-150 flex flex-col max-h-[85vh]">
+            <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+              <div>
+                <h4 className="font-extrabold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                  <Users className="w-4 h-4 text-indigo-600" />
+                  <span>Chọn Tài Khoản Zalo Của Bạn</span>
+                </h4>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Danh sách những người vừa nhắn tin cho Bot gần đây
+                </p>
+              </div>
+              <button
+                onClick={() => setShowRecentChatsModal(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-4 flex-1 overflow-y-auto space-y-2">
+              {recentChatsList.map((chat) => (
+                <div
+                  key={chat.chat_id}
+                  className="p-3 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/50 flex items-center justify-between gap-3 hover:border-indigo-400 transition"
+                >
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-sm text-slate-900 dark:text-white">
+                        {chat.from_name}
+                      </span>
+                      <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-md bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
+                        ID: {chat.chat_id}
+                      </span>
+                    </div>
+                    {chat.text && (
+                      <p className="text-xs text-slate-500 truncate mt-0.5">
+                        Tin nhắn: &quot;{chat.text}&quot;
+                      </p>
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setZaloAdminChatId(chat.chat_id);
+                      setShowRecentChatsModal(false);
+                      showToast(`Đã chọn Chat ID của ${chat.from_name}!`, "success");
+                    }}
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shrink-0 transition"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                    <span>Chọn ID này</span>
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            <div className="p-3 border-t border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/40 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowRecentChatsModal(false)}
+                className="px-4 py-1.5 text-xs font-bold rounded-xl border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

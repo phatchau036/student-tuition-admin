@@ -27,11 +27,27 @@ export async function GET(req: Request) {
       ORDER BY a.created_at DESC
     `);
 
+    // Lấy cấu hình AI Trợ Lý hệ thống
+    const aiRes = await db.execute(`
+      SELECT key, value FROM settings 
+      WHERE key IN ('ai_base_url', 'ai_api_key', 'ai_model', 'ai_is_active')
+    `);
+    const aiConfig: Record<string, string> = {};
+    for (const r of aiRes.rows) {
+      aiConfig[String(r.key)] = String(r.value || "");
+    }
+
     return NextResponse.json({
       success: true,
       data: {
         schools: schoolsRes.rows,
         admins: adminsRes.rows,
+        ai_config: {
+          ai_base_url: aiConfig["ai_base_url"] || "",
+          ai_api_key: aiConfig["ai_api_key"] || "",
+          ai_model: aiConfig["ai_model"] || "gemini-3.8-flash",
+          ai_is_active: aiConfig["ai_is_active"] !== "0",
+        },
       },
     });
   } catch (error: unknown) {
@@ -283,6 +299,97 @@ export async function POST(req: Request) {
         success: true,
         message: "Cập nhật cấu hình IP bảo vệ cho trường thành công!",
       });
+    }
+
+    // 6. Lưu cấu hình AI Trợ Lý toàn hệ thống (/he-thong)
+    if (action === "save_ai_config") {
+      const { ai_base_url, ai_api_key, ai_model, ai_is_active } = body;
+      const cleanUrl = String(ai_base_url || "").trim().replace(/\/+$/, "");
+      const cleanKey = String(ai_api_key || "").trim();
+      const cleanModel = String(ai_model || "gemini-3.8-flash").trim();
+      const activeVal = ai_is_active ? "1" : "0";
+
+      const pairs: [string, string][] = [
+        ["ai_base_url", cleanUrl],
+        ["ai_api_key", cleanKey],
+        ["ai_model", cleanModel],
+        ["ai_is_active", activeVal],
+      ];
+
+      for (const [k, v] of pairs) {
+        await db.execute({
+          sql: "INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+          args: [k, v],
+        });
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: "Đã lưu cấu hình AI Trợ Lý thành công!",
+      });
+    }
+
+    // 7. Thử nghiệm kết nối AI (Test AI Connection)
+    if (action === "test_ai_connection") {
+      const { ai_base_url, ai_api_key, ai_model } = body;
+      const testUrl = String(ai_base_url || "").trim().replace(/\/+$/, "");
+      const testKey = String(ai_api_key || "").trim();
+      const testModel = String(ai_model || "gemini-3.8-flash").trim();
+
+      if (!testUrl || !testKey) {
+        return NextResponse.json(
+          { success: false, message: "Vui lòng nhập cả AI Endpoint Base URL và API Key!" },
+          { status: 400 }
+        );
+      }
+
+      const startTime = Date.now();
+      try {
+        const fullEndpoint = `${testUrl}/chat/completions`;
+        const res = await fetch(fullEndpoint, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${testKey}`,
+          },
+          body: JSON.stringify({
+            model: testModel,
+            messages: [
+              {
+                role: "user",
+                content: "Xin chào! Bạn là mô hình gì? Trả lời ngắn gọn dưới 20 từ bằng tiếng Việt.",
+              },
+            ],
+            max_tokens: 50,
+          }),
+        });
+
+        const elapsedMs = Date.now() - startTime;
+        if (!res.ok) {
+          const errText = await res.text();
+          return NextResponse.json({
+            success: false,
+            message: `Kết nối thất bại (Mã HTTP: ${res.status}): ${errText.slice(0, 300)}`,
+            elapsed_ms: elapsedMs,
+          });
+        }
+
+        const data = await res.json();
+        const replyText = data.choices?.[0]?.message?.content || "Không có phản hồi nội dung";
+
+        return NextResponse.json({
+          success: true,
+          message: `Kết nối thành công! Phản hồi trong ${elapsedMs}ms: "${replyText.trim()}"`,
+          model: data.model || testModel,
+          elapsed_ms: elapsedMs,
+          reply: replyText.trim(),
+        });
+      } catch (err: any) {
+        return NextResponse.json({
+          success: false,
+          message: `Lỗi kết nối tới endpoint: ${err.message}`,
+        });
+      }
     }
 
     return NextResponse.json({ success: false, message: "Hành động không hợp lệ!" }, { status: 400 });
