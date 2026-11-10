@@ -939,28 +939,11 @@ export default function Dashboard() {
             {hasPerm("revenue.reports") && (
               <button
                 onClick={() => setIsMonthlySummaryModalOpen(true)}
-                className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl border border-emerald-200 dark:border-emerald-800/60 bg-emerald-50 hover:bg-emerald-100/80 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-300 transition shadow-2xs shrink-0"
+                className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl border border-emerald-200 dark:border-emerald-800/60 bg-emerald-50 hover:bg-emerald-100/80 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-300 transition shadow-2xs shrink-0 cursor-pointer"
                 title="Xem tổng kết thu chi, tình hình đóng học phí và giao dịch SePay tự động"
               >
                 <BarChart3 className="w-4 h-4 text-emerald-600" />
                 <span>{t.monthly_summary}</span>
-              </button>
-            )}
-
-            {/* Hàng Đợi Nhắc Học Phí Nhanh Zalo Quick Badge */}
-            {(hasPerm("tuition.remind") || hasPerm("tuition.view")) && (
-              <button
-                onClick={() => setIsTuitionQueueModalOpen(true)}
-                className="hidden md:flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl border border-blue-200 dark:border-blue-800/60 bg-blue-50 hover:bg-blue-100/80 dark:bg-blue-950/40 text-blue-900 dark:text-blue-300 transition shadow-2xs shrink-0"
-                title="Mở hàng đợi nhắc học phí nhanh qua Zalo cho danh sách nợ"
-              >
-                <MessageSquare className="w-4 h-4 text-blue-600" />
-                <span>Nhắc Học Phí</span>
-                {students.filter((s) => s.payment_status === "unpaid").length > 0 && (
-                  <span className="px-1.5 py-0.2 rounded-full bg-blue-600 text-white text-[10px] font-black">
-                    {students.filter((s) => s.payment_status === "unpaid").length}
-                  </span>
-                )}
               </button>
             )}
 
@@ -1024,7 +1007,7 @@ export default function Dashboard() {
                         setIsManagementMenuOpen(false);
                         setIsClassModalOpen(true);
                       }}
-                      className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition text-left"
+                      className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition text-left cursor-pointer"
                     >
                       <span className="flex items-center gap-2">
                         <Layers className="w-4 h-4 text-emerald-600" />
@@ -1043,7 +1026,7 @@ export default function Dashboard() {
                         setIsManagementMenuOpen(false);
                         setIsDailyAttendanceModalOpen(true);
                       }}
-                      className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold rounded-xl text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition text-left"
+                      className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold rounded-xl text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition text-left cursor-pointer"
                     >
                       <span className="flex items-center gap-2">
                         <CheckCircle2 className="w-4 h-4 text-emerald-600" />
@@ -1062,7 +1045,7 @@ export default function Dashboard() {
                         setSelectedStudentForMakeup(undefined);
                         setIsMakeupModalOpen(true);
                       }}
-                      className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition text-left"
+                      className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition text-left cursor-pointer"
                     >
                       <span className="flex items-center gap-2">
                         <CalendarCheck className="w-4 h-4 text-amber-600" />
@@ -1082,7 +1065,7 @@ export default function Dashboard() {
                         setIsManagementMenuOpen(false);
                         setIsStatusLogModalOpen(true);
                       }}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition text-left"
+                      className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition text-left cursor-pointer"
                     >
                       <History className="w-4 h-4 text-indigo-600" />
                       <span>{t.status_log}</span>
@@ -1095,7 +1078,7 @@ export default function Dashboard() {
                         setIsManagementMenuOpen(false);
                         setIsMonthlySummaryModalOpen(true);
                       }}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition text-left"
+                      className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition text-left cursor-pointer"
                     >
                       <BarChart3 className="w-4 h-4 text-emerald-600" />
                       <span>{t.monthly_summary}</span>
@@ -1108,7 +1091,7 @@ export default function Dashboard() {
                         setIsManagementMenuOpen(false);
                         setIsTuitionQueueModalOpen(true);
                       }}
-                      className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold rounded-xl text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition text-left"
+                      className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold rounded-xl text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition text-left cursor-pointer"
                     >
                       <span className="flex items-center gap-2">
                         <MessageSquare className="w-4 h-4 text-blue-600" />
@@ -1132,7 +1115,7 @@ export default function Dashboard() {
                           setIsManagementMenuOpen(false);
                           setIsExcelImportModalOpen(true);
                         }}
-                        className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-xl text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition text-left"
+                        className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-xl text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition text-left cursor-pointer"
                       >
                         <Upload className="w-4 h-4 text-emerald-600" />
                         <span>{t.excel_import_btn}</span>
@@ -1145,7 +1128,7 @@ export default function Dashboard() {
                           exportStudentsToExcel(filteredStudents, selectedMonth, currentSchool?.name || "TrungTam");
                           showToast("Đã xuất file Excel học viên thành công!", "success");
                         }}
-                        className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-xl text-indigo-700 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition text-left"
+                        className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-xl text-indigo-700 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition text-left cursor-pointer"
                       >
                         <Download className="w-4 h-4 text-indigo-600" />
                         <span>{t.excel_export_btn}</span>
@@ -1161,7 +1144,7 @@ export default function Dashboard() {
                         setIsManagementMenuOpen(false);
                         setIsSettingsOpen(true);
                       }}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition text-left"
+                      className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition text-left cursor-pointer"
                     >
                       <Settings className="w-4 h-4 text-slate-500" />
                       <span>{t.settings}</span>
@@ -1173,7 +1156,7 @@ export default function Dashboard() {
                       setIsManagementMenuOpen(false);
                       setIsAppInfoModalOpen(true);
                     }}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition text-left"
+                    className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition text-left cursor-pointer"
                   >
                     <Info className="w-4 h-4 text-indigo-600" />
                     <span>{t.app_info_feedback}</span>

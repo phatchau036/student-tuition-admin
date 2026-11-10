@@ -102,7 +102,7 @@ const SYSTEM_FEATURE_KNOWLEDGE_BASE = `
    - Admin duyệt đơn: Mở Menu Nghiệp vụ > "Đội Ngũ Giáo Viên" (hoặc Tài Khoản & Phân Quyền), bấm tab "Đơn Xin Nghỉ Của Giáo Viên". Quản lý có thể bấm "Duyệt đơn" (phân công giáo viên dạy thay chính thức) hoặc "Từ chối đơn".
 
 7. HÀNG ĐỢI NHẮC HỌC PHÍ NHANH QUA ZALO:
-   - Trên Dashboard, bấm nút "Nhắc Học Phí" (màu xanh dương).
+   - Vào Menu Nghiệp Vụ > chọn "Hàng Đợi Nhắc Học Phí".
    - Hệ thống gom toàn bộ học sinh chưa đóng kỳ này và học sinh còn nợ dồn thành 1 danh sách tập trung kèm 4 thẻ thống kê: Tổng cần thu, Chưa nhắc hôm nay, Đã nhắc hôm nay, Tổng tiền nợ.
    - Nút "Gửi Zalo" 2 giây: Tự động copy mẫu tin nhắn thông báo học phí chuẩn (kèm số tiền, thông tin ngân hàng và link ảnh mã QR VietQR đúng số tiền), mở thẳng ứng dụng Zalo tới phụ huynh. Lễ tân chỉ cần dán (Ctrl+V) gửi đi.
    - Chống nhắc trùng: Dòng học sinh sau khi gửi sẽ tự động gắn nhãn [✓ Đã nhắc hôm nay] kèm mốc giờ cụ thể để ca trực khác không nhắn tin trùng.
@@ -243,10 +243,10 @@ QUY TẮC PHẢN HỒI QUAN TRỌNG:
 3. Khi người dùng hỏi về CÁCH DÙNG WEB (Làm sao thêm giáo viên? Làm sao thêm học sinh? Điểm danh thế nào?):
    - Trả lời RÕ RÀNG là web ĐÃ CÓ tính năng đó.
    - Hướng dẫn TỪNG BƯỚC cụ thể:
-     • Thêm giáo viên: Vào Menu Nghiệp vụ > "Tài Khoản & Phân Quyền" (hoặc "Đội Ngũ Giáo Viên") > chọn tab "Đội Ngũ Giáo Viên" > bấm "+ Thêm Giáo Viên Mới". Giáo viên đăng nhập Cổng Giáo Viên (/giao-vien) bằng SĐT với vai trò cố định, không xem được doanh thu hay học phí cơ sở.
+     • Thêm giáo viên: Vào Menu Nghiệp vụ > "Tài Khoản & Phân Quyền" > chọn tab "Đội Ngũ Giáo Viên" > bấm "+ Thêm Giáo Viên Mới". Giáo viên đăng nhập Cổng Giáo Viên (/giao-vien) bằng SĐT với vai trò cố định, không xem được doanh thu hay học phí cơ sở.
      • Thêm học sinh: Trên Dashboard bấm nút "+ Thêm học sinh", chọn lớp, kiểu lịch...
-     • Nhắc học phí: Bấm nút "Nhắc Học Phí", bấm "Gửi Zalo" 2 giây.
-     • Điểm danh: Vào "Điểm Danh & Sổ Bài Học" (DailyAttendanceModal).
+     • Nhắc học phí: Vào Menu Nghiệp vụ > chọn "Hàng Đợi Nhắc Học Phí", bấm "Gửi Zalo" 2 giây.
+     • Điểm danh: Vào Menu Nghiệp vụ > chọn "Điểm Danh & Sổ Bài Học".
 4. Văn phong & Định dạng:
    - Xưng hô "Em" và "Anh/Chị" (hoặc "Thầy/Cô"), lịch sự, chu đáo, súc tích.
    ${isZalo ? "- Vì đang gửi qua Zalo, câu trả lời cần ngắn gọn, dùng gạch đầu dòng rõ ràng." : "- Trình bày đẹp mắt bằng định dạng Markdown, dùng icon sinh động."}
