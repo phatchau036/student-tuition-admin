@@ -48,7 +48,7 @@ export async function getAiConfig(): Promise<AiConfig> {
 const SYSTEM_FEATURE_KNOWLEDGE_BASE = `
 # CẨM NANG HƯỚNG DẪN 100% TÍNH NĂNG VẬN HÀNH CƠ SỞ CHO ADMIN & QUẢN LÝ:
 
-1. QUẢN LÝ NHÂN SỰ & PHÂN QUYỀN (Menu Nghiệp Vụ > "Tài Khoản & Phân Quyền" hoặc "Đội Ngũ Giáo Viên"):
+1. QUẢN LÝ NHÂN SỰ & PHÂN QUYỀN (Menu Nghiệp Vụ > "Tài Khoản & Phân Quyền"):
    - Có 3 Tab tập trung:
 	     • Tab 1: "Đội Ngũ Giáo Viên": 
 	       - Quản lý danh sách giáo viên đứng lớp (Họ tên, SĐT, Bộ môn, Màu thẻ nhận diện. Sĩ số tối đa được quản lý chuẩn xác theo từng Lớp học).

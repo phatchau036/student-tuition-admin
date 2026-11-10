@@ -997,15 +997,15 @@ export default function Dashboard() {
                   className="absolute right-0 top-full mt-2 w-64 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl z-50 p-1.5 space-y-1 animate-in fade-in zoom-in-95"
                   onMouseLeave={() => setIsManagementMenuOpen(false)}
                 >
-                  {/* Quản lý Nhân viên & Phân quyền */}
-                  {hasPerm("staff.manage") && (
+                  {/* Quản lý Nhân sự: Giáo viên, Nhân viên & Phân quyền */}
+                  {(hasPerm("staff.manage") || hasPerm("teachers.manage")) && (
                     <button
                       onClick={() => {
                         setIsManagementMenuOpen(false);
-                        setStaffModalInitialTab("staff");
+                        setStaffModalInitialTab("teachers");
                         setIsStaffModalOpen(true);
                       }}
-                      className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold rounded-xl text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition text-left"
+                      className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold rounded-xl text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition text-left cursor-pointer"
                     >
                       <span className="flex items-center gap-2">
                         <ShieldCheck className="w-4 h-4 text-indigo-600" />
@@ -1013,25 +1013,6 @@ export default function Dashboard() {
                       </span>
                       <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300">
                         Nhân sự
-                      </span>
-                    </button>
-                  )}
-
-                  {hasPerm("teachers.manage") && (
-                    <button
-                      onClick={() => {
-                        setIsManagementMenuOpen(false);
-                        setStaffModalInitialTab("teachers");
-                        setIsStaffModalOpen(true);
-                      }}
-                      className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition text-left"
-                    >
-                      <span className="flex items-center gap-2">
-                        <GraduationCap className="w-4 h-4 text-amber-600" />
-                        <span>{t.teachers_team}</span>
-                      </span>
-                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300">
-                        {teachers.length}
                       </span>
                     </button>
                   )}
