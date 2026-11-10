@@ -1600,11 +1600,11 @@ export default function Dashboard() {
         {mainViewMode === "table" && (
           <div key="table_view" className="animate-in fade-in duration-200 ease-out bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm relative">
           <div className="overflow-x-auto overflow-y-visible pb-6">
-            <table className="w-full min-w-[1080px] text-left border-collapse">
+            <table className="w-full min-w-[1240px] text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50/80 dark:bg-slate-800/60 border-b border-slate-200/80 dark:border-slate-800 text-[11px] font-black uppercase tracking-wider text-slate-400">
                   {/* Select All Checkbox Column */}
-                  <th className="py-2.5 px-3 sm:px-4 w-12 text-center">
+                  <th className="py-3 px-3 sm:px-4 w-12 text-center">
                     <input
                       type="checkbox"
                       checked={isAllFilteredSelected}
@@ -1613,7 +1613,7 @@ export default function Dashboard() {
                       title={isAllFilteredSelected ? "Bỏ chọn tất cả" : "Chọn tất cả học sinh đang hiển thị"}
                     />
                   </th>
-                  <th className="py-2.5 px-3 min-w-[200px]">
+                  <th className="py-3 px-3 min-w-[240px]">
                     <button
                       type="button"
                       onClick={() => handleHeaderSort("name")}
@@ -1629,7 +1629,7 @@ export default function Dashboard() {
                     </button>
                   </th>
 
-                  <th className="py-2.5 px-2.5 whitespace-nowrap">
+                  <th className="py-3 px-3 min-w-[110px] whitespace-nowrap">
                     <button
                       type="button"
                       onClick={() => handleHeaderSort("status")}
@@ -1646,7 +1646,7 @@ export default function Dashboard() {
                   </th>
 
                   {/* Class Column */}
-                  <th className="py-2.5 px-3 hidden lg:table-cell min-w-[160px]">
+                  <th className="py-3 px-3 hidden lg:table-cell min-w-[180px]">
                     <button
                       type="button"
                       onClick={() => handleHeaderSort("teacher")}
@@ -1662,7 +1662,7 @@ export default function Dashboard() {
                     </button>
                   </th>
 
-                  <th className="py-2.5 px-2.5 hidden xl:table-cell whitespace-nowrap">
+                  <th className="py-3 px-3 hidden xl:table-cell min-w-[120px] whitespace-nowrap">
                     <button
                       type="button"
                       onClick={() => handleHeaderSort("level")}
@@ -1684,10 +1684,10 @@ export default function Dashboard() {
                     </button>
                   </th>
 
-                  <th className="py-2.5 px-3 min-w-[190px]">{t.col_package_schedule}</th>
-                  <th className="py-2.5 px-2.5 text-center hidden xl:table-cell whitespace-nowrap">{t.col_discount}</th>
+                  <th className="py-3 px-3 min-w-[210px]">{t.col_package_schedule}</th>
+                  <th className="py-3 px-3 text-center hidden xl:table-cell min-w-[130px] whitespace-nowrap">{t.col_discount}</th>
 
-                  <th className="py-2.5 px-3 min-w-[160px]">
+                  <th className="py-3 px-3 min-w-[175px]">
                     <button
                       type="button"
                       onClick={() => handleHeaderSort("tuition")}
@@ -1703,8 +1703,8 @@ export default function Dashboard() {
                     </button>
                   </th>
 
-                  <th className="py-2.5 px-3 text-center hidden md:table-cell min-w-[130px] whitespace-nowrap">{t.col_reconciliation}</th>
-                  <th className="py-2.5 px-3 text-center w-16 whitespace-nowrap">{t.col_actions}</th>
+                  <th className="py-3 px-3 text-center hidden md:table-cell min-w-[145px] whitespace-nowrap">{t.col_reconciliation}</th>
+                  <th className="py-3 px-3 text-center w-16 whitespace-nowrap">{t.col_actions}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 text-sm">
@@ -1781,7 +1781,7 @@ export default function Dashboard() {
                                     setStudentForDetail(student);
                                     setIsDetailModalOpen(true);
                                   }}
-                                  className="hover:text-indigo-600 transition truncate text-left"
+                                  className="font-bold text-slate-800 dark:text-slate-100 hover:text-indigo-600 dark:hover:text-indigo-400 transition whitespace-nowrap text-left"
                                   title="Bấm để xem hồ sơ chi tiết học sinh"
                                 >
                                   {student.name}
@@ -1848,7 +1848,7 @@ export default function Dashboard() {
                         </td>
 
                         {/* Status (Đang học / Bảo lưu / Nghỉ học) */}
-                        <td className="py-2 px-2.5 overflow-hidden">
+                        <td className="py-2.5 px-3 whitespace-nowrap">
                           {student.status === "reserved" ? (
                             <button
                               type="button"
@@ -1856,7 +1856,7 @@ export default function Dashboard() {
                                 setStudentForStatusChange(student);
                                 setIsChangeStatusModalOpen(true);
                               }}
-                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-800 hover:bg-amber-200 dark:bg-amber-950 dark:text-amber-300 transition"
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-800 hover:bg-amber-200 dark:bg-amber-950 dark:text-amber-300 transition shadow-2xs cursor-pointer"
                               title={`Bảo lưu từ: ${student.status_date || ""}. Bấm để đổi trạng thái`}
                             >
                               <PauseCircle className="w-3 h-3" />
@@ -1869,7 +1869,7 @@ export default function Dashboard() {
                                 setStudentForStatusChange(student);
                                 setIsChangeStatusModalOpen(true);
                               }}
-                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-100 text-rose-800 hover:bg-rose-200 dark:bg-rose-950 dark:text-rose-300 transition"
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-rose-100 text-rose-800 hover:bg-rose-200 dark:bg-rose-950 dark:text-rose-300 transition shadow-2xs cursor-pointer"
                               title={`Nghỉ học từ: ${student.status_date || ""}. Bấm để đổi trạng thái`}
                             >
                               <UserX className="w-3 h-3" />
@@ -1882,7 +1882,7 @@ export default function Dashboard() {
                                 setStudentForStatusChange(student);
                                 setIsChangeStatusModalOpen(true);
                               }}
-                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 hover:bg-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 transition"
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 hover:bg-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 transition shadow-2xs cursor-pointer"
                               title="Đang học. Bấm để bảo lưu hoặc nghỉ học"
                             >
                               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
@@ -1892,7 +1892,7 @@ export default function Dashboard() {
                         </td>
 
                         {/* Class & Assigned Teachers Note */}
-                        <td className="py-2 px-3 hidden lg:table-cell">
+                        <td className="py-2.5 px-3 hidden lg:table-cell">
                           <div className="flex flex-col items-start gap-1">
                             {student.class_name ? (
                               <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-black uppercase rounded-lg bg-emerald-50 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 shadow-2xs whitespace-nowrap">
@@ -1932,19 +1932,19 @@ export default function Dashboard() {
                         </td>
 
                         {/* Level & Subject & Surcharge */}
-                        <td className="py-2 px-2.5 hidden xl:table-cell overflow-hidden">
+                        <td className="py-2.5 px-3 hidden xl:table-cell whitespace-nowrap">
                           <div className="flex flex-col items-start gap-1">
                             {student.subject_name && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-black uppercase rounded-md bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 max-w-full">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-black uppercase rounded-md bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 whitespace-nowrap">
                                 <BookOpen className="w-2.5 h-2.5 shrink-0" />
-                                <span className="truncate">{student.subject_name}</span>
+                                <span>{student.subject_name}</span>
                               </span>
                             )}
-                            <span className="inline-block px-2 py-0.5 text-xs font-bold rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                            <span className="inline-block px-2 py-0.5 text-xs font-bold rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 whitespace-nowrap">
                               {student.level_name}
                             </span>
                             {student.level_surcharge && student.level_surcharge > 0 ? (
-                              <span className="block text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">
+                              <span className="block text-[10px] text-emerald-600 dark:text-emerald-400 font-bold whitespace-nowrap">
                                 +{formatVND(student.level_surcharge)}
                               </span>
                             ) : null}
@@ -1952,7 +1952,7 @@ export default function Dashboard() {
                         </td>
 
                         {/* Package & Weekly Schedule */}
-                        <td className="py-2 px-3">
+                        <td className="py-2.5 px-3">
                           <div className="flex items-center gap-1.5 flex-wrap">
                             {/* Package badge */}
                             {student.tuition_package_name ? (
@@ -1981,26 +1981,26 @@ export default function Dashboard() {
                             </span>
                           </div>
 
-                          <div className="text-[10px] text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-0.5 font-medium">
+                          <div className="text-[10px] text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-0.5 font-medium whitespace-nowrap">
                             <Clock className="w-3 h-3 text-indigo-500 shrink-0" />
-                            <span className="truncate max-w-full font-mono" title={student.study_time_detail}>
+                            <span className="font-mono" title={student.study_time_detail}>
                               {student.study_time_detail || t.flexible_hours_slot}
                             </span>
                           </div>
                         </td>
 
                         {/* Discount */}
-                        <td className="py-2 px-2.5 text-center hidden xl:table-cell">
+                        <td className="py-2.5 px-3 text-center hidden xl:table-cell whitespace-nowrap">
                           {student.is_discount_enabled && student.discount_percent > 0 ? (
                             <div className="flex flex-col items-center">
                               <span
-                                className="inline-block px-2 py-0.5 text-[11px] font-black rounded bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60"
+                                className="inline-block px-2 py-0.5 text-[11px] font-black rounded bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60 whitespace-nowrap"
                                 title={student.discount_reason ? `Lý do giảm: ${student.discount_reason}` : undefined}
                               >
                                 -{student.discount_percent}%
                               </span>
                               {student.discount_reason && (
-                                <span className="text-[9.5px] text-slate-500 dark:text-slate-400 font-medium max-w-[130px] truncate block mt-0.5" title={student.discount_reason}>
+                                <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium whitespace-nowrap block mt-0.5" title={student.discount_reason}>
                                   {student.discount_reason}
                                 </span>
                               )}
@@ -2011,7 +2011,7 @@ export default function Dashboard() {
                         </td>
 
                         {/* Monthly Tuition */}
-                        <td className="py-2 px-3 overflow-hidden">
+                        <td className="py-2.5 px-3">
                           {!hasPerm("tuition.view") ? (
                             <span className="text-sm font-black text-slate-400 dark:text-slate-500 font-mono tracking-widest select-none" title="Bạn không có quyền xem thông tin học phí">
                               ••••••
@@ -2024,7 +2024,7 @@ export default function Dashboard() {
                                 setStudentForDetail(student);
                                 setIsDetailModalOpen(true);
                               }}
-                              className={`text-sm font-black text-left hover:underline cursor-pointer flex items-center gap-1 ${
+                              className={`text-sm font-black text-left hover:underline cursor-pointer flex items-center gap-1 whitespace-nowrap ${
                                 student.is_overdue
                                   ? "text-rose-600 dark:text-rose-400"
                                   : isCustom
@@ -2043,7 +2043,7 @@ export default function Dashboard() {
                                   setStudentForDetail(student);
                                   setIsDetailModalOpen(true);
                                 }}
-                                className="text-[10px] text-slate-500 dark:text-slate-400 font-mono truncate max-w-full hover:text-indigo-600 dark:hover:text-indigo-400 cursor-pointer block mt-0.5"
+                                className="text-[10px] text-slate-500 dark:text-slate-400 font-mono whitespace-nowrap hover:text-indigo-600 dark:hover:text-indigo-400 cursor-pointer block mt-0.5"
                                 title={`Công thức tính: ${student.tuition_formula_text}. Bấm để xem chi tiết`}
                               >
                                 {student.level_surcharge && student.level_surcharge > 0 ? (
@@ -2064,23 +2064,23 @@ export default function Dashboard() {
 
                             {/* CỘNG DỒN NỢ CŨ VÀ ĐÁNH DẤU NỢ QUÁ 1 THÁNG */}
                             {student.is_overdue && student.previous_debt_amount ? (
-                              <div className="mt-1 flex flex-col items-start gap-0.5 min-w-0">
-                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-black bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border border-rose-300 dark:border-rose-800 animate-pulse max-w-full" title={t.past_debt_label.replace("{months}", String(student.unpaid_months_count)).replace("{amount}", formatVND(student.previous_debt_amount))}>
+                              <div className="mt-1 flex flex-col items-start gap-0.5 min-w-0 whitespace-nowrap">
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-black bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border border-rose-300 dark:border-rose-800 animate-pulse" title={t.past_debt_label.replace("{months}", String(student.unpaid_months_count)).replace("{amount}", formatVND(student.previous_debt_amount))}>
                                   <AlertTriangle className="w-3 h-3 text-rose-600 shrink-0" />
-                                  <span className="truncate">{t.past_debt_label.replace("{months}", String(student.unpaid_months_count)).replace("{amount}", formatVND(student.previous_debt_amount))}</span>
+                                  <span>{t.past_debt_label.replace("{months}", String(student.unpaid_months_count)).replace("{amount}", formatVND(student.previous_debt_amount))}</span>
                                 </span>
-                                <span className="text-[10px] font-black text-rose-600 dark:text-rose-400 truncate max-w-full" title={`${t.total_due}: ${formatVND(student.total_tuition_due)}`}>
+                                <span className="text-[10px] font-black text-rose-600 dark:text-rose-400" title={`${t.total_due}: ${formatVND(student.total_tuition_due)}`}>
                                   {t.total_due}: {formatVND(student.total_tuition_due)}
                                 </span>
                               </div>
                             ) : isCustom ? (
-                              <div className="mt-0.5 flex flex-col items-start gap-0.5">
+                              <div className="mt-0.5 flex flex-col items-start gap-0.5 whitespace-nowrap">
                                 <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300">
                                   <Sparkles className="w-2.5 h-2.5" />
                                   {t.custom_override}
                                 </span>
                                 {student.monthly_override?.note && (
-                                  <span className="text-[10px] text-slate-500 italic truncate max-w-full" title={student.monthly_override.note}>
+                                  <span className="text-[10px] text-slate-500 italic truncate max-w-[160px]" title={student.monthly_override.note}>
                                     &ldquo;{student.monthly_override.note}&rdquo;
                                   </span>
                                 )}
@@ -2093,8 +2093,8 @@ export default function Dashboard() {
                         </td>
 
                         {/* Đối Soát Phí: Bấm để mở bảng Đối soát nhanh (Chọn Đã đóng / Chưa đóng & Tick chọn từng tháng) */}
-                        <td className="py-2 px-3 text-center hidden md:table-cell overflow-hidden">
-                          <div className="inline-flex flex-col items-center gap-1 max-w-full">
+                        <td className="py-2.5 px-3 text-center hidden md:table-cell whitespace-nowrap">
+                          <div className="inline-flex flex-col items-center gap-1">
                             <button
                               type="button"
                               onClick={() => {
@@ -2105,7 +2105,7 @@ export default function Dashboard() {
                                 setStudentForQuickAudit(student);
                                 setIsQuickAuditModalOpen(true);
                               }}
-                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-extrabold border transition shadow-2xs hover:scale-105 active:scale-95 cursor-pointer ${
+                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-extrabold border transition shadow-2xs hover:scale-105 active:scale-95 cursor-pointer whitespace-nowrap ${
                                 student.payment_status === "paid"
                                   ? "bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800"
                                   : student.is_overdue
@@ -2131,7 +2131,7 @@ export default function Dashboard() {
                               )}
                             </button>
                             {student.payment_period_desc && (
-                              <span className="text-[9px] text-slate-400 font-mono truncate max-w-full" title={student.payment_period_desc}>
+                              <span className="text-[9px] text-slate-400 font-mono whitespace-nowrap" title={student.payment_period_desc}>
                                 {student.payment_period_desc}
                               </span>
                             )}
