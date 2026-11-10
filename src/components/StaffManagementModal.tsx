@@ -95,7 +95,6 @@ export const StaffManagementModal: React.FC<StaffManagementModalProps> = ({
   const [teacherEmail, setTeacherEmail] = useState("");
   const [teacherSpecialty, setTeacherSpecialty] = useState("Piano");
   const [teacherColor, setTeacherColor] = useState("indigo");
-  const [teacherMaxStudents, setTeacherMaxStudents] = useState<number>(10);
   const [isSavingTeacher, setIsSavingTeacher] = useState(false);
   const [teacherToDelete, setTeacherToDelete] = useState<Teacher | null>(null);
   const [isDeletingTeacher, setIsDeletingTeacher] = useState(false);
@@ -175,7 +174,6 @@ export const StaffManagementModal: React.FC<StaffManagementModalProps> = ({
     setTeacherEmail("");
     setTeacherSpecialty("Piano");
     setTeacherColor("indigo");
-    setTeacherMaxStudents(10);
     setIsTeacherFormOpen(false);
   };
 
@@ -186,7 +184,6 @@ export const StaffManagementModal: React.FC<StaffManagementModalProps> = ({
     setTeacherEmail(tc.email || "");
     setTeacherSpecialty(tc.specialty || "Piano");
     setTeacherColor(tc.color || "indigo");
-    setTeacherMaxStudents(tc.max_students || 10);
     setIsTeacherFormOpen(true);
   };
 
@@ -217,7 +214,7 @@ export const StaffManagementModal: React.FC<StaffManagementModalProps> = ({
           email: teacherEmail.trim(),
           specialty: teacherSpecialty.trim(),
           color: teacherColor,
-          max_students: Number(teacherMaxStudents) || 10,
+          max_students: 10,
           is_active: 1,
         }),
       });
@@ -758,7 +755,7 @@ Thầy/Cô vui lòng truy cập để theo dõi ca dạy nhé!`;
                       </div>
                     </div>
 
-                    <div>
+                    <div className="sm:col-span-1 lg:col-span-2">
                       <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                         Email liên hệ (Tùy chọn)
                       </label>
@@ -788,20 +785,6 @@ Thầy/Cô vui lòng truy cập để theo dõi ca dạy nhé!`;
                           />
                         ))}
                       </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                        Sĩ số tối đa mặc định (học sinh/ca)
-                      </label>
-                      <input
-                        type="number"
-                        min="1"
-                        max="50"
-                        value={teacherMaxStudents}
-                        onChange={(e) => setTeacherMaxStudents(Number(e.target.value) || 10)}
-                        className="w-full px-3.5 py-2 text-xs sm:text-sm rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none"
-                      />
                     </div>
                   </div>
 

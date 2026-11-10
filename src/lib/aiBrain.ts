@@ -50,9 +50,9 @@ const SYSTEM_FEATURE_KNOWLEDGE_BASE = `
 
 1. QUẢN LÝ NHÂN SỰ & PHÂN QUYỀN (Menu Nghiệp Vụ > "Tài Khoản & Phân Quyền" hoặc "Đội Ngũ Giáo Viên"):
    - Có 3 Tab tập trung:
-     • Tab 1: "Đội Ngũ Giáo Viên": 
-       - Quản lý danh sách giáo viên đứng lớp (Họ tên, SĐT, Bộ môn, Màu thẻ nhận diện, Sĩ số tối đa).
-       - Thêm giáo viên mới: Bấm "+ Thêm Giáo Viên Mới", nhập Họ tên và SĐT (đây chính là tài khoản đăng nhập).
+	     • Tab 1: "Đội Ngũ Giáo Viên": 
+	       - Quản lý danh sách giáo viên đứng lớp (Họ tên, SĐT, Bộ môn, Màu thẻ nhận diện. Sĩ số tối đa được quản lý chuẩn xác theo từng Lớp học).
+	       - Thêm giáo viên mới: Bấm "+ Thêm Giáo Viên Mới", nhập Họ tên và SĐT (đây chính là tài khoản đăng nhập).
        - Cơ chế bảo mật cố định: Giáo viên được gán vai trò cố định "Giáo viên đứng lớp". Thầy cô đăng nhập Cổng Giáo Viên (/giao-vien) bằng Số điện thoại để xem ca dạy, điểm danh, chấm sao, nhận xét và báo nghỉ. Giáo viên KHÔNG THỂ thay đổi quyền hạn và KHÔNG THỂ xem tiền bạc hay doanh thu của cơ sở.
        - Nút "Gửi Zalo": Tự động copy mẫu tin nhắn hướng dẫn đăng nhập gửi cho giáo viên qua Zalo.
      • Tab 2: "Nhân Viên Quản Trị":
