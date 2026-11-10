@@ -35,9 +35,9 @@ interface DailyAttendanceModalProps {
 export const DailyAttendanceModal: React.FC<DailyAttendanceModalProps> = ({
   isOpen,
   onClose,
-  classes,
-  teachers,
-  students,
+  classes = [],
+  teachers = [],
+  students = [],
   schoolId,
   onRefresh,
 }) => {
@@ -61,15 +61,18 @@ export const DailyAttendanceModal: React.FC<DailyAttendanceModalProps> = ({
   >({});
   const [isSaving, setIsSaving] = useState(false);
   const [savedSuccessShiftId, setSavedSuccessShiftId] = useState<string | null>(null);
+  const [loadingAiKey, setLoadingAiKey] = useState<string | null>(null);
 
-  // Initialize date on mount
+  // Initialize date on mount or when opening modal
   useEffect(() => {
     if (typeof window !== "undefined") {
       const today = new Date().toISOString().slice(0, 10);
       setTodayDateStr(today);
-      setSelectedDate(today);
+      if (!selectedDate) {
+        setSelectedDate(today);
+      }
     }
-  }, []);
+  }, [isOpen]);
 
   // Load attendance data from backend when date changes
   const loadAttendance = async (dateStr: string) => {
@@ -140,8 +143,6 @@ export const DailyAttendanceModal: React.FC<DailyAttendanceModalProps> = ({
     });
   };
 
-  const [loadingAiKey, setLoadingAiKey] = useState<string | null>(null);
-
   const handleAiSuggest = async (recordKey: string, studentName: string, subjectName?: string) => {
     const current = attendanceMap[recordKey] || {
       status: "attended",
@@ -185,12 +186,15 @@ export const DailyAttendanceModal: React.FC<DailyAttendanceModalProps> = ({
   };
 
   // Lọc ra các ca học mở trong ngày hôm nay theo các lớp
-  const shiftsToday = classes
-    .filter((cls) => selectedClassFilter === "all" || cls.id === selectedClassFilter)
+  const shiftsToday = (classes || [])
+    .filter((cls) => cls && (selectedClassFilter === "all" || cls.id === selectedClassFilter))
     .flatMap((cls) => {
       let schList: Array<{ day: string; start_time: string; end_time: string }> = [];
       try {
-        if (cls.schedule_json) schList = JSON.parse(String(cls.schedule_json));
+        if (cls.schedule_json) {
+          const parsed = JSON.parse(String(cls.schedule_json));
+          if (Array.isArray(parsed)) schList = parsed;
+        }
       } catch {}
 
       let assList: Array<{ teacher_id: string; day?: string; start_time: string; end_time: string; role?: string }> = [];
@@ -203,40 +207,53 @@ export const DailyAttendanceModal: React.FC<DailyAttendanceModalProps> = ({
 
       // Lọc các ca trong ngày hôm nay
       const matchingSchedules = schList.filter(
-        (sc) => !sc.day || sc.day === "Tất cả các ngày" || sc.day === dayName
+        (sc) => sc && (!sc.day || sc.day === "Tất cả các ngày" || sc.day === dayName || (typeof sc.day === "string" && sc.day.includes(dayName)))
       );
 
       return matchingSchedules.map((sc) => {
         // Tìm giáo viên phụ trách ca này
         const matchedAss = assList.find(
           (a) =>
-            (!a.day || a.day === "Tất cả các ngày" || a.day.includes(dayName)) &&
+            a &&
+            (!a.day || a.day === "Tất cả các ngày" || (typeof a.day === "string" && a.day.includes(dayName))) &&
             isTimeOverlap(sc.start_time, sc.end_time, a.start_time, a.end_time)
         );
         let teacherName = cls.teacher_name || "Chưa phân công";
         let teacherId = cls.teacher_id;
         if (matchedAss && matchedAss.teacher_id) {
-          const tc = teachers.find((t) => t.id === matchedAss.teacher_id);
+          const tc = (teachers || []).find((t) => t && t.id === matchedAss.teacher_id);
           if (tc) {
             teacherName = tc.name;
             teacherId = tc.id;
           }
+        } else if (cls.teacher_id) {
+          const tc = (teachers || []).find((t) => t && t.id === cls.teacher_id);
+          if (tc) teacherName = tc.name;
         }
 
         // Lọc học sinh trong lớp học vào ngày này
-        const classStudents = students.filter((st) => {
+        const classStudents = (students || []).filter((st) => {
+          if (!st) return false;
           if (st.class_id !== cls.id && (!cls.teacher_id || st.teacher_id !== cls.teacher_id)) return false;
           if (st.status === "dropped") return false;
 
+          let hasCustomSchedule = false;
           // Kiểm tra ngày học
           if (st.schedule_details_json) {
             try {
               const items = JSON.parse(String(st.schedule_details_json));
-              if (Array.isArray(items) && items.some((it: any) => it.day === dayName)) return true;
+              if (Array.isArray(items) && items.length > 0) {
+                hasCustomSchedule = true;
+                if (items.some((it: any) => it && it.day === dayName)) return true;
+              }
             } catch {}
           }
-          if (st.registered_days && st.registered_days.includes(dayName)) return true;
-          return false;
+          if (st.registered_days && typeof st.registered_days === "string" && st.registered_days.trim()) {
+            hasCustomSchedule = true;
+            if (st.registered_days.includes(dayName)) return true;
+          }
+          // Nếu học sinh học chung theo lịch lớp
+          return !hasCustomSchedule;
         });
 
         return {
@@ -474,12 +491,12 @@ export const DailyAttendanceModal: React.FC<DailyAttendanceModalProps> = ({
                               <div className="flex items-center justify-between gap-2 flex-wrap">
                                 <div className="flex items-center gap-2 flex-wrap">
                                   <div className="w-8 h-8 rounded-xl bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300 font-black flex items-center justify-center text-xs">
-                                    {st.name.slice(0, 1).toUpperCase()}
+                                    {(st.name || "H").slice(0, 1).toUpperCase()}
                                   </div>
                                   <div>
                                     <div className="flex items-center gap-2 flex-wrap">
                                       <strong className="text-xs sm:text-sm font-extrabold text-slate-900 dark:text-white">
-                                        {st.name}
+                                        {st.name || "Học sinh"}
                                       </strong>
                                       {st.student_code && (
                                         <code className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 border border-slate-200 dark:border-slate-700">

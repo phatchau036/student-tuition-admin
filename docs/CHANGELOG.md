@@ -8,6 +8,7 @@
 
 ### [v2.9.2] - 2026-11-10
 - **⭐ KHẮC PHỤC TRIỆT ĐỂ LỖI VỠ FORM BẢNG HỌC SINH & GIAO DIỆN QUẢN TRỊ (`Dashboard.tsx`):**
+  - **Sửa lỗi crash React khi mở "Điểm Danh & Sổ Bài Học" (`DailyAttendanceModal.tsx`):** Khắc phục lỗi vi phạm quy tắc Hooks của React (gọi `useState(loadingAiKey)` phía sau điều kiện early return `if (!isOpen) return null`), khiến component bị crash khi người dùng bấm mở modal. Đưa toàn bộ React Hooks lên đầu component và bổ sung xử lý dữ liệu an toàn (defensive checks) cho mảng lớp học, giáo viên, học sinh.
   - **Tối ưu độ rộng cột toàn diện (min-w 1240px & Hết hẳn lỗi cắt chữ `...`):** Tăng độ rộng tối thiểu toàn bảng lên `min-w-[1240px]`, loại bỏ các thuộc tính cắt chữ cụt `truncate` cứng nhắc trên cột Tên học sinh, Lớp học, Level/Môn học, Chiết khấu và Học phí. Đảm bảo hiển thị đầy đủ 100% nội dung (như tên lớp `LỚP DƯỚI (PHÒNG 1)`, lý do chiết khấu `Anh em ruột cùng học`...), các nhãn huy hiệu thẳng hàng, không bị chèn ép hoặc nhảy dòng lộn xộn trên mọi độ phân giải màn hình.
   - **Gỡ bỏ nút nổi "Hỏi Trợ Lý AI" ở góc phải dưới:** Nút floating cố định trước đó bị đè trực tiếp lên hàng học sinh cuối bảng, che mất nút Thao tác (`...`) và nút Đối soát học phí. Đã gỡ bỏ nút đè này (Trợ lý AI đã có sẵn trên thanh công cụ và Menu Nghiệp Vụ rất tiện lợi).
   - **Sửa lỗi hiển thị nợ gây hiểu nhầm "Nợ 2m":** Khắc phục lỗi hiển thị nhãn nợ quá hạn ghi `Nợ 2m` (khiến người dùng đọc nhầm thành *Nợ 2 triệu* trong khi học phí thực tế chỉ 950.000đ). Đã sửa thành hiển thị rõ ràng tiếng Việt: `Nợ 2 tháng` (`Nợ {count} tháng`).
