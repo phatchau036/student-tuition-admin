@@ -6,6 +6,20 @@
 
 ## 1. LỊCH SỬ PHIÊN BẢN (CHANGELOG)
 
+### [v2.9.2] - 2026-11-10
+- **⭐ KHẮC PHỤC TRIỆT ĐỂ LỖI VỠ FORM BẢNG HỌC SINH & GIAO DIỆN QUẢN TRỊ (`Dashboard.tsx`):**
+  - **Gỡ bỏ nút nổi "Hỏi Trợ Lý AI" ở góc phải dưới:** Nút floating cố định trước đó bị đè trực tiếp lên hàng học sinh cuối bảng, che mất nút Thao tác (`...`) và nút Đối soát học phí. Đã gỡ bỏ nút đè này (Trợ lý AI đã có sẵn trên thanh công cụ và Menu Nghiệp Vụ rất tiện lợi).
+  - **Sửa lỗi hiển thị nợ gây hiểu nhầm "Nợ 2m":** Khắc phục lỗi hiển thị nhãn nợ quá hạn ghi `Nợ 2m` (khiến người dùng đọc nhầm thành *Nợ 2 triệu* trong khi học phí thực tế chỉ 950.000đ). Đã sửa thành hiển thị rõ ràng tiếng Việt: `Nợ 2 tháng` (`Nợ {count} tháng`).
+  - **Tối ưu độ rộng cột bảng học sinh (Hết lỗi cắt chữ `...`):** Loại bỏ `table-fixed` gây bó hẹp cứng nhắc, chuyển sang độ rộng linh hoạt `min-w-[1080px]` giúp hiển thị đầy đủ tên lớp `LỚP DƯỚI (PHÒNG 1)` thay vì bị cắt thành `LỚP DƯỚI (PH...`, và lý do chiết khấu `Anh em ruột cùng học` hiển thị tự nhiên.
+  - **Xóa khoảng trắng thừa khổng lồ cuối bảng:** Thay thế `pb-32` (128px khoảng trắng thừa) bằng `pb-6` gọn gàng, vừa mắt.
+- **⭐ HỢP NHẤT QUẢN LÝ GIÁO VIÊN VÀO "TÀI KHOẢN & PHÂN QUYỀN" & BẢO MẬT VAI TRÒ CỐ ĐỊNH:**
+  - **Hợp nhất nhân sự 3 Tab trong `StaffManagementModal.tsx`:** Gom toàn bộ việc quản lý nhân sự cơ sở về một nơi duy nhất: Tab 1 *Đội Ngũ Giáo Viên (Cổng /giao-vien)*, Tab 2 *Nhân Viên Quản Trị (/admin)*, Tab 3 *Nhóm Quyền & Vai Trò (RBAC)*. Người dùng bấm vào "Tài Khoản & Phân Quyền" hay "Đội Ngũ Giáo Viên" trong Menu Nghiệp Vụ đều mở liền mạch đúng tab.
+  - **Vai trò cố định an toàn cho Giáo viên đứng lớp:** Tự động gán và khóa cố định vai trò *Giáo Viên Đứng Lớp (Cố Định)* cho các tài khoản giáo viên. Quyền hạn chỉ giới hạn tại Cổng Giáo Viên (/giao-vien) trên điện thoại (xem lịch dạy, điểm danh, chấm sao, nhận xét và xin nghỉ). Bảo vệ tuyệt đối, giáo viên không thể xem tiền bạc hay doanh thu của cơ sở và không thể bị sửa/xóa nhầm vai trò này.
+  - **Rà soát & nạp tri thức toàn diện 100% vào Bộ Não AI (`aiBrain.ts`):** 
+    - Nạp toàn bộ cẩm nang chi tiết về mọi tính năng cơ sở cho Admin (học sinh, chuyển trạng thái bảo lưu/nghỉ học, điểm danh hai chiều, giờ bù, duyệt giáo viên xin nghỉ, hàng đợi nhắc nợ Zalo, đối soát SePay, xuất biên lai...).
+    - Hướng dẫn chuẩn xác 100% khi được hỏi: *"Làm sao add acc giáo viên?"* (chỉ dẫn vào Tài Khoản & Phân Quyền > tab Đội Ngũ Giáo Viên > thêm Tên + SĐT để đăng nhập /giao-vien).
+    - Tách biệt ranh giới phân quyền rõ ràng: Trợ lý AI chỉ giải đáp các nghiệp vụ thuộc cấp cơ sở của Admin/Quản lý, tuyệt đối không nhắc đến cấp kỹ thuật/quản trị hệ thống (`/he-thong`).
+
 ### [v2.9.1] - 2026-11-09
 - **⭐ HỆ THỐNG TRỢ LÝ AI ĐA KÊNH CHO ADMIN (CHAT TRỰC TIẾP QUA ZALO BOT & TRÊN WEB DASHBOARD) & HỖ TRỢ GIÁO VIÊN:**
   - **Admin chat trực tiếp với Zalo Bot trên điện thoại (`/api/zalo-bot/webhook` & `aiBrain.ts`):** Admin mở Zalo nhắn hỏi Bot: *"Doanh thu tháng này là bao nhiêu?", "Còn ai chưa đóng tiền?"...* ➔ AI tự động đọc dữ liệu vận hành thời gian thực của cơ sở và trả lời ngay trên Zalo của Admin.

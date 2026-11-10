@@ -38,6 +38,7 @@ export interface AdminRole {
   permissions_json: string;
   permissions?: string[];
   staff_count?: number;
+  is_system?: number; // 1: Vai trò hệ thống cố định (không thể sửa/xóa)
   created_at?: string;
 }
 

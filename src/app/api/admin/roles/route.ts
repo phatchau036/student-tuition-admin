@@ -41,11 +41,34 @@ export async function GET(req: Request) {
         permissions_json: String(row.permissions_json || "[]"),
         permissions,
         staff_count: Number(row.staff_count || 0),
+        is_system: 0,
         created_at: String(row.created_at || ""),
       };
     });
 
-    return NextResponse.json({ success: true, data: roles });
+    // Đếm số lượng giáo viên trong bảng teachers để hiển thị trong vai trò hệ thống
+    const teacherCountRes = await db.execute({
+      sql: "SELECT COUNT(*) as count FROM teachers WHERE school_id = ? OR school_id = 'school-default' OR ? = 'school-default'",
+      args: [schoolId, schoolId],
+    });
+    const teacherCount = Number(teacherCountRes.rows[0]?.count || 0);
+
+    // Ghim vai trò cố định Giáo Viên Đứng Lớp lên đầu danh sách (khóa cố định quyền hạn)
+    const systemTeacherRole = {
+      id: "role-system-teacher",
+      school_id: schoolId,
+      name: "Giáo Viên Đứng Lớp (Cố Định)",
+      description: "Vai trò mặc định cố định cho Đội ngũ Giáo viên — Quyền hạn giới hạn tại Cổng Giáo Viên (/giao-vien) để xem lịch dạy, điểm danh, chấm sao, nhận xét và báo nghỉ. Khóa cố định để bảo vệ an toàn dữ liệu cơ sở.",
+      permissions_json: JSON.stringify(["attendance.manage"]),
+      permissions: ["attendance.manage"],
+      staff_count: teacherCount,
+      is_system: 1,
+      created_at: "2026-01-01 00:00:00",
+    };
+
+    const finalRoles = [systemTeacherRole, ...roles.filter((r) => r.id !== "role-system-teacher")];
+
+    return NextResponse.json({ success: true, data: finalRoles });
   } catch (error: unknown) {
     console.error("Roles GET Error:", error);
     return NextResponse.json(
@@ -78,6 +101,13 @@ export async function POST(req: Request) {
 
     // Cập nhật vai trò cũ
     if (id) {
+      if (id === "role-system-teacher" || id.startsWith("role-system-")) {
+        return NextResponse.json(
+          { success: false, message: "Không thể chỉnh sửa vai trò hệ thống mặc định!" },
+          { status: 403 }
+        );
+      }
+
       await db.execute({
         sql: `UPDATE admin_roles 
               SET name = ?, description = ?, permissions_json = ? 
@@ -124,6 +154,13 @@ export async function DELETE(req: Request) {
 
     if (!id) {
       return NextResponse.json({ success: false, message: "Thiếu ID nhóm quyền cần xóa!" }, { status: 400 });
+    }
+
+    if (id === "role-system-teacher" || id.startsWith("role-system-")) {
+      return NextResponse.json(
+        { success: false, message: "Không thể xóa vai trò hệ thống mặc định!" },
+        { status: 403 }
+      );
     }
 
     // Kiểm tra xem có nhân viên nào đang thuộc vai trò này không
