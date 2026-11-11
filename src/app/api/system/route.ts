@@ -9,14 +9,13 @@ export async function GET(req: Request) {
 
     const schoolsRes = await db.execute(`
       SELECT s.*, 
-             COUNT(DISTINCT a.id) as admin_count,
-             COUNT(DISTINCT st.id) as student_count,
-             COUNT(DISTINCT tc.id) as teacher_count
+             (SELECT COUNT(*) FROM school_admins a WHERE a.school_id = s.id) as admin_count,
+             (SELECT COUNT(*) FROM students st WHERE st.school_id = s.id OR (s.id = 'school-default' AND (st.school_id IS NULL OR st.school_id = '' OR st.school_id = 'school-default'))) as student_count,
+             (SELECT COUNT(*) FROM students st WHERE (st.school_id = s.id OR (s.id = 'school-default' AND (st.school_id IS NULL OR st.school_id = '' OR st.school_id = 'school-default'))) AND (st.status = 'studying' OR st.status IS NULL OR st.status = '')) as active_student_count,
+             (SELECT COUNT(*) FROM students st WHERE (st.school_id = s.id OR (s.id = 'school-default' AND (st.school_id IS NULL OR st.school_id = '' OR st.school_id = 'school-default'))) AND st.status = 'reserved') as reserved_student_count,
+             (SELECT COUNT(*) FROM students st WHERE (st.school_id = s.id OR (s.id = 'school-default' AND (st.school_id IS NULL OR st.school_id = '' OR st.school_id = 'school-default'))) AND st.status = 'dropped') as dropped_student_count,
+             (SELECT COUNT(*) FROM teachers tc WHERE tc.school_id = s.id OR (s.id = 'school-default' AND (tc.school_id IS NULL OR tc.school_id = '' OR tc.school_id = 'school-default'))) as teacher_count
       FROM schools s
-      LEFT JOIN school_admins a ON a.school_id = s.id
-      LEFT JOIN students st ON st.school_id = s.id
-      LEFT JOIN teachers tc ON tc.school_id = s.id
-      GROUP BY s.id
       ORDER BY s.created_at DESC
     `);
 

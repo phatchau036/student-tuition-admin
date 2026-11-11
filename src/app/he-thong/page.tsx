@@ -62,6 +62,9 @@ interface School {
   created_at: string;
   admin_count: number;
   student_count: number;
+  active_student_count?: number;
+  reserved_student_count?: number;
+  dropped_student_count?: number;
   teacher_count: number;
 }
 
@@ -172,7 +175,70 @@ export default function SystemAdminPage() {
   } | null>(null);
 
   // Navigation Tab State for System Admin Page
-  const [activeSystemTab, setActiveSystemTab] = useState<"schools" | "feedbacks" | "maintenance" | "ai">("schools");
+  const [activeSystemTab, setActiveSystemTab] = useState<"schools" | "feedbacks" | "maintenance" | "ai" | "account">("schools");
+
+  // State đổi tài khoản & mật khẩu hệ thống
+  const [changeSystemCurrentPass, setChangeSystemCurrentPass] = useState("");
+  const [changeSystemNewUsername, setChangeSystemNewUsername] = useState("");
+  const [changeSystemNewPass, setChangeSystemNewPass] = useState("");
+  const [changeSystemConfirmPass, setChangeSystemConfirmPass] = useState("");
+  const [isChangingSystemCreds, setIsChangingSystemCreds] = useState(false);
+
+  useEffect(() => {
+    if (authUsername && !changeSystemNewUsername) {
+      setChangeSystemNewUsername(authUsername);
+    }
+  }, [authUsername]);
+
+  const handleChangeSystemCredentials = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!changeSystemCurrentPass || !changeSystemNewUsername || !changeSystemNewPass || !changeSystemConfirmPass) {
+      showToast("Vui lòng điền đầy đủ thông tin!", "error");
+      return;
+    }
+    if (changeSystemNewPass !== changeSystemConfirmPass) {
+      showToast("Mật khẩu mới và xác nhận mật khẩu không trùng khớp!", "error");
+      return;
+    }
+    if (changeSystemNewPass.length < 6) {
+      showToast("Mật khẩu mới phải có ít nhất 6 ký tự!", "error");
+      return;
+    }
+
+    try {
+      setIsChangingSystemCreds(true);
+      const res = await fetch("/api/system/auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "change_credentials",
+          current_password: changeSystemCurrentPass.trim(),
+          new_username: changeSystemNewUsername.trim(),
+          new_password: changeSystemNewPass.trim(),
+          confirm_password: changeSystemConfirmPass.trim(),
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        showToast(data.message || "Đã cập nhật thông tin thành công!", "success");
+        if (data.token) {
+          localStorage.setItem("system_token", data.token);
+        }
+        setAuthUsername(changeSystemNewUsername.trim());
+        setChangeSystemCurrentPass("");
+        setChangeSystemNewPass("");
+        setChangeSystemConfirmPass("");
+        setActiveSystemTab("schools");
+      } else {
+        showToast(data.message || "Không thể đổi thông tin đăng nhập!", "error");
+      }
+    } catch {
+      showToast("Lỗi kết nối máy chủ!", "error");
+    } finally {
+      setIsChangingSystemCreds(false);
+    }
+  };
 
   // AI Configuration State (/he-thong)
   const [aiBaseUrl, setAiBaseUrl] = useState("");
@@ -218,6 +284,9 @@ export default function SystemAdminPage() {
       const json = await res.json();
       if (json.authenticated) {
         setIsAuthenticated(true);
+        if (json.user?.username) {
+          setAuthUsername(json.user.username);
+        }
         loadData();
       } else {
         setIsAuthenticated(false);
@@ -1174,9 +1243,14 @@ export default function SystemAdminPage() {
           <div className="p-5 rounded-2xl bg-slate-800/60 border border-slate-700/60 flex items-center justify-between">
             <div>
               <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Học sinh toàn hệ thống</p>
-              <h3 className="text-3xl font-extrabold text-emerald-400 mt-1">
-                {schools.reduce((acc, s) => acc + (s.student_count || 0), 0)}
-              </h3>
+              <div className="flex items-baseline gap-2 mt-1">
+                <h3 className="text-3xl font-extrabold text-emerald-400">
+                  {schools.reduce((acc, s) => acc + (s.active_student_count ?? s.student_count ?? 0), 0)}
+                </h3>
+                <span className="text-xs text-slate-400 font-bold">
+                  đang học (Tổng {schools.reduce((acc, s) => acc + (s.student_count || 0), 0)})
+                </span>
+              </div>
             </div>
             <div className="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
               <Users className="w-6 h-6" />
@@ -1241,6 +1315,19 @@ export default function SystemAdminPage() {
           >
             <Sparkles className="w-4 h-4 text-amber-400" />
             <span>Cấu Hình AI Trợ Lý</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveSystemTab("account")}
+            className={`flex-1 py-2.5 px-3 rounded-xl transition flex items-center justify-center gap-2 ${
+              activeSystemTab === "account"
+                ? "bg-purple-600 text-white shadow-sm shadow-purple-600/30"
+                : "text-slate-400 hover:text-white hover:bg-slate-700/50"
+            }`}
+          >
+            <KeyRound className="w-4 h-4 text-emerald-400" />
+            <span>Đổi Tài Khoản / Mật Khẩu Hệ Thống</span>
           </button>
         </div>
 
@@ -1347,9 +1434,21 @@ export default function SystemAdminPage() {
                           <span className="text-slate-400 block text-[10px] uppercase font-bold">Admin</span>
                           <span className="font-extrabold text-purple-400 text-sm">{school.admin_count}</span>
                         </div>
-                        <div className="bg-slate-900/40 p-2 rounded-xl">
+                        <div className="bg-slate-900/40 p-2 rounded-xl" title={`Tổng hồ sơ: ${school.student_count} (Đang học: ${school.active_student_count ?? school.student_count}, Bảo lưu: ${school.reserved_student_count || 0}, Đã nghỉ: ${school.dropped_student_count || 0})`}>
                           <span className="text-slate-400 block text-[10px] uppercase font-bold">Học sinh</span>
-                          <span className="font-extrabold text-emerald-400 text-sm">{school.student_count}</span>
+                          <div className="flex items-baseline justify-center gap-1">
+                            <span className="font-extrabold text-emerald-400 text-sm">
+                              {school.active_student_count ?? school.student_count}
+                            </span>
+                            {school.student_count > (school.active_student_count ?? school.student_count) && (
+                              <span className="text-[10px] text-slate-400">
+                                /{school.student_count}
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-[9.5px] text-emerald-400/80 block mt-0.5">
+                            đang học
+                          </span>
                         </div>
                         <div className="bg-slate-900/40 p-2 rounded-xl">
                           <span className="text-slate-400 block text-[10px] uppercase font-bold">Giáo viên</span>
@@ -2045,6 +2144,127 @@ export default function SystemAdminPage() {
                   >
                     <Check className="w-4 h-4" />
                     <span>{isSavingAi ? "Đang Lưu..." : "Lưu Cấu Hình AI"}</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 5: ĐỔI TÀI KHOẢN & MẬT KHẨU HỆ THỐNG */}
+        {activeSystemTab === "account" && (
+          <div className="space-y-6 animate-in fade-in duration-150">
+            <div className="p-6 rounded-3xl bg-slate-800/80 border border-slate-700/80 shadow-xl space-y-6 max-w-2xl mx-auto">
+              <div className="flex items-center gap-3 pb-4 border-b border-slate-700/60">
+                <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+                  <KeyRound className="w-6 h-6" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                    <span>Đổi Tài Khoản & Mật Khẩu Chủ Hệ Thống</span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                      Super Admin
+                    </span>
+                  </h2>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Thay đổi thông tin đăng nhập quản trị cao nhất của trang /he-thong. Mật khẩu được mã hóa và lưu trữ an toàn.
+                  </p>
+                </div>
+              </div>
+
+              <form onSubmit={handleChangeSystemCredentials} className="space-y-4">
+                {/* Thông tin tài khoản hiện tại */}
+                <div className="p-3.5 rounded-2xl bg-slate-900/60 border border-slate-700/50 flex items-center justify-between text-xs">
+                  <span className="text-slate-400">Tài khoản hệ thống đang đăng nhập:</span>
+                  <span className="font-mono font-bold text-purple-300 px-2.5 py-1 rounded-lg bg-purple-950/60 border border-purple-800/50">
+                    {authUsername || "hethong"}
+                  </span>
+                </div>
+
+                {/* Tên đăng nhập mới */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Tên đăng nhập hệ thống mới
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={changeSystemNewUsername}
+                    onChange={(e) => setChangeSystemNewUsername(e.target.value)}
+                    placeholder={`Giữ nguyên (${authUsername || "hethong"}) hoặc nhập tên mới`}
+                    className="w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-700 bg-slate-900 text-white placeholder:text-slate-500 focus:ring-2 focus:ring-emerald-500 outline-none"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    Bạn có thể giữ nguyên tên đăng nhập hiện tại hoặc đổi sang tên mới (tối thiểu 3 ký tự).
+                  </p>
+                </div>
+
+                {/* Mật khẩu hiện tại */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Mật khẩu hệ thống hiện tại <span className="text-rose-400">*</span>
+                  </label>
+                  <input
+                    type="password"
+                    required
+                    value={changeSystemCurrentPass}
+                    onChange={(e) => setChangeSystemCurrentPass(e.target.value)}
+                    placeholder="Nhập mật khẩu hiện tại để xác thực..."
+                    className="w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-700 bg-slate-900 text-white placeholder:text-slate-500 focus:ring-2 focus:ring-emerald-500 outline-none"
+                  />
+                </div>
+
+                {/* Mật khẩu mới & Xác nhận */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">
+                      Mật khẩu mới <span className="text-rose-400">*</span>
+                    </label>
+                    <input
+                      type="password"
+                      required
+                      value={changeSystemNewPass}
+                      onChange={(e) => setChangeSystemNewPass(e.target.value)}
+                      placeholder="Tối thiểu 6 ký tự..."
+                      className="w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-700 bg-slate-900 text-white placeholder:text-slate-500 focus:ring-2 focus:ring-emerald-500 outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">
+                      Xác nhận mật khẩu mới <span className="text-rose-400">*</span>
+                    </label>
+                    <input
+                      type="password"
+                      required
+                      value={changeSystemConfirmPass}
+                      onChange={(e) => setChangeSystemConfirmPass(e.target.value)}
+                      placeholder="Nhập lại mật khẩu mới..."
+                      className="w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-700 bg-slate-900 text-white placeholder:text-slate-500 focus:ring-2 focus:ring-emerald-500 outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-3 flex items-center justify-end gap-3 border-t border-slate-700/60">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setChangeSystemCurrentPass("");
+                      setChangeSystemNewPass("");
+                      setChangeSystemConfirmPass("");
+                      setChangeSystemNewUsername(authUsername || "hethong");
+                      setActiveSystemTab("schools");
+                    }}
+                    className="px-4 py-2.5 text-xs font-bold rounded-xl border border-slate-700 text-slate-400 hover:text-white hover:bg-slate-700/50 transition cursor-pointer"
+                  >
+                    Hủy bỏ
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isChangingSystemCreds}
+                    className="flex items-center gap-2 px-6 py-2.5 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white transition shadow-md shadow-emerald-600/30 disabled:opacity-50 cursor-pointer"
+                  >
+                    <Check className="w-4 h-4" />
+                    <span>{isChangingSystemCreds ? "Đang Cập Nhật..." : "Lưu Thông Tin Đăng Nhập Mới"}</span>
                   </button>
                 </div>
               </form>
