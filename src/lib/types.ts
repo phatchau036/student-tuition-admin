@@ -214,6 +214,7 @@ export interface Teacher {
   school_id?: string;
   name: string;
   phone: string;
+  password?: string; // Mật khẩu đăng nhập Cổng Giáo Viên (Mặc định: '123456')
   email?: string;
   color?: string; // Color badge
   specialty?: string; // Chuyên môn / Môn dạy

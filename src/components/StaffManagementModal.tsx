@@ -270,7 +270,8 @@ export const StaffManagementModal: React.FC<StaffManagementModalProps> = ({
     const msg = `Kính gửi Thầy/Cô ${tc.name},
 ${schoolName} xin gửi thông tin đăng nhập Cổng Giáo Viên:
 • Đường dẫn: ${origin}/giao-vien
-• Tài khoản đăng nhập (SĐT): ${tc.phone}
+• Tài khoản (SĐT): ${tc.phone}
+• Mật khẩu ban đầu: 123456 (Thầy/Cô có thể tự đổi mật khẩu sau khi đăng nhập)
 • Quyền hạn: Xem lịch ca dạy, điểm danh học viên, chấm sao, nhận xét bài học và gửi đơn xin nghỉ dạy.
 Thầy/Cô vui lòng truy cập để theo dõi ca dạy nhé!`;
 
@@ -659,7 +660,7 @@ Thầy/Cô vui lòng truy cập để theo dõi ca dạy nhé!`;
                     </h4>
                   </div>
                   <p className="text-xs text-amber-800 dark:text-amber-300/90 leading-relaxed">
-                    Giáo viên chỉ cần dùng <strong>Số điện thoại</strong> để đăng nhập trên điện thoại. Quyền hạn được <strong>khóa cố định</strong>: Chỉ xem ca dạy, điểm danh, chấm sao, nhận xét bài học và xin nghỉ. <em>Bảo vệ an toàn tuyệt đối, giáo viên không thể xem tiền học phí hay doanh thu cơ sở.</em>
+                    Giáo viên dùng <strong>Số điện thoại</strong> và <strong>Mật khẩu</strong> (mặc định: <code className="font-mono font-bold bg-amber-100 dark:bg-amber-900/60 px-1.5 py-0.2 rounded text-amber-900 dark:text-amber-200">123456</code>) để đăng nhập trên điện thoại. Giáo viên có thể tự đổi mật khẩu sau khi vào Cổng Giáo Viên. Quyền hạn được <strong>khóa cố định</strong>: Chỉ xem ca dạy, điểm danh, chấm sao, nhận xét bài học và xin nghỉ. <em>Bảo vệ an toàn tuyệt đối, giáo viên không thể xem tiền học phí hay doanh thu cơ sở.</em>
                   </p>
                 </div>
                 <button
@@ -853,7 +854,7 @@ Thầy/Cô vui lòng truy cập để theo dõi ca dạy nhé!`;
                                 <span>{tc.phone}</span>
                               </span>
                               <span className="text-[10px] text-slate-400 mt-0.5">
-                                Đăng nhập bằng SĐT này
+                                MK mặc định: <strong className="font-mono text-slate-600 dark:text-slate-300">123456</strong>
                               </span>
                             </div>
                           </td>

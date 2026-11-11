@@ -413,8 +413,9 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { action, student_id, new_level_id, phone } = body;
 
-    // 1. Giáo viên đăng nhập bằng Số Điện Thoại
+    // 1. Giáo viên đăng nhập bằng Số Điện Thoại & Mật Khẩu (mặc định '123456')
     if (action === "login_by_phone") {
+      const { password } = body;
       if (!phone || !phone.trim()) {
         return NextResponse.json(
           { success: false, message: "Vui lòng nhập số điện thoại của giáo viên!" },
@@ -445,6 +446,22 @@ export async function POST(req: Request) {
       }
 
       const teacher = teacherRes.rows[0];
+
+      // Kiểm tra mật khẩu (mặc định là '123456' nếu chưa thiết lập)
+      const expectedPassword = teacher.password ? String(teacher.password).trim() : "123456";
+      const inputPassword = password !== undefined && password !== null ? String(password).trim() : "";
+
+      // Nếu người dùng cung cấp mật khẩu, kiểm tra trùng khớp
+      if (inputPassword && inputPassword !== expectedPassword) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: "Mật khẩu không chính xác! Vui lòng kiểm tra lại.",
+          },
+          { status: 401 }
+        );
+      }
+
       return NextResponse.json({
         success: true,
         message: `Đăng nhập thành công! Chào mừng thầy/cô ${teacher.name}.`,
@@ -460,6 +477,65 @@ export async function POST(req: Request) {
           school_name: String(teacher.school_name || ""),
           school_code: String(teacher.school_code || ""),
         },
+      });
+    }
+
+    // 1b. Giáo viên tự đổi mật khẩu cá nhân
+    if (action === "change_password") {
+      const { teacher_id, current_password, new_password, confirm_password } = body;
+      if (!teacher_id || !current_password || !new_password || !confirm_password) {
+        return NextResponse.json(
+          { success: false, message: "Vui lòng điền đầy đủ mật khẩu hiện tại, mật khẩu mới và xác nhận mật khẩu!" },
+          { status: 400 }
+        );
+      }
+
+      const cleanNewPass = String(new_password).trim();
+      const cleanConfirmPass = String(confirm_password).trim();
+      const cleanCurrentPass = String(current_password).trim();
+
+      if (cleanNewPass.length < 6) {
+        return NextResponse.json(
+          { success: false, message: "Mật khẩu mới phải có ít nhất 6 ký tự!" },
+          { status: 400 }
+        );
+      }
+
+      if (cleanNewPass !== cleanConfirmPass) {
+        return NextResponse.json(
+          { success: false, message: "Mật khẩu mới và xác nhận mật khẩu không trùng khớp!" },
+          { status: 400 }
+        );
+      }
+
+      const tcCheck = await db.execute({
+        sql: "SELECT id, password FROM teachers WHERE id = ?",
+        args: [teacher_id],
+      });
+
+      if (tcCheck.rows.length === 0) {
+        return NextResponse.json(
+          { success: false, message: "Không tìm thấy thông tin giáo viên!" },
+          { status: 404 }
+        );
+      }
+
+      const currentDbPass = tcCheck.rows[0].password ? String(tcCheck.rows[0].password).trim() : "123456";
+      if (cleanCurrentPass !== currentDbPass) {
+        return NextResponse.json(
+          { success: false, message: "Mật khẩu hiện tại không chính xác!" },
+          { status: 400 }
+        );
+      }
+
+      await db.execute({
+        sql: "UPDATE teachers SET password = ? WHERE id = ?",
+        args: [cleanNewPass, teacher_id],
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: "Đổi mật khẩu thành công! Thầy/cô hãy ghi nhớ mật khẩu mới để đăng nhập các lần sau.",
       });
     }
 

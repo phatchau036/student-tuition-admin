@@ -40,6 +40,10 @@ import {
   ChevronRight,
   CalendarX,
   UserMinus,
+  KeyRound,
+  Lock,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { useTheme } from "@/lib/ThemeContext";
 
@@ -161,6 +165,17 @@ export default function TeacherPortal() {
   const [newLevelId, setNewLevelId] = useState("");
   const [isSubmittingLevel, setIsSubmittingLevel] = useState(false);
 
+  // Mật khẩu & Đổi mật khẩu giáo viên
+  const [inputPassword, setInputPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [isChangePasswordModalOpen, setIsChangePasswordModalOpen] = useState(false);
+  const [currentPasswordInput, setCurrentPasswordInput] = useState("");
+  const [newPasswordInput, setNewPasswordInput] = useState("");
+  const [confirmPasswordInput, setConfirmPasswordInput] = useState("");
+  const [showCurrentPass, setShowCurrentPass] = useState(false);
+  const [showNewPass, setShowNewPass] = useState(false);
+  const [isSubmittingChangePass, setIsSubmittingChangePass] = useState(false);
+
   // Zalo Connection Modal State
   const [isZaloModalOpen, setIsZaloModalOpen] = useState(false);
   const [zaloChatIdInput, setZaloChatIdInput] = useState("");
@@ -195,8 +210,8 @@ export default function TeacherPortal() {
     } catch {}
   }, []);
 
-  // Login with phone number
-  const handleLoginWithPhone = async (phoneToAuth: string) => {
+  // Login with phone number & password
+  const handleLoginWithPhone = async (phoneToAuth: string, passToAuth?: string) => {
     if (!phoneToAuth || !phoneToAuth.trim()) {
       showToast("Vui lòng nhập số điện thoại giáo viên!", "error");
       return;
@@ -210,6 +225,7 @@ export default function TeacherPortal() {
         body: JSON.stringify({
           action: "login_by_phone",
           phone: phoneToAuth.trim(),
+          password: passToAuth !== undefined ? passToAuth : inputPassword,
         }),
       });
       const data = await res.json();
@@ -222,7 +238,7 @@ export default function TeacherPortal() {
         }
         await loadTeacherDetails(data.teacher.id);
       } else {
-        showToast(data.message || "Không tìm thấy giáo viên với số điện thoại này!", "error");
+        showToast(data.message || "Đăng nhập thất bại!", "error");
         setIsLoggedIn(false);
       }
     } catch {
@@ -230,6 +246,52 @@ export default function TeacherPortal() {
       setIsLoggedIn(false);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeTeacher?.id) return;
+    if (!currentPasswordInput || !newPasswordInput || !confirmPasswordInput) {
+      showToast("Vui lòng điền đầy đủ các trường!", "error");
+      return;
+    }
+    if (newPasswordInput !== confirmPasswordInput) {
+      showToast("Mật khẩu mới và xác nhận mật khẩu không trùng khớp!", "error");
+      return;
+    }
+    if (newPasswordInput.length < 6) {
+      showToast("Mật khẩu mới phải có ít nhất 6 ký tự!", "error");
+      return;
+    }
+
+    try {
+      setIsSubmittingChangePass(true);
+      const res = await fetch("/api/teacher", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "change_password",
+          teacher_id: activeTeacher.id,
+          current_password: currentPasswordInput.trim(),
+          new_password: newPasswordInput.trim(),
+          confirm_password: confirmPasswordInput.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(data.message || "Đổi mật khẩu thành công!", "success");
+        setIsChangePasswordModalOpen(false);
+        setCurrentPasswordInput("");
+        setNewPasswordInput("");
+        setConfirmPasswordInput("");
+      } else {
+        showToast(data.message || "Đổi mật khẩu thất bại!", "error");
+      }
+    } catch {
+      showToast("Lỗi kết nối máy chủ!", "error");
+    } finally {
+      setIsSubmittingChangePass(false);
     }
   };
 
@@ -646,13 +708,24 @@ export default function TeacherPortal() {
             </button>
 
             {isLoggedIn && (
-              <button
-                onClick={handleLogout}
-                className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-300 transition"
-              >
-                <LogOut className="w-3.5 h-3.5" />
-                <span>Thoát</span>
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={() => setIsChangePasswordModalOpen(true)}
+                  className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/60 transition cursor-pointer"
+                  title="Đổi mật khẩu tài khoản giáo viên"
+                >
+                  <KeyRound className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Đổi Mật Khẩu</span>
+                </button>
+                <button
+                  onClick={handleLogout}
+                  className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-300 transition cursor-pointer"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span>Thoát</span>
+                </button>
+              </>
             )}
           </div>
         </div>
@@ -676,7 +749,7 @@ export default function TeacherPortal() {
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                handleLoginWithPhone(inputPhone);
+                handleLoginWithPhone(inputPhone, inputPassword);
               }}
               className="space-y-4"
             >
@@ -692,15 +765,44 @@ export default function TeacherPortal() {
                     placeholder="Nhập số điện thoại giáo viên"
                     value={inputPhone}
                     onChange={(e) => setInputPhone(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 text-base font-semibold tracking-wider rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-blue-500 text-center"
+                    className="w-full pl-10 pr-4 py-3 text-sm font-semibold tracking-wider rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-blue-500 font-mono"
                   />
+                </div>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    Mật khẩu đăng nhập:
+                  </label>
+                  <span className="text-[10.5px] text-slate-400">
+                    Mặc định ban đầu: <strong>123456</strong>
+                  </span>
+                </div>
+                <div className="relative">
+                  <Lock className="w-4 h-4 absolute left-3.5 top-3.5 text-slate-400" />
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    required
+                    placeholder="Nhập mật khẩu (mặc định 123456)"
+                    value={inputPassword}
+                    onChange={(e) => setInputPassword(e.target.value)}
+                    className="w-full pl-10 pr-10 py-3 text-sm font-semibold rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-blue-500 font-mono"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3.5 top-3.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
                 </div>
               </div>
 
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full py-3.5 px-4 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm shadow-lg shadow-blue-600/30 transition flex items-center justify-center gap-2 disabled:opacity-50"
+                className="w-full py-3.5 px-4 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm shadow-lg shadow-blue-600/30 transition flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
               >
                 {isLoading ? (
                   <span>Đang đăng nhập...</span>
@@ -2215,6 +2317,114 @@ export default function TeacherPortal() {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Đổi Mật Khẩu Giáo Viên */}
+      {isChangePasswordModalOpen && activeTeacher && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-sm p-6 space-y-5 shadow-2xl">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 flex items-center justify-center">
+                  <KeyRound className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white leading-tight">
+                    Đổi Mật Khẩu Tài Khoản
+                  </h3>
+                  <p className="text-[11px] text-slate-500">Giáo viên: {activeTeacher.name}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsChangePasswordModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleChangePassword} className="space-y-3.5">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Mật khẩu hiện tại <span className="text-rose-500">*</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type={showCurrentPass ? "text" : "password"}
+                    required
+                    placeholder="Nhập mật khẩu đang dùng"
+                    value={currentPasswordInput}
+                    onChange={(e) => setCurrentPasswordInput(e.target.value)}
+                    className="w-full px-3.5 py-2.5 text-xs font-mono rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none pr-9"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowCurrentPass(!showCurrentPass)}
+                    className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                  >
+                    {showCurrentPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Mật khẩu mới (Tối thiểu 6 ký tự) <span className="text-rose-500">*</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type={showNewPass ? "text" : "password"}
+                    required
+                    placeholder="Nhập mật khẩu mới"
+                    value={newPasswordInput}
+                    onChange={(e) => setNewPasswordInput(e.target.value)}
+                    className="w-full px-3.5 py-2.5 text-xs font-mono rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none pr-9"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPass(!showNewPass)}
+                    className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                  >
+                    {showNewPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Xác nhận mật khẩu mới <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="password"
+                  required
+                  placeholder="Nhập lại mật khẩu mới"
+                  value={confirmPasswordInput}
+                  onChange={(e) => setConfirmPasswordInput(e.target.value)}
+                  className="w-full px-3.5 py-2.5 text-xs font-mono rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setIsChangePasswordModalOpen(false)}
+                  className="px-3.5 py-2 text-xs font-semibold rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300 transition cursor-pointer"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingChangePass}
+                  className="px-4 py-2 text-xs font-bold rounded-xl bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-600/30 disabled:opacity-50 flex items-center gap-1.5 transition cursor-pointer"
+                >
+                  <Save className="w-3.5 h-3.5" />
+                  <span>{isSubmittingChangePass ? "Đang lưu..." : "Lưu Mật Khẩu"}</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

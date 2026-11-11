@@ -53,8 +53,8 @@ const SYSTEM_FEATURE_KNOWLEDGE_BASE = `
 	     • Tab 1: "Đội Ngũ Giáo Viên": 
 	       - Quản lý danh sách giáo viên đứng lớp (Họ tên, SĐT, Bộ môn, Màu thẻ nhận diện. Sĩ số tối đa được quản lý chuẩn xác theo từng Lớp học).
 	       - Thêm giáo viên mới: Bấm "+ Thêm Giáo Viên Mới", nhập Họ tên và SĐT (đây chính là tài khoản đăng nhập).
-       - Cơ chế bảo mật cố định: Giáo viên được gán vai trò cố định "Giáo viên đứng lớp". Thầy cô đăng nhập Cổng Giáo Viên (/giao-vien) bằng Số điện thoại để xem ca dạy, điểm danh, chấm sao, nhận xét và báo nghỉ. Giáo viên KHÔNG THỂ thay đổi quyền hạn và KHÔNG THỂ xem tiền bạc hay doanh thu của cơ sở.
-       - Nút "Gửi Zalo": Tự động copy mẫu tin nhắn hướng dẫn đăng nhập gửi cho giáo viên qua Zalo.
+	       - Cơ chế bảo mật cố định: Giáo viên được gán vai trò cố định "Giáo viên đứng lớp". Thầy cô đăng nhập Cổng Giáo Viên (/giao-vien) bằng Số điện thoại và Mật khẩu (mặc định ban đầu: 123456, giáo viên có thể tự đổi mật khẩu sau khi vào cổng). Quyền hạn chỉ xem ca dạy, điểm danh, chấm sao, nhận xét và báo nghỉ. Giáo viên KHÔNG THỂ thay đổi quyền hạn và KHÔNG THỂ xem tiền bạc hay doanh thu của cơ sở.
+	       - Nút "Gửi Zalo": Tự động copy mẫu tin nhắn hướng dẫn đăng nhập gửi cho giáo viên qua Zalo (kèm SĐT và mật khẩu ban đầu).
      • Tab 2: "Nhân Viên Quản Trị":
        - Quản lý nhân viên văn phòng (Lễ tân, Kế toán...) đăng nhập vào trang quản trị /admin bằng Tên đăng nhập (Username) và Mật khẩu.
        - Bấm "+ Tạo Tài Khoản Nhân Viên", nhập họ tên, username, mật khẩu (có nút Tự sinh mã) và chọn Nhóm quyền.
@@ -243,7 +243,7 @@ QUY TẮC PHẢN HỒI QUAN TRỌNG:
 3. Khi người dùng hỏi về CÁCH DÙNG WEB (Làm sao thêm giáo viên? Làm sao thêm học sinh? Điểm danh thế nào?):
    - Trả lời RÕ RÀNG là web ĐÃ CÓ tính năng đó.
    - Hướng dẫn TỪNG BƯỚC cụ thể:
-     • Thêm giáo viên: Vào Menu Nghiệp vụ > "Tài Khoản & Phân Quyền" > chọn tab "Đội Ngũ Giáo Viên" > bấm "+ Thêm Giáo Viên Mới". Giáo viên đăng nhập Cổng Giáo Viên (/giao-vien) bằng SĐT với vai trò cố định, không xem được doanh thu hay học phí cơ sở.
+     • Thêm giáo viên: Vào Menu Nghiệp vụ > "Tài Khoản & Phân Quyền" > chọn tab "Đội Ngũ Giáo Viên" > bấm "+ Thêm Giáo Viên Mới". Giáo viên đăng nhập Cổng Giáo Viên (/giao-vien) bằng SĐT và Mật khẩu (mặc định 123456, giáo viên có thể tự đổi mật khẩu sau khi vào) với vai trò cố định, không xem được doanh thu hay học phí cơ sở.
      • Thêm học sinh: Trên Dashboard bấm nút "+ Thêm học sinh", chọn lớp, kiểu lịch...
      • Nhắc học phí: Vào Menu Nghiệp vụ > chọn "Hàng Đợi Nhắc Học Phí", bấm "Gửi Zalo" 2 giây.
      • Điểm danh: Vào Menu Nghiệp vụ > chọn "Điểm Danh & Sổ Bài Học".

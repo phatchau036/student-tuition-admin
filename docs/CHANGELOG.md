@@ -14,6 +14,12 @@
   - **Sửa lỗi hiển thị nợ gây hiểu nhầm "Nợ 2m":** Khắc phục lỗi hiển thị nhãn nợ quá hạn ghi `Nợ 2m` (khiến người dùng đọc nhầm thành *Nợ 2 triệu* trong khi học phí thực tế chỉ 950.000đ). Đã sửa thành hiển thị rõ ràng tiếng Việt: `Nợ 2 tháng` (`Nợ {count} tháng`).
   - **Xóa khoảng trắng thừa khổng lồ cuối bảng:** Thay thế `pb-32` (128px khoảng trắng thừa) bằng `pb-6` gọn gàng, vừa mắt.
 - **⭐ HỢP NHẤT QUẢN LÝ GIÁO VIÊN VÀO "TÀI KHOẢN & PHÂN QUYỀN" & BẢO MẬT VAI TRÒ CỐ ĐỊNH:**
+  - **Bổ sung hệ thống mật khẩu cho Giáo viên (Mặc định: 123456 & Cho phép tự đổi mật khẩu):**
+    - Cột `password` trong bảng `teachers` với giá trị khởi tạo mặc định là `123456`.
+    - Form đăng nhập Cổng Giáo Viên (`/giao-vien`) hỗ trợ nhập Số điện thoại và Mật khẩu (có nút ẩn/hiện mật khẩu).
+    - Modal **"Đổi Mật Khẩu"** ngay trên thanh tiêu đề Cổng Giáo Viên để thầy cô chủ động đổi mật khẩu riêng tư của mình bất cứ lúc nào.
+    - Cập nhật thông báo đăng nhập sai mật khẩu chuẩn mực, ngắn gọn và bảo mật: *"Mật khẩu không chính xác! Vui lòng kiểm tra lại."*.
+    - Đồng bộ mẫu tin nhắn sao chép Zalo và hiển thị mật khẩu mặc định trong `StaffManagementModal.tsx`.
   - **Chuyển nút "Nhắc Học Phí" vào Menu Nghiệp Vụ Cơ Sở:** Gỡ bỏ nút "Nhắc Học Phí" chiếm diện tích trên thanh công cụ trên cùng (Top Navbar), chuyển thành mục tập trung bên trong "Nghiệp Vụ Cơ Sở" (kèm số lượng học sinh chưa đóng tiền). Giúp thanh tiêu đề thoáng đãng, đồng bộ các nghiệp vụ vào một nơi.
   - **Gọn hóa Menu Nghiệp Vụ (Loại bỏ mục trùng lặp "Đội Ngũ Giáo Viên"):** Vì toàn bộ đội ngũ giáo viên đã được quản lý tập trung và khoa học trong mục "Tài Khoản & Phân Quyền", hệ thống đã tinh gọn menu bằng cách bỏ mục "Đội Ngũ Giáo Viên" trùng lặp.
   - **Tối ưu form thêm giáo viên (Bỏ ô "Sĩ số tối đa của giáo viên"):** Sĩ số tối đa là thuộc tính cấu hình theo từng Lớp học/Phòng học cụ thể, giáo viên chỉ là người phụ trách đứng lớp. Đã loại bỏ ô nhập sĩ số tối đa thừa trong form thêm/sửa giáo viên để form gọn gàng, đúng nghiệp vụ.
