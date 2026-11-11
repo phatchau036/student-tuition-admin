@@ -44,6 +44,7 @@ import {
   User,
   ShieldAlert,
   ChevronRight,
+  ChevronDown,
   TrendingUp,
   AlertCircle,
   AlertTriangle,
@@ -89,6 +90,7 @@ import { StaffManagementModal } from "./StaffManagementModal";
 import { DailyAttendanceModal } from "./DailyAttendanceModal";
 import { TuitionReminderQueueModal } from "./TuitionReminderQueueModal";
 import { AdminAiAssistantModal } from "./AdminAiAssistantModal";
+import { CreateBranchModal } from "./CreateBranchModal";
 import { exportStudentsToExcel } from "@/lib/exportExcel";
 import { useLanguage } from "@/lib/i18n";
 import { useTheme } from "@/lib/ThemeContext";
@@ -186,7 +188,25 @@ export default function Dashboard() {
   const [tuitionPackages, setTuitionPackages] = useState<TuitionPackage[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [schedulePresets, setSchedulePresets] = useState<SchedulePreset[]>([]);
-  const [currentSchool, setCurrentSchool] = useState<{ id: string; name: string; code: string } | null>(null);
+  const [currentSchool, setCurrentSchool] = useState<{
+    id: string;
+    name: string;
+    code: string;
+    address?: string;
+    phone?: string;
+    active_student_count?: number;
+  } | null>(null);
+  const [availableSchools, setAvailableSchools] = useState<Array<{
+    id: string;
+    name: string;
+    code: string;
+    address?: string;
+    phone?: string;
+    active_student_count?: number;
+    teacher_count?: number;
+  }>>([]);
+  const [isBranchDropdownOpen, setIsBranchDropdownOpen] = useState(false);
+  const [isCreateBranchModalOpen, setIsCreateBranchModalOpen] = useState(false);
 
   // Settings
   const [baseTuition, setBaseTuition] = useState<number>(0);
@@ -316,15 +336,46 @@ export default function Dashboard() {
         if (json.authenticated && json.admin) {
           setIsAuthenticated(true);
           setAdminUser(json.admin);
-          setCurrentSchool({
+
+          let initialSchool = {
             id: json.admin.school_id,
             name: json.admin.school_name,
             code: json.admin.school_code,
-          });
-          loadSettings(json.admin.school_id);
-          loadTeachers(json.admin.school_id);
-          loadClasses(json.admin.school_id);
-          loadStudents(selectedMonth, json.admin.school_id);
+          };
+
+          try {
+            const bRes = await fetch("/api/admin/branches", { headers });
+            const bJson = await bRes.json();
+            if (bJson.success && Array.isArray(bJson.data) && bJson.data.length > 0) {
+              setAvailableSchools(bJson.data);
+              const lastSchoolId = localStorage.getItem("admin_last_school_id");
+              if (lastSchoolId) {
+                const matched = bJson.data.find((s: any) => s.id === lastSchoolId);
+                if (matched) {
+                  initialSchool = {
+                    id: matched.id,
+                    name: matched.name,
+                    code: matched.code,
+                  };
+                }
+              } else {
+                const matchedCurrent = bJson.data.find((s: any) => s.id === json.admin.school_id);
+                if (matchedCurrent) {
+                  initialSchool = {
+                    id: matchedCurrent.id,
+                    name: matchedCurrent.name,
+                    code: matchedCurrent.code,
+                  };
+                }
+              }
+            }
+          } catch {}
+
+          setCurrentSchool(initialSchool);
+          loadSettings(initialSchool.id);
+          loadTeachers(initialSchool.id);
+          loadClasses(initialSchool.id);
+          loadStudents(selectedMonth, initialSchool.id);
         } else {
           localStorage.removeItem("admin_token");
           setIsAuthenticated(false);
@@ -363,15 +414,41 @@ export default function Dashboard() {
         }
         setIsAuthenticated(true);
         setAdminUser(data.admin);
-        const schoolObj = {
+        
+        let schoolObj = {
           id: data.admin.school_id,
           name: data.admin.school_name,
           code: data.admin.school_code,
         };
+
+        const loginHeaders = {
+          "Authorization": `Bearer ${data.token}`,
+        };
+
+        try {
+          const bRes = await fetch("/api/admin/branches", { headers: loginHeaders });
+          const bJson = await bRes.json();
+          if (bJson.success && Array.isArray(bJson.data) && bJson.data.length > 0) {
+            setAvailableSchools(bJson.data);
+            const lastSchoolId = localStorage.getItem("admin_last_school_id");
+            if (lastSchoolId) {
+              const matched = bJson.data.find((s: any) => s.id === lastSchoolId);
+              if (matched) {
+                schoolObj = {
+                  id: matched.id,
+                  name: matched.name,
+                  code: matched.code,
+                };
+              }
+            }
+          }
+        } catch {}
+
         setCurrentSchool(schoolObj);
-        loadSettings(data.admin.school_id);
-        loadTeachers(data.admin.school_id);
-        loadStudents(selectedMonth, data.admin.school_id);
+        loadSettings(schoolObj.id);
+        loadTeachers(schoolObj.id);
+        loadClasses(schoolObj.id);
+        loadStudents(selectedMonth, schoolObj.id);
       } else {
         showToast(data.message || "Đăng nhập thất bại!", "error");
       }
@@ -380,6 +457,29 @@ export default function Dashboard() {
     } finally {
       setIsSubmittingLogin(false);
     }
+  };
+
+  const handleSwitchBranch = (school: { id: string; name: string; code: string }) => {
+    setIsBranchDropdownOpen(false);
+    if (currentSchool?.id === school.id) return;
+    setCurrentSchool(school);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("admin_last_school_id", school.id);
+    }
+    loadSettings(school.id);
+    loadTeachers(school.id);
+    loadClasses(school.id);
+    loadStudents(selectedMonth, school.id);
+    showToast(`Đã chuyển sang chi nhánh "${school.name}" (${school.code})`, "success");
+  };
+
+  const handleBranchCreated = (newBranch: { id: string; name: string; code: string; address?: string; phone?: string }) => {
+    setAvailableSchools((prev) => {
+      const exists = prev.some((s) => s.id === newBranch.id);
+      if (exists) return prev;
+      return [...prev, newBranch];
+    });
+    handleSwitchBranch(newBranch);
   };
 
   const handleAdminLogout = async () => {
@@ -403,11 +503,12 @@ export default function Dashboard() {
   };
 
   // Helper lấy headers có kèm Authorization token
-  const getAuthHeaders = (): Record<string, string> => {
+  const getAuthHeaders = (overrideSchoolId?: string): Record<string, string> => {
     const token = typeof window !== "undefined" ? localStorage.getItem("admin_token") : null;
     const headers: Record<string, string> = {};
     if (token) headers["Authorization"] = `Bearer ${token}`;
-    if (currentSchool?.id) headers["x-school-id"] = currentSchool.id;
+    const sid = overrideSchoolId || currentSchool?.id;
+    if (sid) headers["x-school-id"] = sid;
     return headers;
   };
 
@@ -417,7 +518,7 @@ export default function Dashboard() {
       const targetSchoolId = schoolId || currentSchool?.id || "";
       const query = targetSchoolId ? `?school_id=${targetSchoolId}` : "";
       const res = await fetch(`/api/settings${query}`, {
-        headers: getAuthHeaders(),
+        headers: getAuthHeaders(targetSchoolId),
       });
       const json = await res.json();
       if (json.success) {
@@ -468,7 +569,7 @@ export default function Dashboard() {
       const targetSchoolId = schoolId || currentSchool?.id || "";
       const query = targetSchoolId ? `?school_id=${targetSchoolId}` : "";
       const res = await fetch(`/api/teachers${query}`, {
-        headers: getAuthHeaders(),
+        headers: getAuthHeaders(targetSchoolId),
       });
       const json = await res.json();
       if (json.success) {
@@ -485,7 +586,7 @@ export default function Dashboard() {
       const targetSchoolId = schoolId || currentSchool?.id || "";
       const query = targetSchoolId ? `?school_id=${targetSchoolId}` : "";
       const res = await fetch(`/api/classes${query}`, {
-        headers: getAuthHeaders(),
+        headers: getAuthHeaders(targetSchoolId),
       });
       const json = await res.json();
       if (json.success) {
@@ -503,7 +604,7 @@ export default function Dashboard() {
       const targetSchoolId = schoolId || currentSchool?.id || "";
       const schoolParam = targetSchoolId ? `&school_id=${targetSchoolId}` : "";
       const res = await fetch(`/api/students?month=${month}${schoolParam}`, {
-        headers: getAuthHeaders(),
+        headers: getAuthHeaders(targetSchoolId),
       });
       const json = await res.json();
       if (json.success) {
@@ -875,13 +976,101 @@ export default function Dashboard() {
                   {t.school_portal}
                 </h1>
                 {currentSchool && (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300 border border-indigo-200/80 dark:border-indigo-800/80 shrink-0">
-                    <Building2 className="w-3.5 h-3.5 text-indigo-500" />
-                    <span>{currentSchool.name}</span>
-                    <span className="font-mono text-[10px] bg-indigo-200/60 dark:bg-indigo-900 px-1.5 py-0.2 rounded-md">
-                      {currentSchool.code}
-                    </span>
-                  </span>
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setIsBranchDropdownOpen(!isBranchDropdownOpen)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-950/60 dark:hover:bg-indigo-900/60 dark:text-indigo-300 border border-indigo-200/80 dark:border-indigo-800/80 transition cursor-pointer shadow-2xs group"
+                      title="Bấm để chuyển đổi chi nhánh hoặc tạo thêm chi nhánh mới"
+                    >
+                      <Building2 className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                      <span className="max-w-[170px] truncate">{currentSchool.name}</span>
+                      <span className="font-mono text-[10px] bg-indigo-200/60 dark:bg-indigo-900 px-1.5 py-0.2 rounded-md font-bold">
+                        {currentSchool.code}
+                      </span>
+                      <ChevronDown className={`w-3 h-3 text-indigo-400 group-hover:text-indigo-600 transition-transform ${isBranchDropdownOpen ? "rotate-180" : ""}`} />
+                    </button>
+
+                    {/* Branch Switcher Dropdown Menu */}
+                    {isBranchDropdownOpen && (
+                      <div
+                        className="absolute left-0 top-full mt-2 w-72 sm:w-80 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl z-50 p-2 space-y-1.5 animate-in fade-in zoom-in-95"
+                        onMouseLeave={() => setIsBranchDropdownOpen(false)}
+                      >
+                        <div className="px-3 py-1.5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                          <span className="text-[11px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                            <Building2 className="w-3.5 h-3.5 text-indigo-500" />
+                            Mạng Lưới Chi Nhánh ({availableSchools.length || 1})
+                          </span>
+                          <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/80 px-2 py-0.5 rounded-md">
+                            Dùng chung tài khoản
+                          </span>
+                        </div>
+
+                        {/* List of branches */}
+                        <div className="max-h-60 overflow-y-auto space-y-1 pr-0.5">
+                          {(availableSchools.length > 0 ? availableSchools : (currentSchool ? [currentSchool] : [])).map((school) => {
+                            const isCurrent = currentSchool.id === school.id;
+                            return (
+                              <button
+                                key={school.id}
+                                type="button"
+                                onClick={() => handleSwitchBranch(school)}
+                                className={`w-full flex items-center justify-between p-2.5 rounded-xl text-left transition cursor-pointer ${
+                                  isCurrent
+                                    ? "bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800/80 text-indigo-900 dark:text-indigo-200 font-black shadow-2xs"
+                                    : "hover:bg-slate-50 dark:hover:bg-slate-800/60 text-slate-700 dark:text-slate-300 font-semibold"
+                                }`}
+                              >
+                                <div className="space-y-0.5 min-w-0 pr-2">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="text-xs truncate">{school.name}</span>
+                                    <span className="text-[10px] font-mono px-1 py-0.2 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 font-bold shrink-0">
+                                      {school.code}
+                                    </span>
+                                  </div>
+                                  {school.address && (
+                                    <p className="text-[10px] text-slate-400 truncate">
+                                      {school.address}
+                                    </p>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  {school.active_student_count !== undefined && (
+                                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
+                                      {school.active_student_count} HS
+                                    </span>
+                                  )}
+                                  {isCurrent && (
+                                    <span className="w-4 h-4 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[10px]">
+                                      ✓
+                                    </span>
+                                  )}
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        {/* Create new branch button */}
+                        {(adminUser?.is_owner === 1 || hasPerm("settings.manage")) && (
+                          <div className="pt-1.5 border-t border-slate-100 dark:border-slate-800">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setIsBranchDropdownOpen(false);
+                                setIsCreateBranchModalOpen(true);
+                              }}
+                              className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white text-xs font-bold shadow-md shadow-indigo-600/20 transition cursor-pointer active:scale-98"
+                            >
+                              <Plus className="w-4 h-4" />
+                              <span>+ Thêm Chi Nhánh / Cơ Sở Mới</span>
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
               <p className="text-[11px] text-slate-500 dark:text-slate-400">
@@ -2817,6 +3006,13 @@ export default function Dashboard() {
         onClose={() => setIsAiModalOpen(false)}
         schoolName={currentSchool?.name}
         adminName={adminUser?.full_name || adminUser?.username || "Quản lý"}
+      />
+
+      {/* Create New Branch Modal (Admin tự tạo chi nhánh mới & dùng chung tài khoản) */}
+      <CreateBranchModal
+        isOpen={isCreateBranchModalOpen}
+        onClose={() => setIsCreateBranchModalOpen(false)}
+        onCreated={handleBranchCreated}
       />
     </div>
   );

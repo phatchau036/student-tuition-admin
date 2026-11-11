@@ -156,3 +156,4 @@ Hệ thống phân chia ranh giới vật lý & logic thành 4 cổng riêng bi�
 | Thời gian (UTC) | Subagent / Tác giả | Hành động & Thay đổi kiến trúc | Trạng thái hệ thống |
 |---|---|---|---|
 | 2026-10-29 | Main Agent / `scope-planner` | Khởi tạo tài liệu kiến trúc toàn diện đa cổng, chuẩn hóa luồng dữ liệu 4 portals | Hoàn thiện v2.6.0 |
+| 2026-11-11 | Main Agent / `scope-planner` | Bổ sung kiến trúc Đa Chi Nhánh Tự Phục Vụ (Multi-Branch Self-Service Architecture): API /api/admin/branches, Branch Switcher Dropdown trên Top Navbar, CreateBranchModal tạo chi nhánh dùng chung tài khoản Admin | Hoàn thiện v2.8.7 |
