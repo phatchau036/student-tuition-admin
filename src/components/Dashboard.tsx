@@ -302,8 +302,14 @@ export default function Dashboard() {
         setIpStatus({ checked: true, allowed: true, client_ip: ipJson.client_ip });
 
         const token = localStorage.getItem("admin_token");
-        const headers: Record<string, string> = {};
-        if (token) headers["Authorization"] = `Bearer ${token}`;
+        if (!token) {
+          setIsAuthenticated(false);
+          return;
+        }
+
+        const headers: Record<string, string> = {
+          "Authorization": `Bearer ${token}`,
+        };
 
         const res = await fetch("/api/admin/auth", { headers });
         const json = await res.json();
@@ -320,6 +326,7 @@ export default function Dashboard() {
           loadClasses(json.admin.school_id);
           loadStudents(selectedMonth, json.admin.school_id);
         } else {
+          localStorage.removeItem("admin_token");
           setIsAuthenticated(false);
         }
       } catch {
@@ -375,10 +382,22 @@ export default function Dashboard() {
     }
   };
 
-  const handleAdminLogout = () => {
+  const handleAdminLogout = async () => {
+    try {
+      await fetch("/api/admin/auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "logout" }),
+      });
+    } catch {}
+
     localStorage.removeItem("admin_token");
+    if (typeof document !== "undefined") {
+      document.cookie = "admin_session_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; max-age=0";
+    }
     setIsAuthenticated(false);
     setAdminUser(null);
+    setLoginUsername("");
     setLoginPassword("");
     showToast("Đã đăng xuất khỏi cổng Quản trị cơ sở", "success");
   };
@@ -1179,10 +1198,28 @@ export default function Dashboard() {
               </button>
             )}
 
+            {/* User Identity Chip */}
+            {adminUser && (
+              <div
+                className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-xs shrink-0 select-none"
+                title={`Đang đăng nhập: ${adminUser.full_name} (${adminUser.username}) • ${adminUser.is_owner === 1 ? "Chủ Cơ Sở (Toàn quyền)" : adminUser.role_name || "Nhân viên"}`}
+              >
+                <div className={`w-2 h-2 rounded-full ${adminUser.is_owner === 1 ? "bg-amber-500" : "bg-emerald-500"}`} />
+                <div className="flex flex-col text-left leading-tight">
+                  <span className="font-extrabold text-slate-800 dark:text-slate-100 text-[11px] truncate max-w-[130px]">
+                    {adminUser.full_name || adminUser.username}
+                  </span>
+                  <span className={`text-[10px] font-bold ${adminUser.is_owner === 1 ? "text-amber-600 dark:text-amber-400" : "text-indigo-600 dark:text-indigo-400"}`}>
+                    {adminUser.is_owner === 1 ? "👑 Chủ Cơ Sở" : (adminUser.role_name || "Nhân viên")}
+                  </span>
+                </div>
+              </div>
+            )}
+
             {/* Logout Button */}
             <button
               onClick={handleAdminLogout}
-              className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 text-slate-600 dark:text-slate-300 transition shrink-0"
+              className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 text-slate-600 dark:text-slate-300 transition shrink-0 cursor-pointer"
               title="Đăng xuất khỏi cổng quản trị cơ sở"
             >
               <LogOut className="w-3.5 h-3.5" />
@@ -1241,10 +1278,12 @@ export default function Dashboard() {
             </div>
             <div className="mt-2">
               <div className="text-3xl font-black tracking-tight">
-                {(hasPerm("revenue.reports") || hasPerm("tuition.view")) ? (
+                {hasPerm("revenue.reports") ? (
                   formatVND(totalRevenueThisMonth)
                 ) : (
-                  <span className="text-2xl font-bold tracking-widest text-indigo-200">•••••••• đ</span>
+                  <span className="text-2xl font-bold tracking-widest text-indigo-200 select-none" title="Tài khoản không có quyền xem tổng doanh thu cơ sở">
+                    •••••••• đ
+                  </span>
                 )}
               </div>
               <span className="text-xs text-indigo-100 font-medium mt-1 flex items-center gap-1">

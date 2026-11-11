@@ -7,6 +7,17 @@ export async function POST(req: Request) {
     await initDb();
     const db = getDb();
     const body = await req.json();
+
+    if (body.action === "logout") {
+      const response = NextResponse.json({ success: true, message: "Đã đăng xuất thành công!" });
+      response.cookies.set("admin_session_token", "", {
+        path: "/",
+        maxAge: 0,
+        expires: new Date(0),
+      });
+      return response;
+    }
+
     const { username, password } = body;
 
     if (!username || !password) {

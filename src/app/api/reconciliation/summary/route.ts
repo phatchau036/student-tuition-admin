@@ -1,14 +1,19 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
 import { calculateStudentTuition } from "@/lib/tuition";
-import { getSchoolIdFromRequest } from "@/lib/authHelper";
+import { getSchoolIdFromRequest, requireAdminPermission } from "@/lib/authHelper";
 
 export async function GET(req: Request) {
   try {
+    await initDb();
+    const authCheck = await requireAdminPermission(req, "revenue.reports");
+    if (!authCheck.authorized) {
+      return authCheck.errorResponse!;
+    }
+
     const url = new URL(req.url);
     const month = url.searchParams.get("month") || new Date().toISOString().slice(0, 7);
 
-    await initDb();
     const db = getDb();
     const schoolId = getSchoolIdFromRequest(req);
 
