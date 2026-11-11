@@ -45,6 +45,7 @@ import {
   Building2,
   Users,
   ShieldAlert,
+  Lock,
 } from "lucide-react";
 
 interface StudentFormModalProps {
@@ -71,6 +72,8 @@ interface StudentFormModalProps {
   initialClassId?: string;
   initialDay?: string;
   initialStartTime?: string;
+  canManageTuition?: boolean;
+  canViewTuition?: boolean;
 }
 
 const ALL_DAYS = DAYS_OF_WEEK;
@@ -108,6 +111,8 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
   initialClassId,
   initialDay,
   initialStartTime,
+  canManageTuition = true,
+  canViewTuition = true,
 }) => {
   const { showToast } = useToast();
 
@@ -706,15 +711,23 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
 
           {/* Gói học phí áp dụng */}
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
-              Gói Học Phí Áp Dụng
-            </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                Gói Học Phí Áp Dụng
+              </label>
+              {!canManageTuition && (
+                <span className="text-[10px] text-amber-600 dark:text-amber-400 font-bold flex items-center gap-1">
+                  <Lock className="w-3 h-3" /> Cần quyền Học Phí để sửa
+                </span>
+              )}
+            </div>
             <div className="relative">
               <Package className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
               <select
+                disabled={!canManageTuition}
                 value={tuitionPackageId}
                 onChange={(e) => setTuitionPackageId(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 outline-none hover:border-slate-300 transition"
+                className="w-full pl-10 pr-4 py-2.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 outline-none hover:border-slate-300 transition disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 <option value="">-- Mặc định (Tính theo giá chuẩn cơ sở) --</option>
                 {tuitionPackages.map((pkg) => (
@@ -992,13 +1005,21 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
           {/* Discount Section */}
           <div className="p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-800/40 space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5 uppercase tracking-wider">
-                <Percent className="w-4 h-4 text-indigo-500" />
-                Áp Dụng Chiết Khấu / Giảm Giá
-              </span>
-              <label className="relative inline-flex items-center cursor-pointer">
+              <div>
+                <span className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5 uppercase tracking-wider">
+                  <Percent className="w-4 h-4 text-indigo-500" />
+                  Áp Dụng Chiết Khấu / Giảm Giá
+                </span>
+                {!canManageTuition && (
+                  <span className="text-[10px] text-amber-600 dark:text-amber-400 font-bold flex items-center gap-1 mt-0.5">
+                    <Lock className="w-3 h-3" /> Cần quyền Học Phí để sửa
+                  </span>
+                )}
+              </div>
+              <label className={`relative inline-flex items-center ${canManageTuition ? "cursor-pointer" : "cursor-not-allowed opacity-60"}`}>
                 <input
                   type="checkbox"
+                  disabled={!canManageTuition}
                   checked={isDiscountEnabled}
                   onChange={(e) => setIsDiscountEnabled(e.target.checked)}
                   className="sr-only peer"
@@ -1014,6 +1035,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                     <button
                       type="button"
                       key={preset.id}
+                      disabled={!canManageTuition}
                       onClick={() => {
                         setDiscountPercent(preset.percentage);
                         if (preset.label && !preset.label.startsWith("Giảm ") && !discountReason) {
@@ -1024,7 +1046,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                         discountPercent === preset.percentage
                           ? "bg-indigo-600 text-white border-indigo-600 shadow-2xs"
                           : "bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100"
-                      }`}
+                      } disabled:opacity-50 disabled:cursor-not-allowed`}
                     >
                       {preset.label}
                     </button>
@@ -1037,24 +1059,26 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                     type="number"
                     min="0"
                     max="100"
-                    value={discountPercent}
+                    disabled={!canManageTuition}
+                    value={discountPercent || ""}
                     onChange={(e) => setDiscountPercent(Number(e.target.value) || 0)}
-                    className="w-20 px-2 py-1 text-xs font-black text-slate-900 dark:text-white rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-center outline-none focus:ring-2 focus:ring-indigo-500"
+                    placeholder="0"
+                    className="w-16 px-2.5 py-1 text-xs font-black rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-center outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
                   />
                   <span className="text-xs font-bold text-slate-500">%</span>
                 </div>
 
-                {/* Nhập Lý do được giảm học phí */}
-                <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
-                  <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">
+                <div className="pt-1">
+                  <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">
                     Lý do được giảm học phí:
                   </label>
                   <input
                     type="text"
+                    disabled={!canManageTuition}
                     value={discountReason}
                     onChange={(e) => setDiscountReason(e.target.value)}
                     placeholder="VD: Anh em ruột cùng học, Học sinh có hoàn cảnh khó khăn, Đăng ký sớm..."
-                    className="w-full px-3 py-1.5 text-xs font-semibold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition"
+                    className="w-full px-3 py-1.5 text-xs font-semibold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition disabled:opacity-50 disabled:cursor-not-allowed"
                   />
                 </div>
               </div>
@@ -1068,7 +1092,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                 {selectedPkg ? `Học phí dự tính (${selectedPkg.name}):` : "Học phí chuẩn tự tính (Mặc định):"}
               </span>
               <span className="text-[11px] text-slate-600 dark:text-slate-400 font-medium block">
-                Công thức: <strong className="text-indigo-600 dark:text-indigo-400">{liveBreakdown.formulaText}</strong>
+                Công thức: <strong className="text-indigo-600 dark:text-indigo-400">{!canViewTuition ? "••••••" : liveBreakdown.formulaText}</strong>
               </span>
               {selectedPkg && (
                 <span className="text-[10px] text-purple-600 dark:text-purple-400 font-bold block">
@@ -1078,7 +1102,11 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
             </div>
             <div className="text-right shrink-0 pl-3">
               <span className="text-lg font-black text-indigo-700 dark:text-indigo-300 block">
-                {formatVND(liveTuition)}
+                {!canViewTuition ? (
+                  <span className="font-mono tracking-widest text-slate-400">•••••• đ</span>
+                ) : (
+                  formatVND(liveTuition)
+                )}
               </span>
               <span className="text-[10px] font-bold text-slate-400">/ chu kỳ</span>
             </div>

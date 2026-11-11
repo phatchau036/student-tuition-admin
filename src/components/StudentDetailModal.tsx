@@ -28,6 +28,7 @@ import {
   Sparkles,
   BookOpen,
   Star,
+  Lock,
 } from "lucide-react";
 
 interface StudentDetailModalProps {
@@ -39,6 +40,7 @@ interface StudentDetailModalProps {
   onOpenZaloReminder: (student: Student) => void;
   onReconciliationToggle: (student: Student) => void;
   onOpenWallet?: (student: Student) => void;
+  hasPerm?: (permKey: string) => boolean;
 }
 
 export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
@@ -50,7 +52,13 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
   onOpenZaloReminder,
   onReconciliationToggle,
   onOpenWallet,
+  hasPerm,
 }) => {
+  const canViewTuition = !hasPerm || hasPerm("tuition.view");
+  const canAuditTuition = !hasPerm || hasPerm("tuition.audit");
+  const canRemindTuition = !hasPerm || hasPerm("tuition.remind") || hasPerm("tuition.view");
+  const canChangeStatus = !hasPerm || hasPerm("students.status");
+
   const [statusLogs, setStatusLogs] = useState<StudentStatusLog[]>([]);
   const [studentLessons, setStudentLessons] = useState<LessonRecord[]>([]);
   const [isLoadingLogs, setIsLoadingLogs] = useState(false);
@@ -211,15 +219,17 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                       <p className="text-slate-500 italic mt-0.5">&ldquo;{student.status_note}&rdquo;</p>
                     )}
                   </div>
-                  <button
-                    onClick={() => {
-                      onClose();
-                      onOpenStatusChange(student);
-                    }}
-                    className="px-3 py-1.5 text-xs font-bold rounded-xl bg-amber-100 text-amber-800 hover:bg-amber-200 dark:bg-amber-500/15 dark:text-amber-300 dark:hover:bg-amber-500/25 border border-amber-300 dark:border-amber-500/30 shrink-0 transition"
-                  >
-                    Đổi trạng thái
-                  </button>
+                  {canChangeStatus && (
+                    <button
+                      onClick={() => {
+                        onClose();
+                        onOpenStatusChange(student);
+                      }}
+                      className="px-3 py-1.5 text-xs font-bold rounded-xl bg-amber-100 text-amber-800 hover:bg-amber-200 dark:bg-amber-500/15 dark:text-amber-300 dark:hover:bg-amber-500/25 border border-amber-300 dark:border-amber-500/30 shrink-0 transition"
+                    >
+                      Đổi trạng thái
+                    </button>
+                  )}
                 </div>
               )}
 
@@ -232,16 +242,18 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                       Học sinh muốn tạm dừng một thời gian?
                     </span>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onClose();
-                      onOpenStatusChange(student);
-                    }}
-                    className="px-3 py-1.5 text-xs font-bold rounded-xl bg-amber-100 text-amber-800 hover:bg-amber-200 dark:bg-amber-500/15 dark:text-amber-300 dark:hover:bg-amber-500/25 border border-amber-300 dark:border-amber-500/30 shrink-0 transition"
-                  >
-                    Chuyển vào bảo lưu
-                  </button>
+                  {canChangeStatus && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onClose();
+                        onOpenStatusChange(student);
+                      }}
+                      className="px-3 py-1.5 text-xs font-bold rounded-xl bg-amber-100 text-amber-800 hover:bg-amber-200 dark:bg-amber-500/15 dark:text-amber-300 dark:hover:bg-amber-500/25 border border-amber-300 dark:border-amber-500/30 shrink-0 transition"
+                    >
+                      Chuyển vào bảo lưu
+                    </button>
+                  )}
                 </div>
               )}
 
@@ -259,15 +271,17 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                       <p className="text-slate-500 italic mt-0.5">&ldquo;{student.status_note}&rdquo;</p>
                     )}
                   </div>
-                  <button
-                    onClick={() => {
-                      onClose();
-                      onOpenStatusChange(student);
-                    }}
-                    className="px-3 py-1.5 text-xs font-bold rounded-xl bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:hover:bg-emerald-500/25 border border-emerald-300 dark:border-emerald-500/30 shrink-0 transition"
-                  >
-                    Cho học lại tiếp
-                  </button>
+                  {canChangeStatus && (
+                    <button
+                      onClick={() => {
+                        onClose();
+                        onOpenStatusChange(student);
+                      }}
+                      className="px-3 py-1.5 text-xs font-bold rounded-xl bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:hover:bg-emerald-500/25 border border-emerald-300 dark:border-emerald-500/30 shrink-0 transition"
+                    >
+                      Cho học lại tiếp
+                    </button>
+                  )}
                 </div>
               )}
 
@@ -287,9 +301,15 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                   <div className={`p-3 bg-white dark:bg-slate-900 rounded-xl border ${student.is_overdue ? "border-rose-300 dark:border-rose-900/60 bg-rose-50/40 dark:bg-rose-950/20" : "border-slate-200 dark:border-slate-700/70"}`}>
                     <span className="text-[10px] uppercase font-bold text-slate-400 block">Số tiền cần đóng</span>
                     <span className={`text-lg font-black mt-0.5 block ${student.is_overdue ? "text-rose-600 dark:text-rose-400" : "text-slate-900 dark:text-white"}`}>
-                      {student.total_tuition_due ? formatVND(student.total_tuition_due) : formatVND(student.current_tuition)}
+                      {!canViewTuition ? (
+                        <span className="font-mono tracking-widest text-slate-400">•••••• đ</span>
+                      ) : student.total_tuition_due ? (
+                        formatVND(student.total_tuition_due)
+                      ) : (
+                        formatVND(student.current_tuition)
+                      )}
                     </span>
-                    {student.is_overdue && student.previous_debt_amount ? (
+                    {!canViewTuition ? null : student.is_overdue && student.previous_debt_amount ? (
                       <span className="text-[10px] text-rose-600 dark:text-rose-400 font-bold block mt-0.5">
                         * Bao gồm nợ cũ: +{formatVND(student.previous_debt_amount)} (Nợ {student.unpaid_months_count} tháng)
                       </span>
@@ -341,129 +361,147 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                 </div>
 
                 {/* BẢNG KÊ CẤU THÀNH HỌC PHÍ CHI TIẾT (TỰ ĐỘNG CỘNG / TRỪ CÁC KHOẢN) */}
-                <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-indigo-100 dark:border-indigo-950/60 space-y-2">
-                  <div className="flex items-center justify-between text-xs font-extrabold text-slate-800 dark:text-slate-200 pb-1 border-b border-slate-100 dark:border-slate-800">
-                    <span className="flex items-center gap-1.5 text-indigo-600 dark:text-indigo-400">
-                      <Calculator className="w-3.5 h-3.5" />
-                      Chi tiết cấu thành học phí:
-                    </span>
-                    <span className="font-mono text-[11px] text-slate-400">
-                      = {formatVND(student.current_tuition)}
-                    </span>
+                {!canViewTuition ? (
+                  <div className="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-center space-y-1">
+                    <Lock className="w-5 h-5 text-slate-400 mx-auto" />
+                    <p className="text-xs font-bold text-slate-600 dark:text-slate-400">
+                      Chi tiết cấu thành học phí đã được bảo mật
+                    </p>
+                    <p className="text-[10px] text-slate-400">
+                      Tài khoản của bạn không có quyền xem thông tin học phí &amp; doanh thu.
+                    </p>
                   </div>
-
-                  <div className="space-y-1 text-xs">
-                    {/* 1. Học phí gốc (Gói hoặc Base) */}
-                    <div className="flex items-center justify-between py-0.5">
-                      <span className="text-slate-600 dark:text-slate-400 flex items-center gap-1">
-                        • {student.tuition_package_name ? `Gói học phí (${student.tuition_package_name})` : "Mức học phí cơ bản"}:
+                ) : (
+                  <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-indigo-100 dark:border-indigo-950/60 space-y-2">
+                    <div className="flex items-center justify-between text-xs font-extrabold text-slate-800 dark:text-slate-200 pb-1 border-b border-slate-100 dark:border-slate-800">
+                      <span className="flex items-center gap-1.5 text-indigo-600 dark:text-indigo-400">
+                        <Calculator className="w-3.5 h-3.5" />
+                        Chi tiết cấu thành học phí:
                       </span>
-                      <span className="font-mono font-bold text-slate-900 dark:text-white">
-                        {formatVND(student.tuition_base_amount || (student.standard_tuition ? student.standard_tuition - (student.level_surcharge || 0) : 1000000))}
+                      <span className="font-mono text-[11px] text-slate-400">
+                        = {formatVND(student.current_tuition)}
                       </span>
                     </div>
 
-                    {/* 2. Phụ thu level (nếu có) */}
-                    {student.level_surcharge && student.level_surcharge > 0 ? (
-                      <div className="flex items-center justify-between py-0.5 text-emerald-600 dark:text-emerald-400">
-                        <span className="flex items-center gap-1 font-semibold">
-                          <Plus className="w-3 h-3 stroke-[2.5]" /> Phụ thu level ({student.level_name || "Trình độ"}):
+                    <div className="space-y-1 text-xs">
+                      {/* 1. Học phí gốc (Gói hoặc Base) */}
+                      <div className="flex items-center justify-between py-0.5">
+                        <span className="text-slate-600 dark:text-slate-400 flex items-center gap-1">
+                          • {student.tuition_package_name ? `Gói học phí (${student.tuition_package_name})` : "Mức học phí cơ bản"}:
                         </span>
-                        <span className="font-mono font-black">
-                          +{formatVND(student.level_surcharge)}
-                        </span>
-                      </div>
-                    ) : null}
-
-                    {/* 3. Chiết khấu giảm giá (nếu có) */}
-                    {student.is_discount_enabled && student.discount_percent > 0 ? (
-                      <div className="flex items-center justify-between py-0.5 text-amber-600 dark:text-amber-400">
-                        <span className="flex items-center gap-1 font-semibold">
-                          <Minus className="w-3 h-3 stroke-[2.5]" /> Chiết khấu riêng (-{student.discount_percent}%{student.discount_reason ? ` • ${student.discount_reason}` : ""}):
-                        </span>
-                        <span className="font-mono font-black">
-                          -{formatVND(student.tuition_discount_amount || Math.round(((student.tuition_base_amount || 1000000) + (student.level_surcharge || 0)) * (student.discount_percent / 100)))}
+                        <span className="font-mono font-bold text-slate-900 dark:text-white">
+                          {formatVND(student.tuition_base_amount || (student.standard_tuition ? student.standard_tuition - (student.level_surcharge || 0) : 1000000))}
                         </span>
                       </div>
-                    ) : null}
 
-                    {/* 4. Điều chỉnh riêng tháng này (nếu có override) */}
-                    {student.monthly_override && (() => {
-                      try {
-                        const items = JSON.parse(student.monthly_override.items_json || "[]");
-                        if (Array.isArray(items) && items.length > 0) {
-                          return items.map((it: any) => (
-                            <div
-                              key={it.id}
-                              className={`flex items-center justify-between py-0.5 ${
-                                it.type === "add" ? "text-indigo-600 dark:text-indigo-400" : "text-rose-600 dark:text-rose-400"
-                              }`}
-                            >
-                              <span className="flex items-center gap-1 font-semibold">
-                                {it.type === "add" ? <Plus className="w-3 h-3" /> : <Minus className="w-3 h-3" />}
-                                Điều chỉnh tháng ({it.name}):
-                              </span>
-                              <span className="font-mono font-black">
-                                {it.type === "add" ? "+" : "-"}{formatVND(it.amount)}
-                              </span>
-                            </div>
-                          ));
-                        }
-                      } catch {}
-                      return null;
-                    })()}
+                      {/* 2. Phụ thu level (nếu có) */}
+                      {student.level_surcharge && student.level_surcharge > 0 ? (
+                        <div className="flex items-center justify-between py-0.5 text-emerald-600 dark:text-emerald-400">
+                          <span className="flex items-center gap-1 font-semibold">
+                            <Plus className="w-3 h-3 stroke-[2.5]" /> Phụ thu level ({student.level_name || "Trình độ"}):
+                          </span>
+                          <span className="font-mono font-black">
+                            +{formatVND(student.level_surcharge)}
+                          </span>
+                        </div>
+                      ) : null}
 
-                    {/* 5. Nợ cũ cộng dồn (nếu có) */}
-                    {student.is_overdue && student.previous_debt_amount ? (
-                      <div className="flex items-center justify-between py-0.5 text-rose-600 dark:text-rose-400 pt-1 border-t border-dashed border-rose-200 dark:border-rose-900/60">
-                        <span className="flex items-center gap-1 font-extrabold">
-                          <AlertCircle className="w-3 h-3" /> Nợ cũ tích lũy ({student.unpaid_months_count} tháng):
+                      {/* 3. Chiết khấu giảm giá (nếu có) */}
+                      {student.is_discount_enabled && student.discount_percent > 0 ? (
+                        <div className="flex items-center justify-between py-0.5 text-amber-600 dark:text-amber-400">
+                          <span className="flex items-center gap-1 font-semibold">
+                            <Minus className="w-3 h-3 stroke-[2.5]" /> Chiết khấu riêng (-{student.discount_percent}%{student.discount_reason ? ` • ${student.discount_reason}` : ""}):
+                          </span>
+                          <span className="font-mono font-black">
+                            -{formatVND(student.tuition_discount_amount || Math.round(((student.tuition_base_amount || 1000000) + (student.level_surcharge || 0)) * (student.discount_percent / 100)))}
+                          </span>
+                        </div>
+                      ) : null}
+
+                      {/* 4. Điều chỉnh riêng tháng này (nếu có override) */}
+                      {student.monthly_override && (() => {
+                        try {
+                          const items = JSON.parse(student.monthly_override.items_json || "[]");
+                          if (Array.isArray(items) && items.length > 0) {
+                            return items.map((it: any) => (
+                              <div
+                                key={it.id}
+                                className={`flex items-center justify-between py-0.5 ${
+                                  it.type === "add" ? "text-indigo-600 dark:text-indigo-400" : "text-rose-600 dark:text-rose-400"
+                                }`}
+                              >
+                                <span className="flex items-center gap-1 font-semibold">
+                                  {it.type === "add" ? <Plus className="w-3 h-3" /> : <Minus className="w-3 h-3" />}
+                                  Điều chỉnh tháng ({it.name}):
+                                </span>
+                                <span className="font-mono font-black">
+                                  {it.type === "add" ? "+" : "-"}{formatVND(it.amount)}
+                                </span>
+                              </div>
+                            ));
+                          }
+                        } catch {}
+                        return null;
+                      })()}
+
+                      {/* 5. Nợ cũ cộng dồn (nếu có) */}
+                      {student.is_overdue && student.previous_debt_amount ? (
+                        <div className="flex items-center justify-between py-0.5 text-rose-600 dark:text-rose-400 pt-1 border-t border-dashed border-rose-200 dark:border-rose-900/60">
+                          <span className="flex items-center gap-1 font-extrabold">
+                            <AlertCircle className="w-3 h-3" /> Nợ cũ tích lũy ({student.unpaid_months_count} tháng):
+                          </span>
+                          <span className="font-mono font-black">
+                            +{formatVND(student.previous_debt_amount)}
+                          </span>
+                        </div>
+                      ) : null}
+
+                      {/* Tổng kết dòng tính toán */}
+                      <div className="pt-1.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                        <span className="text-[11px] font-extrabold uppercase text-slate-500">
+                          {student.total_tuition_due ? "Tổng thực thu cần đóng:" : "Học phí tháng này:"}
                         </span>
-                        <span className="font-mono font-black">
-                          +{formatVND(student.previous_debt_amount)}
+                        <span className="text-sm font-black text-indigo-600 dark:text-indigo-400 font-mono">
+                          {formatVND(student.total_tuition_due || student.current_tuition)}
                         </span>
                       </div>
-                    ) : null}
-
-                    {/* Tổng kết dòng tính toán */}
-                    <div className="pt-1.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-                      <span className="text-[11px] font-extrabold uppercase text-slate-500">
-                        {student.total_tuition_due ? "Tổng thực thu cần đóng:" : "Học phí tháng này:"}
-                      </span>
-                      <span className="text-sm font-black text-indigo-600 dark:text-indigo-400 font-mono">
-                        {formatVND(student.total_tuition_due || student.current_tuition)}
-                      </span>
                     </div>
                   </div>
-                </div>
+                )}
 
                 {/* Quick actions for billing */}
-                <div className="pt-2 flex items-center justify-between gap-2 flex-wrap">
-                  <button
-                    type="button"
-                    onClick={() => onReconciliationToggle(student)}
-                    className={`px-3.5 py-1.5 text-xs font-bold rounded-xl border transition flex items-center gap-1.5 ${
-                      isPaid
-                        ? "bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-700 border-slate-300 dark:bg-slate-800 dark:text-slate-300"
-                        : "bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600 shadow-2xs"
-                    }`}
-                  >
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                    <span>{isPaid ? "Hủy đánh dấu đã đóng" : "Đánh dấu ĐÃ ĐÓNG"}</span>
-                  </button>
+                {(canAuditTuition || canRemindTuition) && (
+                  <div className="pt-2 flex items-center justify-between gap-2 flex-wrap">
+                    {canAuditTuition && (
+                      <button
+                        type="button"
+                        onClick={() => onReconciliationToggle(student)}
+                        className={`px-3.5 py-1.5 text-xs font-bold rounded-xl border transition flex items-center gap-1.5 ${
+                          isPaid
+                            ? "bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-700 border-slate-300 dark:bg-slate-800 dark:text-slate-300"
+                            : "bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600 shadow-2xs"
+                        }`}
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        <span>{isPaid ? "Hủy đánh dấu đã đóng" : "Đánh dấu ĐÃ ĐÓNG"}</span>
+                      </button>
+                    )}
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onClose();
-                      onOpenZaloReminder(student);
-                    }}
-                    className="px-3.5 py-1.5 text-xs font-bold rounded-xl bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200 dark:border-blue-800 flex items-center gap-1.5 transition"
-                  >
-                    <MessageSquare className="w-3.5 h-3.5 text-blue-600" />
-                    <span>Nhắc học phí Zalo</span>
-                  </button>
-                </div>
+                    {canRemindTuition && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onClose();
+                          onOpenZaloReminder(student);
+                        }}
+                        className="px-3.5 py-1.5 text-xs font-bold rounded-xl bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200 dark:border-blue-800 flex items-center gap-1.5 transition"
+                      >
+                        <MessageSquare className="w-3.5 h-3.5 text-blue-600" />
+                        <span>Nhắc học phí Zalo</span>
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* General info list */}

@@ -57,15 +57,18 @@ export async function POST(req: Request) {
     }
 
     let permissions: string[] = [];
-    if (admin.is_owner === 1 || !admin.role_id) {
+    if (admin.is_owner === 1) {
       permissions = ["*"];
-    } else {
+    } else if (admin.role_id) {
       try {
         if (admin.permissions_json) {
           const parsed = JSON.parse(String(admin.permissions_json));
           if (Array.isArray(parsed)) permissions = parsed;
         }
       } catch {}
+    } else {
+      // Nhân viên không phải chủ cơ sở và chưa được phân vai trò -> KHÔNG cấp quyền wildcard
+      permissions = [];
     }
 
     const token = Buffer.from(
@@ -163,15 +166,18 @@ export async function GET(req: Request) {
     }
 
     let permissions: string[] = [];
-    if (admin.is_owner === 1 || !admin.role_id) {
+    if (admin.is_owner === 1) {
       permissions = ["*"];
-    } else {
+    } else if (admin.role_id) {
       try {
         if (admin.permissions_json) {
           const parsed = JSON.parse(String(admin.permissions_json));
           if (Array.isArray(parsed)) permissions = parsed;
         }
       } catch {}
+    } else {
+      // Nhân viên không phải chủ cơ sở và chưa được phân vai trò -> KHÔNG cấp quyền wildcard
+      permissions = [];
     }
 
     return NextResponse.json({

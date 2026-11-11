@@ -1,11 +1,16 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
-import { getSchoolIdFromRequest } from "@/lib/authHelper";
+import { getSchoolIdFromRequest, requireAdminPermission } from "@/lib/authHelper";
 
 // GET /api/admin/staff - Danh sách tài khoản nhân viên của cơ sở
 export async function GET(req: Request) {
   try {
     await initDb();
+    const authCheck = await requireAdminPermission(req, "staff.manage");
+    if (!authCheck.authorized) {
+      return authCheck.errorResponse!;
+    }
+
     const db = getDb();
     const { searchParams } = new URL(req.url);
     const querySchoolId = searchParams.get("school_id");
@@ -63,6 +68,11 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     await initDb();
+    const authCheck = await requireAdminPermission(req, "staff.manage");
+    if (!authCheck.authorized) {
+      return authCheck.errorResponse!;
+    }
+
     const db = getDb();
     const { searchParams } = new URL(req.url);
     const querySchoolId = searchParams.get("school_id");
@@ -179,6 +189,11 @@ export async function POST(req: Request) {
 export async function DELETE(req: Request) {
   try {
     await initDb();
+    const authCheck = await requireAdminPermission(req, "staff.manage");
+    if (!authCheck.authorized) {
+      return authCheck.errorResponse!;
+    }
+
     const db = getDb();
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");

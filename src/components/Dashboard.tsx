@@ -1241,7 +1241,11 @@ export default function Dashboard() {
             </div>
             <div className="mt-2">
               <div className="text-3xl font-black tracking-tight">
-                {formatVND(totalRevenueThisMonth)}
+                {(hasPerm("revenue.reports") || hasPerm("tuition.view")) ? (
+                  formatVND(totalRevenueThisMonth)
+                ) : (
+                  <span className="text-2xl font-bold tracking-widest text-indigo-200">•••••••• đ</span>
+                )}
               </div>
               <span className="text-xs text-indigo-100 font-medium mt-1 flex items-center gap-1">
                 <Users className="w-3.5 h-3.5 opacity-80" />
@@ -2607,6 +2611,8 @@ export default function Dashboard() {
         initialClassId={slotPrefill.classId}
         initialDay={slotPrefill.day}
         initialStartTime={slotPrefill.time}
+        canManageTuition={hasPerm("tuition.view") || hasPerm("tuition.override")}
+        canViewTuition={hasPerm("tuition.view")}
       />
 
       {/* Monthly Tuition Override Modal */}
@@ -2633,6 +2639,7 @@ export default function Dashboard() {
         onClose={() => setIsDetailModalOpen(false)}
         student={studentForDetail}
         selectedMonth={selectedMonth}
+        hasPerm={hasPerm}
         onOpenStatusChange={(st) => {
           setStudentForStatusChange(st);
           setIsChangeStatusModalOpen(true);
@@ -2750,6 +2757,8 @@ export default function Dashboard() {
         timeSlots={timeSlots}
         onRefresh={handleRefresh}
         initialTab={staffModalInitialTab}
+        hasPerm={hasPerm}
+        isOwner={adminUser?.is_owner === 1}
       />
 
       {/* Daily Attendance & Lesson Log Modal for Admin */}

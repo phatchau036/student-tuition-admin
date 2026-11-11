@@ -41,6 +41,8 @@ interface StaffManagementModalProps {
   timeSlots?: TimeSlot[];
   onRefresh?: () => void;
   initialTab?: "teachers" | "staff" | "roles";
+  hasPerm?: (permKey: string) => boolean;
+  isOwner?: boolean;
 }
 
 const COLOR_PRESETS = [
@@ -63,8 +65,11 @@ export const StaffManagementModal: React.FC<StaffManagementModalProps> = ({
   timeSlots = [],
   onRefresh,
   initialTab = "teachers",
+  hasPerm,
+  isOwner = false,
 }) => {
   const { showToast } = useToast();
+  const canManageStaff = Boolean(isOwner || (hasPerm ? hasPerm("staff.manage") : false));
   const [activeTab, setActiveTab] = useState<"teachers" | "staff" | "roles">(initialTab);
 
   // Data state
@@ -76,9 +81,13 @@ export const StaffManagementModal: React.FC<StaffManagementModalProps> = ({
   // Sync initial tab when modal opens
   useEffect(() => {
     if (isOpen) {
-      setActiveTab(initialTab);
+      if (!canManageStaff && (initialTab === "staff" || initialTab === "roles")) {
+        setActiveTab("teachers");
+      } else {
+        setActiveTab(initialTab);
+      }
     }
-  }, [isOpen, initialTab]);
+  }, [isOpen, initialTab, canManageStaff]);
 
   // Sync teachers from props
   useEffect(() => {
@@ -139,18 +148,21 @@ export const StaffManagementModal: React.FC<StaffManagementModalProps> = ({
     try {
       setIsLoading(true);
       const q = schoolId ? `?school_id=${encodeURIComponent(schoolId)}` : "";
-      const [staffRes, rolesRes, tcRes] = await Promise.all([
-        fetch(`/api/admin/staff${q}`, { headers: getHeaders() }),
-        fetch(`/api/admin/roles${q}`, { headers: getHeaders() }),
-        fetch(`/api/teachers${q}`, { headers: getHeaders() }),
-      ]);
-      const staffJson = await staffRes.json();
-      const rolesJson = await rolesRes.json();
+      const tcRes = await fetch(`/api/teachers${q}`, { headers: getHeaders() });
       const tcJson = await tcRes.json();
-
-      if (staffJson.success) setStaffList(staffJson.data || []);
-      if (rolesJson.success) setRolesList(rolesJson.data || []);
       if (tcJson.success) setTeachersList(tcJson.data || []);
+
+      if (canManageStaff) {
+        const [staffRes, rolesRes] = await Promise.all([
+          fetch(`/api/admin/staff${q}`, { headers: getHeaders() }),
+          fetch(`/api/admin/roles${q}`, { headers: getHeaders() }),
+        ]);
+        const staffJson = await staffRes.json();
+        const rolesJson = await rolesRes.json();
+
+        if (staffJson.success) setStaffList(staffJson.data || []);
+        if (rolesJson.success) setRolesList(rolesJson.data || []);
+      }
     } catch {
       showToast("Không thể tải danh sách tài khoản & vai trò!", "error");
     } finally {
@@ -319,6 +331,10 @@ Thầy/Cô vui lòng truy cập để theo dõi ca dạy nhé!`;
 
   const handleSaveStaff = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canManageStaff) {
+      showToast("Bạn không có quyền quản lý tài khoản nhân viên!", "error");
+      return;
+    }
     if (!staffFullName.trim() || !staffUsername.trim()) {
       showToast("Vui lòng nhập họ tên và tên đăng nhập!", "error");
       return;
@@ -373,6 +389,10 @@ Thầy/Cô vui lòng truy cập để theo dõi ca dạy nhé!`;
   };
 
   const handleToggleStaffActive = async (staff: SchoolAdmin) => {
+    if (!canManageStaff) {
+      showToast("Bạn không có quyền thay đổi trạng thái nhân viên!", "error");
+      return;
+    }
     if (staff.is_owner === 1) {
       showToast("Không thể khóa tài khoản Chủ cơ sở!", "error");
       return;
@@ -401,6 +421,10 @@ Thầy/Cô vui lòng truy cập để theo dõi ca dạy nhé!`;
   };
 
   const handleDeleteStaff = async (staff: SchoolAdmin) => {
+    if (!canManageStaff) {
+      showToast("Bạn không có quyền xóa tài khoản nhân viên!", "error");
+      return;
+    }
     if (staff.is_owner === 1) {
       showToast("Không thể xóa tài khoản Chủ cơ sở!", "error");
       return;
@@ -481,6 +505,10 @@ Thầy/Cô vui lòng truy cập để theo dõi ca dạy nhé!`;
 
   const handleSaveRole = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canManageStaff) {
+      showToast("Bạn không có quyền cấu hình nhóm quyền & vai trò!", "error");
+      return;
+    }
     if (!roleName.trim()) {
       showToast("Vui lòng nhập tên nhóm quyền / vai trò!", "error");
       return;
@@ -516,6 +544,10 @@ Thầy/Cô vui lòng truy cập để theo dõi ca dạy nhé!`;
   };
 
   const handleDeleteRole = async (role: AdminRole) => {
+    if (!canManageStaff) {
+      showToast("Bạn không có quyền xóa nhóm quyền!", "error");
+      return;
+    }
     if (role.is_system === 1) {
       showToast("Không thể xóa vai trò hệ thống mặc định!", "error");
       return;
@@ -593,40 +625,60 @@ Thầy/Cô vui lòng truy cập để theo dõi ca dạy nhé!`;
             </button>
 
             {/* TAB 2: TÀI KHOẢN NHÂN VIÊN */}
-            <button
-              type="button"
-              onClick={() => {
-                setActiveTab("staff");
-                setIsTeacherFormOpen(false);
-                setIsRoleFormOpen(false);
-              }}
-              className={`flex items-center gap-2 px-3 sm:px-4 py-2.5 text-xs sm:text-sm font-bold border-b-2 transition cursor-pointer whitespace-nowrap ${
-                activeTab === "staff"
-                  ? "border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-400 font-black"
-                  : "border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
-              }`}
-            >
-              <Users className="w-4 h-4 text-indigo-500" />
-              <span>2. Nhân Viên Quản Trị ({staffList.length})</span>
-            </button>
+            {canManageStaff ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab("staff");
+                  setIsTeacherFormOpen(false);
+                  setIsRoleFormOpen(false);
+                }}
+                className={`flex items-center gap-2 px-3 sm:px-4 py-2.5 text-xs sm:text-sm font-bold border-b-2 transition cursor-pointer whitespace-nowrap ${
+                  activeTab === "staff"
+                    ? "border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-400 font-black"
+                    : "border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
+                }`}
+              >
+                <Users className="w-4 h-4 text-indigo-500" />
+                <span>2. Nhân Viên Quản Trị ({staffList.length})</span>
+              </button>
+            ) : (
+              <div
+                className="flex items-center gap-1.5 px-3 py-2.5 text-xs font-semibold text-slate-400 dark:text-slate-600 cursor-not-allowed select-none opacity-60"
+                title="Cần quyền Quản lý Nhân viên (staff.manage) để truy cập"
+              >
+                <Lock className="w-3.5 h-3.5" />
+                <span>2. Nhân Viên Quản Trị</span>
+              </div>
+            )}
 
             {/* TAB 3: NHÓM QUYỀN & VAI TRÒ */}
-            <button
-              type="button"
-              onClick={() => {
-                setActiveTab("roles");
-                setIsTeacherFormOpen(false);
-                setIsStaffFormOpen(false);
-              }}
-              className={`flex items-center gap-2 px-3 sm:px-4 py-2.5 text-xs sm:text-sm font-bold border-b-2 transition cursor-pointer whitespace-nowrap ${
-                activeTab === "roles"
-                  ? "border-emerald-600 text-emerald-600 dark:text-emerald-400 dark:border-emerald-400 font-black"
-                  : "border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
-              }`}
-            >
-              <ShieldCheck className="w-4 h-4 text-emerald-500" />
-              <span>3. Nhóm Quyền &amp; Vai Trò ({rolesList.length})</span>
-            </button>
+            {canManageStaff ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab("roles");
+                  setIsTeacherFormOpen(false);
+                  setIsStaffFormOpen(false);
+                }}
+                className={`flex items-center gap-2 px-3 sm:px-4 py-2.5 text-xs sm:text-sm font-bold border-b-2 transition cursor-pointer whitespace-nowrap ${
+                  activeTab === "roles"
+                    ? "border-emerald-600 text-emerald-600 dark:text-emerald-400 dark:border-emerald-400 font-black"
+                    : "border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
+                }`}
+              >
+                <ShieldCheck className="w-4 h-4 text-emerald-500" />
+                <span>3. Nhóm Quyền &amp; Vai Trò ({rolesList.length})</span>
+              </button>
+            ) : (
+              <div
+                className="flex items-center gap-1.5 px-3 py-2.5 text-xs font-semibold text-slate-400 dark:text-slate-600 cursor-not-allowed select-none opacity-60"
+                title="Cần quyền Quản lý Nhân viên (staff.manage) để truy cập"
+              >
+                <Lock className="w-3.5 h-3.5" />
+                <span>3. Nhóm Quyền &amp; Vai Trò</span>
+              </div>
+            )}
           </div>
 
           <button
@@ -932,6 +984,19 @@ Thầy/Cô vui lòng truy cập để theo dõi ca dạy nhé!`;
               TAB 2: TÀI KHOẢN NHÂN VIÊN (/admin) - PHÂN QUYỀN TÙY BIẾN
               ========================================================================= */}
           {activeTab === "staff" && (
+            !canManageStaff ? (
+              <div className="py-12 px-6 text-center bg-slate-50 dark:bg-slate-800/40 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-3">
+                <div className="w-12 h-12 rounded-2xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 flex items-center justify-center text-rose-600 mx-auto">
+                  <Lock className="w-6 h-6" />
+                </div>
+                <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200">
+                  Bạn không có quyền quản lý tài khoản nhân viên
+                </h4>
+                <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto">
+                  Chức năng này yêu cầu quyền <strong>Quản lý Nhân viên &amp; Phân quyền (staff.manage)</strong> hoặc tài khoản <strong>Chủ Cơ Sở</strong>.
+                </p>
+              </div>
+            ) : (
             <div className="space-y-5">
               {/* Thông báo thông tin tài khoản vừa tạo */}
               {createdCredentials && (
@@ -1227,12 +1292,26 @@ Thầy/Cô vui lòng truy cập để theo dõi ca dạy nhé!`;
                 </table>
               </div>
             </div>
+            )
           )}
 
           {/* =========================================================================
               TAB 3: QUẢN LÝ NHÓM QUYỀN (VAI TRÒ RBAC)
               ========================================================================= */}
           {activeTab === "roles" && (
+            !canManageStaff ? (
+              <div className="py-12 px-6 text-center bg-slate-50 dark:bg-slate-800/40 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-3">
+                <div className="w-12 h-12 rounded-2xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 flex items-center justify-center text-rose-600 mx-auto">
+                  <Lock className="w-6 h-6" />
+                </div>
+                <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200">
+                  Bạn không có quyền cấu hình nhóm quyền &amp; vai trò
+                </h4>
+                <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto">
+                  Chức năng này yêu cầu quyền <strong>Quản lý Nhân viên &amp; Phân quyền (staff.manage)</strong> hoặc tài khoản <strong>Chủ Cơ Sở</strong>.
+                </p>
+              </div>
+            ) : (
             <div className="space-y-5">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/70 dark:border-emerald-800/60">
                 <div className="space-y-0.5">
@@ -1541,6 +1620,7 @@ Thầy/Cô vui lòng truy cập để theo dõi ca dạy nhé!`;
                 )}
               </div>
             </div>
+            )
           )}
 
         </div>

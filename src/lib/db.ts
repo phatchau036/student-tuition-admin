@@ -104,6 +104,71 @@ export async function initDb() {
     await db.execute("UPDATE school_admins SET is_owner = 1 WHERE (is_owner IS NULL OR is_owner = 0) AND (username = 'admin' OR id = 'admin-1')");
   } catch {}
 
+  // Khởi tạo các vai trò mẫu cho cơ sở nếu chưa có vai trò nào
+  try {
+    const rolesCountRes = await db.execute("SELECT COUNT(*) as count FROM admin_roles");
+    if (Number(rolesCountRes.rows[0]?.count || 0) === 0) {
+      const defaultRoles = [
+        {
+          id: "role-preset-office",
+          school_id: "school-default",
+          name: "Nhân Viên Văn Phòng / Lễ Tân",
+          description: "Tiếp đón phụ huynh, thêm/sửa học sinh, xem ma trận lịch, tư vấn ca trống, điểm danh và xếp ca học bù. Không xem doanh thu, không chỉnh sửa học phí, không quản trị nhân sự.",
+          permissions_json: JSON.stringify([
+            "students.view",
+            "students.create",
+            "students.edit",
+            "schedule.matrix",
+            "attendance.manage",
+            "makeups.manage",
+            "schedule.consult"
+          ])
+        },
+        {
+          id: "role-preset-accountant",
+          school_id: "school-default",
+          name: "Kế Toán / Thu Ngân",
+          description: "Xem học phí, công nợ, đối soát thu tiền, xuất biên lai điện tử, gửi nhắc nợ Zalo và xem tổng kết doanh thu tháng.",
+          permissions_json: JSON.stringify([
+            "students.view",
+            "tuition.view",
+            "tuition.audit",
+            "tuition.receipt",
+            "tuition.remind",
+            "revenue.reports"
+          ])
+        },
+        {
+          id: "role-preset-academic",
+          school_id: "school-default",
+          name: "Quản Lý Đào Tạo / Giáo Vụ",
+          description: "Quản lý danh sách học sinh, quản lý lớp học, phân công giáo viên đứng lớp, quản lý bảo lưu/nghỉ học và lịch học bù.",
+          permissions_json: JSON.stringify([
+            "students.view",
+            "students.create",
+            "students.edit",
+            "students.status",
+            "schedule.matrix",
+            "attendance.manage",
+            "makeups.manage",
+            "schedule.consult",
+            "classes.manage",
+            "teachers.manage"
+          ])
+        }
+      ];
+
+      for (const r of defaultRoles) {
+        await db.execute({
+          sql: "INSERT OR IGNORE INTO admin_roles (id, school_id, name, description, permissions_json) VALUES (?, ?, ?, ?, ?)",
+          args: [r.id, r.school_id, r.name, r.description, r.permissions_json]
+        });
+      }
+    }
+  } catch (err) {
+    console.error("Init Default Roles Error:", err);
+  }
+
   // 1. Settings Table
   await db.execute(`
     CREATE TABLE IF NOT EXISTS settings (
