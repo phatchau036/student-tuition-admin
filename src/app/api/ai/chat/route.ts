@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { askAiAssistant, generateLessonReview, getAiConfig } from "@/lib/aiBrain";
-import { getSchoolIdFromRequest } from "@/lib/authHelper";
+import { getSchoolIdFromRequest, getAdminFromRequest } from "@/lib/authHelper";
 
 // POST /api/ai/chat - Trợ lý AI trung tâm cho Admin & Giáo viên
 export async function POST(req: Request) {
@@ -51,12 +51,26 @@ export async function POST(req: Request) {
         );
       }
 
+      // Bắt buộc đăng nhập Admin và giới hạn dữ liệu tài chính theo đúng quyền
+      const admin = await getAdminFromRequest(req);
+      if (!admin) {
+        return NextResponse.json(
+          { success: false, message: "Phiên đăng nhập không hợp lệ hoặc đã hết hạn!" },
+          { status: 401 }
+        );
+      }
+      const isOwnerOrWildcard = admin.is_owner === 1 || admin.permissions.includes("*");
+      const canViewRevenue = isOwnerOrWildcard || admin.permissions.includes("revenue.reports");
+      const canViewTuition = isOwnerOrWildcard || admin.permissions.includes("tuition.view");
+
       const answer = await askAiAssistant({
         userMessage: String(message).trim(),
         history,
         schoolId,
         senderName,
         isZalo: false,
+        canViewRevenue,
+        canViewTuition,
       });
 
       return NextResponse.json({

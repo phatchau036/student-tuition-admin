@@ -96,13 +96,43 @@ import { useLanguage } from "@/lib/i18n";
 import { useTheme } from "@/lib/ThemeContext";
 import { AppLanguage, ClassRoom, SchoolAdmin } from "@/lib/types";
 
+// Hiển thị ngày ISO (YYYY-MM-DD) theo định dạng Việt Nam (DD/MM/YYYY)
+function formatIsoDateVN(iso?: string): string {
+  if (!iso) return "";
+  const [year, month, day] = iso.split("-");
+  if (!year || !month || !day) return iso;
+  return `${day}/${month}/${year}`;
+}
+
+// Lấy ngày đầu & ngày cuối của một tháng "YYYY-MM"
+function getMonthDateBounds(month: string): { from: string; to: string } {
+  const [year, monthNum] = month.split("-").map(Number);
+  if (!year || !monthNum) return { from: "", to: "" };
+  const lastDay = new Date(year, monthNum, 0).getDate();
+  return {
+    from: `${month}-01`,
+    to: `${month}-${String(lastDay).padStart(2, "0")}`,
+  };
+}
+
 export default function Dashboard() {
   const { showToast } = useToast();
   const { language, setLanguage, t } = useLanguage();
   const { theme, toggleTheme } = useTheme();
 
-  // Selected Month State
+  // Selected Month State (tháng neo để tính học phí/đối soát)
   const [selectedMonth, setSelectedMonth] = useState<string>("2026-10");
+
+  // Kỳ học phí tùy chỉnh: Từ ngày - Đến ngày (ví dụ 15/11 - 15/12)
+  const [isRangeMode, setIsRangeMode] = useState<boolean>(false);
+  const [periodFrom, setPeriodFrom] = useState<string>("");
+  const [periodTo, setPeriodTo] = useState<string>("");
+  const [periodRevenue, setPeriodRevenue] = useState<{
+    total: number;
+    paid_students: number;
+    from: string;
+    to: string;
+  } | null>(null);
 
   useEffect(() => {
     setSelectedMonth(getCurrentMonthStr());
@@ -131,6 +161,9 @@ export default function Dashboard() {
     if (adminUser.is_owner === 1 || adminUser.permissions?.includes("*")) return true;
     return Boolean(adminUser.permissions?.includes(permKey));
   };
+
+  const canViewTuition = hasPerm("tuition.view");
+  const canViewRevenue = hasPerm("revenue.reports");
 
   // Modals state
   const [isDailyAttendanceModalOpen, setIsDailyAttendanceModalOpen] = useState(false);
@@ -271,6 +304,7 @@ export default function Dashboard() {
     openUpward: boolean;
   } | null>(null);
   const [isManagementMenuOpen, setIsManagementMenuOpen] = useState(false);
+  const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
   // Close action menu on scroll or resize
@@ -389,6 +423,54 @@ export default function Dashboard() {
     initializePortal();
   }, []);
 
+  // Tự động làm mới quyền hạn: áp dụng ngay khi Chủ cơ sở đổi phân quyền mà nhân viên không cần đăng xuất
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    let cancelled = false;
+
+    const refreshAdminPermissions = async () => {
+      const token = localStorage.getItem("admin_token");
+      if (!token) return;
+      try {
+        const res = await fetch("/api/admin/auth", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const json = await res.json();
+        if (cancelled) return;
+
+        if (json.authenticated && json.admin) {
+          setAdminUser(json.admin);
+          const perms: string[] = Array.isArray(json.admin.permissions) ? json.admin.permissions : [];
+          const isOwnerOrWildcard = json.admin.is_owner === 1 || perms.includes("*");
+          if (!isOwnerOrWildcard && !perms.includes("tuition.view")) {
+            setSelectedPaymentFilter("all");
+          }
+        } else if (res.status === 401 || res.status === 403) {
+          // Tài khoản bị khóa / xóa / phiên hết hạn -> đăng xuất ngay
+          localStorage.removeItem("admin_token");
+          setIsAuthenticated(false);
+          setAdminUser(null);
+        }
+      } catch {}
+    };
+
+    const interval = setInterval(refreshAdminPermissions, 30000);
+    const handleFocus = () => refreshAdminPermissions();
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") refreshAdminPermissions();
+    };
+
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [isAuthenticated]);
+
   const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!loginUsername || !loginPassword) {
@@ -502,6 +584,22 @@ export default function Dashboard() {
     showToast("Đã đăng xuất khỏi cổng Quản trị cơ sở", "success");
   };
 
+  // Đổi ngôn ngữ giao diện & lưu vào cài đặt cơ sở
+  const handleLanguageChange = (newL: AppLanguage) => {
+    setLanguage(newL);
+    const newMonthFmt =
+      newL === "vi" ? "vietnamese" : newL === "zh" ? "chinese" : newL === "ja" ? "japanese" : "english";
+    setMonthFormat(newMonthFmt);
+    fetch("/api/settings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+      body: JSON.stringify({
+        app_language: newL,
+        month_format: newMonthFmt,
+      }),
+    });
+  };
+
   // Helper lấy headers có kèm Authorization token
   const getAuthHeaders = (overrideSchoolId?: string): Record<string, string> => {
     const token = typeof window !== "undefined" ? localStorage.getItem("admin_token") : null;
@@ -603,13 +701,18 @@ export default function Dashboard() {
       if (!silent) setIsLoading(true);
       const targetSchoolId = schoolId || currentSchool?.id || "";
       const schoolParam = targetSchoolId ? `&school_id=${targetSchoolId}` : "";
-      const res = await fetch(`/api/students?month=${month}${schoolParam}`, {
+      const rangeActive = isRangeMode && Boolean(periodFrom) && Boolean(periodTo) && periodFrom <= periodTo;
+      const rangeParam = rangeActive
+        ? `&period_from=${encodeURIComponent(periodFrom)}&period_to=${encodeURIComponent(periodTo)}`
+        : "";
+      const res = await fetch(`/api/students?month=${month}${schoolParam}${rangeParam}`, {
         headers: getAuthHeaders(targetSchoolId),
       });
       const json = await res.json();
       if (json.success) {
         setStudents(json.data.students);
         setBaseTuition(json.data.base_tuition);
+        setPeriodRevenue(json.data.period_revenue || null);
       } else {
         showToast("Không thể tải danh sách học sinh", "error");
       }
@@ -621,18 +724,21 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
+    if (!isAuthenticated) return;
     loadSettings();
     loadTeachers();
     loadClasses();
-  }, []);
+  }, [isAuthenticated]);
 
   useEffect(() => {
+    if (!isAuthenticated) return;
+    if (isRangeMode && (!periodFrom || !periodTo || periodFrom > periodTo)) return;
     if (currentSchool?.id) {
       loadStudents(selectedMonth, currentSchool.id);
     } else {
       loadStudents(selectedMonth);
     }
-  }, [selectedMonth, currentSchool]);
+  }, [selectedMonth, currentSchool, isRangeMode, periodFrom, periodTo, isAuthenticated]);
 
   // Refresh all
   const handleRefresh = () => {
@@ -647,7 +753,10 @@ export default function Dashboard() {
     if (!studentToDelete) return;
     try {
       setIsDeletingStudent(true);
-      const res = await fetch(`/api/students/${studentToDelete.id}`, { method: "DELETE" });
+      const res = await fetch(`/api/students/${studentToDelete.id}`, {
+        method: "DELETE",
+        headers: getAuthHeaders(),
+      });
       const data = await res.json();
       if (data.success) {
         showToast(data.message, "success");
@@ -669,7 +778,7 @@ export default function Dashboard() {
     try {
       const res = await fetch("/api/payments", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({
           action: isCurrentlyPaid ? "mark_unpaid" : "mark_paid",
           student_id: student.id,
@@ -704,7 +813,9 @@ export default function Dashboard() {
       const matchStatus =
         selectedStatusFilter === "all" || (s.status || "studying") === selectedStatusFilter;
       const matchPayment =
-        selectedPaymentFilter === "all" || (s.payment_status || "unpaid") === selectedPaymentFilter;
+        !canViewTuition ||
+        selectedPaymentFilter === "all" ||
+        (s.payment_status || "unpaid") === selectedPaymentFilter;
 
       return matchSearch && matchSubject && matchClass && matchLevel && matchSlot && matchTeacher && matchStatus && matchPayment;
     });
@@ -728,7 +839,7 @@ export default function Dashboard() {
         }
       } else if (sortField === "name") {
         cmp = (a.name || "").localeCompare(b.name || "", "vi", { sensitivity: "base" });
-      } else if (sortField === "tuition") {
+      } else if (sortField === "tuition" && canViewTuition) {
         cmp = (a.current_tuition || 0) - (b.current_tuition || 0);
       } else if (sortField === "status") {
         cmp = (a.status || "studying").localeCompare(b.status || "studying");
@@ -748,12 +859,23 @@ export default function Dashboard() {
     selectedPaymentFilter,
     sortField,
     sortOrder,
+    canViewTuition,
   ]);
 
   // Statistics
   const totalRevenueThisMonth = useMemo(() => {
     return filteredStudents.reduce((sum, s) => sum + (s.current_tuition || 0), 0);
   }, [filteredStudents]);
+
+  // Kỳ học phí hiển thị: theo tháng hoặc khoảng ngày tùy chỉnh
+  const isRangeValid =
+    isRangeMode && Boolean(periodFrom) && Boolean(periodTo) && periodFrom <= periodTo;
+  const periodDisplayLabel = isRangeValid
+    ? `${formatIsoDateVN(periodFrom)} - ${formatIsoDateVN(periodTo)}`
+    : formatMonthDisplay(selectedMonth, monthFormat);
+  const periodShortLabel = isRangeValid
+    ? `${formatIsoDateVN(periodFrom).slice(0, 5)} - ${formatIsoDateVN(periodTo).slice(0, 5)}`
+    : "";
 
   const overriddenCount = useMemo(() => {
     return filteredStudents.filter((s) => Boolean(s.monthly_override)).length;
@@ -797,7 +919,7 @@ export default function Dashboard() {
       setIsBulkOperating(true);
       const res = await fetch("/api/students/bulk-action", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({
           action,
           student_ids: selectedStudentIds,
@@ -964,31 +1086,35 @@ export default function Dashboard() {
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 flex flex-col font-sans">
       {/* Top SaaS Header */}
       <header className="sticky top-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800 shadow-xs">
-        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-2.5 flex items-center justify-between gap-4">
+        <div className="max-w-[1600px] mx-auto px-3 sm:px-6 py-2.5 flex items-center justify-between gap-2 sm:gap-4">
           {/* Logo & School Badge */}
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-indigo-500 flex items-center justify-center text-white shadow-md shadow-indigo-600/25 shrink-0">
               <BookOpen className="w-5 h-5" />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-base font-black text-slate-900 dark:text-white tracking-tight whitespace-nowrap">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 min-w-0">
+                <h1 className="hidden sm:block text-base font-black text-slate-900 dark:text-white tracking-tight whitespace-nowrap">
                   {t.school_portal}
                 </h1>
                 {currentSchool && (
-                  <div className="relative">
+                  <div className="relative min-w-0">
                     <button
                       type="button"
-                      onClick={() => setIsBranchDropdownOpen(!isBranchDropdownOpen)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-950/60 dark:hover:bg-indigo-900/60 dark:text-indigo-300 border border-indigo-200/80 dark:border-indigo-800/80 transition cursor-pointer shadow-2xs group"
+                      onClick={() => {
+                        setIsBranchDropdownOpen(!isBranchDropdownOpen);
+                        setIsManagementMenuOpen(false);
+                        setIsAccountMenuOpen(false);
+                      }}
+                      className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-full text-xs font-black bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-950/60 dark:hover:bg-indigo-900/60 dark:text-indigo-300 border border-indigo-200/80 dark:border-indigo-800/80 transition cursor-pointer shadow-2xs group max-w-[190px] sm:max-w-none"
                       title="Bấm để chuyển đổi chi nhánh hoặc tạo thêm chi nhánh mới"
                     >
-                      <Building2 className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-                      <span className="max-w-[170px] truncate">{currentSchool.name}</span>
-                      <span className="font-mono text-[10px] bg-indigo-200/60 dark:bg-indigo-900 px-1.5 py-0.2 rounded-md font-bold">
+                      <Building2 className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                      <span className="max-w-[90px] sm:max-w-[170px] truncate">{currentSchool.name}</span>
+                      <span className="hidden sm:inline font-mono text-[10px] bg-indigo-200/60 dark:bg-indigo-900 px-1.5 py-0.2 rounded-md font-bold shrink-0">
                         {currentSchool.code}
                       </span>
-                      <ChevronDown className={`w-3 h-3 text-indigo-400 group-hover:text-indigo-600 transition-transform ${isBranchDropdownOpen ? "rotate-180" : ""}`} />
+                      <ChevronDown className={`w-3 h-3 text-indigo-400 group-hover:text-indigo-600 transition-transform shrink-0 ${isBranchDropdownOpen ? "rotate-180" : ""}`} />
                     </button>
 
                     {/* Branch Switcher Dropdown Menu */}
@@ -1073,108 +1199,28 @@ export default function Dashboard() {
                   </div>
                 )}
               </div>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+              <p className="hidden sm:block text-[11px] text-slate-500 dark:text-slate-400">
                 {t.app_subtitle}
               </p>
             </div>
           </div>
 
           {/* Action Bar */}
-          <div className="flex items-center gap-2 shrink-0">
-            {/* Quick Portals Links */}
-            <div className="hidden xl:flex items-center bg-slate-100 dark:bg-slate-800/80 p-0.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 mr-1 gap-0.5 text-xs font-semibold">
-              <Link
-                href="/giao-vien"
-                className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 hover:text-indigo-600 transition shadow-2xs"
-                title="Cổng dành cho giáo viên"
-              >
-                <GraduationCap className="w-3.5 h-3.5 text-indigo-600" />
-                <span>{t.teacher_portal}</span>
-              </Link>
-              <Link
-                href="/"
-                className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 hover:text-emerald-600 transition shadow-2xs"
-                title="Cổng dành cho phụ huynh"
-              >
-                <Users className="w-3.5 h-3.5 text-emerald-600" />
-                <span>{t.parent_portal}</span>
-              </Link>
-            </div>
-
-            {/* Nút Chuyển Đổi Theme Sáng / Tối */}
-            <button
-              type="button"
-              onClick={toggleTheme}
-              className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition shadow-2xs mr-1"
-              title={theme === "dark" ? "Chuyển sang chế độ Sáng (Light Mode)" : "Chuyển sang chế độ Tối (Dark Mode)"}
-            >
-              {theme === "dark" ? (
-                <Sun className="w-4 h-4 text-amber-400" />
-              ) : (
-                <Moon className="w-4 h-4 text-indigo-600" />
-              )}
-            </button>
-
-            {/* Quick Language Switcher Dropdown */}
-            <div className="relative inline-flex items-center">
-              <select
-                value={language}
-                onChange={(e) => {
-                  const newL = e.target.value as AppLanguage;
-                  setLanguage(newL);
-                  const newMonthFmt = newL === "vi" ? "vietnamese" : newL === "zh" ? "chinese" : newL === "ja" ? "japanese" : "english";
-                  setMonthFormat(newMonthFmt);
-                  fetch("/api/settings", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      app_language: newL,
-                      month_format: newMonthFmt,
-                    }),
-                  });
-                }}
-                className="px-2.5 py-1.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 outline-none hover:border-slate-300 transition cursor-pointer shadow-2xs mr-1"
-                title="Chọn ngôn ngữ giao diện (Tiếng Việt, English, 中文, 日本語)"
-              >
-                <option value="vi">🇻🇳 Tiếng Việt</option>
-                <option value="en">🇬🇧 English</option>
-                <option value="zh">🇨🇳 中文</option>
-                <option value="ja">🇯🇵 日本語</option>
-              </select>
-            </div>
-
-            {/* Tổng Kết Tháng Quick Badge */}
-            {hasPerm("revenue.reports") && (
-              <button
-                onClick={() => setIsMonthlySummaryModalOpen(true)}
-                className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl border border-emerald-200 dark:border-emerald-800/60 bg-emerald-50 hover:bg-emerald-100/80 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-300 transition shadow-2xs shrink-0 cursor-pointer"
-                title="Xem tổng kết thu chi, tình hình đóng học phí và giao dịch SePay tự động"
-              >
-                <BarChart3 className="w-4 h-4 text-emerald-600" />
-                <span>{t.monthly_summary}</span>
-              </button>
-            )}
-
-            {/* Trợ Lý AI Quick Badge */}
-            <button
-              onClick={() => setIsAiModalOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl border border-purple-200 dark:border-purple-800/60 bg-gradient-to-r from-purple-50 to-indigo-50 hover:from-purple-100 hover:to-indigo-100 dark:from-purple-950/40 dark:to-indigo-950/40 text-purple-900 dark:text-purple-300 transition shadow-2xs shrink-0 cursor-pointer active:scale-95"
-              title="Mở Trợ Lý AI giải đáp số liệu cơ sở và hướng dẫn tính năng"
-            >
-              <Sparkles className="w-4 h-4 text-amber-500 animate-pulse" />
-              <span>Trợ Lý AI</span>
-            </button>
-
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             {/* Menu Quản Lý Nghiệp Vụ Tập Trung (Consolidated Management Menu) */}
             <div className="relative">
               <button
                 type="button"
-                onClick={() => setIsManagementMenuOpen(!isManagementMenuOpen)}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 text-slate-700 dark:text-slate-200 transition shadow-2xs shrink-0"
+                onClick={() => {
+                  setIsManagementMenuOpen(!isManagementMenuOpen);
+                  setIsAccountMenuOpen(false);
+                  setIsBranchDropdownOpen(false);
+                }}
+                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition shadow-2xs shrink-0 cursor-pointer"
                 title={t.branch_operations}
               >
                 <SlidersHorizontal className="w-4 h-4 text-indigo-500" />
-                <span>{t.branch_operations}</span>
+                <span className="hidden sm:inline">{t.branch_operations}</span>
                 {totalPendingMakeups > 0 && (
                   <span className="w-4 h-4 rounded-full bg-amber-500 text-white text-[10px] font-black flex items-center justify-center animate-pulse ml-0.5">
                     {totalPendingMakeups}
@@ -1185,9 +1231,28 @@ export default function Dashboard() {
 
               {isManagementMenuOpen && (
                 <div
-                  className="absolute right-0 top-full mt-2 w-64 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl z-50 p-1.5 space-y-1 animate-in fade-in zoom-in-95"
+                  className="absolute right-0 top-full mt-2 w-72 max-h-[calc(100vh-90px)] overflow-y-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl z-50 p-1.5 space-y-1 animate-in fade-in zoom-in-95"
                   onMouseLeave={() => setIsManagementMenuOpen(false)}
                 >
+                  {/* Trợ lý AI - gom từ thanh công cụ vào menu nghiệp vụ */}
+                  <button
+                    onClick={() => {
+                      setIsManagementMenuOpen(false);
+                      setIsAiModalOpen(true);
+                    }}
+                    className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold rounded-xl text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-950/40 transition text-left cursor-pointer"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-amber-500" />
+                      <span>Trợ Lý AI</span>
+                    </span>
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300">
+                      Hỏi đáp
+                    </span>
+                  </button>
+
+                  <div className="my-1 border-t border-slate-100 dark:border-slate-800" />
+
                   {/* Quản lý Nhân sự: Giáo viên, Nhân viên & Phân quyền */}
                   {(hasPerm("staff.manage") || hasPerm("teachers.manage")) && (
                     <button
@@ -1369,6 +1434,30 @@ export default function Dashboard() {
                     <Info className="w-4 h-4 text-indigo-600" />
                     <span>{t.app_info_feedback}</span>
                   </button>
+
+                  {/* Cổng truy cập nhanh: gom Cổng GV & Cổng PH vào cùng một nhánh */}
+                  <div className="my-1 border-t border-slate-100 dark:border-slate-800" />
+                  <div className="px-3 pt-1 pb-0.5 text-[9.5px] font-black uppercase tracking-wider text-slate-400">
+                    Cổng truy cập nhanh
+                  </div>
+                  <Link
+                    href="/giao-vien"
+                    onClick={() => setIsManagementMenuOpen(false)}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-xl text-slate-700 dark:text-slate-200 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 hover:text-indigo-700 dark:hover:text-indigo-300 transition text-left cursor-pointer"
+                  >
+                    <GraduationCap className="w-4 h-4 text-indigo-600" />
+                    <span>{t.teacher_portal}</span>
+                    <ExternalLink className="w-3 h-3 ml-auto text-slate-400" />
+                  </Link>
+                  <Link
+                    href="/"
+                    onClick={() => setIsManagementMenuOpen(false)}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-xl text-slate-700 dark:text-slate-200 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 hover:text-emerald-700 dark:hover:text-emerald-300 transition text-left cursor-pointer"
+                  >
+                    <Users className="w-4 h-4 text-emerald-600" />
+                    <span>{t.parent_portal}</span>
+                    <ExternalLink className="w-3 h-3 ml-auto text-slate-400" />
+                  </Link>
                 </div>
               )}
             </div>
@@ -1380,40 +1469,169 @@ export default function Dashboard() {
                   setStudentToEdit(null);
                   setIsStudentModalOpen(true);
                 }}
-                className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-black rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] text-white shadow-md shadow-indigo-600/25 transition shrink-0"
+                className="flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 text-xs font-black rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] text-white shadow-md shadow-indigo-600/25 transition shrink-0 cursor-pointer"
+                title={t.add_student}
               >
                 <Plus className="w-4 h-4 stroke-[3]" />
-                <span>{t.add_student}</span>
+                <span className="hidden sm:inline">{t.add_student}</span>
               </button>
             )}
 
-            {/* User Identity Chip */}
-            {adminUser && (
-              <div
-                className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-xs shrink-0 select-none"
-                title={`Đang đăng nhập: ${adminUser.full_name} (${adminUser.username}) • ${adminUser.is_owner === 1 ? "Chủ Cơ Sở (Toàn quyền)" : adminUser.role_name || "Nhân viên"}`}
+            {/* Menu Tài Khoản & Tùy Chọn: gom thông tin, giao diện, ngôn ngữ, đăng xuất */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsAccountMenuOpen(!isAccountMenuOpen);
+                  setIsManagementMenuOpen(false);
+                  setIsBranchDropdownOpen(false);
+                }}
+                className="flex items-center gap-1.5 sm:gap-2 pl-1.5 pr-1.5 sm:pr-2.5 py-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 transition shadow-2xs shrink-0 cursor-pointer"
+                title={`Tài khoản & tùy chọn • ${
+                  adminUser ? `${adminUser.full_name || adminUser.username} (${adminUser.username})` : "Quản trị viên"
+                }`}
               >
-                <div className={`w-2 h-2 rounded-full ${adminUser.is_owner === 1 ? "bg-amber-500" : "bg-emerald-500"}`} />
-                <div className="flex flex-col text-left leading-tight">
-                  <span className="font-extrabold text-slate-800 dark:text-slate-100 text-[11px] truncate max-w-[130px]">
-                    {adminUser.full_name || adminUser.username}
+                <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-indigo-600 to-indigo-500 text-white flex items-center justify-center font-black text-[11px] shadow-2xs shrink-0">
+                  {(adminUser?.full_name || adminUser?.username || "Q").trim().charAt(0).toUpperCase()}
+                </div>
+                <div className="hidden sm:flex flex-col text-left leading-tight max-w-[120px]">
+                  <span className="font-extrabold text-slate-800 dark:text-slate-100 text-[11px] truncate">
+                    {adminUser?.full_name || adminUser?.username || "Quản trị viên"}
                   </span>
-                  <span className={`text-[10px] font-bold ${adminUser.is_owner === 1 ? "text-amber-600 dark:text-amber-400" : "text-indigo-600 dark:text-indigo-400"}`}>
-                    {adminUser.is_owner === 1 ? "👑 Chủ Cơ Sở" : (adminUser.role_name || "Nhân viên")}
+                  <span
+                    className={`text-[9.5px] font-bold truncate ${
+                      adminUser?.is_owner === 1
+                        ? "text-amber-600 dark:text-amber-400"
+                        : "text-indigo-600 dark:text-indigo-400"
+                    }`}
+                  >
+                    {adminUser?.is_owner === 1 ? "👑 Chủ Cơ Sở" : adminUser?.role_name || "Nhân viên"}
                   </span>
                 </div>
-              </div>
-            )}
+                <ChevronDown
+                  className={`w-3.5 h-3.5 text-slate-400 transition-transform ${
+                    isAccountMenuOpen ? "rotate-180" : ""
+                  }`}
+                />
+              </button>
 
-            {/* Logout Button */}
-            <button
-              onClick={handleAdminLogout}
-              className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 text-slate-600 dark:text-slate-300 transition shrink-0 cursor-pointer"
-              title="Đăng xuất khỏi cổng quản trị cơ sở"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-              <span>{t.logout}</span>
-            </button>
+              {isAccountMenuOpen && (
+                <div
+                  className="absolute right-0 top-full mt-2 w-72 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl z-50 overflow-hidden animate-in fade-in zoom-in-95"
+                  onMouseLeave={() => setIsAccountMenuOpen(false)}
+                >
+                  {/* Thông tin tài khoản */}
+                  <div className="px-3 py-3 bg-slate-50/80 dark:bg-slate-950/40 border-b border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-indigo-500 text-white flex items-center justify-center font-black text-sm shadow-sm shrink-0">
+                        {(adminUser?.full_name || adminUser?.username || "Q").trim().charAt(0).toUpperCase()}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="font-black text-xs text-slate-900 dark:text-white truncate">
+                          {adminUser?.full_name || adminUser?.username || "Quản trị viên"}
+                        </div>
+                        <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
+                          @{adminUser?.username || "admin"} ·{" "}
+                          <span
+                            className={
+                              adminUser?.is_owner === 1
+                                ? "text-amber-600 dark:text-amber-400 font-bold"
+                                : "text-indigo-600 dark:text-indigo-400 font-bold"
+                            }
+                          >
+                            {adminUser?.is_owner === 1 ? "Chủ Cơ Sở (Toàn quyền)" : adminUser?.role_name || "Nhân viên"}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Chuyển giao diện Sáng / Tối */}
+                  <div className="px-3 py-2.5 border-b border-slate-100 dark:border-slate-800">
+                    <div className="text-[9.5px] font-black uppercase tracking-wider text-slate-400 mb-1.5 flex items-center gap-1">
+                      <Sun className="w-3 h-3" />
+                      Giao diện
+                    </div>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (theme === "dark") toggleTheme();
+                        }}
+                        className={`flex items-center justify-center gap-1.5 py-1.5 rounded-lg border text-[10.5px] font-bold transition cursor-pointer ${
+                          theme === "light"
+                            ? "bg-indigo-50 dark:bg-indigo-950/50 border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300"
+                            : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700"
+                        }`}
+                      >
+                        <Sun className="w-3.5 h-3.5" />
+                        Sáng
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (theme === "light") toggleTheme();
+                        }}
+                        className={`flex items-center justify-center gap-1.5 py-1.5 rounded-lg border text-[10.5px] font-bold transition cursor-pointer ${
+                          theme === "dark"
+                            ? "bg-indigo-50 dark:bg-indigo-950/50 border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300"
+                            : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700"
+                        }`}
+                      >
+                        <Moon className="w-3.5 h-3.5" />
+                        Tối
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Chọn ngôn ngữ giao diện */}
+                  <div className="px-3 py-2.5 border-b border-slate-100 dark:border-slate-800">
+                    <div className="text-[9.5px] font-black uppercase tracking-wider text-slate-400 mb-1.5 flex items-center gap-1">
+                      <Globe className="w-3 h-3" />
+                      Ngôn ngữ
+                    </div>
+                    <div className="grid grid-cols-4 gap-1">
+                      {[
+                        { code: "vi" as AppLanguage, flag: "🇻🇳", label: "VI" },
+                        { code: "en" as AppLanguage, flag: "🇬🇧", label: "EN" },
+                        { code: "zh" as AppLanguage, flag: "🇨🇳", label: "ZH" },
+                        { code: "ja" as AppLanguage, flag: "🇯🇵", label: "JA" },
+                      ].map((lang) => (
+                        <button
+                          key={lang.code}
+                          type="button"
+                          onClick={() => handleLanguageChange(lang.code)}
+                          className={`flex flex-col items-center justify-center gap-0.5 py-1.5 rounded-lg border text-[9.5px] font-bold transition cursor-pointer ${
+                            language === lang.code
+                              ? "bg-indigo-50 dark:bg-indigo-950/50 border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300"
+                              : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700"
+                          }`}
+                          title={`Chuyển sang ${lang.label}`}
+                        >
+                          <span className="text-sm leading-none">{lang.flag}</span>
+                          <span>{lang.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Đăng xuất */}
+                  <div className="p-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsAccountMenuOpen(false);
+                        handleAdminLogout();
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold rounded-xl text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition text-left cursor-pointer"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      <span>{t.logout}</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </header>
@@ -1422,7 +1640,7 @@ export default function Dashboard() {
       <main className="flex-1 max-w-[1600px] w-full mx-auto px-4 sm:px-6 py-5 space-y-5">
         {/* Top Control Bar: Month Selector & KPI Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Month Selector Card */}
+          {/* Period Selector Card */}
           <div className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col justify-between">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
@@ -1430,26 +1648,116 @@ export default function Dashboard() {
                 {t.tuition_month}
               </span>
               <button
-                onClick={() => setSelectedMonth(getCurrentMonthStr())}
+                onClick={() => {
+                  setIsRangeMode(false);
+                  setPeriodFrom("");
+                  setPeriodTo("");
+                  setPeriodRevenue(null);
+                  setSelectedMonth(getCurrentMonthStr());
+                }}
                 title={t.current_month}
-                className="px-2.5 py-1 text-xs font-bold rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-indigo-50 hover:text-indigo-600 dark:hover:bg-indigo-950/50 dark:hover:text-indigo-300 text-slate-600 dark:text-slate-300 transition"
+                className="px-2.5 py-1 text-xs font-bold rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-indigo-50 hover:text-indigo-600 dark:hover:bg-indigo-950/50 dark:hover:text-indigo-300 text-slate-600 dark:text-slate-300 transition cursor-pointer"
               >
                 {t.current_month}
               </button>
             </div>
 
-            <div className="mt-3 flex items-center justify-between gap-3">
-              <div>
-                <span className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-                  {formatMonthDisplay(selectedMonth, monthFormat)}
+            <div className="mt-3 flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <span
+                  className={`block font-black text-slate-900 dark:text-white tracking-tight leading-tight ${
+                    isRangeValid ? "text-lg sm:text-xl" : "text-2xl"
+                  }`}
+                >
+                  {isRangeValid ? (
+                    <>
+                      {formatIsoDateVN(periodFrom)}
+                      <span className="text-slate-400 mx-1 font-bold">→</span>
+                      {formatIsoDateVN(periodTo)}
+                    </>
+                  ) : (
+                    formatMonthDisplay(selectedMonth, monthFormat)
+                  )}
                 </span>
-                <p className="text-[11px] text-slate-500 mt-0.5">{t.app_subtitle}</p>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                  {isRangeValid
+                    ? `Kỳ tùy chỉnh · Đối soát theo tháng ${formatMonthDisplay(selectedMonth, monthFormat)}`
+                    : t.app_subtitle}
+                </p>
+                {isRangeMode && periodFrom && periodTo && periodFrom > periodTo && (
+                  <p className="text-[10px] font-bold text-rose-600 dark:text-rose-400 mt-1">
+                    Từ ngày phải trước hoặc bằng đến ngày.
+                  </p>
+                )}
               </div>
-              <MonthPicker
-                value={selectedMonth}
-                onChange={(newM) => setSelectedMonth(newM)}
-                monthFormat={monthFormat}
-              />
+              {!isRangeMode && (
+                <MonthPicker
+                  value={selectedMonth}
+                  onChange={(newM) => setSelectedMonth(newM)}
+                  monthFormat={monthFormat}
+                />
+              )}
+            </div>
+
+            {isRangeMode && (
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[9px] font-black uppercase tracking-wider text-slate-400 mb-1">
+                    Từ ngày
+                  </label>
+                  <input
+                    type="date"
+                    value={periodFrom}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setPeriodFrom(value);
+                      if (value && (!periodTo || value <= periodTo)) {
+                        setSelectedMonth(value.slice(0, 7));
+                      }
+                    }}
+                    className="w-full px-2 py-1.5 text-[11px] font-bold rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-100 outline-none focus:ring-2 focus:ring-indigo-500 dark:[color-scheme:dark]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[9px] font-black uppercase tracking-wider text-slate-400 mb-1">
+                    Đến ngày
+                  </label>
+                  <input
+                    type="date"
+                    value={periodTo}
+                    onChange={(e) => setPeriodTo(e.target.value)}
+                    className="w-full px-2 py-1.5 text-[11px] font-bold rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-100 outline-none focus:ring-2 focus:ring-indigo-500 dark:[color-scheme:dark]"
+                  />
+                </div>
+              </div>
+            )}
+
+            <div className="mt-2 flex items-center justify-between gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  if (isRangeMode) {
+                    setIsRangeMode(false);
+                    setPeriodFrom("");
+                    setPeriodTo("");
+                    setPeriodRevenue(null);
+                  } else {
+                    const bounds = getMonthDateBounds(selectedMonth);
+                    setPeriodFrom(bounds.from);
+                    setPeriodTo(bounds.to);
+                    setIsRangeMode(true);
+                  }
+                }}
+                className="text-[10.5px] font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 flex items-center gap-1 cursor-pointer"
+              >
+                <Calendar className="w-3 h-3" />
+                {isRangeMode ? "Chọn theo tháng" : "Tùy chọn từ ngày - đến ngày"}
+              </button>
+              {isRangeValid && (
+                <span className="text-[9.5px] text-slate-400 dark:text-slate-500 font-semibold">
+                  Tự động áp dụng
+                </span>
+              )}
             </div>
           </div>
 
@@ -1459,7 +1767,8 @@ export default function Dashboard() {
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-wider text-indigo-200 flex items-center gap-1.5">
                 <TrendingUp className="w-4 h-4 text-indigo-300" />
-                {t.expected_revenue} {formatMonthDisplay(selectedMonth, monthFormat)}
+                {t.expected_revenue}{" "}
+                {isRangeValid ? `KỲ ${periodShortLabel}` : formatMonthDisplay(selectedMonth, monthFormat)}
               </span>
               <div className="w-9 h-9 rounded-xl bg-white/20 backdrop-blur-xs flex items-center justify-center">
                 <DollarSign className="w-5 h-5 text-white" />
@@ -1467,7 +1776,7 @@ export default function Dashboard() {
             </div>
             <div className="mt-2">
               <div className="text-3xl font-black tracking-tight">
-                {hasPerm("revenue.reports") ? (
+                {canViewRevenue ? (
                   formatVND(totalRevenueThisMonth)
                 ) : (
                   <span className="text-2xl font-bold tracking-widest text-indigo-200 select-none" title="Tài khoản không có quyền xem tổng doanh thu cơ sở">
@@ -1479,6 +1788,17 @@ export default function Dashboard() {
                 <Users className="w-3.5 h-3.5 opacity-80" />
                 <strong>{filteredStudents.length}</strong> {t.total_active_students}
               </span>
+              {isRangeValid && periodRevenue && canViewRevenue && (
+                <span
+                  className="text-[10.5px] text-indigo-100 font-semibold mt-1 flex items-center gap-1 flex-wrap"
+                  title="Tổng tiền các kỳ thanh toán (student_payments) bao phủ tháng neo — tháng của ngày bắt đầu kỳ học phí"
+                >
+                  <CheckCircle2 className="w-3 h-3 opacity-90 shrink-0" />
+                  Đã thu theo kỳ:
+                  <strong className="text-white">{formatVND(periodRevenue.total)}</strong>
+                  <span className="opacity-80">({periodRevenue.paid_students} HS)</span>
+                </span>
+              )}
             </div>
           </div>
 
@@ -1497,10 +1817,17 @@ export default function Dashboard() {
               <div className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
                 {tuitionPackages.length} <span className="text-sm font-semibold text-slate-400">{t.packages_applied}</span>
               </div>
-              <span className="text-xs text-amber-600 dark:text-amber-400 font-bold mt-1 inline-flex items-center gap-1">
-                <Sparkles className="w-3.5 h-3.5" />
-                {overriddenCount} {t.overridden_students}
-              </span>
+              {canViewTuition ? (
+                <span className="text-xs text-amber-600 dark:text-amber-400 font-bold mt-1 inline-flex items-center gap-1">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  {overriddenCount} {t.overridden_students}
+                </span>
+              ) : (
+                <span className="text-xs text-slate-400 font-semibold mt-1 inline-flex items-center gap-1">
+                  <Lock className="w-3.5 h-3.5" />
+                  Không có quyền xem học phí
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -1601,37 +1928,41 @@ export default function Dashboard() {
                 <span>{t.enrolled_tab} ({students.filter((s) => (s.status || "studying") === "studying").length})</span>
               </button>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedPaymentFilter("unpaid");
-                  setSelectedStatusFilter("all");
-                }}
-                className={`px-3 py-1.5 rounded-xl transition whitespace-nowrap flex items-center gap-1.5 ${
-                  selectedPaymentFilter === "unpaid"
-                    ? "bg-rose-600 text-white shadow-xs"
-                    : "bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300"
-                }`}
-              >
-                <AlertCircle className="w-3.5 h-3.5 text-rose-500" />
-                <span>{t.unpaid_tab} ({students.filter((s) => s.payment_status === "unpaid").length})</span>
-              </button>
+              {canViewTuition && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedPaymentFilter("unpaid");
+                      setSelectedStatusFilter("all");
+                    }}
+                    className={`px-3 py-1.5 rounded-xl transition whitespace-nowrap flex items-center gap-1.5 ${
+                      selectedPaymentFilter === "unpaid"
+                        ? "bg-rose-600 text-white shadow-xs"
+                        : "bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300"
+                    }`}
+                  >
+                    <AlertCircle className="w-3.5 h-3.5 text-rose-500" />
+                    <span>{t.unpaid_tab} ({students.filter((s) => s.payment_status === "unpaid").length})</span>
+                  </button>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedPaymentFilter("paid");
-                  setSelectedStatusFilter("all");
-                }}
-                className={`px-3 py-1.5 rounded-xl transition whitespace-nowrap flex items-center gap-1.5 ${
-                  selectedPaymentFilter === "paid"
-                    ? "bg-indigo-600 text-white shadow-xs"
-                    : "bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300"
-                }`}
-              >
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-                <span>{t.paid_tab} ({students.filter((s) => s.payment_status === "paid").length})</span>
-              </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedPaymentFilter("paid");
+                      setSelectedStatusFilter("all");
+                    }}
+                    className={`px-3 py-1.5 rounded-xl transition whitespace-nowrap flex items-center gap-1.5 ${
+                      selectedPaymentFilter === "paid"
+                        ? "bg-indigo-600 text-white shadow-xs"
+                        : "bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300"
+                    }`}
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                    <span>{t.paid_tab} ({students.filter((s) => s.payment_status === "paid").length})</span>
+                  </button>
+                </>
+              )}
 
               <button
                 type="button"
@@ -1890,7 +2221,9 @@ export default function Dashboard() {
                       className="inline-flex items-center gap-1.5 hover:text-indigo-600 dark:hover:text-indigo-400 cursor-pointer font-black transition"
                       title="Sắp xếp theo Mức học phí"
                     >
-                      <span>{t.col_tuition} {formatMonthDisplay(selectedMonth, monthFormat)}</span>
+                      <span title={isRangeValid ? periodDisplayLabel : undefined}>
+                        {t.col_tuition} {isRangeValid ? `KỲ ${periodShortLabel}` : formatMonthDisplay(selectedMonth, monthFormat)}
+                      </span>
                       {sortField === "tuition" ? (
                         sortOrder === "asc" ? <ArrowUp className="w-3 h-3 text-indigo-600" /> : <ArrowDown className="w-3 h-3 text-indigo-600" />
                       ) : (
@@ -2187,7 +2520,9 @@ export default function Dashboard() {
 
                         {/* Discount */}
                         <td className="py-2.5 px-3 text-center hidden xl:table-cell whitespace-nowrap">
-                          {student.is_discount_enabled && student.discount_percent > 0 ? (
+                          {!canViewTuition ? (
+                            <span className="text-xs font-medium text-slate-400">—</span>
+                          ) : student.is_discount_enabled && student.discount_percent > 0 ? (
                             <div className="flex flex-col items-center">
                               <span
                                 className="inline-block px-2 py-0.5 text-[11px] font-black rounded bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60 whitespace-nowrap"
@@ -2290,6 +2625,11 @@ export default function Dashboard() {
 
                         {/* Đối Soát Phí: Bấm để mở bảng Đối soát nhanh (Chọn Đã đóng / Chưa đóng & Tick chọn từng tháng) */}
                         <td className="py-2.5 px-3 text-center hidden md:table-cell whitespace-nowrap">
+                          {!canViewTuition ? (
+                            <span className="text-xs font-medium text-slate-400" title="Bạn không có quyền xem công nợ học phí">
+                              —
+                            </span>
+                          ) : (
                           <div className="inline-flex flex-col items-center gap-1">
                             <button
                               type="button"
@@ -2332,6 +2672,7 @@ export default function Dashboard() {
                               </span>
                             )}
                           </div>
+                          )}
                         </td>
 
                         {/* Consolidated Modern Action Column */}
@@ -2404,20 +2745,22 @@ export default function Dashboard() {
                 onClick={(e) => e.stopPropagation()}
               >
                 {/* Nhắc học phí Zalo */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    const st = openRowActionStudent;
-                    setOpenRowActionStudent(null);
-                    setActionMenuPosition(null);
-                    setStudentForZalo(st);
-                    setIsZaloModalOpen(true);
-                  }}
-                  className="w-full flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-xl text-slate-700 dark:text-slate-200 hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-950/50 dark:hover:text-blue-300 transition cursor-pointer"
-                >
-                  <MessageSquare className="w-3.5 h-3.5 text-blue-500" />
-                  <span>{t.action_zalo_reminder}</span>
-                </button>
+                {(hasPerm("tuition.remind") || hasPerm("tuition.view")) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const st = openRowActionStudent;
+                      setOpenRowActionStudent(null);
+                      setActionMenuPosition(null);
+                      setStudentForZalo(st);
+                      setIsZaloModalOpen(true);
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-xl text-slate-700 dark:text-slate-200 hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-950/50 dark:hover:text-blue-300 transition cursor-pointer"
+                  >
+                    <MessageSquare className="w-3.5 h-3.5 text-blue-500" />
+                    <span>{t.action_zalo_reminder}</span>
+                  </button>
+                )}
 
                 {/* Sửa học phí tháng */}
                 {hasPerm("tuition.override") && (
@@ -2528,11 +2871,42 @@ export default function Dashboard() {
                 setStudentForDetail(st);
                 setIsDetailModalOpen(true);
               }}
-              onAddStudentToSlot={(day, time, tcId) => {
+              onAddStudentToSlot={(day, time, tcId, _subjectId, classId) => {
                 setStudentToEdit(null);
-                setSlotPrefill({ day, time, teacherId: tcId });
+                setSlotPrefill({ day, time, teacherId: tcId, classId });
                 setIsStudentModalOpen(true);
               }}
+              onRemoveStudentFromSlot={async ({ student, day, slotHour, startTime, endTime }) => {
+                try {
+                  const res = await fetch(`/api/students/${student.id}`, {
+                    method: "PATCH",
+                    headers: {
+                      "Content-Type": "application/json",
+                      ...getAuthHeaders(),
+                    },
+                    body: JSON.stringify({
+                      action: "remove_slot",
+                      day,
+                      slot_hour: slotHour,
+                      start_time: startTime,
+                      end_time: endTime,
+                    }),
+                  });
+                  const json = await res.json();
+                  if (json.success) {
+                    showToast(json.message || "Đã gỡ học viên khỏi ca học", "success");
+                    loadStudents(selectedMonth, currentSchool?.id, true);
+                    return true;
+                  }
+                  showToast(json.message || "Không thể gỡ học viên khỏi ca học", "error");
+                  return false;
+                } catch {
+                  showToast("Lỗi kết nối máy chủ", "error");
+                  return false;
+                }
+              }}
+              canEditSchedule={hasPerm("students.edit")}
+              canViewTuition={hasPerm("tuition.view")}
               onOpenConsultation={() => setIsAvailabilityModalOpen(true)}
             />
           </div>

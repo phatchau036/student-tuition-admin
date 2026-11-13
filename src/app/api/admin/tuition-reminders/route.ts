@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
-import { getSchoolIdFromRequest } from "@/lib/authHelper";
+import { getSchoolIdFromRequest, getAdminFromRequest } from "@/lib/authHelper";
 
 const ZALO_BOT_BASE_URL = "https://bot-api.zapps.me";
 
@@ -20,6 +20,22 @@ function getTodayDateStr(): string {
 export async function GET(req: Request) {
   try {
     await initDb();
+    const admin = await getAdminFromRequest(req);
+    const isOwnerOrWildcard = Boolean(
+      admin && (admin.is_owner === 1 || admin.permissions.includes("*"))
+    );
+    const canAccess = Boolean(
+      admin &&
+        (isOwnerOrWildcard ||
+          admin.permissions.includes("tuition.view") ||
+          admin.permissions.includes("tuition.remind"))
+    );
+    if (!canAccess) {
+      return NextResponse.json(
+        { success: false, message: "Tài khoản không có quyền xem hàng đợi nhắc học phí!" },
+        { status: 403 }
+      );
+    }
     const db = getDb();
     const { searchParams } = new URL(req.url);
     const month = searchParams.get("month") || new Date().toISOString().slice(0, 7);
@@ -132,6 +148,16 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     await initDb();
+    const admin = await getAdminFromRequest(req);
+    const canRemind = Boolean(
+      admin && (admin.is_owner === 1 || admin.permissions.includes("*") || admin.permissions.includes("tuition.remind"))
+    );
+    if (!canRemind) {
+      return NextResponse.json(
+        { success: false, message: "Tài khoản không có quyền gửi nhắc học phí!" },
+        { status: 403 }
+      );
+    }
     const db = getDb();
     const body = await req.json();
     const { action = "log", school_id, student_id, month, amount, channel = "zalo_manual", reminded_by, note, text, items } = body;

@@ -1,11 +1,16 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
 import { StudentStatus } from "@/lib/types";
+import { requireAdminPermission } from "@/lib/authHelper";
 
 // POST /api/students/status - Thay đổi trạng thái học sinh (bảo lưu, nghỉ, học tiếp)
 export async function POST(req: Request) {
   try {
     await initDb();
+    const authCheck = await requireAdminPermission(req, "students.status");
+    if (!authCheck.authorized) {
+      return authCheck.errorResponse!;
+    }
     const db = getDb();
     const body = await req.json();
 

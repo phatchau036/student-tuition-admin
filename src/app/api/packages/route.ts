@@ -1,11 +1,15 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
-import { getSchoolIdFromRequest } from "@/lib/authHelper";
+import { getSchoolIdFromRequest, requireAdminPermission } from "@/lib/authHelper";
 
 // GET /api/packages - Lấy danh sách gói học phí
 export async function GET(req: Request) {
   try {
     await initDb();
+    const authCheck = await requireAdminPermission(req, "settings.manage");
+    if (!authCheck.authorized) {
+      return authCheck.errorResponse!;
+    }
     const db = getDb();
     const schoolId = getSchoolIdFromRequest(req);
     let res = await db.execute({
@@ -44,6 +48,10 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     await initDb();
+    const authCheck = await requireAdminPermission(req, "settings.manage");
+    if (!authCheck.authorized) {
+      return authCheck.errorResponse!;
+    }
     const db = getDb();
     const schoolId = getSchoolIdFromRequest(req);
     const body = await req.json();

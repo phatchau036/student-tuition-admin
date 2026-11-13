@@ -106,6 +106,8 @@ export async function GET(req: Request) {
       ...rawTeacher,
       assigned_slot_ids: parsedAssignedSlotIds,
     };
+    // Không bao giờ trả mật khẩu giáo viên về client
+    delete (teacher as Record<string, unknown>).password;
 
     // 1. Get Regular Students of this teacher (kèm thông tin Lớp học và Quỹ Giờ Học Bù)
     const walletRes = await db.execute(`
@@ -302,8 +304,15 @@ export async function GET(req: Request) {
         const sid = String(st.id);
         const bal = walletMap[sid] || 0;
         const sched = scheduledMakeupMap[sid] || 0;
+        // Giáo viên không được thấy số tiền học phí/chiết khấu/phụ thu
+        const safeStudent: Record<string, unknown> = { ...st };
+        delete safeStudent.level_surcharge;
+        delete safeStudent.is_discount_enabled;
+        delete safeStudent.discount_percent;
+        delete safeStudent.discount_reason;
+        delete safeStudent.tuition_package_id;
         return {
-          ...st,
+          ...safeStudent,
           balance_minutes: bal,
           available_minutes: bal - sched,
         };
@@ -387,7 +396,11 @@ export async function GET(req: Request) {
         weekly_schedule: weeklySchedule,
         classes: teacherClasses,
         makeups: makeupsRes.rows,
-        levels: levelsRes.rows,
+        levels: levelsRes.rows.map((lvl) => ({
+          id: lvl.id,
+          level_name: lvl.level_name,
+          sort_order: lvl.sort_order,
+        })),
         time_slots: slotsRes.rows,
         zalo_bot_name: zaloBotName,
         is_bot_configured: isBotConfigured,

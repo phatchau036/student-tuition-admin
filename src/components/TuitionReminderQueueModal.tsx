@@ -70,6 +70,12 @@ export const TuitionReminderQueueModal: React.FC<TuitionReminderQueueModalProps>
   onRefreshData,
 }) => {
   const { showToast } = useToast();
+
+  const getAuthHeaders = (): Record<string, string> => {
+    const token = typeof window !== "undefined" ? localStorage.getItem("admin_token") : null;
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  };
+
   const [selectedMonth, setSelectedMonth] = useState<string>(initialMonth);
   const [remindersMap, setRemindersMap] = useState<Record<string, StudentReminderData>>({});
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -93,7 +99,9 @@ export const TuitionReminderQueueModal: React.FC<TuitionReminderQueueModalProps>
   const fetchReminders = async (monthToFetch: string) => {
     try {
       setIsLoading(true);
-      const res = await fetch(`/api/admin/tuition-reminders?month=${monthToFetch}&school_id=${schoolId}`);
+      const res = await fetch(`/api/admin/tuition-reminders?month=${monthToFetch}&school_id=${schoolId}`, {
+        headers: getAuthHeaders(),
+      });
       const json = await res.json();
       if (json.success && json.reminders_map) {
         setRemindersMap(json.reminders_map);
@@ -264,7 +272,7 @@ ${schoolName} xin trân trọng cảm ơn!`;
     try {
       await fetch("/api/admin/tuition-reminders", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({
           action: "log",
           school_id: schoolId,
@@ -299,7 +307,7 @@ ${schoolName} xin trân trọng cảm ơn!`;
       setIsSendingBotSingle(student.id);
       const res = await fetch("/api/admin/tuition-reminders", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({
           action: "send_bot",
           school_id: schoolId,
@@ -367,7 +375,7 @@ ${schoolName} xin trân trọng cảm ơn!`;
 
       const res = await fetch("/api/admin/tuition-reminders", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({
           action: "send_bot_batch",
           school_id: schoolId,

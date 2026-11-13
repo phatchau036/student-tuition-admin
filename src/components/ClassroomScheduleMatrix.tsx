@@ -34,6 +34,10 @@ import {
   ExternalLink,
   X,
   SlidersHorizontal,
+  Trash2,
+  Loader2,
+  AlertTriangle,
+  CalendarDays,
 } from "lucide-react";
 
 interface ClassroomScheduleMatrixProps {
@@ -43,7 +47,23 @@ interface ClassroomScheduleMatrixProps {
   subjects: Subject[];
   classes?: ClassRoom[];
   onSelectStudent: (student: Student) => void;
-  onAddStudentToSlot?: (day: string, time: string, teacherId?: string, subjectId?: string) => void;
+  onAddStudentToSlot?: (
+    day: string,
+    time: string,
+    teacherId?: string,
+    subjectId?: string,
+    classId?: string
+  ) => void;
+  onRemoveStudentFromSlot?: (payload: {
+    student: Student;
+    day: string;
+    slotHour: string;
+    startTime?: string;
+    endTime?: string;
+    classId?: string;
+  }) => Promise<boolean> | boolean | void;
+  canEditSchedule?: boolean;
+  canViewTuition?: boolean;
   onOpenConsultation?: () => void;
 }
 
@@ -109,6 +129,15 @@ function formatHourLabel(h: string): string {
   return `${String(num).padStart(2, "0")}:00`;
 }
 
+// Hiển thị khoảng giờ của một khung ca: "18h" -> "18:00 - 19:00"
+function formatHourRange(h: string): string {
+  const num = parseInt(String(h || "").replace("h", ""), 10);
+  if (isNaN(num)) return "18:00 - 19:00";
+  const start = `${String(num).padStart(2, "0")}:00`;
+  const end = `${String(Math.min(24, num + 1)).padStart(2, "0")}:00`;
+  return `${start} - ${end}`;
+}
+
 interface StudentSlotEntry {
   student: Student;
   timeDetail: string;
@@ -121,6 +150,73 @@ interface StudentSlotEntry {
   primaryHour?: string;
 }
 
+interface ZoomSlotColumn {
+  id: string;
+  name: string;
+  subjectName?: string;
+  teacherName?: string;
+  teacherId?: string;
+  subjectId?: string;
+  room?: string;
+  maxStudents: number;
+  color: string;
+  entries: StudentSlotEntry[];
+  isClass: boolean;
+}
+
+// Bảng màu nhấn theo màu lớp học (đồng bộ COLOR_PRESETS trong ClassManagementModal)
+const CLASS_ACCENT_STYLES: Record<
+  string,
+  { bar: string; chip: string; text: string; softBg: string }
+> = {
+  indigo: {
+    bar: "bg-indigo-500",
+    chip: "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-300 dark:border-indigo-800",
+    text: "text-indigo-600 dark:text-indigo-400",
+    softBg: "bg-indigo-50/60 dark:bg-indigo-950/20",
+  },
+  emerald: {
+    bar: "bg-emerald-500",
+    chip: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800",
+    text: "text-emerald-600 dark:text-emerald-400",
+    softBg: "bg-emerald-50/60 dark:bg-emerald-950/20",
+  },
+  amber: {
+    bar: "bg-amber-500",
+    chip: "bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800",
+    text: "text-amber-600 dark:text-amber-400",
+    softBg: "bg-amber-50/60 dark:bg-amber-950/20",
+  },
+  rose: {
+    bar: "bg-rose-500",
+    chip: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800",
+    text: "text-rose-600 dark:text-rose-400",
+    softBg: "bg-rose-50/60 dark:bg-rose-950/20",
+  },
+  purple: {
+    bar: "bg-purple-500",
+    chip: "bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800",
+    text: "text-purple-600 dark:text-purple-400",
+    softBg: "bg-purple-50/60 dark:bg-purple-950/20",
+  },
+  sky: {
+    bar: "bg-sky-500",
+    chip: "bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/40 dark:text-sky-300 dark:border-sky-800",
+    text: "text-sky-600 dark:text-sky-400",
+    softBg: "bg-sky-50/60 dark:bg-sky-950/20",
+  },
+  slate: {
+    bar: "bg-slate-400",
+    chip: "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700",
+    text: "text-slate-600 dark:text-slate-400",
+    softBg: "bg-slate-50 dark:bg-slate-950/30",
+  },
+};
+
+function getClassAccent(color?: string) {
+  return CLASS_ACCENT_STYLES[String(color || "").toLowerCase()] || CLASS_ACCENT_STYLES.indigo;
+}
+
 export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = ({
   students,
   teachers,
@@ -129,6 +225,9 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
   classes = [],
   onSelectStudent,
   onAddStudentToSlot,
+  onRemoveStudentFromSlot,
+  canEditSchedule = true,
+  canViewTuition = true,
   onOpenConsultation,
 }) => {
   // Xác định Thứ hôm nay để highlight cột trực quan & gán mặc định
@@ -182,6 +281,21 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
   } | null>(null);
   const [drawerSearch, setDrawerSearch] = useState<string>("");
 
+  // Zoom-in Modal: phóng to một ca học cụ thể và chia học viên theo từng Lớp
+  const [zoomSlot, setZoomSlot] = useState<{ day: string; hour: string } | null>(null);
+  const [confirmRemoveKey, setConfirmRemoveKey] = useState<string | null>(null);
+  const [removingKey, setRemovingKey] = useState<string | null>(null);
+
+  const openZoomSlot = (day: string, hour: string) => {
+    setZoomSlot({ day, hour });
+    setConfirmRemoveKey(null);
+  };
+
+  const closeZoomSlot = () => {
+    setZoomSlot(null);
+    setConfirmRemoveKey(null);
+  };
+
   // Bấm phím ESC để đóng Drawer
   useEffect(() => {
     if (!drawerSlot) return;
@@ -194,6 +308,19 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [drawerSlot]);
+
+  // Bấm phím ESC để thu gọn Zoom-in Modal
+  useEffect(() => {
+    if (!zoomSlot) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setZoomSlot(null);
+        setConfirmRemoveKey(null);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [zoomSlot]);
 
   // Hover preview student popover
   const [hoveredStudent, setHoveredStudent] = useState<{
@@ -232,7 +359,7 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
       const isOverdue = Boolean(st.is_overdue);
       if (!isUnassigned && !isOverdue) return false;
     }
-    if (selectedPaymentStatusFilter !== "all") {
+    if (canViewTuition && selectedPaymentStatusFilter !== "all") {
       if (selectedPaymentStatusFilter === "paid" && st.payment_status !== "paid") return false;
       if (selectedPaymentStatusFilter === "unpaid" && st.payment_status === "paid") return false;
     }
@@ -416,15 +543,23 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
   const getSlotFilteredEntries = (day: string, hour: string): StudentSlotEntry[] => {
     const hourMap = matrixData[day]?.[hour] || {};
     const results: StudentSlotEntry[] = [];
-    const seenStudentIds = new Set<string>();
+    const seenStudentIndexes = new Map<string, number>();
 
     for (const tcId in hourMap) {
       if (selectedTeacherFilter !== "all" && tcId !== selectedTeacherFilter) continue;
       for (const item of hourMap[tcId]) {
         if (isStudentMatched(item.student) && isSubjectMatched(item.subjectName, item.student.subject_id)) {
           if (selectedTeacherFilter === "all") {
-            if (seenStudentIds.has(item.student.id)) continue;
-            seenStudentIds.add(item.student.id);
+            const existingIndex = seenStudentIndexes.get(item.student.id);
+            if (existingIndex !== undefined) {
+              // Ưu tiên ca bắt đầu đúng giờ này hơn ca học tiếp từ giờ trước
+              // (giúp nút Xóa trên thẻ gỡ đúng ca mà người dùng đang xem)
+              if (results[existingIndex]?.isContinuing && !item.isContinuing) {
+                results[existingIndex] = item;
+              }
+              continue;
+            }
+            seenStudentIndexes.set(item.student.id, results.length);
           }
           results.push(item);
         }
@@ -508,6 +643,103 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
     });
   }, [allWeekHours, hideEmptyHours, activeDay, matrixData, selectedTeacherFilter, selectedPaymentStatusFilter, searchQuery, selectedSubjectFilter, isHotspotMode]);
 
+  // Dữ liệu ca học đang phóng to: nhóm học viên thành các CỘT DỌC theo từng Lớp
+  const zoomSlotData = useMemo(() => {
+    if (!zoomSlot) return null;
+
+    const entries = getSlotFilteredEntries(zoomSlot.day, zoomSlot.hour);
+    const columns: ZoomSlotColumn[] = [];
+    const columnMap = new Map<string, ZoomSlotColumn>();
+
+    // Mỗi lớp đang hoạt động là một cột (kể cả khi chưa có học viên) để luôn thêm được đúng lớp
+    const visibleClasses = classes
+      .filter((cls) => cls.status !== "closed")
+      .filter((cls) => selectedClassFilter === "all" || cls.id === selectedClassFilter);
+
+    for (const cls of visibleClasses) {
+      const column: ZoomSlotColumn = {
+        id: cls.id,
+        name: cls.name,
+        subjectName: cls.subject_name,
+        teacherName: cls.teacher_name,
+        teacherId: cls.teacher_id,
+        subjectId: cls.subject_id,
+        room: cls.room,
+        maxStudents: Number(cls.max_students) || 0,
+        color: cls.color || "indigo",
+        entries: [],
+        isClass: true,
+      };
+      columns.push(column);
+      columnMap.set(column.id, column);
+    }
+
+    for (const entry of entries) {
+      const classId = entry.student.class_id || "";
+      const targetClass = classId ? columnMap.get(classId) : undefined;
+
+      if (targetClass) {
+        targetClass.entries.push(entry);
+        continue;
+      }
+
+      // Khi đang lọc 1 lớp: bỏ qua học viên của lớp khác
+      if (selectedClassFilter !== "all" && classId !== selectedClassFilter) continue;
+
+      // Học viên chưa xếp lớp / lớp đã đóng / lớp không còn tồn tại
+      const orphanKey = classId || "__unassigned";
+      let orphanColumn = columnMap.get(orphanKey);
+      if (!orphanColumn) {
+        orphanColumn = {
+          id: orphanKey,
+          name: classId ? entry.student.class_name || "Lớp khác" : "Chưa xếp lớp",
+          subjectName: entry.student.subject_name,
+          teacherName: undefined,
+          maxStudents: 0,
+          color: "slate",
+          entries: [],
+          isClass: false,
+        };
+        columns.push(orphanColumn);
+        columnMap.set(orphanKey, orphanColumn);
+      }
+      orphanColumn.entries.push(entry);
+    }
+
+    // Loại trùng học viên trong cùng một cột (trường hợp nhiều giáo viên cùng ca)
+    for (const column of columns) {
+      const seen = new Set<string>();
+      column.entries = column.entries.filter((entry) => {
+        if (seen.has(entry.student.id)) return false;
+        seen.add(entry.student.id);
+        return true;
+      });
+      column.entries.sort((a, b) => {
+        const aStart = a.startTime || a.timeDetail.split("-")[0]?.trim() || "00:00";
+        const bStart = b.startTime || b.timeDetail.split("-")[0]?.trim() || "00:00";
+        return aStart.localeCompare(bStart);
+      });
+    }
+
+    return {
+      day: zoomSlot.day,
+      hour: zoomSlot.hour,
+      entries,
+      columns,
+    };
+  }, [
+    zoomSlot,
+    matrixData,
+    classes,
+    selectedClassFilter,
+    selectedTeacherFilter,
+    selectedPaymentStatusFilter,
+    searchQuery,
+    selectedSubjectFilter,
+    isHotspotMode,
+    subjects,
+  ]);
+
   return (
     <div className="space-y-4 font-sans animate-in fade-in duration-200">
       {/* =========================================================================
@@ -577,22 +809,27 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
 
           {/* Dải tóm tắt KPI toàn tuần tinh tế */}
           <div className="hidden md:flex items-center gap-3 px-3 py-1.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-slate-800 text-xs">
+            <span className="text-slate-300 dark:text-slate-700">•</span>
             <span className="font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1">
               <Users className="w-3.5 h-3.5 text-indigo-500" />
               <strong>{overallStats.totalSlots}</strong> lượt học
             </span>
-            <span className="text-slate-300 dark:text-slate-700">•</span>
-            <span className="font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              <strong>{overallStats.paidCount}</strong> đã đóng
-            </span>
-            {overallStats.unpaidCount > 0 && (
+            {canViewTuition && (
               <>
                 <span className="text-slate-300 dark:text-slate-700">•</span>
-                <span className="font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1">
-                  <AlertCircle className="w-3.5 h-3.5" />
-                  <strong>{overallStats.unpaidCount}</strong> chưa đóng
+                <span className="font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <strong>{overallStats.paidCount}</strong> đã đóng
                 </span>
+                {overallStats.unpaidCount > 0 && (
+                  <>
+                    <span className="text-slate-300 dark:text-slate-700">•</span>
+                    <span className="font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                      <AlertCircle className="w-3.5 h-3.5" />
+                      <strong>{overallStats.unpaidCount}</strong> chưa đóng
+                    </span>
+                  </>
+                )}
               </>
             )}
           </div>
@@ -667,15 +904,17 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
           )}
 
           {/* Lọc Học Phí */}
-          <select
-            value={selectedPaymentStatusFilter}
-            onChange={(e) => setSelectedPaymentStatusFilter(e.target.value as any)}
-            className="px-2.5 py-1.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 outline-none cursor-pointer"
-          >
-            <option value="all">Tất cả học phí</option>
-            <option value="paid">✓ Đã đóng phí</option>
-            <option value="unpaid">✗ Chưa đóng phí</option>
-          </select>
+          {canViewTuition && (
+            <select
+              value={selectedPaymentStatusFilter}
+              onChange={(e) => setSelectedPaymentStatusFilter(e.target.value as any)}
+              className="px-2.5 py-1.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 outline-none cursor-pointer"
+            >
+              <option value="all">Tất cả học phí</option>
+              <option value="paid">✓ Đã đóng phí</option>
+              <option value="unpaid">✗ Chưa đóng phí</option>
+            </select>
+          )}
 
           {/* Lọc Giáo Viên */}
           {viewMode !== "teacher_centric" && (
@@ -788,7 +1027,7 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
                               </div>
                               <div className="text-[10px] text-slate-500 dark:text-slate-400 font-medium truncate">
                                 <span>{stats.total} lượt</span>
-                                {stats.unpaid > 0 && (
+                                {canViewTuition && stats.unpaid > 0 && (
                                   <span className="text-amber-600 dark:text-amber-400 font-semibold ml-1">
                                     • {stats.unpaid} chưa đóng
                                   </span>
@@ -848,7 +1087,9 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
                         return (
                           <td
                             key={dayName}
-                            className={`p-1.5 align-top border-r border-slate-200 dark:border-slate-800 last:border-r-0 min-h-[110px] transition-colors relative group ${
+                            onClick={() => openZoomSlot(dayName, hour)}
+                            title={`Bấm để phóng to ca ${hourLabel} - ${dayName}`}
+                            className={`p-1.5 align-top border-r border-slate-200 dark:border-slate-800 last:border-r-0 min-h-[110px] transition-colors relative group cursor-zoom-in ${
                               isToday ? "bg-indigo-50/15 dark:bg-indigo-950/10" : ""
                             } ${isPastHourToday ? "opacity-75" : ""}`}
                           >
@@ -868,23 +1109,43 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
                               </div>
                             )}
 
+                            {/* Nút phóng to ca học hiển thị khi hover ô */}
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openZoomSlot(dayName, hour);
+                              }}
+                              className="absolute top-1 right-1 z-20 w-5 h-5 rounded-md bg-white/95 dark:bg-slate-800/95 border border-slate-200 dark:border-slate-700 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 opacity-0 group-hover:opacity-100 transition flex items-center justify-center shadow-xs cursor-pointer"
+                              title={`Phóng to ca ${hourLabel} - ${dayName}`}
+                            >
+                              <Maximize2 className="w-3 h-3" />
+                            </button>
+
                             {/* Danh sách thẻ học sinh trải dài toàn bộ (không bị giới hạn hay ẩn đi) */}
                             <div className="space-y-1 min-h-[85px] flex flex-col justify-start">
                               {totalInSlot === 0 ? (
-                                /* Ô Trống Sạch Sẽ */
-                                <div
-                                  onClick={() => onAddStudentToSlot?.(dayName, hourLabel)}
-                                  className="h-full min-h-[80px] rounded-xl flex flex-col items-center justify-center text-slate-300 dark:text-slate-700 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50/40 dark:hover:bg-slate-800/40 transition cursor-pointer border border-transparent hover:border-dashed hover:border-indigo-300 dark:hover:border-indigo-700/60 group/empty"
-                                >
-                                  <Plus className="w-4 h-4 opacity-0 group-hover/empty:opacity-100 transition-opacity transform group-hover/empty:scale-110" />
-                                  <span className="text-[10px] font-bold opacity-0 group-hover/empty:opacity-100 transition-opacity mt-0.5">
-                                    Thêm vào ca
+                                /* Ô Trống Sạch Sẽ: bấm vào để phóng to ca và xếp lớp */
+                                <div className="h-full min-h-[80px] rounded-xl flex flex-col items-center justify-center text-slate-300 dark:text-slate-700 group/empty">
+                                  <Maximize2 className="w-4 h-4 opacity-60 group-hover:opacity-100 transition-opacity transform group-hover:scale-110" />
+                                  <span className="text-[10px] font-bold opacity-70 group-hover:opacity-100 transition-opacity mt-0.5">
+                                    Xem ca & xếp lớp
                                   </span>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      onAddStudentToSlot?.(dayName, hourLabel);
+                                    }}
+                                    className="mt-1 text-[9.5px] font-bold px-2 py-0.5 rounded-md bg-indigo-600 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-indigo-700 cursor-pointer"
+                                  >
+                                    + Thêm nhanh
+                                  </button>
                                 </div>
                               ) : (
                                   entries.map(({ student, timeDetail, subjectName, teacherId, isContinuing, startTime }) => {
                                   const isUnassigned = teacherId === "unassigned" || !student.teacher_id;
-                                  const isOverdue = Boolean(student.is_overdue);
+                                  const isOverdue = canViewTuition && Boolean(student.is_overdue);
                                   const isHighlighted = hoveredStudentId && hoveredStudentId === student.id;
                                   const isDimmed = hoveredStudentId && hoveredStudentId !== student.id;
 
@@ -899,7 +1160,10 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
                                   return (
                                     <div
                                       key={`${student.id}_${hour}_${isContinuing ? "cont" : "start"}`}
-                                      onClick={() => onSelectStudent(student)}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        onSelectStudent(student);
+                                      }}
                                       onMouseEnter={(e) => {
                                         setHoveredStudentId(student.id);
                                         const rect = e.currentTarget.getBoundingClientRect();
@@ -969,6 +1233,22 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
                                 })
                               )}
                             </div>
+
+                            {/* Nút mở Zoom-in ca học: rõ ràng cho cả màn hình cảm ứng */}
+                            {totalInSlot > 0 && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openZoomSlot(dayName, hour);
+                                }}
+                                className="mt-1 w-full py-0.5 rounded-md text-[8.5px] font-bold text-slate-400 dark:text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50/70 dark:hover:bg-indigo-950/30 flex items-center justify-center gap-1 transition cursor-pointer opacity-80 hover:opacity-100"
+                                title={`Xem ca ${hourLabel} ${dayName} theo từng lớp`}
+                              >
+                                <Maximize2 className="w-2.5 h-2.5" />
+                                Xem ca & xếp lớp
+                              </button>
+                            )}
                           </td>
                         );
                       })}
@@ -1013,7 +1293,7 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
                   <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${isActive ? "bg-white/20 text-white" : "bg-slate-100 dark:bg-slate-700 text-slate-500"}`}>
                     {stats.total}
                   </span>
-                  {stats.unpaid > 0 && (
+                  {canViewTuition && stats.unpaid > 0 && (
                     <span
                       className={`text-[9px] px-1.5 py-0.2 rounded-md font-bold ${
                         isActive
@@ -1086,13 +1366,26 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
                   return (
                     <div
                       key={hour}
-                      className="border border-slate-200 dark:border-slate-800 rounded-2xl p-3 bg-slate-50/50 dark:bg-slate-950/30 flex flex-col justify-between space-y-2 hover:border-indigo-300 transition"
+                      onClick={() => openZoomSlot(activeDay, hour)}
+                      title={`Bấm để phóng to ca ${hourLabel} - ${activeDay}`}
+                      className="border border-slate-200 dark:border-slate-800 rounded-2xl p-3 bg-slate-50/50 dark:bg-slate-950/30 flex flex-col justify-between space-y-2 hover:border-indigo-300 transition cursor-zoom-in group/hour"
                     >
                       <div className="flex items-center justify-between border-b border-slate-200/80 dark:border-slate-800 pb-1.5">
                         <span className="font-mono font-black text-sm text-indigo-600 dark:text-indigo-400">
                           {hourLabel}
                         </span>
                         <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openZoomSlot(activeDay, hour);
+                            }}
+                            className="w-5 h-5 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center justify-center transition cursor-pointer opacity-70 group-hover/hour:opacity-100"
+                            title={`Phóng to ca ${hourLabel}`}
+                          >
+                            <Maximize2 className="w-3 h-3" />
+                          </button>
                           <span
                             className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
                               entries.length > 0
@@ -1127,7 +1420,10 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
                             return (
                               <div
                                 key={`${student.id}_${hour}_${isContinuing ? "cont" : "start"}`}
-                                onClick={() => onSelectStudent(student)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onSelectStudent(student);
+                                }}
                                 className={`p-2 rounded-xl border text-left cursor-pointer transition ${getSubjectBorderClass(
                                   subjectName
                                 )} border-l-4 ${
@@ -1150,7 +1446,7 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
                                       </span>
                                     )}
                                   </div>
-                                  {student.is_overdue && (
+                                  {canViewTuition && student.is_overdue && (
                                     <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse shrink-0" title="Nợ học phí quá hạn" />
                                   )}
                                 </div>
@@ -1177,7 +1473,10 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
 
                       <button
                         type="button"
-                        onClick={() => onAddStudentToSlot?.(activeDay, hourLabel)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onAddStudentToSlot?.(activeDay, hourLabel);
+                        }}
                         className="w-full py-1 text-xs font-bold rounded-lg border border-dashed border-slate-300 dark:border-slate-700 hover:border-indigo-400 hover:text-indigo-600 text-slate-500 text-center transition cursor-pointer flex items-center justify-center gap-1"
                       >
                         <Plus className="w-3.5 h-3.5" />
@@ -1303,9 +1602,11 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
                                           className={`text-[10px] px-2 py-0.5 rounded-lg border font-semibold transition cursor-pointer hover:border-indigo-400 ${
                                             isContinuing
                                               ? "bg-amber-50 dark:bg-amber-950/40 border-amber-300 dark:border-amber-800 text-amber-800 dark:text-amber-300"
-                                              : student.payment_status === "paid"
+                                              : canViewTuition && student.payment_status === "paid"
                                               ? "bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200"
-                                              : "bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-900/60 text-rose-700 dark:text-rose-300"
+                                              : canViewTuition
+                                              ? "bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-900/60 text-rose-700 dark:text-rose-300"
+                                              : "bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200"
                                           }`}
                                           title={`Bấm để xem hồ sơ học viên${isContinuing ? " (học tiếp từ ca trước)" : ""}`}
                                         >
@@ -1324,6 +1625,429 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
                   </div>
                 );
               })}
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================================
+          ZOOM-IN MODAL: PHÓNG TO CA HỌC & CHIA CỘT DỌC THEO TỪNG LỚP
+          ========================================================================= */}
+      {zoomSlot && zoomSlotData && (
+        <div
+          onClick={closeZoomSlot}
+          className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-2 sm:p-5 animate-in fade-in duration-150"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-[1400px] max-h-[92vh] bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-3xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-200"
+          >
+            {/* HEADER: Thứ ở bên trái · Giờ nổi bật bên phải · Nút đóng X */}
+            <div className="shrink-0 px-4 sm:px-6 py-3.5 sm:py-4 border-b border-slate-200 dark:border-slate-800 bg-gradient-to-r from-indigo-50 via-white to-white dark:from-indigo-950/40 dark:via-slate-900 dark:to-slate-900 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+                <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-md shadow-indigo-600/20 shrink-0">
+                  <CalendarDays className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-[9px] sm:text-[10px] font-black uppercase tracking-[0.14em] text-indigo-600 dark:text-indigo-400">
+                    Phóng to ca học
+                  </div>
+                  <h3 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white truncate leading-tight">
+                    {zoomSlotData.day}
+                  </h3>
+                  <div className="text-[10px] sm:text-[11px] font-semibold text-slate-500 dark:text-slate-400 truncate">
+                    {zoomSlotData.entries.length} học viên ·{" "}
+                    {zoomSlotData.columns.filter((col) => col.entries.length > 0).length} lớp có học viên
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <div className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-2xl bg-indigo-600 text-white shadow-lg shadow-indigo-600/25 border border-indigo-500/60 text-right">
+                  <div className="text-[8px] sm:text-[9px] font-black uppercase tracking-wider text-indigo-100">
+                    Giờ học
+                  </div>
+                  <div className="font-mono font-black text-xs sm:text-base leading-tight whitespace-nowrap">
+                    {formatHourRange(zoomSlotData.hour)}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={closeZoomSlot}
+                  className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-white/80 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 flex items-center justify-center transition cursor-pointer"
+                  title="Thu gọn ca học (ESC)"
+                  aria-label="Thu gọn ca học"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* BODY: Các cột dọc tương ứng từng Lớp */}
+            <div className="flex-1 min-h-0 overflow-auto p-3 sm:p-5 bg-slate-50/70 dark:bg-slate-950/30">
+              {zoomSlotData.columns.length === 0 ? (
+                <div className="py-14 text-center border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl bg-white dark:bg-slate-900">
+                  <LayoutGrid className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
+                  <p className="text-sm font-bold text-slate-700 dark:text-slate-300">
+                    Chưa có lớp học nào đang hoạt động
+                  </p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                    Tạo lớp học trước để xếp học viên theo cột lớp tại ca này.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => onAddStudentToSlot?.(zoomSlotData.day, formatHourLabel(zoomSlotData.hour))}
+                    className="mt-3 px-3.5 py-1.5 text-xs font-bold rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white transition inline-flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    Thêm học viên vào ca
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-stretch gap-3 w-max min-w-full pb-1">
+                  {zoomSlotData.columns.map((column) => {
+                    const accent = getClassAccent(column.color);
+                    const unpaidCount = canViewTuition
+                      ? column.entries.filter((entry) => entry.student.payment_status !== "paid").length
+                      : 0;
+                    const overdueCount = canViewTuition
+                      ? column.entries.filter((entry) => entry.student.is_overdue).length
+                      : 0;
+                    const hasCapacity = column.maxStudents > 0;
+                    const isFull = hasCapacity && column.entries.length >= column.maxStudents;
+                    const capacityPct = hasCapacity
+                      ? Math.min(100, Math.round((column.entries.length / column.maxStudents) * 100))
+                      : 0;
+
+                    return (
+                      <div
+                        key={column.id}
+                        className="w-[268px] sm:w-[292px] shrink-0 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm flex flex-col overflow-hidden"
+                      >
+                        {/* Thanh màu nhận diện lớp */}
+                        <div className={`h-1.5 ${accent.bar}`} />
+
+                        {/* Header cột lớp */}
+                        <div className={`p-3 border-b border-slate-100 dark:border-slate-800 ${accent.softBg}`}>
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <span className={`w-2 h-2 rounded-full shrink-0 ${accent.bar}`} />
+                                <h4
+                                  className="font-black text-sm text-slate-900 dark:text-white truncate"
+                                  title={column.name}
+                                >
+                                  {column.name}
+                                </h4>
+                              </div>
+                              <div className="mt-1 flex items-center gap-1 flex-wrap">
+                                {column.subjectName && (
+                                  <span
+                                    className={`text-[9.5px] font-bold px-1.5 py-0.2 rounded border ${accent.chip}`}
+                                  >
+                                    {column.subjectName}
+                                  </span>
+                                )}
+                                {column.room && (
+                                  <span className="text-[9.5px] font-semibold px-1.5 py-0.2 rounded border border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
+                                    P.{column.room}
+                                  </span>
+                                )}
+                                {!column.isClass && (
+                                  <span className="text-[9.5px] font-semibold px-1.5 py-0.2 rounded border border-dashed border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-400">
+                                    Chưa gán lớp
+                                  </span>
+                                )}
+                              </div>
+                              <div className="mt-1 text-[10px] font-semibold text-slate-500 dark:text-slate-400 truncate">
+                                GV: {column.teacherName || "Chưa phân công"}
+                              </div>
+                            </div>
+                            <span
+                              className={`px-2 py-0.5 rounded-full text-[10px] font-black border shrink-0 ${
+                                isFull
+                                  ? "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800"
+                                  : accent.chip
+                              }`}
+                              title={
+                                hasCapacity
+                                  ? `Sĩ số ${column.entries.length}/${column.maxStudents}`
+                                  : `${column.entries.length} học viên`
+                              }
+                            >
+                              {column.entries.length}
+                              {hasCapacity ? `/${column.maxStudents}` : ""}
+                            </span>
+                          </div>
+
+                          {hasCapacity && (
+                            <div className="mt-2 h-1 rounded-full bg-slate-200/80 dark:bg-slate-700/60 overflow-hidden">
+                              <div
+                                className={`h-full rounded-full transition-all duration-300 ${
+                                  isFull ? "bg-rose-500" : accent.bar
+                                }`}
+                                style={{ width: `${capacityPct}%` }}
+                              />
+                            </div>
+                          )}
+
+                          {(unpaidCount > 0 || overdueCount > 0) && (
+                            <div className="mt-1.5 flex items-center gap-1 flex-wrap text-[9px] font-bold">
+                              {unpaidCount > 0 && (
+                                <span className="px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">
+                                  {unpaidCount} chưa đóng
+                                </span>
+                              )}
+                              {overdueCount > 0 && (
+                                <span className="px-1.5 py-0.2 rounded bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300">
+                                  {overdueCount} quá hạn
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Danh sách thẻ học viên của đúng lớp này */}
+                        <div className="flex-1 p-2 space-y-2 max-h-[46vh] overflow-y-auto scrollbar-thin">
+                          {column.entries.length === 0 ? (
+                            <div className="py-10 px-2 text-center border border-dashed border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50/50 dark:bg-slate-950/20">
+                              <Users className="w-5 h-5 mx-auto text-slate-300 dark:text-slate-600 mb-1" />
+                              <p className="text-[10.5px] font-semibold text-slate-400 dark:text-slate-500">
+                                Chưa có học viên trong ca này
+                              </p>
+                            </div>
+                          ) : (
+                            column.entries.map((entry) => {
+                              const { student, timeDetail, subjectName, teacherName, isContinuing, startTime, endTime } =
+                                entry;
+                              const subjectBadge = getSubjectBadge(subjectName);
+                              const isPaid = student.payment_status === "paid";
+                              const isOverdue = canViewTuition && Boolean(student.is_overdue);
+                              const cardKey = `${column.id}_${student.id}_${
+                                isContinuing ? "cont" : "start"
+                              }`;
+                              const isConfirming = confirmRemoveKey === cardKey;
+                              const isRemoving = removingKey === cardKey;
+
+                              return (
+                                <div
+                                  key={cardKey}
+                                  className={`rounded-xl border border-l-4 p-2 transition ${getSubjectBorderClass(
+                                    subjectName
+                                  )} ${
+                                    isContinuing
+                                      ? "bg-amber-50/60 dark:bg-amber-950/20 border-amber-200/90 dark:border-amber-900/60"
+                                      : "bg-white dark:bg-slate-800/80 border-slate-200 dark:border-slate-700"
+                                  }`}
+                                >
+                                  <div className="flex items-start justify-between gap-1.5">
+                                    <button
+                                      type="button"
+                                      onClick={() => onSelectStudent(student)}
+                                      className="min-w-0 flex-1 text-left cursor-pointer group/card"
+                                      title={`Mở hồ sơ ${student.name}`}
+                                    >
+                                      <div className="flex items-center gap-1 min-w-0">
+                                        <span
+                                          className="font-bold text-[11.5px] text-slate-900 dark:text-white truncate group-hover/card:text-indigo-600 dark:group-hover/card:text-indigo-400 transition-colors"
+                                          title={student.name}
+                                        >
+                                          {student.name}
+                                        </span>
+                                        {isOverdue && (
+                                          <span
+                                            className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse shrink-0"
+                                            title="Nợ học phí quá hạn"
+                                          />
+                                        )}
+                                      </div>
+                                      <div className="mt-1 flex items-center gap-1 flex-wrap">
+                                        <span
+                                          className={`text-[9px] font-bold px-1.5 py-0.2 rounded ${subjectBadge.bg} ${subjectBadge.text}`}
+                                        >
+                                          {subjectName}
+                                        </span>
+                                        <span className="text-[9.5px] font-semibold text-slate-500 dark:text-slate-400 truncate">
+                                          • {teacherName || "Chờ gán GV"}
+                                        </span>
+                                      </div>
+                                      <div className="mt-1 flex items-center justify-between gap-1">
+                                        <span className="font-mono text-[9px] font-bold text-slate-500 dark:text-slate-400">
+                                          {timeDetail || formatHourLabel(zoomSlotData.hour)}
+                                        </span>
+                                        {isContinuing && (
+                                          <span
+                                            className="text-[8.5px] font-bold text-amber-700 dark:text-amber-300 bg-amber-100/90 dark:bg-amber-950/70 px-1 py-0.2 rounded border border-amber-300/80 dark:border-amber-700/70"
+                                            title={`Học tiếp từ ca trước (${startTime || timeDetail})`}
+                                          >
+                                            ↳ từ {startTime || timeDetail.split("-")[0]?.trim()}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </button>
+
+                                    {canEditSchedule && onRemoveStudentFromSlot ? (
+                                      <button
+                                        type="button"
+                                        onClick={() => setConfirmRemoveKey(isConfirming ? null : cardKey)}
+                                        className={`w-6 h-6 rounded-lg border flex items-center justify-center transition shrink-0 cursor-pointer ${
+                                          isConfirming
+                                            ? "bg-rose-600 border-rose-600 text-white"
+                                            : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-400 hover:text-rose-600 hover:border-rose-300 dark:hover:text-rose-400"
+                                        }`}
+                                        title="Gỡ học viên khỏi ca học này"
+                                        aria-label={`Gỡ ${student.name} khỏi ca`}
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
+                                    ) : null}
+                                  </div>
+
+                                  <div className="mt-1.5 flex items-center justify-between gap-1">
+                                    {canViewTuition ? (
+                                      isPaid ? (
+                                        <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800">
+                                          ✓ Đã đóng phí
+                                        </span>
+                                      ) : isOverdue ? (
+                                        <span className="text-[9px] font-black px-1.5 py-0.2 rounded bg-rose-600 text-white">
+                                          Nợ quá hạn
+                                        </span>
+                                      ) : (
+                                        <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-50 text-amber-800 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800">
+                                          Cần đóng phí
+                                        </span>
+                                      )
+                                    ) : (
+                                      <span />
+                                    )}
+                                    <span
+                                      className="text-[8.5px] font-semibold text-slate-400 dark:text-slate-500 truncate max-w-[110px]"
+                                      title={student.phone || ""}
+                                    >
+                                      {student.phone || "---"}
+                                    </span>
+                                  </div>
+
+                                  {isConfirming && (
+                                    <div className="mt-2 rounded-lg border border-rose-200 dark:border-rose-900/70 bg-rose-50 dark:bg-rose-950/30 p-1.5 animate-in fade-in duration-150">
+                                      <div className="flex items-center gap-1 text-[9.5px] font-bold text-rose-700 dark:text-rose-300">
+                                        <AlertTriangle className="w-3 h-3 shrink-0" />
+                                        <span>
+                                          Gỡ {student.name} khỏi ca {formatHourLabel(zoomSlotData.hour)}?
+                                        </span>
+                                      </div>
+                                      <p className="mt-0.5 text-[8.5px] leading-snug text-rose-600/90 dark:text-rose-400/90">
+                                        Nếu đây là ca duy nhất, học viên cũng sẽ được gỡ khỏi lớp.
+                                      </p>
+                                      <div className="mt-1.5 flex items-center gap-1">
+                                        <button
+                                          type="button"
+                                          onClick={() => setConfirmRemoveKey(null)}
+                                          disabled={isRemoving}
+                                          className="flex-1 py-1 rounded-md bg-white dark:bg-slate-800 border border-rose-200 dark:border-rose-900/60 text-[9.5px] font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition cursor-pointer disabled:opacity-50"
+                                        >
+                                          Hủy
+                                        </button>
+                                        <button
+                                          type="button"
+                                          disabled={isRemoving}
+                                          onClick={async () => {
+                                            if (!onRemoveStudentFromSlot) return;
+                                            setRemovingKey(cardKey);
+                                            try {
+                                              const result = await onRemoveStudentFromSlot({
+                                                student,
+                                                day: zoomSlotData.day,
+                                                slotHour: formatHourLabel(zoomSlotData.hour),
+                                                startTime,
+                                                endTime,
+                                                classId: student.class_id,
+                                              });
+                                              if (result !== false) {
+                                                setConfirmRemoveKey(null);
+                                              }
+                                            } finally {
+                                              setRemovingKey(null);
+                                            }
+                                          }}
+                                          className="flex-1 py-1 rounded-md bg-rose-600 hover:bg-rose-700 text-white text-[9.5px] font-black flex items-center justify-center gap-1 transition cursor-pointer disabled:opacity-60"
+                                        >
+                                          {isRemoving ? (
+                                            <Loader2 className="w-3 h-3 animate-spin" />
+                                          ) : (
+                                            <Trash2 className="w-3 h-3" />
+                                          )}
+                                          <span>{isRemoving ? "Đang gỡ..." : "Xóa"}</span>
+                                        </button>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })
+                          )}
+                        </div>
+
+                        {/* Nút Thêm học sinh chuẩn theo đúng Lớp của cột */}
+                        <div className="p-2 border-t border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/20">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              onAddStudentToSlot?.(
+                                zoomSlotData.day,
+                                formatHourLabel(zoomSlotData.hour),
+                                column.teacherId,
+                                column.subjectId,
+                                column.isClass ? column.id : undefined
+                              )
+                            }
+                            className="w-full py-2 rounded-xl border border-dashed border-indigo-300 dark:border-indigo-700/70 bg-indigo-50/70 hover:bg-indigo-100 dark:bg-indigo-950/30 dark:hover:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 text-[10.5px] font-black flex items-center justify-center gap-1.5 transition active:scale-[0.98] cursor-pointer"
+                            title={`Thêm học viên trực tiếp vào ${column.name} tại ca này`}
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span className="truncate">Thêm học viên vào {column.name}</span>
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* FOOTER tổng kết ca */}
+            <div className="shrink-0 px-4 sm:px-6 py-2.5 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col sm:flex-row items-center justify-between gap-2">
+              <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-2 flex-wrap">
+                <span>
+                  Tổng <strong className="text-slate-800 dark:text-white">{zoomSlotData.entries.length}</strong>{" "}
+                  học viên trong ca
+                </span>
+                <span className="text-slate-300 dark:text-slate-700">•</span>
+                <span>
+                  <strong className="text-indigo-600 dark:text-indigo-400">
+                    {zoomSlotData.columns.filter((col) => col.entries.length > 0).length}
+                  </strong>{" "}
+                  lớp có học viên
+                </span>
+                {canViewTuition &&
+                  zoomSlotData.entries.filter((entry) => entry.student.payment_status !== "paid").length > 0 && (
+                  <>
+                    <span className="text-slate-300 dark:text-slate-700">•</span>
+                    <span className="text-amber-600 dark:text-amber-400 font-bold">
+                      {zoomSlotData.entries.filter((entry) => entry.student.payment_status !== "paid").length} chưa
+                      đóng phí
+                    </span>
+                  </>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={closeZoomSlot}
+                className="px-4 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 transition cursor-pointer"
+              >
+                Thu gọn
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -1430,19 +2154,21 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
                             </span>
                           )}
                         </div>
-                        {isPaid ? (
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
-                            Đã đóng phí
-                          </span>
-                        ) : student.is_overdue ? (
-                          <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-rose-600 text-white animate-pulse">
-                            Nợ quá hạn
-                          </span>
-                        ) : (
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
-                            Cần đóng tiền
-                          </span>
-                        )}
+                        {canViewTuition ? (
+                          isPaid ? (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                              Đã đóng phí
+                            </span>
+                          ) : student.is_overdue ? (
+                            <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-rose-600 text-white animate-pulse">
+                              Nợ quá hạn
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                              Cần đóng tiền
+                            </span>
+                          )
+                        ) : null}
                       </div>
 
                       <div className="mt-2 flex items-center justify-between text-xs text-slate-500">
@@ -1499,15 +2225,17 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
             <span className="font-extrabold text-sm text-amber-300 truncate">
               {hoveredStudent.student.name}
             </span>
-            <span
-              className={`text-[9px] font-black px-2 py-0.5 rounded-full ${
-                hoveredStudent.student.payment_status === "paid"
-                  ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
-                  : "bg-rose-500/20 text-rose-300 border border-rose-500/40"
-              }`}
-            >
-              {hoveredStudent.student.payment_status === "paid" ? "Đã Đóng Phí" : "Chưa Đóng Phí"}
-            </span>
+            {canViewTuition && (
+              <span
+                className={`text-[9px] font-black px-2 py-0.5 rounded-full ${
+                  hoveredStudent.student.payment_status === "paid"
+                    ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
+                    : "bg-rose-500/20 text-rose-300 border border-rose-500/40"
+                }`}
+              >
+                {hoveredStudent.student.payment_status === "paid" ? "Đã Đóng Phí" : "Chưa Đóng Phí"}
+              </span>
+            )}
           </div>
 
           <div className="space-y-1 text-xs text-slate-300">

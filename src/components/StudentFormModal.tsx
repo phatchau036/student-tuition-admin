@@ -152,6 +152,12 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
   const [discountReason, setDiscountReason] = useState<string>("");
   const [isSaving, setIsSaving] = useState(false);
 
+  // Lớp được chọn sẵn từ Sơ đồ lớp (giữ tham chiếu ổn định để effect không chạy lặp)
+  const initialClassObj = React.useMemo(
+    () => (initialClassId ? classes.find((c) => c.id === initialClassId) : undefined),
+    [classes, initialClassId]
+  );
+
   useEffect(() => {
     if (studentToEdit) {
       setName(studentToEdit.name || "");
@@ -168,12 +174,16 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
 
       const mode = (studentToEdit.duration_mode as "by_hours" | "by_sessions") || "by_hours";
       setDurationMode(mode);
-      setSessionsPerWeek(studentToEdit.sessions_per_week || 3);
+      setSessionsPerWeek(studentToEdit.sessions_per_week === 0 ? 0 : studentToEdit.sessions_per_week || 3);
       setTargetHours(studentToEdit.hours_per_week || 3);
 
-      const regDays = studentToEdit.registered_days
-        ? studentToEdit.registered_days.split(",").map((d) => d.trim()).filter(Boolean)
-        : ["Thứ 2", "Thứ 4", "Thứ 6"];
+      // sessions_per_week = 0: học viên đã được gỡ khỏi toàn bộ ca học -> không tự gợi ý lịch
+      const regDays =
+        studentToEdit.sessions_per_week === 0
+          ? []
+          : studentToEdit.registered_days
+          ? studentToEdit.registered_days.split(",").map((d) => d.trim()).filter(Boolean)
+          : ["Thứ 2", "Thứ 4", "Thứ 6"];
       setSelectedDays(regDays);
 
       const computedSessionH = regDays.length > 0 && studentToEdit.hours_per_week
@@ -219,10 +229,17 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
       setZaloLink("");
       setZaloChatId("");
       setLevelId(levels[0]?.id || "");
-      setSubjectId(subjects[0]?.id || "");
       setClassId(initialClassId || "");
       setTimeSlotId(timeSlots[0]?.id || "");
-      setTeacherId(initialClassId ? "" : (initialTeacherId || teachers[0]?.id || ""));
+
+      let foundTeacher = initialTeacherId || "";
+      let foundSubject = subjects[0]?.id || "";
+      if (initialClassObj) {
+        if (initialClassObj.subject_id) foundSubject = initialClassObj.subject_id;
+        if (initialClassObj.teacher_id) foundTeacher = initialClassObj.teacher_id;
+      }
+      setSubjectId(foundSubject);
+      setTeacherId(foundTeacher || teachers[0]?.id || "");
       setTuitionPackageId(tuitionPackages[0]?.id || "");
       setStartDate(new Date().toISOString().slice(0, 10)); // Mặc định vào ngày hiện tại
       setDurationMode(defaultDurationMode);
@@ -258,21 +275,95 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
         }));
         setScheduleItems(items);
       } else {
-        setSessionsPerWeek(defaultSessions);
+        setSessionsPerWeek(1);
         setTargetHours(defaultHours);
 
         const targetDay = initialDay || "Thứ 2";
         setSelectedDays([targetDay]);
 
-        const startH = initialStartTime || "18:00";
-        const startParts = startH.split(":").map(Number);
-        const endHNum = (startParts[0] || 18) + 1;
-        const endH = `${String(endHNum).padStart(2, "0")}:${String(startParts[1] || 0).padStart(2, "0")}`;
+        const clickedStart = initialStartTime || "";
+
+        // Chuẩn hóa "HH:MM" để so khớp giờ lớp / phân công giáo viên
+        const normalizeHm = (value: unknown): string => {
+          const match = String(value || "").match(/(\d{1,2})\s*:\s*(\d{2})/);
+          if (!match) return "";
+          return `${String(parseInt(match[1], 10)).padStart(2, "0")}:${match[2]}`;
+        };
+        const toMinutes = (value: string): number => {
+          const [h, m] = value.split(":").map(Number);
+          return (h || 0) * 60 + (m || 0);
+        };
+
+        let startH = normalizeHm(clickedStart) || "18:00";
+        let endH = "";
+
+        if (initialClassObj) {
+          // 1) Ưu tiên ca dạy thực tế của lớp (teacher_assignments_json) bao phủ giờ đã bấm.
+          //    Ví dụ lớp mở 17:00-20:00, ca dạy 18:00-20:00 => thêm học viên vào 18:00-20:00.
+          if (clickedStart && initialClassObj.teacher_assignments_json) {
+            try {
+              const parsed: unknown = JSON.parse(initialClassObj.teacher_assignments_json);
+              if (Array.isArray(parsed)) {
+                const clickedMinutes = toMinutes(normalizeHm(clickedStart) || "18:00");
+                const assignment = (parsed as Array<Record<string, unknown>>).find((item) => {
+                  if (!item || typeof item !== "object") return false;
+                  const day = String(item.day || "").trim();
+                  if (day && day !== "Tất cả các ngày" && day !== targetDay) return false;
+                  const shiftStart = normalizeHm(item.start_time);
+                  const shiftEnd = normalizeHm(item.end_time);
+                  return Boolean(
+                    shiftStart &&
+                      shiftEnd &&
+                      clickedMinutes >= toMinutes(shiftStart) &&
+                      clickedMinutes < toMinutes(shiftEnd)
+                  );
+                });
+                const shiftEnd = normalizeHm(assignment?.end_time);
+                if (shiftEnd) {
+                  startH = normalizeHm(clickedStart) || startH;
+                  endH = shiftEnd;
+                }
+              }
+            } catch {}
+          }
+
+          // 2) Khung giờ mở của lớp: chỉ dùng khi chưa xác định được giờ kết thúc
+          //    và giờ bắt đầu trùng đúng ca đang bấm (không lấy nguyên khung 17:00-20:00).
+          if (!endH && initialClassObj.schedule_json) {
+            try {
+              const parsed: unknown = JSON.parse(initialClassObj.schedule_json);
+              if (Array.isArray(parsed)) {
+                const items = parsed as Array<Record<string, unknown>>;
+                const dayItem = items.find((p) => p && typeof p === "object" && p.day === targetDay);
+                if (dayItem) {
+                  const classStart = normalizeHm(dayItem.start_time);
+                  const classEnd = normalizeHm(dayItem.end_time);
+                  if (!clickedStart && classStart && classEnd) {
+                    startH = classStart;
+                    endH = classEnd;
+                  } else if (clickedStart && classStart && classEnd && classStart === normalizeHm(clickedStart)) {
+                    endH = classEnd;
+                  }
+                }
+              }
+            } catch {}
+          }
+        }
+
+        if (!endH) {
+          const startParts = startH.split(":").map(Number);
+          const endHNum = (startParts[0] || 18) + 1;
+          endH = `${String(endHNum).padStart(2, "0")}:${String(startParts[1] || 0).padStart(2, "0")}`;
+        }
+
+        const hours = calculateDurationHours(startH, endH);
         const defaultTimeStr = `${startH} - ${endH}`;
-        setFixedSessionTime(initialStartTime ? defaultTimeStr : defaultStudyTime);
+        setFixedSessionTime(defaultTimeStr);
+        setSessionHours(hours);
+        setTargetHours(Math.round(hours * 10) / 10);
 
         setScheduleItems([
-          { id: "1", day: targetDay, start_time: startH, end_time: endH, hours: 1 },
+          { id: "1", day: targetDay, start_time: startH, end_time: endH, hours },
         ]);
       }
       setIsDiscountEnabled(false);
@@ -290,9 +381,11 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
     defaultHours,
     defaultStudyTime,
     initialTeacherId,
+    initialClassId,
     initialDay,
     initialStartTime,
     schedulePresets,
+    initialClassObj,
   ]);
 
   // Total hours from schedule items
@@ -700,7 +793,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                   ) : (
                     levels.map((lvl) => (
                       <option key={lvl.id} value={lvl.id}>
-                        {lvl.level_name} (+{formatVND(lvl.surcharge_amount)})
+                        {lvl.level_name}{canViewTuition ? ` (+${formatVND(lvl.surcharge_amount)})` : ""}
                       </option>
                     ))
                   )}
@@ -732,7 +825,10 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                 <option value="">-- Mặc định (Tính theo giá chuẩn cơ sở) --</option>
                 {tuitionPackages.map((pkg) => (
                   <option key={pkg.id} value={pkg.id}>
-                    {pkg.name} ({formatVND(pkg.amount)} • {pkg.cycle_value} {pkg.cycle_unit === "month" ? "tháng" : "tuần"})
+                    {pkg.name}
+                    {canViewTuition
+                      ? ` (${formatVND(pkg.amount)} • ${pkg.cycle_value} ${pkg.cycle_unit === "month" ? "tháng" : "tuần"})`
+                      : ""}
                   </option>
                 ))}
               </select>

@@ -101,9 +101,13 @@ export const AdminAiAssistantModal: React.FC<AdminAiAssistantModalProps> = ({
 
   const checkAiStatus = async () => {
     try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("admin_token") : null;
       const res = await fetch("/api/ai/chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({ action: "status" }),
       });
       const data = await res.json();
@@ -134,9 +138,13 @@ export const AdminAiAssistantModal: React.FC<AdminAiAssistantModalProps> = ({
         .slice(-6)
         .map((m) => ({ role: m.role, content: m.content }));
 
+      const token = typeof window !== "undefined" ? localStorage.getItem("admin_token") : null;
       const res = await fetch("/api/ai/chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({
           action: "chat",
           message: text,

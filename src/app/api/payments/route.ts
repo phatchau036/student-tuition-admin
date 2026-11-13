@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
 import { getPreviousMonthStr, getNextMonthStr, calculateStudentTuition, computeEndMonth } from "@/lib/tuition";
 import { grantCycleForPayment } from "@/lib/wallet";
+import { requireAdminPermission } from "@/lib/authHelper";
 
 // Helper: cấp giờ vào Ví Giờ Học cho toàn bộ chu kỳ tháng đã đóng (idempotent, lỗi không chặn thanh toán)
 async function grantHoursForPeriod(studentId: string, startPeriod: string, endPeriod: string) {
@@ -31,6 +32,10 @@ async function grantHoursForPeriod(studentId: string, startPeriod: string, endPe
 export async function GET(req: Request) {
   try {
     await initDb();
+    const authCheck = await requireAdminPermission(req, "tuition.view");
+    if (!authCheck.authorized) {
+      return authCheck.errorResponse!;
+    }
     const db = getDb();
     const url = new URL(req.url);
     const studentId = url.searchParams.get("student_id");
@@ -71,6 +76,10 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     await initDb();
+    const authCheck = await requireAdminPermission(req, "tuition.audit");
+    if (!authCheck.authorized) {
+      return authCheck.errorResponse!;
+    }
     const db = getDb();
     const body = await req.json();
     const { action, student_id, month, package_id, amount, note, receipt_number } = body;

@@ -322,6 +322,7 @@ export default function ParentPortal() {
         schedule_details_json: activeStudent.schedule_details_json,
         study_time_detail: activeStudent.study_time_detail,
         registered_days: activeStudent.registered_days,
+        sessions_per_week: activeStudent.sessions_per_week,
         subject_name: undefined,
         teacher_name: activeStudent.teacher_name,
         makeups: activeStudent.makeups,

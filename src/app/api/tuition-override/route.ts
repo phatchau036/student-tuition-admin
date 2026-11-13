@@ -1,10 +1,15 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
+import { requireAdminPermission } from "@/lib/authHelper";
 
 // POST/PUT to set or delete an override
 export async function POST(req: Request) {
   try {
     await initDb();
+    const authCheck = await requireAdminPermission(req, "tuition.override");
+    if (!authCheck.authorized) {
+      return authCheck.errorResponse!;
+    }
     const db = getDb();
     const body = await req.json();
 

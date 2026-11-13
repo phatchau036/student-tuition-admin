@@ -1,11 +1,15 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
-import { getSchoolIdFromRequest } from "@/lib/authHelper";
+import { getSchoolIdFromRequest, requireAdminPermission } from "@/lib/authHelper";
 import { parseStudyTimeToSchedule } from "@/lib/tuition";
 
 export async function POST(req: Request) {
   try {
     await initDb();
+    const authCheck = await requireAdminPermission(req, "students.excel");
+    if (!authCheck.authorized) {
+      return authCheck.errorResponse!;
+    }
     const db = getDb();
     const targetSchoolId = getSchoolIdFromRequest(req);
     const body = await req.json();

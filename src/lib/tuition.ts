@@ -517,10 +517,16 @@ export function parseStudentScheduleSlots(
     time_slot_desc?: string;
     status_note?: string;
     class_teacher_assignments_json?: string;
+    sessions_per_week?: number;
   },
   availableTeachers: Array<{ id: string; name: string }> = []
 ): ParsedStudentSchedule[] {
   const results: ParsedStudentSchedule[] = [];
+
+  // Đã gỡ khỏi toàn bộ ca học (sessions_per_week = 0): không tạo ca ảo Thứ 2 18:00
+  if (student.sessions_per_week !== undefined && Number(student.sessions_per_week) === 0) {
+    return [];
+  }
 
   // Helper tìm ID giáo viên khớp với chuỗi văn bản
   const detectTeacher = (text: string): string | undefined => {
@@ -976,6 +982,7 @@ export function generateUpcomingStudentSchedule(
     schedule_details_json?: string;
     study_time_detail?: string;
     registered_days?: string;
+    sessions_per_week?: number;
     subject_name?: string;
     teacher_name?: string;
     makeups?: Array<{

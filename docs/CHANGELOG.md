@@ -6,6 +6,47 @@
 
 ## 1. LỊCH SỬ PHIÊN BẢN (CHANGELOG)
 
+### [v2.9.6] - 2026-11-13
+- **⭐ SIẾT CHẶT PHÂN QUYỀN XEM DOANH THU / HỌC PHÍ (RBAC ENFORCEMENT TOÀN DIỆN):**
+  - **Nguyên nhân:** Quyền `revenue.reports`/`tuition.view` chỉ được ẩn ở một số nút giao diện, nhưng dữ liệu tài chính vẫn nằm trong response `/api/students`, trong prompt Trợ lý AI và một số màn hình phụ; quyền trên trình duyệt của nhân viên chỉ tải lúc đăng nhập nên không cập nhật khi Chủ cơ sở sửa vai trò.
+  - **Server-side `/api/students`:** Bắt buộc đăng nhập + quyền `students.view`. Nếu thiếu `tuition.view`, server tự đưa toàn bộ trường tài chính về 0/ẩn (`current_tuition`, `standard_tuition`, `total_tuition_due`, `previous_debt_amount`, `payment_status`, `is_overdue`, chiết khấu, `monthly_override`, `level_surcharge`...). `period_revenue` chỉ trả khi có `revenue.reports`.
+  - **API tài chính khác:** `/api/payments` yêu cầu `tuition.view` cho GET và `tuition.audit` cho POST; `/api/tuition-override` yêu cầu `tuition.override`; `/api/admin/tuition-reminders` yêu cầu `tuition.view`/`tuition.remind` (gửi nhắc yêu cầu `tuition.remind`).
+  - **API học sinh & cấu hình:** `/api/students` POST yêu cầu `students.create`, PUT/PATCH yêu cầu `students.edit`, DELETE yêu cầu `students.delete`; `/api/students/status` yêu cầu `students.status`; `/api/students/import` yêu cầu `students.excel`; `/api/students/bulk-action` kiểm tra `students.delete`/`students.status`; `/api/settings` GET bắt buộc đăng nhập và ẩn token/API key trừ khi có `settings.manage`, POST chỉ cho nhân viên thường đổi ngôn ngữ; `/api/teacher` tự loại bỏ mật khẩu giáo viên, phụ thu level, chiết khấu và gói phí khỏi dữ liệu Cổng Giáo Viên.
+  - **Trợ lý AI:** `/api/ai/chat` (action `chat`) bắt buộc đăng nhập Admin; `getSchoolOperationalContext` chỉ nạp doanh thu khi có `revenue.reports`, chỉ nạp danh sách nợ khi có `tuition.view`; prompt có khối quyền truy cập và buộc AI từ chối khi thiếu quyền. `AdminAiAssistantModal` gửi kèm token.
+  - **Giao diện Dashboard:** Ẩn tab “Cần đóng tiền/Đã nộp”, cột chiết khấu, cột Đối soát, nút Nhắc học phí Zalo và số học phí tùy chỉnh khi thiếu `tuition.view`; thẻ Dự thu + Đã thu theo kỳ chỉ hiện khi có `revenue.reports`. Bỏ qua bộ lọc thanh toán và sort học phí khi không có quyền.
+  - **Sơ đồ lớp:** Thêm prop `canViewTuition`; ẩn KPI đã đóng/chưa đóng, bộ lọc học phí, badge thanh phí trong thẻ học viên, cảnh báo nợ quá hạn ở cả Lưới 7 Ngày, Theo Thứ, Zoom modal, Side Drawer và popover hover khi thiếu quyền.
+  - **Tự động cập nhật quyền:** Dashboard refresh `/api/admin/auth` mỗi 30 giây và ngay khi quay lại tab; nếu tài khoản bị khóa/xóa thì tự đăng xuất. Nhờ đó đổi vai trò không cần nhân viên đăng nhập lại.
+  - **Kiểm tra:** `npx tsc --noEmit` và `npm run build` thành công 100%.
+
+### [v2.9.5] - 2026-11-13
+- **⭐ KỲ HỌC PHÍ TÙY CHỈNH TỪ NGÀY - ĐẾN NGÀY (`Dashboard.tsx` & `/api/students`):**
+  - **Card Học phí:** Bổ sung chế độ **“Tùy chọn từ ngày - đến ngày”** bên cạnh chọn tháng. Ví dụ chọn `15/11/2026 → 15/12/2026`; card hiển thị đúng kỳ, có nút quay lại **Chọn theo tháng** và nút **Hiện tại**.
+  - **Neo học phí thông minh:** Tháng neo để tính học phí/đối soát trạng thái đóng phí lấy theo tháng của **ngày bắt đầu** (`period_from`), nên kỳ `15/11 - 15/12` đối soát theo tháng `11/2026`. Danh sách học sinh tự động tải lại khi đổi ngày.
+  - **Card Dự thu:** Tiêu đề đổi thành `DỰ THU KỲ 15/11 - 15/12`; bổ sung dòng **Đã thu theo kỳ** — tổng tiền các kỳ thanh toán (`student_payments`) bao phủ **tháng neo** (tháng của ngày bắt đầu), kèm số học sinh đã đóng (giúp đối chiếu đúng kỳ học phí 15/11–15/12 dù phụ huynh đóng trước).
+  - **Cột học phí bảng học sinh:** Đổi nhãn theo kỳ (`HỌC PHÍ KỲ 15/11 - 15/12`) thay vì chỉ tháng.
+  - **API `/api/students`:** Nhận thêm `period_from` / `period_to`; trả `period_revenue` và chỉ cho tài khoản có quyền `revenue.reports` (hoặc Chủ cơ sở) xem con số thực thu.
+  - **Kiểm tra:** `npx tsc --noEmit` và `npm run build` thành công 100%.
+
+### [v2.9.4] - 2026-11-13
+- **⭐ TINH GỌN TOP HEADER & GOM CHỨC NĂNG VÀO 2 NHÁNH MENU (`Dashboard.tsx`):**
+  - **Khắc phục tràn/vỡ header:** Bỏ các nút rời chiếm ngang (Tổng Kết Tháng, Trợ Lý AI, Cổng GV/PH, theme sáng/tối, chọn ngôn ngữ, đăng xuất) vốn khiến thanh trên cùng vượt quá `max-w-[1600px]` trên màn hình laptop 1366–1440px.
+  - **Nhánh "Nghiệp vụ cơ sở":** Gom Trợ Lý AI (mới thêm), Tài Khoản & Phân Quyền, Quản Lý Lớp, Điểm Danh, Báo Nghỉ & Quỹ Giờ Bù, Log Biến Động, Tổng Kết Tháng, Hàng Đợi Nhắc Học Phí, Nhập/Xuất Excel, Cài Đặt, Giới Thiệu & Góp Ý, cùng nhóm **Cổng truy cập nhanh** (Cổng Giáo Viên / Cổng Phụ Huynh). Menu có `max-h` + cuộn dọc.
+  - **Nhánh "Tài khoản":** Gom thông tin người đăng nhập (họ tên, username, vai trò), chuyển giao diện Sáng/Tối, 4 ngôn ngữ (VI/EN/ZH/JA) và Đăng xuất vào một dropdown duy nhất.
+  - **Header còn 4 khối:** Logo + Chi nhánh · Nghiệp vụ cơ sở · `+ Thêm Học Sinh` · Tài khoản. Dưới breakpoint `sm`, nhãn chữ tự ẩn (icon-only), tên chi nhánh rút gọn và ẩn mã chi nhánh để không tràn màn hình điện thoại.
+  - **Kiểm tra:** `npx tsc --noEmit` và `npm run build` thành công 100%.
+
+### [v2.9.3] - 2026-11-12
+- **⭐ ZOOM-IN CA HỌC & XẾP HỌC VIÊN THEO CỘT LỚP (`ClassroomScheduleMatrix.tsx`):**
+  - **Mở rộng ca học trực quan:** Bấm trực tiếp vào ô giờ ở chế độ **Lưới 7 Ngày** hoặc thẻ ca ở chế độ **Theo Thứ** để mở Zoom-in Modal. Hỗ trợ thêm nút `Maximize2` hiển thị khi hover và đóng bằng nút X hoặc phím `ESC`.
+  - **Header chuẩn yêu cầu:** Bên trái hiển thị rõ **Thứ** (ví dụ `Thứ 4`), bên phải là chip **Giờ học** nổi bật (`18:00 - 19:00`) cùng nút thu gọn.
+  - **Chia cột dọc theo từng Lớp:** Không còn gộp chung danh sách. Mỗi lớp đang hoạt động là một cột riêng với thanh màu nhận diện, môn học, giáo viên, phòng, sĩ số `n/max` + thanh tiến độ và cảnh báo số học viên chưa đóng/quá hạn. Học viên chưa xếp lớp được gom vào cột `Chưa xếp lớp`.
+  - **Xóa nhanh khỏi ca:** Mỗi thẻ học viên có nút thùng rác → xác nhận inline (`Hủy` / `Xóa`), gọi API `PATCH /api/students/[id]` để gỡ đúng ca Thứ + Giờ, cập nhật lại sĩ số/lịch tuần và tự gỡ khỏi lớp nếu ca đó là ca duy nhất. Không xóa hồ sơ học viên.
+  - **Thêm học sinh chuẩn lớp:** Cuối mỗi cột có nút `+ Thêm học viên vào [Tên Lớp]`; form `StudentFormModal` tự động gắn sẵn **Thứ + Giờ + Lớp**, tự lấy môn/giáo viên/khung giờ mở của lớp và khóa đúng thời lượng ca, hạn chế thao tác chọn lại thủ công.
+  - **Đồng bộ dữ liệu:** API mới tính lại `registered_days`, `study_time_detail`, `sessions_per_week`, `hours_per_week` sau khi gỡ ca; xử lý cả trường hợp dữ liệu lịch bị trùng bản ghi.
+  - **Chống ca ảo sau khi gỡ:** Đặt `sessions_per_week = 0` và bổ sung sentinel trong `parseStudentScheduleSlots` để học viên đã gỡ hết ca không bị fallback sinh ca ảo `Thứ 2 18:00` trên Sơ đồ lớp hoặc Cổng phụ huynh.
+  - **Kiểm tra:** `npx tsc --noEmit` và `npm run build` thành công 100%, không có lỗi biên dịch.
+
+
 ### [v2.9.2] - 2026-11-10
 - **⭐ KHẮC PHỤC TRIỆT ĐỂ LỖI VỠ FORM BẢNG HỌC SINH & GIAO DIỆN QUẢN TRỊ (`Dashboard.tsx`):**
   - **Sửa lỗi crash React khi mở "Điểm Danh & Sổ Bài Học" (`DailyAttendanceModal.tsx`):** Khắc phục lỗi vi phạm quy tắc Hooks của React (gọi `useState(loadingAiKey)` phía sau điều kiện early return `if (!isOpen) return null`), khiến component bị crash khi người dùng bấm mở modal. Đưa toàn bộ React Hooks lên đầu component và bổ sung xử lý dữ liệu an toàn (defensive checks) cho mảng lớp học, giáo viên, học sinh.
@@ -194,3 +235,7 @@
 | Ngày | Phiên bản | Tóm tắt thay đổi | Người duyệt |
 |---|---|---|---|
 | 2026-10-29 | v2.6.0 | Phát hành hệ thống quản lý lịch thông minh và bộ 22 tài liệu điều phối AI | `completeness-auditor` |
+| 2026-11-12 | v2.9.3 | Zoom-in ca học theo Lưới 7 Ngày & Theo Thứ; chia cột dọc theo Lớp; xóa nhanh học viên khỏi ca bằng PATCH remove_slot; thêm học viên prefill đúng Thứ + Giờ + Lớp | Main Agent |
+| 2026-11-13 | v2.9.4 | Tinh gọn Top Header: gom toàn bộ nghiệp vụ + Cổng GV/PH + Trợ lý AI vào menu Nghiệp vụ; gom tài khoản/theme/ngôn ngữ/đăng xuất vào menu Tài khoản; responsive icon-only trên mobile | Main Agent |
+| 2026-11-13 | v2.9.5 | Kỳ học phí tùy chỉnh Từ ngày - Đến ngày (ví dụ 15/11–15/12); card Học phí có date picker, card Dự thu hiển thị kỳ + Đã thu theo kỳ, API /api/students trả period_revenue theo độ bao phủ kỳ thanh toán | Main Agent |
+| 2026-11-13 | v2.9.6 | Siết phân quyền doanh thu/học phí: API students tự ẩn dữ liệu tài chính, payments/override/reminders kiểm tra quyền, AI không nạp số liệu khi thiếu quyền, Dashboard tự refresh quyền 30s, ẩn toàn bộ UI học phí trên bảng và Sơ đồ lớp | Main Agent |

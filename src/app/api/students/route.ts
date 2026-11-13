@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
 import { calculateStudentTuition, getPreviousMonthStr, resolveStudentTeachers } from "@/lib/tuition";
-import { getSchoolIdFromRequest } from "@/lib/authHelper";
+import { getSchoolIdFromRequest, getAdminFromRequest, requireAdminPermission } from "@/lib/authHelper";
 import { syncPendingMakeupsToWallet } from "@/lib/wallet";
 
 export async function GET(req: Request) {
@@ -13,6 +13,65 @@ export async function GET(req: Request) {
     const month = searchParams.get("month") || "";
     const querySchoolId = searchParams.get("school_id") || schoolId;
     const finalSchoolId = querySchoolId || "school-default";
+    const periodFrom = searchParams.get("period_from") || "";
+    const periodTo = searchParams.get("period_to") || "";
+
+    // Bắt buộc đăng nhập + có quyền xem học sinh
+    const admin = await getAdminFromRequest(req);
+    if (!admin) {
+      return NextResponse.json(
+        { success: false, message: "Phiên đăng nhập không hợp lệ hoặc đã hết hạn! Vui lòng đăng nhập lại." },
+        { status: 401 }
+      );
+    }
+
+    const isOwnerOrWildcard = admin.is_owner === 1 || admin.permissions.includes("*");
+    const canViewStudents = isOwnerOrWildcard || admin.permissions.includes("students.view");
+    if (!canViewStudents) {
+      return NextResponse.json(
+        { success: false, message: "Tài khoản không có quyền xem danh sách học sinh!" },
+        { status: 403 }
+      );
+    }
+
+    // Phân quyền dữ liệu tài chính: không có quyền thì server không trả số tiền/công nợ
+    const canViewTuition = isOwnerOrWildcard || admin.permissions.includes("tuition.view");
+    const canViewRevenue = isOwnerOrWildcard || admin.permissions.includes("revenue.reports");
+
+    // Doanh thu theo khoảng ngày (chỉ tính cho tài khoản có quyền xem doanh thu)
+    const isValidPeriod =
+      /^\d{4}-\d{2}-\d{2}$/.test(periodFrom) &&
+      /^\d{4}-\d{2}-\d{2}$/.test(periodTo) &&
+      periodFrom <= periodTo;
+    let periodRevenue: {
+      total: number;
+      paid_students: number;
+      from: string;
+      to: string;
+    } | null = null;
+
+    if (canViewRevenue && isValidPeriod) {
+      // Kỳ học phí được neo theo tháng của ngày bắt đầu (giống trạng thái đóng phí của danh sách học sinh)
+      const anchorMonth = periodFrom.slice(0, 7);
+      const revenueRes = await db.execute({
+        sql: `SELECT COALESCE(SUM(p.amount), 0) AS total,
+                     COUNT(DISTINCT p.student_id) AS paid_students
+              FROM student_payments p
+              JOIN students s ON s.id = p.student_id
+              WHERE s.school_id = ?
+                AND p.status = 'paid'
+                AND p.start_period <= ?
+                AND p.end_period >= ?`,
+        args: [finalSchoolId, anchorMonth, anchorMonth],
+      });
+      const revenueRow = revenueRes.rows[0];
+      periodRevenue = {
+        total: Number(revenueRow?.total || 0),
+        paid_students: Number(revenueRow?.paid_students || 0),
+        from: periodFrom,
+        to: periodTo,
+      };
+    }
 
     // Get Base Tuition (Nếu chưa cấu hình hoặc = 0 thì lấy từ gói tháng 1m hoặc mặc định 1.000.000đ)
     const baseTuitionRes = await db.execute({
@@ -238,7 +297,7 @@ export async function GET(req: Request) {
         zalo_chat_id: row.zalo_chat_id ? String(row.zalo_chat_id) : undefined,
         level_id: String(row.level_id),
         level_name: row.level_name ? String(row.level_name) : "Chưa phân loại",
-        level_surcharge: Number(row.level_surcharge || 0),
+        level_surcharge: canViewTuition ? Number(row.level_surcharge || 0) : 0,
         level_sort_order: Number(row.level_sort_order || 999),
         subject_id: row.subject_id ? String(row.subject_id) : undefined,
         subject_name: row.subject_name ? String(row.subject_name) : undefined,
@@ -267,14 +326,14 @@ export async function GET(req: Request) {
         tuition_package_id: row.tuition_package_id ? String(row.tuition_package_id) : undefined,
         tuition_package_name: row.tuition_package_name ? String(row.tuition_package_name) : undefined,
 
-        // Công nợ đối soát tháng này & nợ lũy kế
-        payment_status: paymentStatus,
-        payment_period_desc: paymentPeriodDesc,
-        payment_id: paymentInfo ? paymentInfo.id : undefined,
-        unpaid_months_count: unpaidMonthsCount,
-        is_overdue: isOverdue,
-        previous_debt_amount: previousDebtAmount,
-        total_tuition_due: totalTuitionDue,
+        // Công nợ đối soát tháng này & nợ lũy kế (ẩn hoàn toàn nếu không có quyền học phí)
+        payment_status: canViewTuition ? paymentStatus : undefined,
+        payment_period_desc: canViewTuition ? paymentPeriodDesc : "",
+        payment_id: canViewTuition && paymentInfo ? paymentInfo.id : undefined,
+        unpaid_months_count: canViewTuition ? unpaidMonthsCount : 0,
+        is_overdue: canViewTuition ? isOverdue : false,
+        previous_debt_amount: canViewTuition ? previousDebtAmount : 0,
+        total_tuition_due: canViewTuition ? totalTuitionDue : 0,
 
         duration_mode: (row.duration_mode as "by_hours" | "by_sessions") || "by_hours",
         sessions_per_week: Number(row.sessions_per_week || 3),
@@ -286,16 +345,16 @@ export async function GET(req: Request) {
         pending_makeups_count: Math.max(0, Math.ceil((walletMap[String(row.id)] || 0) / 90)), // Backward compat: quy đổi phút sang "buổi tương đương"
         balance_minutes: walletMap[String(row.id)] || 0,
         available_minutes: (walletMap[String(row.id)] || 0) - (scheduledMakeupMap[String(row.id)] || 0),
-        is_discount_enabled: Number(row.is_discount_enabled || 0),
-        discount_percent: Number(row.discount_percent || 0),
-        discount_reason: String(row.discount_reason || ""),
+        is_discount_enabled: canViewTuition ? Number(row.is_discount_enabled || 0) : 0,
+        discount_percent: canViewTuition ? Number(row.discount_percent || 0) : 0,
+        discount_reason: canViewTuition ? String(row.discount_reason || "") : "",
         created_at: String(row.created_at || ""),
-        standard_tuition: stdTuition,
-        current_tuition: currentTuition,
-        tuition_formula_text: breakdown.formulaText,
-        tuition_base_amount: breakdown.baseAmount,
-        tuition_discount_amount: breakdown.discountAmount,
-        monthly_override: override,
+        standard_tuition: canViewTuition || canViewRevenue ? stdTuition : 0,
+        current_tuition: canViewTuition || canViewRevenue ? currentTuition : 0,
+        tuition_formula_text: canViewTuition ? breakdown.formulaText : "",
+        tuition_base_amount: canViewTuition ? breakdown.baseAmount : 0,
+        tuition_discount_amount: canViewTuition ? breakdown.discountAmount : 0,
+        monthly_override: canViewTuition ? override : null,
       };
     });
 
@@ -303,7 +362,8 @@ export async function GET(req: Request) {
       success: true,
       data: {
         students,
-        base_tuition: baseTuition,
+        base_tuition: canViewTuition ? baseTuition : 0,
+        period_revenue: periodRevenue,
       },
     });
   } catch (error: unknown) {
@@ -318,6 +378,10 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     await initDb();
+    const authCheck = await requireAdminPermission(req, "students.create");
+    if (!authCheck.authorized) {
+      return authCheck.errorResponse!;
+    }
     const db = getDb();
     const schoolId = getSchoolIdFromRequest(req);
     const body = await req.json();

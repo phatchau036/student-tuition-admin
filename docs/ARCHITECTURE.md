@@ -157,3 +157,4 @@ Hệ thống phân chia ranh giới vật lý & logic thành 4 cổng riêng bi�
 |---|---|---|---|
 | 2026-10-29 | Main Agent / `scope-planner` | Khởi tạo tài liệu kiến trúc toàn diện đa cổng, chuẩn hóa luồng dữ liệu 4 portals | Hoàn thiện v2.6.0 |
 | 2026-11-11 | Main Agent / `scope-planner` | Bổ sung kiến trúc Đa Chi Nhánh Tự Phục Vụ (Multi-Branch Self-Service Architecture): API /api/admin/branches, Branch Switcher Dropdown trên Top Navbar, CreateBranchModal tạo chi nhánh dùng chung tài khoản Admin | Hoàn thiện v2.8.7 |
+| 2026-11-12 | Main Agent / `ui-builder` + `api-db-designer` | Bổ sung luồng Zoom-in ca học trong `ClassroomScheduleMatrix`: modal chi tiết theo Thứ + Giờ, nhóm học viên theo cột Lớp; thêm API `PATCH /api/students/[id]` action `remove_slot` để gỡ ca và đồng bộ lịch tuần; nút thêm học viên prefill Thứ + Giờ + Lớp qua `StudentFormModal` | Hoàn thiện v2.9.3 |

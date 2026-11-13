@@ -26,6 +26,11 @@ export const MonthlyTuitionModal: React.FC<MonthlyTuitionModalProps> = ({
 }) => {
   const { showToast } = useToast();
 
+  const getAuthHeaders = (): Record<string, string> => {
+    const token = typeof window !== "undefined" ? localStorage.getItem("admin_token") : null;
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  };
+
   const [month, setMonth] = useState(selectedMonth);
   const [amount, setAmount] = useState<number>(0);
   const [note, setNote] = useState<string>("");
@@ -112,7 +117,7 @@ export const MonthlyTuitionModal: React.FC<MonthlyTuitionModalProps> = ({
       setIsSaving(true);
       const res = await fetch("/api/tuition-override", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({
           student_id: student.id,
           month: month,
@@ -142,7 +147,7 @@ export const MonthlyTuitionModal: React.FC<MonthlyTuitionModalProps> = ({
       setIsSaving(true);
       const res = await fetch("/api/tuition-override", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({
           student_id: student.id,
           month: month,

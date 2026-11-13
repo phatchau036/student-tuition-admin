@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
-import { getSchoolIdFromRequest } from "@/lib/authHelper";
+import { getSchoolIdFromRequest, getAdminFromRequest } from "@/lib/authHelper";
 import { StudentStatus } from "@/lib/types";
 
 // POST /api/students/bulk-action - Thao tác hàng loạt trên nhiều học sinh (Xóa, Bảo lưu, Nghỉ học, Học tiếp)
@@ -23,6 +23,25 @@ export async function POST(req: Request) {
       return NextResponse.json(
         { success: false, message: "Vui lòng chọn ít nhất 1 học sinh để thực hiện!" },
         { status: 400 }
+      );
+    }
+
+    // Kiểm tra quyền theo từng loại thao tác
+    const admin = await getAdminFromRequest(req);
+    const isOwnerOrWildcard = Boolean(
+      admin && (admin.is_owner === 1 || admin.permissions.includes("*"))
+    );
+    const requiredPerm = action === "delete" ? "students.delete" : "students.status";
+    const canRun = Boolean(
+      admin && (isOwnerOrWildcard || admin.permissions.includes(requiredPerm))
+    );
+    if (!canRun) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: `Tài khoản không có quyền thực hiện thao tác hàng loạt (${requiredPerm})!`,
+        },
+        { status: 403 }
       );
     }
 

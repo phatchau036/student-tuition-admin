@@ -65,6 +65,11 @@ export const MonthlySummaryModal: React.FC<MonthlySummaryModalProps> = ({
   monthFormat = "vietnamese",
   onRefreshData,
 }) => {
+  const getAuthHeaders = (): Record<string, string> => {
+    const token = typeof window !== "undefined" ? localStorage.getItem("admin_token") : null;
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  };
+
   const [selectedMonth, setSelectedMonth] = useState<string>(initialMonth);
   const [data, setData] = useState<SummaryData | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -81,7 +86,9 @@ export const MonthlySummaryModal: React.FC<MonthlySummaryModalProps> = ({
   const loadSummary = async (m: string) => {
     try {
       setIsLoading(true);
-      const res = await fetch(`/api/reconciliation/summary?month=${m}`);
+      const res = await fetch(`/api/reconciliation/summary?month=${m}`, {
+        headers: getAuthHeaders(),
+      });
       const json = await res.json();
       if (json.success) {
         setData(json.data);

@@ -1,11 +1,25 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
-import { getSchoolIdFromRequest } from "@/lib/authHelper";
+import { getSchoolIdFromRequest, getAdminFromRequest } from "@/lib/authHelper";
 import { SchedulePreset } from "@/lib/types";
 
 export async function GET(req: Request) {
   try {
     await initDb();
+    const admin = await getAdminFromRequest(req);
+    if (!admin) {
+      return NextResponse.json(
+        { success: false, message: "Phiên đăng nhập không hợp lệ hoặc đã hết hạn! Vui lòng đăng nhập lại." },
+        { status: 401 }
+      );
+    }
+    const isOwnerOrWildcard = admin.is_owner === 1 || admin.permissions.includes("*");
+    const canViewTuition =
+      isOwnerOrWildcard ||
+      admin.permissions.includes("tuition.view") ||
+      admin.permissions.includes("settings.manage");
+    const canManageSettings = isOwnerOrWildcard || admin.permissions.includes("settings.manage");
+
     const db = getDb();
     const schoolId = getSchoolIdFromRequest(req);
 
@@ -96,7 +110,7 @@ export async function GET(req: Request) {
     const levelSurcharges = levelRes.rows.map((row) => ({
       id: String(row.id),
       level_name: String(row.level_name),
-      surcharge_amount: Number(row.surcharge_amount),
+      surcharge_amount: canViewTuition ? Number(row.surcharge_amount) : 0,
       sort_order: Number(row.sort_order),
     }));
 
@@ -110,7 +124,7 @@ export async function GET(req: Request) {
     }
     const discountPresets = discountRes.rows.map((row) => ({
       id: String(row.id),
-      percentage: Number(row.percentage),
+      percentage: canViewTuition ? Number(row.percentage) : 0,
       label: String(row.label),
     }));
 
@@ -126,12 +140,12 @@ export async function GET(req: Request) {
       id: String(row.id),
       school_id: String(row.school_id || schoolId),
       name: String(row.name),
-      amount: Number(row.amount),
-      original_amount: Number(row.original_amount || row.amount),
+      amount: canViewTuition ? Number(row.amount) : 0,
+      original_amount: canViewTuition ? Number(row.original_amount || row.amount) : 0,
       cycle_unit: String(row.cycle_unit) as "month" | "week",
       cycle_value: Number(row.cycle_value),
       discount_type: (row.discount_type as "none" | "percent" | "amount") || "none",
-      discount_value: Number(row.discount_value || 0),
+      discount_value: canViewTuition ? Number(row.discount_value || 0) : 0,
       benefits: String(row.benefits || ""),
       is_active: Number(row.is_active),
       created_at: String(row.created_at || ""),
@@ -172,7 +186,7 @@ export async function GET(req: Request) {
       data: {
         schools: schools,
         current_school: matchedSchool,
-        base_tuition: baseTuition,
+        base_tuition: canViewTuition ? baseTuition : 0,
         duration_mode: durationMode,
         app_language: appLanguage,
         month_format: monthFormat,
@@ -185,17 +199,17 @@ export async function GET(req: Request) {
         reconciliation_mode: reconciliationMode,
         default_minutes_per_session: defaultMinutesPerSession,
         zalo_reminder_mode: zaloReminderMode,
-        zalo_bot_token: zaloBotToken,
+        zalo_bot_token: canManageSettings ? zaloBotToken : "",
         zalo_bot_name: zaloBotName,
-        zalo_admin_chat_id: zaloAdminChatId,
+        zalo_admin_chat_id: canManageSettings ? zaloAdminChatId : "",
         zalo_notify_payment: zaloNotifyPayment ? 1 : 0,
         zalo_notify_student_absence: zaloNotifyStudentAbsence ? 1 : 0,
         zalo_notify_teacher_leave: zaloNotifyTeacherLeave ? 1 : 0,
         zalo_notify_parent_feedback: zaloNotifyParentFeedback ? 1 : 0,
-        zalo_oa_secret_key: zaloOaSecretKey,
-        zalo_access_token: zaloAccessToken,
-        zalo_template_id: zaloTemplateId,
-        sepay_api_key: sepayApiKey,
+        zalo_oa_secret_key: canManageSettings ? zaloOaSecretKey : "",
+        zalo_access_token: canManageSettings ? zaloAccessToken : "",
+        zalo_template_id: canManageSettings ? zaloTemplateId : "",
+        sepay_api_key: canManageSettings ? sepayApiKey : "",
         sepay_account_number: sepayAccountNumber,
         sepay_bank_name: sepayBankName,
         sepay_prefix: sepayPrefix,
@@ -219,8 +233,28 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     await initDb();
-    const db = getDb();
+    const admin = await getAdminFromRequest(req);
+    if (!admin) {
+      return NextResponse.json(
+        { success: false, message: "Phiên đăng nhập không hợp lệ hoặc đã hết hạn!" },
+        { status: 401 }
+      );
+    }
     const body = await req.json();
+    const isOwnerOrWildcard = admin.is_owner === 1 || admin.permissions.includes("*");
+    const canManageSettings = isOwnerOrWildcard || admin.permissions.includes("settings.manage");
+    // Mọi nhân viên được phép tự đổi ngôn ngữ/định dạng tháng; các cấu hình khác cần settings.manage
+    const bodyKeys = Object.keys(body || {});
+    const isLanguagePreferenceOnly = bodyKeys.every((key) =>
+      ["app_language", "month_format", "school_id"].includes(key)
+    );
+    if (!canManageSettings && !isLanguagePreferenceOnly) {
+      return NextResponse.json(
+        { success: false, message: "Tài khoản không có quyền thay đổi cấu hình cơ sở (settings.manage)!" },
+        { status: 403 }
+      );
+    }
+    const db = getDb();
 
     const {
       base_tuition,

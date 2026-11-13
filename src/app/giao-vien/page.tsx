@@ -771,20 +771,17 @@ export default function TeacherPortal() {
               </div>
 
               <div>
-                <div className="flex items-center justify-between mb-1.5">
+                <div className="mb-1.5">
                   <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
                     Mật khẩu đăng nhập:
                   </label>
-                  <span className="text-[10.5px] text-slate-400">
-                    Mặc định ban đầu: <strong>123456</strong>
-                  </span>
                 </div>
                 <div className="relative">
                   <Lock className="w-4 h-4 absolute left-3.5 top-3.5 text-slate-400" />
                   <input
                     type={showPassword ? "text" : "password"}
                     required
-                    placeholder="Nhập mật khẩu (mặc định 123456)"
+                    placeholder="Nhập mật khẩu"
                     value={inputPassword}
                     onChange={(e) => setInputPassword(e.target.value)}
                     className="w-full pl-10 pr-10 py-3 text-sm font-semibold rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-blue-500 font-mono"
@@ -2191,7 +2188,7 @@ export default function TeacherPortal() {
                 >
                   {levels.map((lvl) => (
                     <option key={lvl.id} value={lvl.id}>
-                      {lvl.level_name} ({Number(lvl.surcharge_amount).toLocaleString("vi-VN")} đ)
+                      {lvl.level_name}
                     </option>
                   ))}
                 </select>

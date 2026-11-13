@@ -125,11 +125,17 @@ const SYSTEM_FEATURE_KNOWLEDGE_BASE = `
 /**
  * Thu thập số liệu vận hành của cơ sở trong tháng hiện tại
  */
-export async function getSchoolOperationalContext(schoolId: string, monthParam?: string): Promise<string> {
+export async function getSchoolOperationalContext(
+  schoolId: string,
+  monthParam?: string,
+  options?: { canViewRevenue?: boolean; canViewTuition?: boolean }
+): Promise<string> {
   try {
     await initDb();
     const db = getDb();
     const currentMonth = monthParam || new Date().toISOString().slice(0, 7);
+    const canViewRevenue = options?.canViewRevenue !== false;
+    const canViewTuition = options?.canViewTuition !== false;
 
     // 1. Thông tin trường
     const schoolRes = await db.execute({
@@ -155,27 +161,54 @@ export async function getSchoolOperationalContext(schoolId: string, monthParam?:
       else if (st === "dropped") droppedCount++;
     }
 
-    // 3. Thống kê thanh toán tháng này
-    const paymentsRes = await db.execute({
-      sql: `SELECT student_id, amount FROM student_payments WHERE ? >= start_period AND ? <= end_period AND status = 'paid'`,
-      args: [currentMonth, currentMonth],
-    });
-    const paidStudentIds = new Set(paymentsRes.rows.map((p) => String(p.student_id)));
+    // 3. Thống kê thanh toán tháng này (chỉ tải khi tài khoản có quyền tài chính)
+    let paidStudentIds = new Set<string>();
     let totalRevenue = 0;
-    for (const p of paymentsRes.rows) {
-      totalRevenue += Number(p.amount || 0);
+    const unpaidList: Array<{ name: string; phone: string; code?: string }> = [];
+
+    if (canViewRevenue || canViewTuition) {
+      const paymentsRes = await db.execute({
+        sql: `SELECT student_id, amount FROM student_payments WHERE ? >= start_period AND ? <= end_period AND status = 'paid'`,
+        args: [currentMonth, currentMonth],
+      });
+      paidStudentIds = new Set(paymentsRes.rows.map((p) => String(p.student_id)));
+      for (const p of paymentsRes.rows) {
+        totalRevenue += Number(p.amount || 0);
+      }
+
+      // 4. Danh sách học sinh chưa đóng tiền kỳ này
+      for (const s of studentsRes.rows) {
+        if (String(s.status || "studying") === "studying" && !paidStudentIds.has(String(s.id))) {
+          unpaidList.push({
+            name: String(s.name),
+            phone: String(s.phone || ""),
+            code: s.student_code ? String(s.student_code) : undefined,
+          });
+        }
+      }
     }
 
-    // 4. Danh sách học sinh chưa đóng tiền kỳ này
-    const unpaidList: Array<{ name: string; phone: string; code?: string }> = [];
-    for (const s of studentsRes.rows) {
-      if (String(s.status || "studying") === "studying" && !paidStudentIds.has(String(s.id))) {
-        unpaidList.push({
-          name: String(s.name),
-          phone: String(s.phone || ""),
-          code: s.student_code ? String(s.student_code) : undefined,
-        });
+    // 5. Tạo phần báo cáo tài chính theo đúng quyền của tài khoản
+    let financeSection = "";
+    if (!canViewRevenue && !canViewTuition) {
+      financeSection = `- Tình hình học phí kỳ ${currentMonth}: Tài khoản này KHÔNG có quyền xem doanh thu/học phí. Tuyệt đối không tiết lộ hoặc suy đoán số liệu.`;
+    } else {
+      const financeLines = [`- Tình hình học phí kỳ ${currentMonth}:`];
+      if (canViewRevenue) {
+        financeLines.push(
+          `  • Doanh thu đã thu được: ${formatVND(totalRevenue)} (${paidStudentIds.size} học sinh đã đóng)`
+        );
       }
+      if (canViewTuition) {
+        financeLines.push(`  • Số học sinh chưa đóng tiền: ${unpaidList.length} em`);
+        financeLines.push(
+          `  • Danh sách các em chưa đóng tiền: ${unpaidList
+            .slice(0, 15)
+            .map((u) => `${u.name} (${u.phone || u.code || "chưa có SĐT"})`)
+            .join(", ")}${unpaidList.length > 15 ? ` và ${unpaidList.length - 15} em khác...` : ""}`
+        );
+      }
+      financeSection = financeLines.join("\n");
     }
 
     // 5. Thống kê giáo viên và lớp học
@@ -196,10 +229,7 @@ DỮ LIỆU VẬN HÀNH THỜI GIAN THỰC CỦA CƠ SỞ (KỲ ${currentMonth})
 - Tên cơ sở: ${schoolName}
 - Tổng số học sinh: ${studentsRes.rows.length} em (Đang học: ${studyingCount}, Bảo lưu: ${reservedCount}, Nghỉ hẳn: ${droppedCount})
 - Đội ngũ: ${teacherCount} giáo viên, ${classCount} lớp học
-- Tình hình học phí kỳ ${currentMonth}:
-  • Doanh thu đã thu được: ${formatVND(totalRevenue)} (${paidStudentIds.size} học sinh đã đóng)
-  • Số học sinh chưa đóng tiền: ${unpaidList.length} em
-  • Danh sách các em chưa đóng tiền: ${unpaidList.slice(0, 15).map((u) => `${u.name} (${u.phone || u.code || "chưa có SĐT"})`).join(", ")}${unpaidList.length > 15 ? ` và ${unpaidList.length - 15} em khác...` : ""}
+${financeSection}
 `;
   } catch (err) {
     console.error("getSchoolOperationalContext error:", err);
@@ -216,22 +246,44 @@ export async function askAiAssistant(params: {
   schoolId?: string;
   senderName?: string;
   isZalo?: boolean;
+  canViewRevenue?: boolean;
+  canViewTuition?: boolean;
 }): Promise<string> {
-  const { userMessage, history = [], schoolId = "school-default", senderName = "Admin", isZalo = false } = params;
+  const {
+    userMessage,
+    history = [],
+    schoolId = "school-default",
+    senderName = "Admin",
+    isZalo = false,
+    canViewRevenue = true,
+    canViewTuition = true,
+  } = params;
 
   const config = await getAiConfig();
   if (!config.baseUrl || !config.apiKey || !config.isActive) {
     return "Tính năng này hiện chưa được hỗ trợ.";
   }
 
-  // Thu thập dữ liệu vận hành thời gian thực của cơ sở
-  const operationalContext = await getSchoolOperationalContext(schoolId);
+  // Thu thập dữ liệu vận hành thời gian thực của cơ sở (đã lọc theo quyền tài khoản)
+  const operationalContext = await getSchoolOperationalContext(schoolId, undefined, {
+    canViewRevenue,
+    canViewTuition,
+  });
+
+  const permissionNote = `
+QUYỀN TRUY CẬP CỦA TÀI KHOẢN ĐANG DÙNG:
+- Xem doanh thu tổng hợp: ${canViewRevenue ? "CÓ" : "KHÔNG"}
+- Xem học phí & công nợ từng học sinh: ${canViewTuition ? "CÓ" : "KHÔNG"}
+Nếu một mục là KHÔNG, tuyệt đối không được tiết lộ số tiền, danh sách nợ hoặc suy đoán số liệu tương ứng; hãy lịch sự từ chối và đề nghị liên hệ Chủ cơ sở để được cấp quyền.
+`;
 
   const systemPrompt = `
 Bạn là "Trợ Lý AI Quản Trị Cơ Sở" của ${senderName}.
 Bạn am hiểu sâu sắc số liệu vận hành, nghiệp vụ giáo dục, lịch học, học phí và toàn bộ các tính năng của phần mềm cơ sở.
 
 ${operationalContext}
+
+${permissionNote}
 
 ${SYSTEM_FEATURE_KNOWLEDGE_BASE}
 
@@ -240,6 +292,7 @@ QUY TẮC PHẢN HỒI QUAN TRỌNG:
 2. Khi người dùng hỏi về SỐ LIỆU (Doanh thu tháng này, còn ai chưa đóng tiền, sĩ số học sinh...):
    - Trả lời CHÍNH XÁC dựa trên số liệu thực tế được cung cấp ở trên.
    - Nêu rõ số tiền, số lượng học sinh và liệt kê danh sách học sinh cụ thể.
+   - Nếu tài khoản KHÔNG có quyền tương ứng theo mục "QUYỀN TRUY CẬP" ở trên, chỉ được trả lời rằng không có quyền xem và hướng dẫn liên hệ Chủ cơ sở; không được tiết lộ hay ước đoán con số.
 3. Khi người dùng hỏi về CÁCH DÙNG WEB (Làm sao thêm giáo viên? Làm sao thêm học sinh? Điểm danh thế nào?):
    - Trả lời RÕ RÀNG là web ĐÃ CÓ tính năng đó.
    - Hướng dẫn TỪNG BƯỚC cụ thể:

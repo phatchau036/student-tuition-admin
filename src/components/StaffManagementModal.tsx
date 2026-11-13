@@ -1404,6 +1404,13 @@ Thầy/Cô vui lòng truy cập để theo dõi ca dạy nhé!`;
                     </div>
                   </div>
 
+                  <p className="text-[10.5px] leading-relaxed font-semibold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl px-3 py-2">
+                    Lưu ý: Để nhân viên hoàn toàn không thấy số tiền, cần bỏ chọn cả hai quyền
+                    <strong> “Xem học phí &amp; công nợ”</strong> và
+                    <strong> “Xem báo cáo tổng doanh thu”</strong> trong nhóm Học Phí &amp; Doanh Thu.
+                    Quyền mới sẽ tự động áp dụng cho nhân viên đang đăng nhập trong vòng 30 giây.
+                  </p>
+
                   {/* Danh sách 5 nhóm quyền hạn */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {ADMIN_PERMISSION_GROUPS.map((group) => {

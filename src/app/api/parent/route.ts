@@ -261,7 +261,10 @@ export async function POST(req: Request) {
           teacher_phone: st.teacher_phone ? String(st.teacher_phone) : "",
           teacher_color: String(st.teacher_color || "indigo"),
           duration_mode: String(st.duration_mode || "by_hours"),
-          sessions_per_week: Number(st.sessions_per_week || 3),
+          sessions_per_week:
+            st.sessions_per_week === null || st.sessions_per_week === undefined
+              ? 3
+              : Number(st.sessions_per_week),
           hours_per_week: Number(st.hours_per_week || 3),
           registered_days: String(st.registered_days || ""),
           study_time_detail: String(st.study_time_detail || ""),

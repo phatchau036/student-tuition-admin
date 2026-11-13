@@ -11,6 +11,7 @@
 | `GET/POST` | `/api/settings` | School Admin | Lấy và lưu cài đặt trung tâm (học phí, sĩ số, ngôn ngữ, zalo bot...) |
 | `GET/POST` | `/api/students` | School Admin | Danh sách học sinh (kèm công nợ, nợ dồn) và thêm mới học sinh |
 | `PUT/DELETE`| `/api/students/[id]` | School Admin | Sửa thông tin hoặc xóa học sinh |
+| `PATCH` | `/api/students/[id]` | School Admin | Gỡ học viên khỏi một ca học cụ thể (`action: "remove_slot"`) và đồng bộ lại lịch tuần |
 | `POST` | `/api/students/status`| School Admin | Chuyển trạng thái (Bảo lưu, Nghỉ học, Học tiếp) kèm ghi log |
 | `POST` | `/api/students/import`| School Admin | Nhập hàng loạt học sinh từ file Excel |
 | `POST` | `/api/students/bulk-action`| School Admin | Hành động hàng loạt (xóa nhiều, đổi ca nhiều) |
@@ -100,6 +101,69 @@
   }
   ```
 
+### 2.3. Gỡ Học Viên Khỏi Ca Học (`PATCH /api/students/[id]`)
+Dùng cho nút Xóa trên thẻ học viên trong Zoom-in Modal của Sơ đồ lớp. Endpoint chỉ gỡ đúng ca (Thứ + Giờ), **không xóa hồ sơ học viên**; nếu không còn ca nào thì tự động gỡ `class_id` để cập nhật sĩ số lớp.
+- **Request Body:**
+  ```json
+  {
+    "action": "remove_slot",
+    "day": "Thứ 4",
+    "slot_hour": "18:00",
+    "start_time": "18:00",
+    "end_time": "19:00"
+  }
+  ```
+- **Response Success (200 OK):**
+  ```json
+  {
+    "success": true,
+    "message": "Đã gỡ Nguyễn Hoàng Phúc khỏi ca Thứ 4 (18:00 - 19:00).",
+    "data": {
+      "remaining_sessions": 2,
+      "remaining_days": ["Thứ 2", "Thứ 6"],
+      "study_time_detail": "Thứ 2: 18:00 - 19:00 | Thứ 6: 18:00 - 19:00",
+      "class_id": "cls-123"
+    }
+  }
+  ```
+- **Ghi chú:** Nếu không tìm thấy ca tương ứng, trả về `400` với thông báo rõ ràng; nếu ca bị trùng dữ liệu, hệ thống gỡ toàn bộ bản ghi trùng đúng Thứ + giờ bắt đầu.
+
+### 2.4. Học Sinh & Doanh Thu Theo Khoảng Ngày (`GET /api/students?month=2026-11&period_from=2026-11-15&period_to=2026-12-15`)
+- `month` vẫn là tháng neo để tính học phí/dự thu/đối soát trạng thái đóng phí (lấy theo tháng của `period_from`).
+- `period_from`, `period_to`: khoảng ngày tùy chỉnh (định dạng `YYYY-MM-DD`). Khi có đủ 2 tham số, API trả thêm `period_revenue` — tổng tiền các kỳ thanh toán (`student_payments`) bao phủ **tháng neo** (tháng của `period_from`), khớp với trạng thái đóng phí của danh sách học sinh.
+- Chỉ trả `period_revenue` khi tài khoản có quyền `revenue.reports` (hoặc Chủ cơ sở); tài khoản khác nhận `null`.
+- **Response bổ sung:**
+  ```json
+  {
+    "success": true,
+    "data": {
+      "students": [],
+      "base_tuition": 1000000,
+      "period_revenue": {
+        "total": 2500000,
+        "paid_students": 3,
+        "from": "2026-11-15",
+        "to": "2026-12-15"
+      }
+    }
+  }
+  ```
+
+### 2.5. Ma Trận Phân Quyền API Tài Chính (RBAC Enforcement)
+Tất cả API đều kiểm tra token Admin (`Authorization: Bearer ...` hoặc cookie `admin_session_token`) trước khi trả dữ liệu.
+- **`GET /api/students`:** bắt buộc `students.view`; nếu thiếu `tuition.view`, server tự đưa các trường tiền tệ/công nợ về `0`/`null`/`false` (`current_tuition`, `standard_tuition`, `payment_status`, `is_overdue`, `previous_debt_amount`, `total_tuition_due`, `monthly_override`, chiết khấu, `level_surcharge`...). `base_tuition` cũng về `0`.
+- **`POST /api/students`:** `students.create`; **`PUT/PATCH /api/students/[id]`:** `students.edit`; **`DELETE /api/students/[id]`:** `students.delete`.
+- **`GET /api/payments`:** `tuition.view`; **`POST /api/payments`** (Đã đóng / Chưa đóng): `tuition.audit`.
+- **`POST /api/tuition-override`:** `tuition.override`.
+- **`GET /api/admin/tuition-reminders`:** `tuition.view` hoặc `tuition.remind`; **`POST`** (gửi nhắc): `tuition.remind`.
+- **`GET /api/reconciliation/summary`:** `revenue.reports`.
+- **`POST /api/ai/chat` action `chat`:** bắt buộc đăng nhập Admin; context AI chỉ chứa doanh thu khi có `revenue.reports` và danh sách nợ khi có `tuition.view`; thiếu quyền thì AI từ chối trả lời số liệu.
+- **`GET /api/settings`:** bắt buộc đăng nhập; `zalo_bot_token`, `zalo_access_token`, `zalo_oa_secret_key`, `zalo_admin_chat_id`, `sepay_api_key` chỉ trả khi có `settings.manage`; `base_tuition`, giá gói và phụ thu level chỉ trả khi có `tuition.view` hoặc `settings.manage`.
+- **`POST /api/settings`:** chỉ nhân viên có `settings.manage` được đổi cấu hình; riêng `app_language` / `month_format` cho phép mọi nhân viên đã đăng nhập tự đổi ngôn ngữ.
+- **`GET/POST /api/packages`:** yêu cầu `settings.manage` (quản lý giá gói học phí).
+- **`GET /api/teacher`:** tự loại bỏ `level_surcharge`, `is_discount_enabled`, `discount_percent`, `discount_reason`, `tuition_package_id` và `surcharge_amount` khỏi dữ liệu gửi Cổng Giáo Viên.
+- Quyền `*` hoặc `is_owner = 1` (Chủ cơ sở) được bỏ qua mọi kiểm tra trên.
+
 ---
 
 ## 3. NHẬT KÝ CẬP NHẬT API (API CHANGELOG)
@@ -110,3 +174,6 @@
 | 2026-10-29 | `/api/sepay/webhook` | Hoàn thiện | Tự nhận diện cú pháp mã học sinh và số điện thoại |
 | 2026-11-09 | `/api/admin/tuition-reminders` | Thêm mới | Lấy trạng thái nhắc phí và xử lý gửi Zalo manual / Bot |
 | 2026-11-09 | `/api/zalo-bot` | Nâng cấp | Thêm action `get_updates` và `test_admin_message` phục vụ thông báo Zalo cho Admin |
+| 2026-11-12 | `/api/students/[id]` | Thêm mới | Bổ sung `PATCH` với `action: "remove_slot"`: gỡ học viên khỏi đúng Thứ + Giờ, đồng bộ `schedule_details_json`, `registered_days`, `study_time_detail`, `sessions_per_week`, `hours_per_week`; tự gỡ `class_id` khi không còn ca học |
+| 2026-11-13 | `/api/students` | Nâng cấp | `GET` nhận thêm `period_from` / `period_to`; trả `period_revenue` (tổng tiền các kỳ thanh toán bao phủ tháng neo của ngày bắt đầu, số học sinh đã đóng) cho tài khoản có quyền `revenue.reports` |
+| 2026-11-13 | `/api/students`, `/api/students/[id]`, `/api/payments`, `/api/tuition-override`, `/api/admin/tuition-reminders`, `/api/ai/chat` | Siết bảo mật | Bắt buộc đăng nhập và kiểm tra đúng quyền `students.view/create/edit/delete`, `tuition.view/audit/override/remind`, `revenue.reports`; server tự ẩn dữ liệu tài chính nếu thiếu `tuition.view`; AI không nạp số liệu doanh thu/công nợ khi thiếu quyền |

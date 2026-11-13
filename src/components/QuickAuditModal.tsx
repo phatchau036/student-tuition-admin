@@ -39,6 +39,11 @@ export const QuickAuditModal: React.FC<QuickAuditModalProps> = ({
 }) => {
   const { showToast } = useToast();
 
+  const getAuthHeaders = (): Record<string, string> => {
+    const token = typeof window !== "undefined" ? localStorage.getItem("admin_token") : null;
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  };
+
   // Mode: "current_month" (Chọn nhanh Đã đóng/Chưa đóng cho tháng này hoặc khóa) | "multi_months" (Tick chọn từng tháng)
   const [auditMode, setAuditMode] = useState<"quick_choice" | "matrix">("quick_choice");
   const [selectedPackageId, setSelectedPackageId] = useState<string>("");
@@ -83,7 +88,9 @@ export const QuickAuditModal: React.FC<QuickAuditModalProps> = ({
 
   const loadPaymentsHistory = async (studentId: string, months: string[]) => {
     try {
-      const res = await fetch(`/api/payments?student_id=${studentId}`);
+      const res = await fetch(`/api/payments?student_id=${studentId}`, {
+        headers: getAuthHeaders(),
+      });
       const json = await res.json();
       const statusMap: Record<string, boolean> = {};
 
@@ -124,7 +131,7 @@ export const QuickAuditModal: React.FC<QuickAuditModalProps> = ({
       setIsSubmitting(true);
       const res = await fetch("/api/payments", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({
           action: "mark_paid",
           student_id: student.id,
@@ -176,7 +183,7 @@ export const QuickAuditModal: React.FC<QuickAuditModalProps> = ({
       setIsSubmitting(true);
       const res = await fetch("/api/payments", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({
           action: "mark_unpaid",
           student_id: student.id,
@@ -224,7 +231,7 @@ export const QuickAuditModal: React.FC<QuickAuditModalProps> = ({
       setIsSubmitting(true);
       const res = await fetch("/api/payments", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({
           action: "set_months_status",
           student_id: student.id,
