@@ -2,6 +2,11 @@ import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
 import fs from "fs";
 import path from "path";
+import crypto from "crypto";
+
+function getPwdHash(pwd: string): string {
+  return crypto.createHash("sha256").update(pwd).digest("hex").slice(0, 16);
+}
 
 async function getSystemCredentials() {
   await initDb();
@@ -18,11 +23,14 @@ async function getSystemCredentials() {
   }
 
   const secretKey = process.env.SYSTEM_ADMIN_SECRET || "sec_super_admin_system_key_2026";
-  return { username, password, secretKey };
+  return { username, password, secretKey, pwdHash: getPwdHash(password) };
 }
 
 function syncEnvFile(newUsername: string, newPassword: string) {
   try {
+    process.env.SYSTEM_ADMIN_USERNAME = newUsername;
+    process.env.SYSTEM_ADMIN_PASSWORD = newPassword;
+
     const envPath = path.join(process.cwd(), ".env");
     if (fs.existsSync(envPath)) {
       let content = fs.readFileSync(envPath, "utf-8");
@@ -54,6 +62,20 @@ export async function POST(req: Request) {
       return await handleChangeCredentials(body);
     }
 
+    // Xử lý đăng xuất (xóa cookie)
+    if (action === "logout") {
+      const response = NextResponse.json({
+        success: true,
+        message: "Đã đăng xuất khỏi cổng Quản Trị Hệ Thống",
+      });
+      response.cookies.set("system_auth_token", "", {
+        path: "/",
+        expires: new Date(0),
+        maxAge: 0,
+      });
+      return response;
+    }
+
     // Đăng nhập hệ thống thông thường
     const { username, password } = body;
     if (!username || !password) {
@@ -66,8 +88,8 @@ export async function POST(req: Request) {
     const creds = await getSystemCredentials();
 
     if (username.trim() === creds.username && password.trim() === creds.password) {
-      // Create session token
-      const token = Buffer.from(`${creds.username}:${creds.secretKey}:${Date.now()}`).toString("base64");
+      // Create session token with pwdHash to invalidate immediately when password changes
+      const token = Buffer.from(`${creds.username}:${creds.pwdHash}:${creds.secretKey}:${Date.now()}`).toString("base64");
 
       const response = NextResponse.json({
         success: true,
@@ -173,11 +195,12 @@ async function handleChangeCredentials(body: any) {
     args: [cleanNewPassword],
   });
 
-  // Đồng bộ file .env nếu có
+  // Đồng bộ file .env và cập nhật biến môi trường tức thì trong process hiện tại
   syncEnvFile(cleanNewUsername, cleanNewPassword);
 
-  // Tạo token mới
-  const token = Buffer.from(`${cleanNewUsername}:${creds.secretKey}:${Date.now()}`).toString("base64");
+  // Tạo token mới với pwdHash mới
+  const newPwdHash = getPwdHash(cleanNewPassword);
+  const token = Buffer.from(`${cleanNewUsername}:${newPwdHash}:${creds.secretKey}:${Date.now()}`).toString("base64");
 
   const response = NextResponse.json({
     success: true,
@@ -220,6 +243,25 @@ export async function GET(req: Request) {
     const decoded = Buffer.from(token, "base64").toString("utf-8");
     const creds = await getSystemCredentials();
 
+    // Cấu trúc token mới: username:pwdHash:secretKey:timestamp
+    const parts = decoded.split(":");
+    if (parts.length >= 4) {
+      const [tokenUsername, tokenPwdHash, tokenSecret] = parts;
+      if (
+        tokenSecret === creds.secretKey &&
+        tokenUsername === creds.username &&
+        tokenPwdHash === creds.pwdHash
+      ) {
+        return NextResponse.json({
+          success: true,
+          authenticated: true,
+          user: { username: creds.username, role: "SUPER_ADMIN" },
+        });
+      }
+      return NextResponse.json({ success: false, authenticated: false }, { status: 401 });
+    }
+
+    // Tương thích ngược với token cũ: username:secretKey:timestamp
     if (decoded.includes(creds.secretKey) && decoded.startsWith(creds.username)) {
       return NextResponse.json({
         success: true,

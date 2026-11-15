@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { formatVND, formatMonthDisplay } from "@/lib/tuition";
 import { MonthFormat, SePayTransaction } from "@/lib/types";
 import {
@@ -11,11 +11,6 @@ import {
   CheckCircle2,
   AlertCircle,
   QrCode,
-  Calendar,
-  Layers,
-  ArrowDownLeft,
-  ChevronRight,
-  Filter,
   RefreshCw,
   Search,
 } from "lucide-react";
@@ -26,6 +21,7 @@ interface MonthlySummaryModalProps {
   onClose: () => void;
   initialMonth: string;
   monthFormat?: MonthFormat;
+  schoolId?: string;
   onRefreshData?: () => void;
 }
 
@@ -53,7 +49,7 @@ interface SummaryData {
     package_name: string;
     fee: number;
     is_paid: boolean;
-    payment_info?: any;
+    payment_info?: Record<string, unknown> | null;
   }>;
   sepay_transactions: SePayTransaction[];
 }
@@ -63,13 +59,8 @@ export const MonthlySummaryModal: React.FC<MonthlySummaryModalProps> = ({
   onClose,
   initialMonth,
   monthFormat = "vietnamese",
-  onRefreshData,
+  schoolId,
 }) => {
-  const getAuthHeaders = (): Record<string, string> => {
-    const token = typeof window !== "undefined" ? localStorage.getItem("admin_token") : null;
-    return token ? { Authorization: `Bearer ${token}` } : {};
-  };
-
   const [selectedMonth, setSelectedMonth] = useState<string>(initialMonth);
   const [data, setData] = useState<SummaryData | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -77,17 +68,16 @@ export const MonthlySummaryModal: React.FC<MonthlySummaryModalProps> = ({
   const [studentFilter, setStudentFilter] = useState<"all" | "paid" | "unpaid">("all");
   const [searchQuery, setSearchQuery] = useState("");
 
-  useEffect(() => {
-    if (isOpen) {
-      loadSummary(selectedMonth);
-    }
-  }, [isOpen, selectedMonth]);
-
-  const loadSummary = async (m: string) => {
+  const loadSummary = useCallback(async (m: string) => {
     try {
       setIsLoading(true);
-      const res = await fetch(`/api/reconciliation/summary?month=${m}`, {
-        headers: getAuthHeaders(),
+      const token = typeof window !== "undefined" ? localStorage.getItem("admin_token") : null;
+      const headers: Record<string, string> = {};
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+      if (schoolId) headers["x-school-id"] = schoolId;
+      const schoolQuery = schoolId ? `&school_id=${encodeURIComponent(schoolId)}` : "";
+      const res = await fetch(`/api/reconciliation/summary?month=${m}${schoolQuery}`, {
+        headers,
       });
       const json = await res.json();
       if (json.success) {
@@ -98,7 +88,13 @@ export const MonthlySummaryModal: React.FC<MonthlySummaryModalProps> = ({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [schoolId]);
+
+  useEffect(() => {
+    if (isOpen) {
+      loadSummary(selectedMonth);
+    }
+  }, [isOpen, selectedMonth, loadSummary]);
 
   if (!isOpen) return null;
 

@@ -57,6 +57,8 @@ interface School {
   branch_num?: string | number;
   address: string;
   phone: string;
+  domain?: string;
+  subdomain?: string;
   ip_restriction_enabled?: number;
   allowed_ips?: string;
   created_at: string;
@@ -102,6 +104,8 @@ export default function SystemAdminPage() {
   const [newSchoolBranchNum, setNewSchoolBranchNum] = useState("1");
   const [newSchoolAddress, setNewSchoolAddress] = useState("");
   const [newSchoolPhone, setNewSchoolPhone] = useState("");
+  const [newSchoolDomain, setNewSchoolDomain] = useState("");
+  const [newSchoolSubdomain, setNewSchoolSubdomain] = useState("");
 
   // Modal edit school (Đổi tên & thông tin trung tâm)
   const [isEditSchoolModalOpen, setIsEditSchoolModalOpen] = useState(false);
@@ -114,6 +118,8 @@ export default function SystemAdminPage() {
   const [editSchoolBranchNum, setEditSchoolBranchNum] = useState("1");
   const [editSchoolAddress, setEditSchoolAddress] = useState("");
   const [editSchoolPhone, setEditSchoolPhone] = useState("");
+  const [editSchoolDomain, setEditSchoolDomain] = useState("");
+  const [editSchoolSubdomain, setEditSchoolSubdomain] = useState("");
   const [isSavingSchoolEdit, setIsSavingSchoolEdit] = useState(false);
 
   // Modal create admin với bộ sinh thông minh
@@ -332,8 +338,16 @@ export default function SystemAdminPage() {
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     localStorage.removeItem("system_token");
+    try {
+      await fetch("/api/system/auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "logout" }),
+      });
+    } catch {}
+    document.cookie = "system_auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; max-age=0";
     setIsAuthenticated(false);
     setAuthPassword("");
     showToast("Đã đăng xuất khỏi cổng Quản Trị Hệ Thống", "success");
@@ -670,6 +684,8 @@ export default function SystemAdminPage() {
     setEditSchoolBranchNum(String(school.branch_num || "1"));
     setEditSchoolAddress(school.address || "");
     setEditSchoolPhone(school.phone || "");
+    setEditSchoolDomain(school.domain || "");
+    setEditSchoolSubdomain(school.subdomain || "");
     setIsEditSchoolModalOpen(true);
   };
 
@@ -697,6 +713,8 @@ export default function SystemAdminPage() {
           branch_num: editSchoolBranchNum,
           address: editSchoolAddress.trim(),
           phone: editSchoolPhone.trim(),
+          domain: editSchoolDomain.trim(),
+          subdomain: editSchoolSubdomain.trim(),
         }),
       });
       const data = await res.json();
@@ -735,6 +753,8 @@ export default function SystemAdminPage() {
           branch_num: newSchoolBranchNum,
           address: newSchoolAddress.trim(),
           phone: newSchoolPhone.trim(),
+          domain: newSchoolDomain.trim(),
+          subdomain: newSchoolSubdomain.trim(),
         }),
       });
       const data = await res.json();
@@ -749,6 +769,8 @@ export default function SystemAdminPage() {
         setNewSchoolBranchNum("1");
         setNewSchoolAddress("");
         setNewSchoolPhone("");
+        setNewSchoolDomain("");
+        setNewSchoolSubdomain("");
         loadData();
       } else {
         showToast(data.message || "Tạo trường thất bại", "error");
@@ -1423,6 +1445,30 @@ export default function SystemAdminPage() {
                         </div>
 
                         <h3 className="text-base font-bold text-white mt-2 leading-snug">{school.name}</h3>
+
+                        {/* Thông tin tên miền & subdomain */}
+                        {(school.domain || school.subdomain) && (
+                          <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs">
+                            {school.subdomain && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-cyan-950/60 border border-cyan-800/50 text-cyan-300 font-mono text-[10.5px]">
+                                <Globe className="w-3 h-3 text-cyan-400" />
+                                <span>{school.subdomain}.*</span>
+                              </span>
+                            )}
+                            {school.domain && (
+                              <a
+                                href={`https://${school.domain}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-950/60 border border-emerald-800/50 text-emerald-300 font-mono text-[10.5px] hover:underline"
+                                title="Mở trang web cơ sở theo tên miền riêng"
+                              >
+                                <ExternalLink className="w-3 h-3 text-emerald-400" />
+                                <span>{school.domain}</span>
+                              </a>
+                            )}
+                          </div>
+                        )}
 
                         <p className="text-xs text-slate-400 mt-1 line-clamp-2">
                           {school.address || "Chưa có địa chỉ"}
@@ -2400,6 +2446,50 @@ export default function SystemAdminPage() {
                 />
               </div>
 
+              {/* Tên miền riêng (Custom Domain) & Tên miền con (Subdomain) */}
+              <div className="p-3.5 rounded-2xl bg-indigo-950/30 border border-indigo-800/50 space-y-3">
+                <div className="flex items-center gap-1.5 text-indigo-300 text-xs font-bold uppercase tracking-wider">
+                  <Globe className="w-4 h-4 text-indigo-400" />
+                  <span>Cấu Hình Tên Miền Tự Động (SaaS Custom Domain)</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">
+                      Tên miền con (Subdomain)
+                    </label>
+                    <div className="flex items-center">
+                      <input
+                        type="text"
+                        placeholder="VD: hongan"
+                        value={editSchoolSubdomain}
+                        onChange={(e) => setEditSchoolSubdomain(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
+                        className="w-full px-3 py-2 text-sm rounded-xl bg-slate-800 border border-slate-700 text-cyan-300 font-mono font-bold focus:outline-hidden focus:ring-2 focus:ring-purple-500"
+                      />
+                    </div>
+                    <p className="text-[10px] text-slate-400 mt-1">
+                      Dành cho trung tâm <strong>không mua domain riêng</strong> (VD: <em>hongan</em>.tenmienban.com)
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">
+                      Tên miền riêng (Custom Domain)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="VD: edu.trungtamhongan.vn"
+                      value={editSchoolDomain}
+                      onChange={(e) => setEditSchoolDomain(e.target.value.toLowerCase().trim())}
+                      className="w-full px-3 py-2 text-sm rounded-xl bg-slate-800 border border-slate-700 text-emerald-300 font-mono font-bold focus:outline-hidden focus:ring-2 focus:ring-purple-500"
+                    />
+                    <p className="text-[10px] text-slate-400 mt-1">
+                      Dành cho trung tâm <strong>tự mua tên miền riêng</strong> (chỉ cần trỏ CNAME về server bạn)
+                    </p>
+                  </div>
+                </div>
+              </div>
+
               {/* Live Preview định dạng tài khoản Admin sẽ tạo */}
               <div className="p-3.5 rounded-2xl bg-purple-950/40 border border-purple-800/60 text-xs space-y-1">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-purple-300 flex items-center gap-1.5">
@@ -2849,6 +2939,48 @@ export default function SystemAdminPage() {
                   onChange={(e) => setNewSchoolAddress(e.target.value)}
                   className="w-full px-3 py-2 text-sm rounded-xl bg-slate-800 border border-slate-700 text-white focus:outline-hidden focus:ring-2 focus:ring-purple-500"
                 />
+              </div>
+
+              {/* Tên miền riêng (Custom Domain) & Tên miền con (Subdomain) */}
+              <div className="p-3.5 rounded-2xl bg-indigo-950/30 border border-indigo-800/50 space-y-3">
+                <div className="flex items-center gap-1.5 text-indigo-300 text-xs font-bold uppercase tracking-wider">
+                  <Globe className="w-4 h-4 text-indigo-400" />
+                  <span>Cấu Hình Tên Miền Tự Động (SaaS Custom Domain)</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">
+                      Tên miền con (Subdomain)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="VD: hongan"
+                      value={newSchoolSubdomain}
+                      onChange={(e) => setNewSchoolSubdomain(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
+                      className="w-full px-3 py-2 text-sm rounded-xl bg-slate-800 border border-slate-700 text-cyan-300 font-mono font-bold focus:outline-hidden focus:ring-2 focus:ring-purple-500"
+                    />
+                    <p className="text-[10px] text-slate-400 mt-1">
+                      Dành cho trung tâm <strong>không mua domain riêng</strong> (VD: <em>hongan</em>.tenmienban.com)
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">
+                      Tên miền riêng (Custom Domain)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="VD: edu.trungtamhongan.vn"
+                      value={newSchoolDomain}
+                      onChange={(e) => setNewSchoolDomain(e.target.value.toLowerCase().trim())}
+                      className="w-full px-3 py-2 text-sm rounded-xl bg-slate-800 border border-slate-700 text-emerald-300 font-mono font-bold focus:outline-hidden focus:ring-2 focus:ring-purple-500"
+                    />
+                    <p className="text-[10px] text-slate-400 mt-1">
+                      Dành cho trung tâm <strong>tự mua tên miền riêng</strong> (chỉ cần trỏ CNAME về server bạn)
+                    </p>
+                  </div>
+                </div>
               </div>
 
               {/* Live Preview định dạng tài khoản Admin sẽ tạo */}

@@ -30,6 +30,22 @@ export async function GET(req: Request) {
       settingsMap[String(row.key)] = String(row.value);
     }
 
+    // Lấy thông tin Zalo Bot của riêng cơ sở nếu có (Multi-Tenant School Bot)
+    let schoolZaloBotToken = "";
+    let schoolZaloBotName = "";
+    let schoolZaloAdminChatId = "";
+    try {
+      const schoolRes = await db.execute({
+        sql: "SELECT zalo_bot_token, zalo_bot_name, zalo_admin_chat_id FROM schools WHERE id = ? LIMIT 1",
+        args: [schoolId],
+      });
+      if (schoolRes.rows.length > 0) {
+        schoolZaloBotToken = String(schoolRes.rows[0].zalo_bot_token || "");
+        schoolZaloBotName = String(schoolRes.rows[0].zalo_bot_name || "");
+        schoolZaloAdminChatId = String(schoolRes.rows[0].zalo_admin_chat_id || "");
+      }
+    } catch {}
+
     let baseTuition = Number(settingsMap["base_tuition"] || 0);
     if (baseTuition <= 0) {
       const defaultPkgRes = await db.execute("SELECT amount FROM tuition_packages WHERE cycle_unit = 'month' AND cycle_value = 1 LIMIT 1");
@@ -47,9 +63,9 @@ export async function GET(req: Request) {
     const reconciliationMode = (settingsMap["reconciliation_mode"] as "manual" | "auto") || "manual";
     const defaultMinutesPerSession = Number(settingsMap["default_minutes_per_session"] || 90);
     const zaloReminderMode = (settingsMap["zalo_reminder_mode"] as "manual" | "bot") || "manual";
-    const zaloBotToken = settingsMap["zalo_bot_token"] || "";
-    const zaloBotName = settingsMap["zalo_bot_name"] || "";
-    const zaloAdminChatId = settingsMap["zalo_admin_chat_id"] || "";
+    const zaloBotToken = schoolZaloBotToken || settingsMap["zalo_bot_token"] || "";
+    const zaloBotName = schoolZaloBotName || settingsMap["zalo_bot_name"] || "";
+    const zaloAdminChatId = schoolZaloAdminChatId || settingsMap["zalo_admin_chat_id"] || "";
     const zaloNotifyPayment = settingsMap["zalo_notify_payment"] !== "0";
     const zaloNotifyStudentAbsence = settingsMap["zalo_notify_student_absence"] !== "0";
     const zaloNotifyTeacherLeave = settingsMap["zalo_notify_teacher_leave"] !== "0";
@@ -111,6 +127,7 @@ export async function GET(req: Request) {
       id: String(row.id),
       level_name: String(row.level_name),
       surcharge_amount: canViewTuition ? Number(row.surcharge_amount) : 0,
+      surcharge_type: (String(row.surcharge_type || "fixed") as "fixed" | "percent"),
       sort_order: Number(row.sort_order),
     }));
 
@@ -255,6 +272,7 @@ export async function POST(req: Request) {
       );
     }
     const db = getDb();
+    const schoolId = body.school_id || getSchoolIdFromRequest(req);
 
     const {
       base_tuition,
@@ -347,6 +365,25 @@ export async function POST(req: Request) {
       }
     }
 
+    // Cập nhật cấu hình Zalo Bot riêng biệt theo school_id nếu đang quản lý trường cụ thể
+    if (schoolId && (zalo_bot_token !== undefined || zalo_bot_name !== undefined || zalo_admin_chat_id !== undefined)) {
+      try {
+        await db.execute({
+          sql: `UPDATE schools 
+                SET zalo_bot_token = COALESCE(?, zalo_bot_token),
+                    zalo_bot_name = COALESCE(?, zalo_bot_name),
+                    zalo_admin_chat_id = COALESCE(?, zalo_admin_chat_id)
+                WHERE id = ?`,
+          args: [
+            zalo_bot_token !== undefined ? String(zalo_bot_token) : null,
+            zalo_bot_name !== undefined ? String(zalo_bot_name) : null,
+            zalo_admin_chat_id !== undefined ? String(zalo_admin_chat_id).trim() : null,
+            schoolId,
+          ],
+        });
+      } catch {}
+    }
+
     // 2. Save Time Slots
     if (Array.isArray(time_slots)) {
       await db.execute("DELETE FROM time_slots");
@@ -380,10 +417,11 @@ export async function POST(req: Request) {
       let sort = 1;
       for (const lvl of level_surcharges) {
         const id = lvl.id || `lvl-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+        const stype = lvl.surcharge_type === "percent" ? "percent" : "fixed";
         await db.execute({
-          sql: `INSERT INTO level_surcharges (id, level_name, surcharge_amount, sort_order)
-                VALUES (?, ?, ?, ?)`,
-          args: [id, lvl.level_name || "Level mới", Number(lvl.surcharge_amount) || 0, sort++],
+          sql: `INSERT INTO level_surcharges (id, level_name, surcharge_amount, surcharge_type, sort_order)
+                VALUES (?, ?, ?, ?, ?)`,
+          args: [id, lvl.level_name || "Level mới", Number(lvl.surcharge_amount) || 0, stype, sort++],
         });
       }
     }

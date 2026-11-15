@@ -47,3 +47,4 @@
 | 2026-10-29 | Zalo Bot Platform Integration | Hoạt động ổn định (v2.6) | Main Agent |
 | 2026-10-29 | Smart Excel Schedule Parser | Đã triển khai và tối ưu (v2.6) | Main Agent |
 | 2026-10-29 | AI Parent Chatbot & RAG Engine | Lập kế hoạch kiến trúc (Roadmap) | Main Agent |
+| 2026-11-14 | Fix Zalo Bot getUpdates & Chat ID Picker | Khắc phục lỗi iterable khi data.result là rỗng/timeout (mã 408), bổ sung bot_info (@account_name) và link mở trực tiếp Zalo Bot trên SettingsModal | Main Agent |

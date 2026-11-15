@@ -394,12 +394,14 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
   // Compute live preview of tuition
   const selectedLevel = levels.find((l) => l.id === levelId);
   const selectedLevelSurcharge = selectedLevel ? selectedLevel.surcharge_amount : 0;
+  const selectedLevelSurchargeType = selectedLevel?.surcharge_type || "fixed";
   const selectedPkg = tuitionPackages.find((p) => p.id === tuitionPackageId);
   const liveBreakdown = calculateStudentTuition({
     packageAmount: selectedPkg ? selectedPkg.amount : null,
     packageName: selectedPkg ? selectedPkg.name : null,
     baseTuition,
     levelSurcharge: selectedLevelSurcharge,
+    levelSurchargeType: selectedLevelSurchargeType,
     levelName: selectedLevel?.level_name,
     isDiscountEnabled,
     discountPercent,

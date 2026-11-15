@@ -15,7 +15,7 @@ export async function GET(req: Request) {
     const month = url.searchParams.get("month") || new Date().toISOString().slice(0, 7);
 
     const db = getDb();
-    const schoolId = getSchoolIdFromRequest(req);
+    const schoolId = url.searchParams.get("school_id") || getSchoolIdFromRequest(req) || "school-default";
 
     // 1. Get Base Tuition (Nếu <= 0 thì tự động lấy từ gói tháng 1m hoặc 1.000.000đ)
     const baseTuitionRes = await db.execute({
@@ -33,7 +33,9 @@ export async function GET(req: Request) {
       sql: `
         SELECT 
           s.*,
+          l.level_name,
           l.surcharge_amount as level_surcharge,
+          l.surcharge_type as level_surcharge_type,
           pkg.name as package_name,
           pkg.amount as package_amount
         FROM students s
@@ -44,27 +46,30 @@ export async function GET(req: Request) {
       args: [schoolId],
     });
 
-    // 3. Get Overrides for this month
+    // 3. Get Overrides for this month (scoped to current school)
     const overridesRes = await db.execute({
-      sql: "SELECT * FROM student_monthly_tuitions WHERE month = ?",
-      args: [month],
+      sql: `SELECT o.* FROM student_monthly_tuitions o
+            JOIN students s ON o.student_id = s.id
+            WHERE o.month = ? AND s.school_id = ?`,
+      args: [month, schoolId],
     });
     const overridesMap: Record<string, number> = {};
     for (const row of overridesRes.rows) {
       overridesMap[String(row.student_id)] = Number(row.amount);
     }
 
-    // 4. Get Payments covering this month
+    // 4. Get Payments covering this month (scoped to current school)
     const paymentsRes = await db.execute({
-      sql: `SELECT * FROM student_payments 
-            WHERE ? >= start_period AND ? <= end_period AND status = 'paid'`,
-      args: [month, month],
+      sql: `SELECT p.* FROM student_payments p
+            JOIN students s ON p.student_id = s.id
+            WHERE ? >= p.start_period AND ? <= p.end_period AND p.status = 'paid' AND s.school_id = ?`,
+      args: [month, month, schoolId],
     });
     const paidStudentIds = new Set<string>();
-    const paidRecordsMap: Record<string, any> = {};
+    const paidRecordsMap: Record<string, Record<string, unknown>> = {};
     for (const row of paymentsRes.rows) {
       paidStudentIds.add(String(row.student_id));
-      paidRecordsMap[String(row.student_id)] = row;
+      paidRecordsMap[String(row.student_id)] = row as unknown as Record<string, unknown>;
     }
 
     // 5. Calculate statistics
@@ -94,6 +99,8 @@ export async function GET(req: Request) {
         packageName: row.package_name ? String(row.package_name) : null,
         baseTuition,
         levelSurcharge: Number(row.level_surcharge || 0),
+        levelSurchargeType: (row.level_surcharge_type as "fixed" | "percent") || "fixed",
+        levelName: row.level_name ? String(row.level_name) : null,
         isDiscountEnabled: Number(row.is_discount_enabled || 0),
         discountPercent: Number(row.discount_percent || 0),
       });
@@ -131,12 +138,14 @@ export async function GET(req: Request) {
       });
     }
 
-    // 6. Get SePay Transactions in this month
+    // 6. Get SePay Transactions in this month (scoped to current school)
     const sepayTxRes = await db.execute({
-      sql: `SELECT * FROM sepay_transactions 
-            WHERE matched_period = ? OR transaction_date LIKE ?
-            ORDER BY transaction_date DESC, created_at DESC`,
-      args: [month, `${month}%`],
+      sql: `SELECT tx.* FROM sepay_transactions tx
+            LEFT JOIN students s ON tx.student_id = s.id
+            WHERE (tx.matched_period = ? OR tx.transaction_date LIKE ?)
+              AND COALESCE(NULLIF(s.school_id, ''), NULLIF(tx.school_id, ''), 'school-default') = ?
+            ORDER BY tx.transaction_date DESC, tx.created_at DESC`,
+      args: [month, `${month}%`, schoolId],
     });
 
     let sepayMatchedCount = 0;
@@ -169,8 +178,8 @@ export async function GET(req: Request) {
         sepay_transactions: sepayTxRes.rows,
       },
     });
-  } catch (error: any) {
-    if (error?.digest === "NEXT_PRERENDER_INTERRUPTED") {
+  } catch (error: unknown) {
+    if ((error as { digest?: string })?.digest === "NEXT_PRERENDER_INTERRUPTED") {
       throw error;
     }
     console.error("Reconciliation Summary API Error:", error);

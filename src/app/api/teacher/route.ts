@@ -5,6 +5,7 @@ import { TeacherDaySchedule, TeacherAssignedShift, DAYS_OF_WEEK } from "@/lib/ty
 import { appendLedger } from "@/lib/wallet";
 import { formatMinutes } from "@/lib/tuition";
 import { notifyAdminViaZaloBot } from "@/lib/zaloBot";
+import { resolveSchoolIdByHost } from "@/lib/authHelper";
 
 function studentMatchesShift(
   st: { schedule_details_json?: string; registered_days?: string; study_time_detail?: string },
@@ -438,21 +439,26 @@ export async function POST(req: Request) {
 
       const cleanPhone = phone.trim().replace(/\D/g, "");
 
+      // Cô lập tên miền (Domain Isolation): nếu truy cập qua domain riêng / subdomain cơ sở
+      const rawHost = req.headers.get("x-forwarded-host") || req.headers.get("host") || "";
+      const domainSchoolId = await resolveSchoolIdByHost(rawHost);
+
       const teacherRes = await db.execute({
         sql: `
           SELECT t.*, s.name as school_name, s.code as school_code, s.address as school_address, s.phone as school_phone
           FROM teachers t
           LEFT JOIN schools s ON t.school_id = s.id
           WHERE replace(replace(replace(t.phone, ' ', ''), '.', ''), '-', '') LIKE ? AND t.is_active = 1
+            ${domainSchoolId ? "AND (t.school_id = ? OR t.school_id = 'school-default')" : ""}
         `,
-        args: [`%${cleanPhone}%`],
+        args: domainSchoolId ? [`%${cleanPhone}%`, domainSchoolId] : [`%${cleanPhone}%`],
       });
 
       if (teacherRes.rows.length === 0) {
         return NextResponse.json(
           {
             success: false,
-            message: "Không tìm thấy giáo viên nào với số điện thoại này! Vui lòng liên hệ quản trị viên cơ sở.",
+            message: "Không tìm thấy giáo viên nào với số điện thoại này tại cơ sở! Vui lòng liên hệ quản trị viên cơ sở.",
           },
           { status: 404 }
         );

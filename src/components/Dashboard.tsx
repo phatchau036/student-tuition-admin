@@ -3294,6 +3294,7 @@ export default function Dashboard() {
         onClose={() => setIsMonthlySummaryModalOpen(false)}
         initialMonth={selectedMonth}
         monthFormat={monthFormat}
+        schoolId={currentSchool?.id}
         onRefreshData={() => loadStudents(selectedMonth)}
       />
 

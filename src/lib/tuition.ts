@@ -114,6 +114,7 @@ export function calculateStudentTuition(params: {
   packageName?: string | null;
   baseTuition?: number | null;
   levelSurcharge?: number | null;
+  levelSurchargeType?: "fixed" | "percent" | null;
   levelName?: string | null;
   isDiscountEnabled?: boolean | number | null;
   discountPercent?: number | null;
@@ -121,7 +122,15 @@ export function calculateStudentTuition(params: {
   const pkgAmount = Number(params.packageAmount) || 0;
   const base = pkgAmount > 0 ? pkgAmount : Number(params.baseTuition) || 0;
   const baseLabel = pkgAmount > 0 ? (params.packageName || "Gói học phí") : "Học phí cơ bản";
-  const surcharge = Number(params.levelSurcharge) || 0;
+  const rawSurchargeVal = Number(params.levelSurcharge) || 0;
+  const surchargeType = params.levelSurchargeType || "fixed";
+
+  // Nếu là kiểu phần trăm (percent), tính phụ thu = (base * rawSurchargeVal) / 100
+  const surcharge =
+    surchargeType === "percent"
+      ? Math.round((base * rawSurchargeVal) / 100)
+      : rawSurchargeVal;
+
   const subtotal = base + surcharge;
   const hasDiscount = Boolean(Number(params.isDiscountEnabled)) && Number(params.discountPercent || 0) > 0;
   const discountPercent = hasDiscount ? Number(params.discountPercent || 0) : 0;
@@ -129,15 +138,19 @@ export function calculateStudentTuition(params: {
   const finalTuition = Math.round(subtotal * discountMultiplier);
   const discountAmount = subtotal - finalTuition;
 
-  // Xây dựng chuỗi công thức diễn giải: ví dụ "1.000.000 đ (Gói 1 tháng) + 200.000 đ (Grade 7)"
+  // Xây dựng chuỗi công thức diễn giải: ví dụ "1.000.000 đ (Gói 1 tháng) + 10% (100.000 đ) (Grade 7)"
   const parts: string[] = [];
   if (base > 0) {
     parts.push(`${formatVND(base)} (${baseLabel})`);
   } else {
     parts.push(`0 đ`);
   }
-  if (surcharge > 0) {
-    parts.push(`+ ${formatVND(surcharge)} (${params.levelName ? `Level ${params.levelName}` : "Phụ thu level"})`);
+  if (surcharge > 0 || rawSurchargeVal > 0) {
+    const surchargeDesc =
+      surchargeType === "percent"
+        ? `${rawSurchargeVal}% (${formatVND(surcharge)})`
+        : formatVND(surcharge);
+    parts.push(`+ ${surchargeDesc} (${params.levelName ? `Level ${params.levelName}` : "Phụ thu level"})`);
   }
   if (hasDiscount) {
     parts.push(`- ${discountPercent}% (${formatVND(discountAmount)})`);

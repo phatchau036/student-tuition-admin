@@ -89,9 +89,10 @@ export async function GET(req: Request) {
       sql: `
         SELECT 
           s.*,
-          l.level_name,
-          l.surcharge_amount as level_surcharge,
-          l.sort_order as level_sort_order,
+        l.level_name,
+        l.surcharge_amount as level_surcharge,
+        l.surcharge_type as level_surcharge_type,
+        l.sort_order as level_sort_order,
           sub.name as subject_name,
           sub.color as subject_color,
           t.name as time_slot_name,
@@ -232,6 +233,7 @@ export async function GET(req: Request) {
         packageName: row.tuition_package_name ? String(row.tuition_package_name) : null,
         baseTuition,
         levelSurcharge: Number(row.level_surcharge || 0),
+        levelSurchargeType: (row.level_surcharge_type as "fixed" | "percent") || "fixed",
         levelName: row.level_name ? String(row.level_name) : null,
         isDiscountEnabled: Number(row.is_discount_enabled || 0),
         discountPercent: Number(row.discount_percent || 0),

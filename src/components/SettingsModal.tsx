@@ -187,6 +187,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [zaloReminderMode, setZaloReminderMode] = useState<ZaloReminderMode>(initialZaloReminderMode);
   const [zaloBotToken, setZaloBotToken] = useState<string>(initialZaloBotToken);
   const [zaloBotName, setZaloBotName] = useState<string>(initialZaloBotName);
+  const [zaloBotAccountName, setZaloBotAccountName] = useState<string>("");
   const [zaloAdminChatId, setZaloAdminChatId] = useState<string>(initialZaloAdminChatId || "");
   const [zaloNotifyPayment, setZaloNotifyPayment] = useState<boolean>(initialZaloNotifyPayment !== 0);
   const [zaloNotifyStudentAbsence, setZaloNotifyStudentAbsence] = useState<boolean>(initialZaloNotifyStudentAbsence !== 0);
@@ -481,9 +482,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       const data = await res.json();
       if (data.success) {
         showToast(data.message, "success");
-        if (data.data?.first_name || data.data?.username) {
-          setZaloBotName(data.data.first_name || data.data.username);
-        }
+        const bName =
+          data.data?.display_name ||
+          data.data?.first_name ||
+          data.data?.username ||
+          data.data?.account_name ||
+          "";
+        if (bName) setZaloBotName(bName);
+        if (data.data?.account_name) setZaloBotAccountName(data.data.account_name);
       } else {
         showToast(data.message || "Không thể kết nối tới Zalo Bot!", "error");
       }
@@ -510,11 +516,21 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         }),
       });
       const data = await res.json();
+
+      // Cập nhật tên bot và account_name nếu API trả về
+      if (data.bot_info?.account_name) {
+        setZaloBotAccountName(data.bot_info.account_name);
+      }
+      if (data.bot_info?.display_name && !zaloBotName) {
+        setZaloBotName(data.bot_info.display_name);
+      }
+
       if (data.success && Array.isArray(data.recent_chats)) {
         setRecentChatsList(data.recent_chats);
         if (data.recent_chats.length === 0) {
           showToast(
-            "Chưa thấy tin nhắn nào gửi tới Bot. Hãy mở app Zalo tìm Bot của cơ sở và gửi 1 tin nhắn (VD: 'Hi') rồi bấm lại nút này nhé!",
+            data.message ||
+              "Chưa thấy tin nhắn nào gửi tới Bot. Hãy mở app Zalo tìm Bot của cơ sở và gửi 1 tin nhắn (VD: 'Hi') rồi bấm lại nút này nhé!",
             "info"
           );
         } else {
@@ -2253,9 +2269,23 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           </div>
 
                           {zaloBotName && (
-                            <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-[11px] text-emerald-800 dark:text-emerald-300 font-bold flex items-center gap-1.5">
-                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                              <span>Đã kết nối: {zaloBotName}</span>
+                            <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-[11px] text-emerald-800 dark:text-emerald-300 font-bold flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                              <div className="flex items-center gap-1.5">
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                                <span>Đã kết nối: {zaloBotName}</span>
+                              </div>
+                              {zaloBotAccountName && (
+                                <a
+                                  href={`https://zalo.me/${zaloBotAccountName}`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 underline font-semibold"
+                                  title="Mở ứng dụng Zalo để chat ngay với Bot"
+                                >
+                                  <span>Mở Chat Bot (@{zaloBotAccountName})</span>
+                                  <ExternalLink className="w-3 h-3" />
+                                </a>
+                              )}
                             </div>
                           )}
 
@@ -2330,14 +2360,27 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     </div>
 
                     {/* Hướng dẫn 3 bước ngắn gọn */}
-                    <div className="p-3 rounded-xl bg-slate-100/80 dark:bg-slate-800/80 text-xs text-slate-600 dark:text-slate-300 space-y-1 border border-slate-200/60 dark:border-slate-700/60">
-                      <span className="font-bold text-slate-800 dark:text-slate-200 block text-[10px] uppercase tracking-wider">
-                        Cách kết nối Zalo Admin trong 10 giây:
-                      </span>
+                    <div className="p-3.5 rounded-xl bg-slate-100/80 dark:bg-slate-800/80 text-xs text-slate-600 dark:text-slate-300 space-y-1.5 border border-slate-200/60 dark:border-slate-700/60">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-slate-800 dark:text-slate-200 block text-[10px] uppercase tracking-wider">
+                          Cách kết nối Zalo Admin trong 10 giây:
+                        </span>
+                        {zaloBotAccountName && (
+                          <a
+                            href={`https://zalo.me/${zaloBotAccountName}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline font-bold inline-flex items-center gap-1"
+                          >
+                            <span>Mở Zalo nhắn cho Bot</span>
+                            <ExternalLink className="w-3 h-3" />
+                          </a>
+                        )}
+                      </div>
                       <p>
-                        • <strong>Bước 1:</strong> Mở app Zalo trên điện thoại, tìm tên Bot{" "}
+                        • <strong>Bước 1:</strong> Mở app Zalo trên điện thoại, tìm bot{" "}
                         <strong className="text-indigo-600 dark:text-indigo-400">
-                          {zaloBotName || "của trung tâm"}
+                          {zaloBotName || "của trung tâm"} {zaloBotAccountName ? `(@${zaloBotAccountName})` : ""}
                         </strong>{" "}
                         và nhắn tin chữ <em>&quot;Hi&quot;</em>.
                       </p>
@@ -2739,7 +2782,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       #{index + 1}
                     </div>
 
-                    <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-3">
                       <div>
                         <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">
                           Tên Level
@@ -2755,7 +2798,21 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                       <div>
                         <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                          Mức phụ thu (+ VNĐ)
+                          Kiểu Phụ Thu
+                        </label>
+                        <select
+                          value={lvl.surcharge_type || "fixed"}
+                          onChange={(e) => handleUpdateLevel(index, "surcharge_type", e.target.value)}
+                          className="w-full mt-1 px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none cursor-pointer"
+                        >
+                          <option value="fixed">Cố định (VNĐ)</option>
+                          <option value="percent">Phần trăm (%)</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                          {lvl.surcharge_type === "percent" ? "Mức phụ thu (%)" : "Mức phụ thu (VNĐ)"}
                         </label>
                         <div className="relative mt-1">
                           <input
@@ -2770,7 +2827,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             className="w-full px-3 py-1.5 text-xs font-black text-emerald-600 dark:text-emerald-400 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none"
                           />
                           <span className="absolute right-3 top-1.5 text-xs font-bold text-slate-400">
-                            {formatVND(lvl.surcharge_amount)}
+                            {lvl.surcharge_type === "percent" ? "%" : formatVND(lvl.surcharge_amount)}
                           </span>
                         </div>
                       </div>

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
 import { calculateStudentTuition, getPreviousMonthStr } from "@/lib/tuition";
 import { syncPendingMakeupsToWallet } from "@/lib/wallet";
+import { resolveSchoolIdByHost } from "@/lib/authHelper";
 
 export async function POST(req: Request) {
   try {
@@ -23,6 +24,10 @@ export async function POST(req: Request) {
       const cleanPhone = inputIdentifier.replace(/\D/g, "");
       const isStudentCodeCandidate = /^HS[-_]?\d+/i.test(inputIdentifier) || cleanPhone.length < 8;
 
+      // Cô lập tên miền (Domain Isolation): nếu truy cập qua domain riêng / subdomain cơ sở
+      const rawHost = req.headers.get("x-forwarded-host") || req.headers.get("host") || "";
+      const domainSchoolId = await resolveSchoolIdByHost(rawHost);
+
       let sql = "";
       let args: any[] = [];
 
@@ -33,7 +38,7 @@ export async function POST(req: Request) {
                  COALESCE(sc.name, (SELECT name FROM schools LIMIT 1), 'Trung Tâm Đào Tạo') as school_name,
                  COALESCE(sc.address, (SELECT address FROM schools LIMIT 1), '') as school_address,
                  COALESCE(sc.phone, (SELECT phone FROM schools LIMIT 1), '') as school_phone,
-                 l.level_name, l.surcharge_amount as level_surcharge,
+                 l.level_name, l.surcharge_amount as level_surcharge, l.surcharge_type as level_surcharge_type,
                  tc.name as teacher_name, tc.phone as teacher_phone, tc.color as teacher_color,
                  pkg.name as tuition_package_name, pkg.amount as tuition_package_amount
           FROM students s
@@ -41,10 +46,13 @@ export async function POST(req: Request) {
           LEFT JOIN level_surcharges l ON s.level_id = l.id
           LEFT JOIN teachers tc ON s.teacher_id = tc.id
           LEFT JOIN tuition_packages pkg ON s.tuition_package_id = pkg.id
-          WHERE UPPER(s.student_code) = UPPER(?) OR s.id = ?
+          WHERE (UPPER(s.student_code) = UPPER(?) OR s.id = ?)
+            ${domainSchoolId ? "AND (s.school_id = ? OR s.school_id = 'school-default')" : ""}
           ORDER BY s.created_at DESC
         `;
-        args = [inputIdentifier, inputIdentifier];
+        args = domainSchoolId 
+          ? [inputIdentifier, inputIdentifier, domainSchoolId]
+          : [inputIdentifier, inputIdentifier];
       } else {
         // Tìm theo Số Điện Thoại HOẶC Mã Học Viên
         sql = `
@@ -52,7 +60,7 @@ export async function POST(req: Request) {
                  COALESCE(sc.name, (SELECT name FROM schools LIMIT 1), 'Trung Tâm Đào Tạo') as school_name,
                  COALESCE(sc.address, (SELECT address FROM schools LIMIT 1), '') as school_address,
                  COALESCE(sc.phone, (SELECT phone FROM schools LIMIT 1), '') as school_phone,
-                 l.level_name, l.surcharge_amount as level_surcharge,
+                 l.level_name, l.surcharge_amount as level_surcharge, l.surcharge_type as level_surcharge_type,
                  tc.name as teacher_name, tc.phone as teacher_phone, tc.color as teacher_color,
                  pkg.name as tuition_package_name, pkg.amount as tuition_package_amount
           FROM students s
@@ -60,11 +68,14 @@ export async function POST(req: Request) {
           LEFT JOIN level_surcharges l ON s.level_id = l.id
           LEFT JOIN teachers tc ON s.teacher_id = tc.id
           LEFT JOIN tuition_packages pkg ON s.tuition_package_id = pkg.id
-          WHERE (replace(replace(replace(s.phone, ' ', ''), '.', ''), '-', '') LIKE ? AND ? != '')
-             OR UPPER(s.student_code) = UPPER(?)
+          WHERE ((replace(replace(replace(s.phone, ' ', ''), '.', ''), '-', '') LIKE ? AND ? != '')
+             OR UPPER(s.student_code) = UPPER(?))
+             ${domainSchoolId ? "AND (s.school_id = ? OR s.school_id = 'school-default')" : ""}
           ORDER BY s.created_at DESC
         `;
-        args = [`%${cleanPhone}%`, cleanPhone, inputIdentifier];
+        args = domainSchoolId
+          ? [`%${cleanPhone}%`, cleanPhone, inputIdentifier, domainSchoolId]
+          : [`%${cleanPhone}%`, cleanPhone, inputIdentifier];
       }
 
       // Find students matching this phone or student_code
@@ -195,6 +206,7 @@ export async function POST(req: Request) {
           packageName: st.tuition_package_name ? String(st.tuition_package_name) : null,
           baseTuition,
           levelSurcharge: Number(st.level_surcharge || 0),
+          levelSurchargeType: (st.level_surcharge_type as "fixed" | "percent") || "fixed",
           levelName: st.level_name ? String(st.level_name) : null,
           isDiscountEnabled: Number(st.is_discount_enabled || 0),
           discountPercent: Number(st.discount_percent || 0),

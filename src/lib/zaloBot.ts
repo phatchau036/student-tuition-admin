@@ -14,13 +14,31 @@ export type ZaloAdminNotificationEvent =
  */
 export async function notifyAdminViaZaloBot(
   text: string,
-  eventType?: ZaloAdminNotificationEvent
+  eventType?: ZaloAdminNotificationEvent,
+  schoolId?: string
 ): Promise<boolean> {
   try {
     await initDb();
     const db = getDb();
 
-    // 1. Lấy token bot, admin chat ID và cấu hình bật/tắt từng loại thông báo
+    // 1. Kiểm tra cấu hình bot riêng biệt của cơ sở (Multi-Tenant School Bot)
+    let botToken = "";
+    let adminChatId = "";
+
+    if (schoolId && schoolId !== "school-default") {
+      try {
+        const schoolRes = await db.execute({
+          sql: "SELECT zalo_bot_token, zalo_admin_chat_id FROM schools WHERE id = ? LIMIT 1",
+          args: [schoolId],
+        });
+        if (schoolRes.rows.length > 0) {
+          botToken = String(schoolRes.rows[0].zalo_bot_token || "").trim();
+          adminChatId = String(schoolRes.rows[0].zalo_admin_chat_id || "").trim();
+        }
+      } catch {}
+    }
+
+    // 2. Lấy cấu hình toàn cục từ settings nếu trường chưa có cấu hình riêng
     const settingsRes = await db.execute(`
       SELECT key, value FROM settings 
       WHERE key IN (
@@ -33,8 +51,6 @@ export async function notifyAdminViaZaloBot(
       )
     `);
 
-    let botToken = "";
-    let adminChatId = "";
     let notifyPayment = true;
     let notifyStudentAbsence = true;
     let notifyTeacherLeave = true;
@@ -43,8 +59,8 @@ export async function notifyAdminViaZaloBot(
     for (const r of settingsRes.rows) {
       const k = String(r.key);
       const val = String(r.value ?? "").trim();
-      if (k === "zalo_bot_token") botToken = val;
-      if (k === "zalo_admin_chat_id") adminChatId = val;
+      if (!botToken && k === "zalo_bot_token") botToken = val;
+      if (!adminChatId && k === "zalo_admin_chat_id") adminChatId = val;
       if (k === "zalo_notify_payment" && val === "0") notifyPayment = false;
       if (k === "zalo_notify_student_absence" && val === "0") notifyStudentAbsence = false;
       if (k === "zalo_notify_teacher_leave" && val === "0") notifyTeacherLeave = false;

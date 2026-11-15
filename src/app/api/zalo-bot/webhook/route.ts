@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
 import { askAiAssistant } from "@/lib/aiBrain";
+import { resolveSchoolIdByHost } from "@/lib/authHelper";
 
 const ZALO_BOT_BASE_URL = "https://bot-api.zapps.me";
 
@@ -10,20 +11,51 @@ export async function POST(req: Request) {
     await initDb();
     const db = getDb();
 
-    // 1. Lấy token bot và admin chat ID từ settings
-    const settingsRes = await db.execute(`
-      SELECT key, value FROM settings 
-      WHERE key IN ('zalo_bot_token', 'zalo_admin_chat_id', 'zalo_bot_name')
-    `);
+    // 1. Xác định school_id: từ query params (?school_id=...), từ host/domain, hoặc fallback
+    const url = new URL(req.url);
+    const querySchoolId = url.searchParams.get("school_id")?.trim();
+    const forwardedHost = req.headers.get("x-forwarded-host");
+    const rawHost = forwardedHost || req.headers.get("host") || "";
+    const domainSchoolId = await resolveSchoolIdByHost(rawHost);
 
+    let targetSchoolId = querySchoolId || domainSchoolId || "";
+
+    // 2. Lấy cấu hình Bot riêng biệt của trường (nếu có)
     let botToken = "";
     let adminChatId = "";
     let botName = "Zalo Bot";
 
-    for (const r of settingsRes.rows) {
-      if (r.key === "zalo_bot_token") botToken = String(r.value || "").trim();
-      if (r.key === "zalo_admin_chat_id") adminChatId = String(r.value || "").trim();
-      if (r.key === "zalo_bot_name") botName = String(r.value || "").trim();
+    if (targetSchoolId) {
+      try {
+        const scRes = await db.execute({
+          sql: "SELECT id, name, zalo_bot_token, zalo_bot_name, zalo_admin_chat_id FROM schools WHERE id = ? LIMIT 1",
+          args: [targetSchoolId],
+        });
+        if (scRes.rows.length > 0) {
+          const sc = scRes.rows[0];
+          if (sc.zalo_bot_token) botToken = String(sc.zalo_bot_token).trim();
+          if (sc.zalo_admin_chat_id) adminChatId = String(sc.zalo_admin_chat_id).trim();
+          if (sc.zalo_bot_name || sc.name) botName = String(sc.zalo_bot_name || sc.name).trim();
+        }
+      } catch {}
+    }
+
+    // 3. Fallback lấy token bot từ bảng settings toàn cục nếu trường chưa có riêng
+    if (!botToken) {
+      const settingsRes = await db.execute(`
+        SELECT key, value FROM settings 
+        WHERE key IN ('zalo_bot_token', 'zalo_admin_chat_id', 'zalo_bot_name')
+      `);
+
+      for (const r of settingsRes.rows) {
+        if (!botToken && r.key === "zalo_bot_token") botToken = String(r.value || "").trim();
+        if (!adminChatId && r.key === "zalo_admin_chat_id") adminChatId = String(r.value || "").trim();
+        if (r.key === "zalo_bot_name" && r.value) botName = String(r.value || "").trim();
+      }
+    }
+
+    if (!targetSchoolId) {
+      targetSchoolId = "school-default";
     }
 
     if (!botToken) {
@@ -56,7 +88,17 @@ export async function POST(req: Request) {
       message.from?.username ||
       "Người dùng";
 
-    // 2. Kiểm tra xem người gửi có phải là Admin đã kết nối hay không
+    // 4. Lưu vết tin nhắn vào bảng zalo_inbound_messages để người quản lý bấm "Lấy Chat ID" là thấy ngay
+    try {
+      const msgId = `msg-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+      await db.execute({
+        sql: `INSERT INTO zalo_inbound_messages (id, school_id, chat_id, from_name, message_text)
+              VALUES (?, ?, ?, ?, ?)`,
+        args: [msgId, targetSchoolId, chatId, senderName, userText.slice(0, 500)],
+      });
+    } catch {}
+
+    // 5. Kiểm tra xem người gửi có phải là Admin đã kết nối hay không
     const isAdmin = adminChatId && chatId === adminChatId;
 
     if (isAdmin) {
@@ -64,7 +106,7 @@ export async function POST(req: Request) {
       // Chuyển cho AI phân tích dữ liệu cơ sở & cẩm nang tính năng web
       const aiReply = await askAiAssistant({
         userMessage: userText,
-        schoolId: "school-default",
+        schoolId: targetSchoolId,
         senderName,
         isZalo: true,
       });
@@ -83,11 +125,12 @@ export async function POST(req: Request) {
       return NextResponse.json({
         success: true,
         handled: "admin_ai_assistant",
+        school_id: targetSchoolId,
         query: userText,
       });
     }
 
-    // 3. Nếu không phải Admin (phụ huynh nhắn tin chào Bot)
+    // 6. Nếu không phải Admin (phụ huynh nhắn tin chào Bot)
     if (userText.toLowerCase().includes("hi") || userText.toLowerCase().includes("chào") || userText.startsWith("/")) {
       const welcomeMsg = `Xin chào ${senderName}!
 Em là ${botName} - Trợ lý tự động của trung tâm.
@@ -105,7 +148,7 @@ Chat ID của bạn là: ${chatId}
       });
     }
 
-    return NextResponse.json({ success: true, handled: "guest_welcome" });
+    return NextResponse.json({ success: true, handled: "guest_welcome", school_id: targetSchoolId });
   } catch (error: any) {
     console.error("Zalo Bot Webhook error:", error);
     return NextResponse.json(

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
+import { resolveSchoolIdByHost } from "@/lib/authHelper";
 
 // API Đăng nhập cho Quản trị viên của từng trường học
 export async function POST(req: Request) {
@@ -55,6 +56,21 @@ export async function POST(req: Request) {
     }
 
     const admin = adminRes.rows[0];
+
+    // Kiểm tra cô lập tên miền (Domain Isolation):
+    // Nếu truy cập từ tên miền riêng / subdomain của cơ sở A, tài khoản admin cơ sở B sẽ bị chặn đăng nhập
+    const rawHost = req.headers.get("x-forwarded-host") || req.headers.get("host") || "";
+    const domainSchoolId = await resolveSchoolIdByHost(rawHost);
+
+    if (domainSchoolId && String(admin.school_id) !== String(domainSchoolId)) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: `Tài khoản này thuộc cơ sở "${admin.school_name}", không thể đăng nhập trên tên miền của cơ sở này! Vui lòng truy cập đúng địa chỉ web của cơ sở bạn.`,
+        },
+        { status: 403 }
+      );
+    }
 
     // Kiểm tra tài khoản có bị khóa không
     if (admin.is_active !== undefined && admin.is_active !== null && Number(admin.is_active) === 0) {
@@ -170,6 +186,18 @@ export async function GET(req: Request) {
     }
 
     const admin = adminRes.rows[0];
+
+    // Kiểm tra cô lập tên miền (Domain Isolation) trong phiên làm việc
+    const rawHost = req.headers.get("x-forwarded-host") || req.headers.get("host") || "";
+    const domainSchoolId = await resolveSchoolIdByHost(rawHost);
+
+    if (domainSchoolId && String(admin.school_id) !== String(domainSchoolId)) {
+      return NextResponse.json({
+        success: false,
+        authenticated: false,
+        message: "Phiên làm việc không thuộc tên miền cơ sở này!",
+      }, { status: 403 });
+    }
 
     // Chặn nếu tài khoản bị khóa trong thời gian phiên làm việc
     if (admin.is_active !== undefined && admin.is_active !== null && Number(admin.is_active) === 0) {

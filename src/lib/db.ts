@@ -37,6 +37,11 @@ export async function initDb() {
       branch_num TEXT DEFAULT '1',
       address TEXT,
       phone TEXT,
+      domain TEXT DEFAULT '',
+      subdomain TEXT DEFAULT '',
+      zalo_bot_token TEXT DEFAULT '',
+      zalo_bot_name TEXT DEFAULT '',
+      zalo_admin_chat_id TEXT DEFAULT '',
       ip_restriction_enabled INTEGER DEFAULT 0,
       allowed_ips TEXT DEFAULT '',
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -55,6 +60,21 @@ export async function initDb() {
   } catch {}
   try {
     await db.execute("ALTER TABLE schools ADD COLUMN branch_num TEXT DEFAULT '1'");
+  } catch {}
+  try {
+    await db.execute("ALTER TABLE schools ADD COLUMN domain TEXT DEFAULT ''");
+  } catch {}
+  try {
+    await db.execute("ALTER TABLE schools ADD COLUMN subdomain TEXT DEFAULT ''");
+  } catch {}
+  try {
+    await db.execute("ALTER TABLE schools ADD COLUMN zalo_bot_token TEXT DEFAULT ''");
+  } catch {}
+  try {
+    await db.execute("ALTER TABLE schools ADD COLUMN zalo_bot_name TEXT DEFAULT ''");
+  } catch {}
+  try {
+    await db.execute("ALTER TABLE schools ADD COLUMN zalo_admin_chat_id TEXT DEFAULT ''");
   } catch {}
 
   // 0.1 School Admins Table (Tài khoản admin cho từng trường)
@@ -239,9 +259,14 @@ export async function initDb() {
       school_id TEXT DEFAULT 'school-default',
       level_name TEXT NOT NULL,
       surcharge_amount INTEGER NOT NULL DEFAULT 0,
+      surcharge_type TEXT DEFAULT 'fixed',
       sort_order INTEGER NOT NULL DEFAULT 0
     );
   `);
+
+  try {
+    await db.execute("ALTER TABLE level_surcharges ADD COLUMN surcharge_type TEXT DEFAULT 'fixed'");
+  } catch {}
 
   // 4.1 Subjects Table (Danh mục Bộ Môn / Chương Trình Học động)
   await db.execute(`
@@ -377,6 +402,7 @@ export async function initDb() {
   await db.execute(`
     CREATE TABLE IF NOT EXISTS sepay_transactions (
       id TEXT PRIMARY KEY,
+      school_id TEXT DEFAULT NULL,
       gateway TEXT,
       transaction_date TEXT,
       account_number TEXT,
@@ -676,6 +702,27 @@ export async function initDb() {
   try { await db.execute("ALTER TABLE system_feedbacks ADD COLUMN assigned_at DATETIME DEFAULT NULL"); } catch {}
   try { await db.execute("ALTER TABLE system_feedbacks ADD COLUMN completed_at DATETIME DEFAULT NULL"); } catch {}
   try { await db.execute("ALTER TABLE system_feedbacks ADD COLUMN completed_by TEXT DEFAULT NULL"); } catch {}
+  try { await db.execute("ALTER TABLE sepay_transactions ADD COLUMN school_id TEXT DEFAULT NULL"); } catch {}
+  try {
+    await db.execute(`
+      UPDATE sepay_transactions
+      SET school_id = (SELECT s.school_id FROM students s WHERE s.id = sepay_transactions.student_id)
+      WHERE (school_id IS NULL OR school_id = '')
+        AND student_id IN (SELECT id FROM students)
+    `);
+  } catch {}
+
+  // 17. Zalo Inbound Messages Table (Lưu tin nhắn người dùng gửi tới Bot để lấy Chat ID tức thì theo từng cơ sở)
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS zalo_inbound_messages (
+      id TEXT PRIMARY KEY,
+      school_id TEXT DEFAULT 'school-default',
+      chat_id TEXT NOT NULL,
+      from_name TEXT NOT NULL,
+      message_text TEXT DEFAULT '',
+      received_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
 
   // Defaults for settings
   const defaults: [string, string][] = [

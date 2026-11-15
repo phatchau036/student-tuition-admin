@@ -59,6 +59,14 @@ Hệ thống áp dụng cơ chế xác thực riêng biệt cho từng phân h�
   - Kiểm tra bảng `students`. Nếu có nhiều học sinh trùng SĐT (anh em ruột cùng học trung tâm), hệ thống trả về danh sách các con để phụ huynh chọn hồ sơ cần tra cứu.
   - Phiên làm việc được ghi nhớ tại `localStorage` phía client để không phải nhập lại mỗi lần truy cập.
 
+### 2.5. Cơ Chế Cô Lập Tên Miền Đa Cơ Sở (Multi-Tenant Domain Isolation)
+- **Bảo vệ độc quyền thương hiệu theo Host:**
+  - Hàm `resolveSchoolIdByHost(host)` tự động giải mã domain riêng hoặc subdomain từ Request headers (`host`, `x-forwarded-host`).
+  - **Khóa chặt đăng nhập Admin (`/api/admin/auth`):** Nếu một quản trị viên của Cơ sở B mở tên miền của Cơ sở A để đăng nhập, hệ thống sẽ từ chối truy cập (403 Forbidden) kèm thông báo rõ ràng: *"Tài khoản này thuộc cơ sở B, không thể đăng nhập trên tên miền của cơ sở này"*.
+  - **Khóa chặt Cổng Phụ huynh (`/api/parent`):** Khi phụ huynh mở tên miền riêng của Cơ sở A, câu lệnh truy vấn tự động bổ sung điều kiện `WHERE s.school_id = domainSchoolId`. Số điện thoại của học sinh thuộc cơ sở khác sẽ không hiển thị.
+  - **Khóa chặt Cổng Giáo viên (`/api/teacher`):** Khi giáo viên đăng nhập trên tên miền riêng của Cơ sở A, chỉ giáo viên thuộc biên chế của Cơ sở A mới có thể vào ca dạy.
+  - **Cổng máy chủ tổng (`localhost` hoặc tên miền chính hệ thống):** Cho phép toàn bộ các cơ sở đăng nhập và quản lý bình thường.
+
 ---
 
 ## 3. PHÒNG CHỐNG CÁC LỖ HỔNG BẢO MẬT PHỔ BIẾN
@@ -91,3 +99,4 @@ Hệ thống áp dụng cơ chế xác thực riêng biệt cho từng phân h�
 | 2026-11-08 | `security-auditor` / Main | Triển khai Hệ thống Phân quyền theo vai trò (RBAC) cho `/admin` | Hoàn thành - Tạo `admin_roles`, mở rộng `school_admins` (role_id, phone, is_active, is_owner), modal quản lý nhân viên và kiểm soát ẩn/hiện chức năng theo quyền |
 | 2026-11-11 | `security-auditor` / Main | Khắc phục triệt để lỗi leo thang đặc quyền nhân viên (RBAC Enforcement) | Hoàn thành - Khắc phục fallback wildcard `!admin.role_id`, bảo vệ API `/api/admin/staff` và `/api/admin/roles` bằng `staff.manage`, khóa tab 2 & 3 trong `StaffManagementModal`, che số liệu học phí/doanh thu trong `StudentDetailModal`, `StudentFormModal` và `Dashboard`, đồng thời khởi tạo sẵn 3 vai trò chuẩn (Lễ tân, Kế toán, Giáo vụ) |
 | 2026-11-13 | `security-auditor` / Main | Kiểm toán lại rò rỉ doanh thu/học phí sau khi đổi phân quyền | Hoàn thành - `GET /api/students` bắt buộc đăng nhập + `students.view`, server tự zero toàn bộ trường tài chính nếu thiếu `tuition.view` và chỉ trả `period_revenue` khi có `revenue.reports`; `/api/payments` yêu cầu `tuition.view` (GET) / `tuition.audit` (POST); `/api/tuition-override` yêu cầu `tuition.override`; `/api/admin/tuition-reminders` kiểm tra `tuition.view/remind`; `/api/ai/chat` bắt buộc auth và không đưa doanh thu/công nợ vào prompt nếu thiếu quyền; Dashboard tự refresh quyền mỗi 30s và khi focus tab; ẩn toàn bộ cột học phí/đối soát/bộ lọc thanh toán + badge thanh toán trên Sơ đồ lớp khi thiếu `tuition.view`; thẻ Dự thu/Đã thu chỉ hiện khi có `revenue.reports`. Bổ sung: `GET /api/settings` bắt buộc đăng nhập, ẩn token/API key trừ khi có `settings.manage`, ẩn giá gói/phụ thu level nếu thiếu `tuition.view`/`settings.manage`; `POST /api/settings` chỉ cho đổi ngôn ngữ với nhân viên thường; `GET /api/teacher` tự loại bỏ `level_surcharge`, chiết khấu và `tuition_package_id` khỏi Cổng Giáo Viên; `/api/students/status`, `/api/students/import`, `/api/students/bulk-action` kiểm tra đúng quyền `students.status/excel/delete` |
+| 2026-11-15 | `security-auditor` / Main | Kiểm toán & Kích hoạt cơ chế Cô Lập Tên Miền Đa Cơ Sở (Multi-Tenant Domain Isolation) | Đạt 100% - Khóa chặt đăng nhập Admin, Cổng Phụ Huynh và Cổng Giáo Viên theo tên miền truy cập, ngăn ngừa hoàn toàn việc đăng nhập chéo hoặc lộ thông tin học sinh giữa các trung tâm |

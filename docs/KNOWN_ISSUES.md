@@ -33,6 +33,17 @@
   2. Bổ sung `schoolId` prop, gửi đầy đủ token và headers.
   3. API hỗ trợ fallback `WHERE school_id = ? OR school_id = 'school-default'`, cùng cơ chế retry an toàn khi chèn dữ liệu.
 
+### KI-006: Zalo Bot Lấy Chat ID Báo Lỗi Object is not iterable / Timeout 408 (ĐÃ KHẮC PHỤC)
+- **Mô tả:** Khi bấm "Lấy Chat ID gần đây" trong Cài Đặt > Nhắc Zalo Bot, hệ thống báo lỗi `Lỗi kết nối tới Zalo Bot getUpdates: object is not iterable (cannot read property Symbol(Symbol.iterator))`.
+- **Nguyên nhân:**
+  1. API Zalo Bot Platform (`bot-api.zapps.me`) trả về mã HTTP 200 kèm `{ ok: false, description: "Request timeout", error_code: 408 }` khi chưa có tin nhắn nào trong hộp thư bot (long-polling timeout).
+  2. Vòng lặp `for (const update of data.result || [])` trước đó cố duyệt qua `data.result` (khi `data.ok === false` thì `data.result` là undefined hoặc object), dẫn đến runtime exception của JS.
+  3. Người dùng chưa biết chính xác username/account_name của bot để tìm kiếm và gửi tin nhắn trong ứng dụng Zalo.
+- **Cách khắc phục:**
+  1. Sử dụng kiểm tra an toàn `Array.isArray(data.result) ? data.result : []`.
+  2. Bắt mã 408 Request timeout và trả về thông báo thân thiện `Chưa có tin nhắn mới nào gửi tới Bot. Vui lòng mở Zalo nhắn cho Bot trước`.
+  3. Tích hợp lấy `account_name` từ `getMe` và cung cấp đường link trực tiếp `zalo.me/{account_name}` ngay trên giao diện để người dùng click là mở chat với Bot.
+
 ---
 
 ## 2. NỢ KỸ THUẬT CẦN TỐI ƯU TRONG TƯƠNG LAI (TECHNICAL DEBT)
@@ -50,3 +61,4 @@
 | KI-003 | SQLite Busy lock khi ghi đồng thời | Đã có cơ chế retry của LibSQL | 2026-10-29 |
 | KI-004 | Mất giờ học sinh trong Drawer và khi thêm mới | Đã xử lý triệt để (Fixed) | 2026-10-29 |
 | KI-005 | Không thêm được giáo viên và danh sách hiển thị 0 | Đã xử lý triệt để (Fixed) | 2026-10-29 |
+| KI-006 | Zalo Bot getUpdates object is not iterable & timeout 408 | Đã xử lý triệt để (Fixed) | 2026-11-14 |

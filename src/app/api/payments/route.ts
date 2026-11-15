@@ -121,6 +121,7 @@ export async function POST(req: Request) {
         const stRes = await db.execute({
           sql: `SELECT s.tuition_package_id, s.is_discount_enabled, s.discount_percent, 
                        l.surcharge_amount as level_surcharge,
+                       l.surcharge_type as level_surcharge_type,
                        p.name as package_name, p.amount as package_amount, p.cycle_unit, p.cycle_value 
                 FROM students s 
                 LEFT JOIN tuition_packages p ON s.tuition_package_id = p.id 
@@ -136,6 +137,7 @@ export async function POST(req: Request) {
             packageAmount: Number(stPkg.package_amount || 0),
             packageName: String(stPkg.package_name || "Gói học phí"),
             levelSurcharge: Number(stPkg.level_surcharge || 0),
+            levelSurchargeType: (stPkg.level_surcharge_type as "fixed" | "percent") || "fixed",
             isDiscountEnabled: Number(stPkg.is_discount_enabled || 0),
             discountPercent: Number(stPkg.discount_percent || 0),
           });

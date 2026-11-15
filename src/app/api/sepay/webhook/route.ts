@@ -14,15 +14,11 @@ export async function POST(req: Request) {
     const authHeader = req.headers.get("authorization") || req.headers.get("Authorization") || "";
     
     // Lấy cấu hình SePay từ database
-    const settingsRes = await db.execute("SELECT key, value FROM settings WHERE key IN ('sepay_api_key', 'sepay_prefix', 'reconciliation_mode')");
+    const settingsRes = await db.execute("SELECT key, value FROM settings WHERE key IN ('sepay_api_key')");
     let configuredApiKey = "";
-    let sepayPrefix = "HP";
-    let reconciliationMode = "auto";
 
     for (const row of settingsRes.rows) {
       if (row.key === "sepay_api_key") configuredApiKey = String(row.value || "").trim();
-      if (row.key === "sepay_prefix") sepayPrefix = String(row.value || "HP").trim().toUpperCase();
-      if (row.key === "reconciliation_mode") reconciliationMode = String(row.value || "auto");
     }
 
     // Nếu hệ thống đã set API Key, kiểm tra khớp header
@@ -90,7 +86,7 @@ export async function POST(req: Request) {
       LEFT JOIN tuition_packages p ON s.tuition_package_id = p.id
     `);
 
-    let matchedStudent: any = null;
+    let matchedStudent: Record<string, unknown> | null = null;
     let matchedPeriod: string = new Date().toISOString().slice(0, 7); // Mặc định tháng hiện tại YYYY-MM
 
     // Trích xuất tháng từ nội dung nếu có (VD: T10, T10/2026, 10/2026, THANG10)
@@ -138,20 +134,23 @@ export async function POST(req: Request) {
 
     // 3. Ghi nhận giao dịch SePay vào bảng sepay_transactions
     const txStatus = matchedStudent ? "matched" : "unmatched";
+    const matchedSchoolId = matchedStudent?.school_id ? String(matchedStudent.school_id) : null;
     await db.execute({
       sql: `INSERT INTO sepay_transactions (
-              id, gateway, transaction_date, account_number, sub_account, code,
+              id, school_id, gateway, transaction_date, account_number, sub_account, code,
               content, transfer_type, transfer_amount, reference_code,
               student_id, student_name, matched_period, status, raw_payload
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
+              school_id = COALESCE(excluded.school_id, sepay_transactions.school_id),
               status = excluded.status,
               student_id = excluded.student_id,
               student_name = excluded.student_name,
               matched_period = excluded.matched_period`,
       args: [
         txIdStr,
+        matchedSchoolId,
         gateway || "Ngân hàng",
         transactionDate || new Date().toISOString().slice(0, 19).replace("T", " "),
         accountNumber || "",
@@ -172,8 +171,9 @@ export async function POST(req: Request) {
     // 4. Nếu tìm thấy học sinh, tự động tạo thanh toán và đánh dấu ĐÃ ĐÓNG (Paid)
     if (matchedStudent) {
       let cycleMonths = 1;
-      let packageName = matchedStudent.package_name || "Gói chuẩn cơ sở";
-      let targetPackageId = matchedStudent.tuition_package_id || null;
+      const packageName = matchedStudent.package_name ? String(matchedStudent.package_name) : "Gói chuẩn cơ sở";
+      const targetPackageId = matchedStudent.tuition_package_id ? String(matchedStudent.tuition_package_id) : null;
+      const matchedStudentId = String(matchedStudent.id);
 
       if (matchedStudent.cycle_unit === "week") {
         cycleMonths = Math.max(1, Math.round(Number(matchedStudent.cycle_value || 4) / 4));
@@ -189,7 +189,7 @@ export async function POST(req: Request) {
       // Xóa thanh toán cũ cùng kỳ nếu có để cập nhật
       await db.execute({
         sql: "DELETE FROM student_payments WHERE student_id = ? AND start_period = ?",
-        args: [matchedStudent.id, startPeriod],
+        args: [matchedStudentId, startPeriod],
       });
 
       // Tạo bản ghi thanh toán hoàn tất
@@ -200,7 +200,7 @@ export async function POST(req: Request) {
               VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'paid', ?)`,
         args: [
           paymentId,
-          matchedStudent.id,
+          matchedStudentId,
           targetPackageId,
           packageName,
           Number(transferAmount),
@@ -212,7 +212,7 @@ export async function POST(req: Request) {
       });
 
       // ⭐ VÍ GIỜ HỌC: Cấp giờ vào ví cho toàn bộ chu kỳ đã thanh toán (idempotent, không chặn webhook)
-      await grantHoursForPeriodUtil(matchedStudent.id, startPeriod, endPeriod);
+      await grantHoursForPeriodUtil(matchedStudentId, startPeriod, endPeriod);
 
       // 🔔 Bắn thông báo tức thì về Zalo của Admin qua Zalo Bot
       const formattedAmount = Number(transferAmount).toLocaleString("vi-VN");

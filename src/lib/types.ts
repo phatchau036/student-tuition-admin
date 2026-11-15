@@ -10,6 +10,8 @@ export interface School {
   branch_num?: number | string; // Chi nhánh số mấy (VD: 1, 2)
   address?: string;
   phone?: string;
+  domain?: string; // Tên miền riêng (Custom Domain, VD: "edu.trungtamhongan.vn")
+  subdomain?: string; // Tên miền con hệ thống (Subdomain, VD: "hongan" -> "hongan.tenmienban.com")
   ip_restriction_enabled?: number; // 0: không giới hạn, 1: chỉ cho phép vào từ IP quy định
   allowed_ips?: string; // Danh sách IP cho phép, phân tách bằng dấu phẩy
   created_at?: string;
@@ -149,7 +151,8 @@ export interface LevelSurcharge {
   id: string;
   school_id?: string;
   level_name: string;
-  surcharge_amount: number; // VNĐ
+  surcharge_amount: number; // Số tiền VNĐ HOẶC Phần trăm (%)
+  surcharge_type?: "fixed" | "percent"; // 'fixed' = cố định VNĐ, 'percent' = phần trăm %
   sort_order: number;
 }
 

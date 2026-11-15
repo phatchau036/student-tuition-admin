@@ -13,6 +13,59 @@ export interface RequestAdminContext {
   permissions: string[];
 }
 
+// In-memory cache map domain/subdomain -> school_id để xử lý siêu tốc mọi request
+let domainCache: Map<string, { school_id: string; expires_at: number }> = new Map();
+
+export async function resolveSchoolIdByHost(host: string | null): Promise<string | null> {
+  if (!host) return null;
+  const cleanHost = host.split(":")[0].toLowerCase().trim();
+  if (!cleanHost || cleanHost === "localhost" || cleanHost === "127.0.0.1" || cleanHost === "::1") {
+    return null;
+  }
+
+  const now = Date.now();
+  const cached = domainCache.get(cleanHost);
+  if (cached && cached.expires_at > now) {
+    return cached.school_id;
+  }
+
+  try {
+    await initDb();
+    const db = getDb();
+
+    // 1. Kiểm tra khớp chính xác custom domain (VD: edu.trungtamhongan.vn)
+    const domainRes = await db.execute({
+      sql: "SELECT id FROM schools WHERE LOWER(domain) = ? LIMIT 1",
+      args: [cleanHost],
+    });
+    if (domainRes.rows.length > 0 && domainRes.rows[0].id) {
+      const sId = String(domainRes.rows[0].id);
+      domainCache.set(cleanHost, { school_id: sId, expires_at: now + 60000 });
+      return sId;
+    }
+
+    // 2. Kiểm tra subdomain (VD: hongan.phanmem.vn -> subdomain là "hongan")
+    const subPart = cleanHost.split(".")[0];
+    if (subPart && subPart !== "www") {
+      const subRes = await db.execute({
+        sql: "SELECT id FROM schools WHERE LOWER(subdomain) = ? LIMIT 1",
+        args: [subPart],
+      });
+      if (subRes.rows.length > 0 && subRes.rows[0].id) {
+        const sId = String(subRes.rows[0].id);
+        domainCache.set(cleanHost, { school_id: sId, expires_at: now + 60000 });
+        return sId;
+      }
+    }
+  } catch {}
+
+  return null;
+}
+
+export function clearDomainCache() {
+  domainCache.clear();
+}
+
 export function getSchoolIdFromRequest(req: Request): string {
   try {
     const authHeader = req.headers.get("authorization");

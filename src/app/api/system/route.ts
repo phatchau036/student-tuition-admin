@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
+import { clearDomainCache } from "@/lib/authHelper";
 
 // API quản trị hệ thống: Quản lý các trường & Tài khoản Admin của từng trường
 export async function GET(req: Request) {
@@ -67,7 +68,7 @@ export async function POST(req: Request) {
 
     // 1. Tạo trường học mới
     if (action === "create_school") {
-      const { name, code, school_type, street, city, branch_num, address, phone } = body;
+      const { name, code, school_type, street, city, branch_num, address, phone, domain, subdomain } = body;
       if (!name || !code) {
         return NextResponse.json(
           { success: false, message: "Vui lòng nhập tên và mã trường!" },
@@ -89,8 +90,8 @@ export async function POST(req: Request) {
 
       const id = `school-${Date.now()}`;
       await db.execute({
-        sql: `INSERT INTO schools (id, name, code, school_type, street, city, branch_num, address, phone) 
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        sql: `INSERT INTO schools (id, name, code, school_type, street, city, branch_num, address, phone, domain, subdomain) 
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         args: [
           id,
           name.trim(),
@@ -101,6 +102,8 @@ export async function POST(req: Request) {
           String(branch_num || "1"),
           address?.trim() || "",
           phone?.trim() || "",
+          domain ? domain.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/\/.*$/, "") : "",
+          subdomain ? subdomain.trim().toLowerCase().replace(/[^a-z0-9-]/g, "") : "",
         ],
       });
 
@@ -211,7 +214,7 @@ export async function POST(req: Request) {
 
     // 3. Đổi tên & cập nhật thông tin trường
     if (action === "edit_school") {
-      const { school_id, name, code, school_type, street, city, branch_num, address, phone } = body;
+      const { school_id, name, code, school_type, street, city, branch_num, address, phone, domain, subdomain } = body;
       if (!school_id || !name || !code) {
         return NextResponse.json(
           { success: false, message: "Vui lòng nhập đầy đủ tên và mã trường!" },
@@ -231,9 +234,12 @@ export async function POST(req: Request) {
         );
       }
 
+      const cleanDomain = domain ? domain.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/\/.*$/, "") : "";
+      const cleanSubdomain = subdomain ? subdomain.trim().toLowerCase().replace(/[^a-z0-9-]/g, "") : "";
+
       await db.execute({
         sql: `UPDATE schools 
-              SET name = ?, code = ?, school_type = ?, street = ?, city = ?, branch_num = ?, address = ?, phone = ? 
+              SET name = ?, code = ?, school_type = ?, street = ?, city = ?, branch_num = ?, address = ?, phone = ?, domain = ?, subdomain = ? 
               WHERE id = ?`,
         args: [
           name.trim(),
@@ -244,10 +250,13 @@ export async function POST(req: Request) {
           String(branch_num || "1"),
           address?.trim() || "",
           phone?.trim() || "",
+          cleanDomain,
+          cleanSubdomain,
           school_id,
         ],
       });
 
+      clearDomainCache();
       return NextResponse.json({
         success: true,
         message: "Cập nhật thông tin và đổi tên trường thành công!",
@@ -269,6 +278,7 @@ export async function POST(req: Request) {
       await db.execute({ sql: "DELETE FROM discount_presets WHERE school_id = ?", args: [school_id] });
       await db.execute({ sql: "DELETE FROM schools WHERE id = ?", args: [school_id] });
 
+      clearDomainCache();
       return NextResponse.json({
         success: true,
         message: "Đã xóa trường học và toàn bộ dữ liệu liên quan thành công!",
