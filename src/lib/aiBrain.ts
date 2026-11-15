@@ -1,5 +1,6 @@
 import { getDb, initDb } from "@/lib/db";
 import { formatVND, formatMonthDisplay } from "@/lib/tuition";
+import { AI_ADMIN_TOOLS, executeAiAdminTool } from "@/lib/aiTools";
 
 export interface AiConfig {
   baseUrl: string;
@@ -300,10 +301,17 @@ QUY TẮC PHẢN HỒI QUAN TRỌNG:
      • Thêm học sinh: Trên Dashboard bấm nút "+ Thêm học sinh", chọn lớp, kiểu lịch...
      • Nhắc học phí: Vào Menu Nghiệp vụ > chọn "Hàng Đợi Nhắc Học Phí", bấm "Gửi Zalo" 2 giây.
      • Điểm danh: Vào Menu Nghiệp vụ > chọn "Điểm Danh & Sổ Bài Học".
-4. Văn phong & Định dạng:
+4. KHI NGƯỜI DÙNG RA LỆNH THỰC THI TÁC VỤ (AI AGENT ACTION):
+   - Bạn ĐÃ ĐƯỢC CẤP CÁC CÔNG CỤ (TOOLS) để tự động thao tác vào hệ thống:
+     • Thêm học sinh mới ➔ Gọi tool 'create_student_action'
+     • Điểm danh hoặc báo vắng (có phép/không phép) ➔ Gọi tool 'mark_attendance_action'
+     • Bảo lưu / Nghỉ học / Đi học lại ➔ Gọi tool 'change_student_status_action'
+     • Bắn tin nhắn nhắc nợ Zalo Bot ➔ Gọi tool 'send_tuition_reminder_action'
+   - Khi phát hiện ý định muốn thực hiện hành động, hãy gọi ngay tool tương ứng với các tham số bạn trích xuất được từ câu lệnh. Sau khi tool chạy xong, thông báo ngắn gọn, rõ ràng kết quả lại cho Admin!
+5. Văn phong & Định dạng:
    - Xưng hô "Em" và "Anh/Chị" (hoặc "Thầy/Cô"), lịch sự, chu đáo, súc tích.
    ${isZalo ? "- Vì đang gửi qua Zalo, câu trả lời cần ngắn gọn, dùng gạch đầu dòng rõ ràng." : "- Trình bày đẹp mắt bằng định dạng Markdown, dùng icon sinh động."}
-5. Bảo mật: Tuyệt đối không bịa đặt số liệu không có trong báo cáo, không bao giờ tiết lộ API key hay mật khẩu cơ sở.
+6. Bảo mật: Tuyệt đối không bịa đặt số liệu không có trong báo cáo, không bao giờ tiết lộ API key hay mật khẩu cơ sở.
 `;
 
   const messagesPayload = [
@@ -316,18 +324,23 @@ QUY TẮC PHẢN HỒI QUAN TRỌNG:
     const url = `${config.baseUrl}/chat/completions`;
     const modelToUse = config.model || "gemini-3.8-flash";
 
-    const response = await fetch(url, {
+    // Vòng 1: Gửi prompt kèm tools để AI quyết định trả lời hay thực thi tác vụ
+    const requestBody: any = {
+      model: modelToUse,
+      messages: messagesPayload,
+      temperature: 0.5,
+      max_tokens: 1500,
+      tools: AI_ADMIN_TOOLS,
+      tool_choice: "auto",
+    };
+
+    let response = await fetch(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${config.apiKey}`,
       },
-      body: JSON.stringify({
-        model: modelToUse,
-        messages: messagesPayload,
-        temperature: 0.5,
-        max_tokens: 1500,
-      }),
+      body: JSON.stringify(requestBody),
     });
 
     if (!response.ok) {
@@ -336,8 +349,61 @@ QUY TẮC PHẢN HỒI QUAN TRỌNG:
       return "Tính năng này hiện chưa được hỗ trợ.";
     }
 
-    const data = await response.json();
-    const answer = data.choices?.[0]?.message?.content || "Tính năng này hiện chưa được hỗ trợ.";
+    let data = await response.json();
+    let choiceMessage = data.choices?.[0]?.message;
+
+    // Kiểm tra nếu AI quyết định gọi Tool tác vụ (Function Calling)
+    if (choiceMessage?.tool_calls && Array.isArray(choiceMessage.tool_calls) && choiceMessage.tool_calls.length > 0) {
+      const toolResultsMessages: any[] = [choiceMessage];
+
+      for (const tCall of choiceMessage.tool_calls) {
+        const fnName = tCall.function?.name;
+        let fnArgs: Record<string, any> = {};
+        try {
+          fnArgs = JSON.parse(tCall.function?.arguments || "{}");
+        } catch {}
+
+        console.log(`[AI Agent] Executing action tool: ${fnName}`, fnArgs);
+        const result = await executeAiAdminTool(fnName, fnArgs, schoolId);
+
+        toolResultsMessages.push({
+          role: "tool",
+          tool_call_id: tCall.id,
+          name: fnName,
+          content: JSON.stringify(result),
+        });
+      }
+
+      // Vòng 2: Gửi kết quả thực thi tool trở lại cho AI tóm tắt phản hồi đẹp mắt
+      const secondRoundMessages = [...messagesPayload, ...toolResultsMessages];
+
+      const followUpResponse = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${config.apiKey}`,
+        },
+        body: JSON.stringify({
+          model: modelToUse,
+          messages: secondRoundMessages,
+          temperature: 0.5,
+          max_tokens: 1500,
+        }),
+      });
+
+      if (followUpResponse.ok) {
+        const followUpData = await followUpResponse.json();
+        const followUpAnswer = followUpData.choices?.[0]?.message?.content;
+        if (followUpAnswer) {
+          return followUpAnswer.trim();
+        }
+      }
+
+      // Fallback nếu vòng 2 gặp sự cố
+      return "Em đã thực hiện xong yêu cầu của Anh/Chị rồi ạ!";
+    }
+
+    const answer = choiceMessage?.content || "Tính năng này hiện chưa được hỗ trợ.";
     return answer.trim();
   } catch (error: any) {
     console.error("askAiAssistant error:", error);

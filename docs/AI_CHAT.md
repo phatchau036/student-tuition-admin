@@ -48,3 +48,4 @@
 | 2026-10-29 | Smart Excel Schedule Parser | Đã triển khai và tối ưu (v2.6) | Main Agent |
 | 2026-10-29 | AI Parent Chatbot & RAG Engine | Lập kế hoạch kiến trúc (Roadmap) | Main Agent |
 | 2026-11-14 | Fix Zalo Bot getUpdates & Chat ID Picker | Khắc phục lỗi iterable khi data.result là rỗng/timeout (mã 408), bổ sung bot_info (@account_name) và link mở trực tiếp Zalo Bot trên SettingsModal | Main Agent |
+| 2026-11-15 | ⭐ Nâng cấp Trợ Lý AI Thực Thi Tác Vụ (Action Agent with Tool Calling) Trên Zalo Bot | Hoàn thành: Tích hợp chuẩn OpenAI Function Calling với 4 Tools tự động: (1) Thêm học viên mới (create_student_action), (2) Điểm danh & báo vắng kèm hoàn giờ ví học bù (mark_attendance_action), (3) Đổi trạng thái bảo lưu/nghỉ học/đi học lại (change_student_status_action), (4) Bắn tin nhắn nhắc nợ học phí tự động (send_tuition_reminder_action). Build sạch 100%. | Main Agent |
