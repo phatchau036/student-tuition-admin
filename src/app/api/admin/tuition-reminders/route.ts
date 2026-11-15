@@ -49,7 +49,7 @@ export async function GET(req: Request) {
         SELECT r.*, st.name as student_name, st.phone as student_phone, st.student_code, st.zalo_chat_id
         FROM tuition_reminders r
         LEFT JOIN students st ON r.student_id = st.id
-        WHERE r.month = ? AND (r.school_id = ? OR r.school_id = 'school-default' OR ? = 'school-default')
+        WHERE r.month = ? AND (r.school_id = ? OR (? = 'school-default' AND (r.school_id IS NULL OR r.school_id = '' OR r.school_id = 'school-default')))
         ORDER BY r.reminded_at DESC
       `,
       args: [month, schoolId, schoolId],

@@ -202,7 +202,7 @@ export async function POST(req: Request) {
 
       const id = `admin-${Date.now()}`;
       await db.execute({
-        sql: "INSERT INTO school_admins (id, school_id, username, password, full_name) VALUES (?, ?, ?, ?, ?)",
+        sql: "INSERT INTO school_admins (id, school_id, username, password, full_name, is_owner, is_active) VALUES (?, ?, ?, ?, ?, 1, 1)",
         args: [id, school_id, username.trim().toLowerCase(), password.trim(), full_name.trim()],
       });
 

@@ -22,7 +22,7 @@ export async function GET(req: Request) {
         JOIN teachers tc ON tl.teacher_id = tc.id
         LEFT JOIN teachers sub ON tl.substitute_teacher_id = sub.id
         LEFT JOIN classes c ON tl.class_id = c.id
-        WHERE tl.school_id = ? OR tl.school_id = 'school-default' OR ? = 'school-default'
+        WHERE tl.school_id = ? OR (? = 'school-default' AND (tl.school_id IS NULL OR tl.school_id = '' OR tl.school_id = 'school-default'))
         ORDER BY tl.leave_date DESC, tl.created_at DESC
       `,
       args: [schoolId, schoolId],

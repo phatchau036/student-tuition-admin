@@ -24,7 +24,7 @@ export async function GET(req: Request) {
                r.name as role_name, r.permissions_json
         FROM school_admins a
         LEFT JOIN admin_roles r ON a.role_id = r.id
-        WHERE a.school_id = ? OR a.school_id = 'school-default' OR ? = 'school-default'
+        WHERE a.school_id = ? OR (? = 'school-default' AND (a.school_id IS NULL OR a.school_id = '' OR a.school_id = 'school-default'))
         ORDER BY a.is_owner DESC, a.created_at ASC
       `,
       args: [schoolId, schoolId],

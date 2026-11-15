@@ -23,7 +23,7 @@ export async function GET(req: Request) {
         JOIN students st ON l.student_id = st.id
         LEFT JOIN classes c ON l.class_id = c.id
         LEFT JOIN teachers tc ON l.teacher_id = tc.id
-        WHERE l.date = ? AND (st.school_id = ? OR st.school_id = 'school-default' OR ? = 'school-default')
+        WHERE l.date = ? AND (st.school_id = ? OR (? = 'school-default' AND (st.school_id IS NULL OR st.school_id = '' OR st.school_id = 'school-default')))
       `,
       args: [date, schoolId, schoolId],
     });

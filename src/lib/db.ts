@@ -76,6 +76,9 @@ export async function initDb() {
   try {
     await db.execute("ALTER TABLE schools ADD COLUMN zalo_admin_chat_id TEXT DEFAULT ''");
   } catch {}
+  try {
+    await db.execute("ALTER TABLE schools ADD COLUMN parent_school_id TEXT DEFAULT NULL");
+  } catch {}
 
   // 0.1 School Admins Table (Tài khoản admin cho từng trường)
   await db.execute(`

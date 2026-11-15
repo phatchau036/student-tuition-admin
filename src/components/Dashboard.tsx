@@ -382,6 +382,7 @@ export default function Dashboard() {
             const bJson = await bRes.json();
             if (bJson.success && Array.isArray(bJson.data) && bJson.data.length > 0) {
               setAvailableSchools(bJson.data);
+              // Chỉ sử dụng lastSchoolId nếu nó nằm trong danh sách chi nhánh được cấp phép của chính tài khoản này
               const lastSchoolId = localStorage.getItem("admin_last_school_id");
               if (lastSchoolId) {
                 const matched = bJson.data.find((s: any) => s.id === lastSchoolId);
@@ -507,21 +508,24 @@ export default function Dashboard() {
           "Authorization": `Bearer ${data.token}`,
         };
 
+        // Khi vừa đăng nhập thành công một tài khoản mới:
+        // Đặt mặc định phiên làm việc đúng cơ sở school_id được cấp của tài khoản đó
+        if (typeof window !== "undefined") {
+          localStorage.setItem("admin_last_school_id", data.admin.school_id);
+        }
+
         try {
           const bRes = await fetch("/api/admin/branches", { headers: loginHeaders });
           const bJson = await bRes.json();
           if (bJson.success && Array.isArray(bJson.data) && bJson.data.length > 0) {
             setAvailableSchools(bJson.data);
-            const lastSchoolId = localStorage.getItem("admin_last_school_id");
-            if (lastSchoolId) {
-              const matched = bJson.data.find((s: any) => s.id === lastSchoolId);
-              if (matched) {
-                schoolObj = {
-                  id: matched.id,
-                  name: matched.name,
-                  code: matched.code,
-                };
-              }
+            const matchedCurrent = bJson.data.find((s: any) => s.id === data.admin.school_id);
+            if (matchedCurrent) {
+              schoolObj = {
+                id: matchedCurrent.id,
+                name: matchedCurrent.name,
+                code: matchedCurrent.code,
+              };
             }
           }
         } catch {}
@@ -574,6 +578,7 @@ export default function Dashboard() {
     } catch {}
 
     localStorage.removeItem("admin_token");
+    localStorage.removeItem("admin_last_school_id");
     if (typeof document !== "undefined") {
       document.cookie = "admin_session_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; max-age=0";
     }

@@ -16,16 +16,30 @@ export async function GET(req: Request) {
       );
     }
 
-    const schoolsRes = await db.execute(`
-      SELECT s.id, s.name, s.code, s.address, s.phone, s.created_at,
-             (SELECT COUNT(*) FROM students st 
-              WHERE (st.school_id = s.id OR (s.id = 'school-default' AND (st.school_id IS NULL OR st.school_id = '' OR st.school_id = 'school-default'))) 
-                AND (st.status = 'studying' OR st.status IS NULL OR st.status = '')) as active_student_count,
-             (SELECT COUNT(*) FROM teachers tc 
-              WHERE tc.school_id = s.id OR (s.id = 'school-default' AND (tc.school_id IS NULL OR tc.school_id = '' OR tc.school_id = 'school-default'))) as teacher_count
-      FROM schools s
-      ORDER BY s.created_at ASC
-    `);
+    // Lấy thông tin cơ sở của admin hiện tại để xác định nhóm chi nhánh thuộc cùng tổ chức
+    const adminSchoolRes = await db.execute({
+      sql: "SELECT id, parent_school_id FROM schools WHERE id = ?",
+      args: [admin.school_id],
+    });
+    const currentSchool = adminSchoolRes.rows[0];
+    const parentId = currentSchool?.parent_school_id ? String(currentSchool.parent_school_id) : null;
+    const rootSchoolId = parentId || String(admin.school_id);
+
+    // Chỉ lấy cơ sở gốc và các chi nhánh trực thuộc cùng tổ chức
+    const schoolsRes = await db.execute({
+      sql: `
+        SELECT s.id, s.name, s.code, s.address, s.phone, s.created_at,
+               (SELECT COUNT(*) FROM students st 
+                WHERE (st.school_id = s.id OR (s.id = 'school-default' AND (st.school_id IS NULL OR st.school_id = '' OR st.school_id = 'school-default'))) 
+                  AND (st.status = 'studying' OR st.status IS NULL OR st.status = '')) as active_student_count,
+               (SELECT COUNT(*) FROM teachers tc 
+                WHERE tc.school_id = s.id OR (s.id = 'school-default' AND (tc.school_id IS NULL OR tc.school_id = '' OR tc.school_id = 'school-default'))) as teacher_count
+        FROM schools s
+        WHERE s.id = ? OR s.parent_school_id = ? OR (s.id = ? AND s.parent_school_id IS NULL)
+        ORDER BY s.created_at ASC
+      `,
+      args: [rootSchoolId, rootSchoolId, admin.school_id],
+    });
 
     const branches = schoolsRes.rows.map((row) => ({
       id: String(row.id),
@@ -114,11 +128,20 @@ export async function POST(req: Request) {
       );
     }
 
+    // Xác định cơ sở gốc (parent_school_id) để gắn kết chi nhánh mới vào đúng cơ sở cha
+    const currentSchoolRes = await db.execute({
+      sql: "SELECT id, parent_school_id FROM schools WHERE id = ?",
+      args: [admin.school_id],
+    });
+    const rootSchoolId = currentSchoolRes.rows[0]?.parent_school_id 
+      ? String(currentSchoolRes.rows[0].parent_school_id) 
+      : String(admin.school_id);
+
     const newSchoolId = `school-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
     await db.execute({
-      sql: `INSERT INTO schools (id, name, code, address, phone)
-            VALUES (?, ?, ?, ?, ?)`,
-      args: [newSchoolId, cleanName, cleanCode, address?.trim() || "", phone?.trim() || ""],
+      sql: `INSERT INTO schools (id, name, code, address, phone, parent_school_id)
+            VALUES (?, ?, ?, ?, ?, ?)`,
+      args: [newSchoolId, cleanName, cleanCode, address?.trim() || "", phone?.trim() || "", rootSchoolId],
     });
 
     // Khởi tạo các vai trò mẫu cho chi nhánh mới

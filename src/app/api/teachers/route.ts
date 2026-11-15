@@ -11,29 +11,18 @@ export async function GET(req: Request) {
     const headerSchoolId = getSchoolIdFromRequest(req);
     const schoolId = querySchoolId || headerSchoolId || "school-default";
 
-    // Tìm giáo viên thuộc cơ sở này, hoặc giáo viên thuộc school-default (fallback an toàn để không bao giờ bị mất giáo viên)
-    let teachersRes = await db.execute({
+    // Tìm giáo viên thuộc đúng cơ sở này (nếu là school-default thì lấy các giáo viên school-default hoặc chưa gán school_id)
+    const teachersRes = await db.execute({
       sql: `
         SELECT t.*, COUNT(s.id) as student_count
         FROM teachers t
         LEFT JOIN students s ON s.teacher_id = t.id
-        WHERE t.school_id = ? OR t.school_id = 'school-default' OR ? = 'school-default'
+        WHERE t.school_id = ? OR (? = 'school-default' AND (t.school_id IS NULL OR t.school_id = '' OR t.school_id = 'school-default'))
         GROUP BY t.id
         ORDER BY t.created_at ASC
       `,
       args: [schoolId, schoolId],
     });
-
-    // Nếu không tìm thấy và schoolId cụ thể khác school-default, query mở rộng
-    if (teachersRes.rows.length === 0) {
-      teachersRes = await db.execute(`
-        SELECT t.*, COUNT(s.id) as student_count
-        FROM teachers t
-        LEFT JOIN students s ON s.teacher_id = t.id
-        GROUP BY t.id
-        ORDER BY t.created_at ASC
-      `);
-    }
 
     const teachers = teachersRes.rows.map((row) => {
       let assignedSlotIds: string[] = [];

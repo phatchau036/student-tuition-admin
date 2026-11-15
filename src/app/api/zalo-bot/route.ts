@@ -92,6 +92,63 @@ export async function POST(req: Request) {
       }
     }
 
+    // 1.1 Action: Đăng ký Webhook tự động (setWebhook)
+    if (action === "set_webhook") {
+      const webhookUrl = body.webhook_url?.trim();
+      if (!webhookUrl) {
+        return NextResponse.json({ success: false, message: "Vui lòng cung cấp URL webhook!" }, { status: 400 });
+      }
+
+      try {
+        const url = `${ZALO_BOT_BASE_URL}/bot${token}/setWebhook`;
+        const res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: webhookUrl }),
+        });
+        const data = await res.json();
+        if (data.ok) {
+          return NextResponse.json({
+            success: true,
+            message: "Đã kích hoạt Webhook Zalo Bot thành công! Mọi tin nhắn sẽ được đồng bộ tức thì.",
+            data: data.result,
+          });
+        } else {
+          return NextResponse.json({
+            success: false,
+            message: `Lỗi từ Zalo Bot Platform: ${data.description || data.error_code || "Không thể cài đặt webhook"}`,
+            data,
+          });
+        }
+      } catch (err: any) {
+        return NextResponse.json({
+          success: false,
+          message: `Lỗi khi gọi API setWebhook: ${err.message}`,
+        });
+      }
+    }
+
+    // 1.2 Action: Kiểm tra trạng thái Webhook (getWebhookInfo)
+    if (action === "get_webhook_info") {
+      try {
+        const url = `${ZALO_BOT_BASE_URL}/bot${token}/getWebhookInfo`;
+        const res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+        });
+        const data = await res.json();
+        return NextResponse.json({
+          success: data.ok,
+          data: data.result,
+        });
+      } catch (err: any) {
+        return NextResponse.json({
+          success: false,
+          message: `Lỗi khi kiểm tra getWebhookInfo: ${err.message}`,
+        });
+      }
+    }
+
     // 2. Action: Send message (sendMessage)
     if (action === "send_message") {
       if (!chat_id || !String(chat_id).trim()) {
@@ -161,7 +218,7 @@ export async function POST(req: Request) {
           const inboundRes = await db.execute({
             sql: `SELECT chat_id, from_name, message_text, unixepoch(received_at) as date 
                   FROM zalo_inbound_messages 
-                  WHERE school_id = ? OR school_id = 'school-default' OR ? = 'school-default'
+                  WHERE school_id = ? OR (? = 'school-default' AND (school_id IS NULL OR school_id = '' OR school_id = 'school-default'))
                   ORDER BY received_at DESC LIMIT 50`,
             args: [currentSchoolId, currentSchoolId],
           });

@@ -22,7 +22,7 @@ export async function GET(req: Request) {
         SELECT r.*, COUNT(a.id) as staff_count
         FROM admin_roles r
         LEFT JOIN school_admins a ON a.role_id = r.id
-        WHERE r.school_id = ? OR r.school_id = 'school-default' OR ? = 'school-default'
+        WHERE r.school_id = ? OR (? = 'school-default' AND (r.school_id IS NULL OR r.school_id = '' OR r.school_id = 'school-default'))
         GROUP BY r.id
         ORDER BY r.created_at ASC
       `,
@@ -53,7 +53,7 @@ export async function GET(req: Request) {
 
     // Đếm số lượng giáo viên trong bảng teachers để hiển thị trong vai trò hệ thống
     const teacherCountRes = await db.execute({
-      sql: "SELECT COUNT(*) as count FROM teachers WHERE school_id = ? OR school_id = 'school-default' OR ? = 'school-default'",
+      sql: "SELECT COUNT(*) as count FROM teachers WHERE school_id = ? OR (? = 'school-default' AND (school_id IS NULL OR school_id = '' OR school_id = 'school-default'))",
       args: [schoolId, schoolId],
     });
     const teacherCount = Number(teacherCountRes.rows[0]?.count || 0);

@@ -24,7 +24,7 @@ export async function GET(req: Request) {
       LEFT JOIN subjects sub ON c.subject_id = sub.id
       LEFT JOIN teachers tc ON c.teacher_id = tc.id
       LEFT JOIN students s ON s.class_id = c.id AND s.status != 'dropped'
-      WHERE c.school_id = ? OR c.school_id = 'school-default' OR ? = 'school-default'
+      WHERE c.school_id = ? OR (? = 'school-default' AND (c.school_id IS NULL OR c.school_id = '' OR c.school_id = 'school-default'))
     `;
     const args: any[] = [schoolId, schoolId];
 

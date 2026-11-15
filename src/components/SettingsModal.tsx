@@ -194,6 +194,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [zaloNotifyTeacherLeave, setZaloNotifyTeacherLeave] = useState<boolean>(initialZaloNotifyTeacherLeave !== 0);
   const [zaloNotifyParentFeedback, setZaloNotifyParentFeedback] = useState<boolean>(initialZaloNotifyParentFeedback !== 0);
   const [isTestingBot, setIsTestingBot] = useState(false);
+  const [isSettingWebhook, setIsSettingWebhook] = useState(false);
+  const [webhookStatus, setWebhookStatus] = useState<string | null>(null);
   const [isFetchingUpdates, setIsFetchingUpdates] = useState(false);
   const [isSendingAdminTest, setIsSendingAdminTest] = useState(false);
   const [recentChatsList, setRecentChatsList] = useState<
@@ -497,6 +499,51 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       showToast("Lỗi kết nối tới máy chủ API!", "error");
     } finally {
       setIsTestingBot(false);
+    }
+  };
+
+  // Helper lấy Webhook URL chính xác cho Zalo Bot Platform
+  const getZaloWebhookUrl = (): string => {
+    const origin = typeof window !== "undefined" ? window.location.origin : "https://your-domain.com";
+    if (schoolId && schoolId !== "school-default") {
+      return `${origin}/api/zalo-bot/webhook?school_id=${encodeURIComponent(schoolId)}`;
+    }
+    return `${origin}/api/zalo-bot/webhook`;
+  };
+
+  // Kích hoạt Webhook tự động qua API Zalo Bot setWebhook
+  const handleAutoSetWebhook = async () => {
+    if (!zaloBotToken.trim()) {
+      showToast("Vui lòng nhập Zalo Bot Token trước!", "error");
+      return;
+    }
+    const webhookUrl = getZaloWebhookUrl();
+    if (webhookUrl.includes("localhost") || webhookUrl.includes("127.0.0.1")) {
+      showToast("Webhook Zalo yêu cầu domain công khai HTTPS (không nhận localhost). Bạn có thể dùng Cloudflare Tunnel hoặc VPS!", "info");
+    }
+
+    try {
+      setIsSettingWebhook(true);
+      const res = await fetch("/api/zalo-bot", {
+        method: "POST",
+        headers: getRequestHeaders(),
+        body: JSON.stringify({
+          action: "set_webhook",
+          bot_token: zaloBotToken.trim(),
+          webhook_url: webhookUrl,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast("Đã kích hoạt Webhook thành công với Zalo Bot!", "success");
+        setWebhookStatus(webhookUrl);
+      } else {
+        showToast(data.message || "Không thể kích hoạt Webhook!", "error");
+      }
+    } catch {
+      showToast("Lỗi kết nối máy chủ khi kích hoạt Webhook!", "error");
+    } finally {
+      setIsSettingWebhook(false);
     }
   };
 
@@ -2289,14 +2336,55 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             </div>
                           )}
 
+                          {/* KHU VỰC WEBHOOK URL & NÚT KÍCH HOẠT TỰ ĐỘNG */}
+                          <div className="p-3 rounded-2xl bg-blue-50/70 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/60 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[11px] font-black uppercase tracking-wider text-blue-900 dark:text-blue-200 flex items-center gap-1.5">
+                                <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+                                <span>Webhook URL Zalo Bot (Đồng bộ tức thì)</span>
+                              </span>
+                              <div className="flex items-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const url = getZaloWebhookUrl();
+                                    navigator.clipboard.writeText(url);
+                                    showToast("Đã copy Webhook URL vào bộ nhớ tạm!", "success");
+                                  }}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold rounded-lg bg-white dark:bg-slate-900 text-blue-700 dark:text-blue-300 border border-blue-300 dark:border-blue-700 hover:bg-blue-50 transition shadow-2xs"
+                                  title="Copy URL để dán vào Bot Zalo"
+                                >
+                                  <Copy className="w-3 h-3" />
+                                  <span>Copy URL</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={isSettingWebhook || !zaloBotToken.trim()}
+                                  onClick={handleAutoSetWebhook}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition shadow-2xs disabled:opacity-50"
+                                  title="Tự động gọi setWebhook qua API của Zalo"
+                                >
+                                  <RefreshCw className={`w-3 h-3 ${isSettingWebhook ? "animate-spin" : ""}`} />
+                                  <span>{isSettingWebhook ? "Đang gắn..." : "Kích Hoạt Tự Động"}</span>
+                                </button>
+                              </div>
+                            </div>
+                            <div className="p-2 rounded-xl bg-white dark:bg-slate-900 border border-blue-200/80 dark:border-blue-900/40 font-mono text-[11px] text-blue-800 dark:text-blue-300 break-all select-all">
+                              {typeof window !== "undefined" ? getZaloWebhookUrl() : "https://domain.com/api/zalo-bot/webhook"}
+                            </div>
+                            <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                              💡 <strong>Cách dùng đơn giản:</strong> Bấm <strong>&quot;Kích Hoạt Tự Động&quot;</strong> để hệ thống tự đăng ký Webhook với Zalo Bot. Hoặc bấm <strong>&quot;Copy URL&quot;</strong> rồi gửi lệnh <code>/setwebhook &lt;url&gt;</code> cho Bot trong Zalo.
+                            </p>
+                          </div>
+
                           {/* Hướng dẫn tạo bot theo chuẩn tài liệu zaloplatforms */}
                           <div className="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-[11px] text-slate-600 dark:text-slate-400 space-y-1">
                             <span className="font-bold text-slate-700 dark:text-slate-200 block text-[10px] uppercase">
-                              Hướng dẫn lấy Bot Token (1 phút):
+                              Hướng dẫn kết nối Bot Zalo (3 bước nhanh):
                             </span>
                             <p>1. Mở app Zalo, tìm kiếm <strong>&quot;Zalo Bot Manager&quot;</strong>.</p>
                             <p>2. Chọn <strong>&quot;Tạo bot&quot;</strong>, đặt tên bot có tiền tố <em>Bot</em> (VD: <em>BotTrungTamHongAn</em>).</p>
-                            <p>3. Copy mã <strong>Bot Token</strong> nhận được dán vào ô trên và bấm <strong>&quot;Test Bot&quot;</strong>.</p>
+                            <p>3. Dán mã <strong>Bot Token</strong> vào ô trên ➔ Bấm <strong>&quot;Test Bot&quot;</strong> ➔ Bấm <strong>&quot;Kích Hoạt Tự Động&quot;</strong> là xong!</p>
                           </div>
                         </div>
                       </div>

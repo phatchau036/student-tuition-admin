@@ -79,8 +79,8 @@ export async function GET(req: Request) {
     const args: any[] = [];
 
     if (schoolId && schoolId !== "all") {
-      query += ` AND (s.school_id = ? OR s.school_id IS NULL OR s.school_id = '' OR s.school_id = 'school-default' OR m.student_name != '')`;
-      args.push(schoolId);
+      query += ` AND (s.school_id = ? OR (? = 'school-default' AND (s.school_id IS NULL OR s.school_id = '' OR s.school_id = 'school-default')))`;
+      args.push(schoolId, schoolId);
     }
 
     if (studentId) {

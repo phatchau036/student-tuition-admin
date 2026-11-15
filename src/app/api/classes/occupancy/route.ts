@@ -68,37 +68,28 @@ export async function GET(req: Request) {
 
     // 2. Get active time slots for this school
     let slotsRes = await db.execute({
-      sql: "SELECT * FROM time_slots WHERE is_active = 1 AND school_id = ? ORDER BY start_time ASC",
-      args: [schoolId],
+      sql: "SELECT * FROM time_slots WHERE is_active = 1 AND (school_id = ? OR (? = 'school-default' AND (school_id IS NULL OR school_id = '' OR school_id = 'school-default'))) ORDER BY start_time ASC",
+      args: [schoolId, schoolId],
     });
-    if (slotsRes.rows.length === 0) {
-      slotsRes = await db.execute("SELECT * FROM time_slots WHERE is_active = 1 ORDER BY start_time ASC");
-    }
 
     // 3. Get all teachers with their assigned slots and working shifts for this school
     let teachersRes = await db.execute({
-      sql: "SELECT * FROM teachers WHERE is_active = 1 AND (school_id = ? OR school_id = 'school-default' OR ? = 'school-default')",
+      sql: "SELECT * FROM teachers WHERE is_active = 1 AND (school_id = ? OR (? = 'school-default' AND (school_id IS NULL OR school_id = '' OR school_id = 'school-default')))",
       args: [schoolId, schoolId],
     });
-    if (teachersRes.rows.length === 0) {
-      teachersRes = await db.execute("SELECT * FROM teachers WHERE is_active = 1");
-    }
 
     // 4. Get all active students with their registered days, slot, class & teacher for this school
     let studentsRes = await db.execute({
-      sql: "SELECT id, name, class_id, time_slot_id, teacher_id, registered_days, study_time_detail, schedule_details_json, status FROM students WHERE (school_id = ? OR school_id = 'school-default' OR ? = 'school-default') AND status != 'dropped'",
+      sql: "SELECT id, name, class_id, time_slot_id, teacher_id, registered_days, study_time_detail, schedule_details_json, status FROM students WHERE (school_id = ? OR (? = 'school-default' AND (school_id IS NULL OR school_id = '' OR school_id = 'school-default'))) AND status != 'dropped'",
       args: [schoolId, schoolId],
     });
-    if (studentsRes.rows.length === 0) {
-      studentsRes = await db.execute("SELECT id, name, class_id, time_slot_id, teacher_id, registered_days, study_time_detail, schedule_details_json, status FROM students WHERE status != 'dropped'");
-    }
 
     // 5. Get all scheduled makeup classes on this date with times
     const makeupsRes = await db.execute({
       sql: `SELECT m.id, m.student_id, m.makeup_slot_id, m.makeup_teacher_id, m.makeup_time, m.makeup_start_time, m.makeup_end_time, m.class_id, s.name as student_name 
             FROM makeup_classes m
             JOIN students s ON m.student_id = s.id
-            WHERE m.makeup_date = ? AND m.status IN ('scheduled', 'completed') AND (s.school_id = ? OR s.school_id = 'school-default' OR ? = 'school-default')`,
+            WHERE m.makeup_date = ? AND m.status IN ('scheduled', 'completed') AND (s.school_id = ? OR (? = 'school-default' AND (s.school_id IS NULL OR s.school_id = '' OR s.school_id = 'school-default')))`,
       args: [dateStr, schoolId, schoolId],
     });
 
@@ -107,10 +98,10 @@ export async function GET(req: Request) {
       sql: `SELECT c.*, sub.name as subject_name 
             FROM classes c 
             LEFT JOIN subjects sub ON c.subject_id = sub.id
-            WHERE (c.school_id = ? OR c.school_id = 'school-default' OR ? = 'school-default' OR ? IS NULL OR ? = '')
+            WHERE (c.school_id = ? OR (? = 'school-default' AND (c.school_id IS NULL OR c.school_id = '' OR c.school_id = 'school-default')))
               AND (c.status = 'active' OR c.status IS NULL OR c.status = '')
             ORDER BY c.name ASC`,
-      args: [schoolId, schoolId, schoolId, schoolId],
+      args: [schoolId, schoolId],
     });
 
     // Map teacher id to name
