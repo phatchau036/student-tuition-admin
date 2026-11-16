@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "./db";
+import crypto from "crypto";
+
+export function getPwdHash(pwd: string): string {
+  return crypto.createHash("sha256").update(pwd).digest("hex").slice(0, 16);
+}
 
 export interface RequestAdminContext {
   id: string;
@@ -131,7 +136,7 @@ export async function getAdminFromRequest(req: Request): Promise<RequestAdminCon
     const adminId = parts[1];
     const adminRes = await db.execute({
       sql: `
-        SELECT a.id, a.school_id, a.username, a.full_name, a.phone, a.role_id, a.is_active, a.is_owner,
+        SELECT a.id, a.school_id, a.username, a.password, a.full_name, a.phone, a.role_id, a.is_active, a.is_owner,
                r.name as role_name, r.permissions_json
         FROM school_admins a
         LEFT JOIN admin_roles r ON a.role_id = r.id
@@ -146,6 +151,16 @@ export async function getAdminFromRequest(req: Request): Promise<RequestAdminCon
     // Chặn nếu tài khoản bị khóa
     if (admin.is_active !== undefined && admin.is_active !== null && Number(admin.is_active) === 0) {
       return null;
+    }
+
+    // Bảo vệ phiên: Nếu token có chứa pwdHash (parts.length >= 5: school_admin:id:school_id:pwdHash:timestamp)
+    // thì kiểm tra so khớp mật khẩu hiện tại trong DB. Nếu mật khẩu đã bị đổi -> hủy phiên tức thì
+    if (parts.length >= 5) {
+      const tokenPwdHash = parts[3];
+      const currentPwdHash = getPwdHash(String(admin.password || ""));
+      if (tokenPwdHash !== currentPwdHash) {
+        return null;
+      }
     }
 
     let permissions: string[] = [];
@@ -183,6 +198,54 @@ export async function getAdminFromRequest(req: Request): Promise<RequestAdminCon
  * Kiểm tra quyền hạn của Admin trước khi thực hiện các API nhạy cảm.
  * Chủ cơ sở (is_owner === 1 hoặc permissions bao gồm "*") luôn được phép.
  */
+export async function getSystemAdminFromRequest(req: Request): Promise<{ username: string; role: string } | null> {
+  try {
+    await initDb();
+    const db = getDb();
+    const authHeader = req.headers.get("authorization");
+    const cookieHeader = req.headers.get("cookie");
+
+    let token = "";
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      token = authHeader.substring(7);
+    } else if (cookieHeader) {
+      const match = cookieHeader.match(/system_auth_token=([^;]+)/);
+      if (match) token = match[1];
+    }
+
+    if (!token) return null;
+
+    const decoded = Buffer.from(token, "base64").toString("utf-8");
+    const parts = decoded.split(":");
+    if (parts.length < 4) return null;
+
+    const [tokenUsername, tokenPwdHash, tokenSecret] = parts;
+
+    // Lấy thông tin tài khoản hệ thống hiện tại
+    const res = await db.execute(
+      "SELECT key, value FROM settings WHERE key IN ('system_admin_username', 'system_admin_password')"
+    );
+    let username = process.env.SYSTEM_ADMIN_USERNAME || "hethong";
+    let password = process.env.SYSTEM_ADMIN_PASSWORD || "hethong@2026";
+
+    for (const r of res.rows) {
+      if (r.key === "system_admin_username" && r.value) username = String(r.value);
+      if (r.key === "system_admin_password" && r.value) password = String(r.value);
+    }
+
+    const secretKey = process.env.SYSTEM_ADMIN_SECRET || "sec_super_admin_system_key_2026";
+    const currentPwdHash = getPwdHash(password);
+
+    if (tokenSecret === secretKey && tokenUsername === username && tokenPwdHash === currentPwdHash) {
+      return { username, role: "SUPER_ADMIN" };
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export async function requireAdminPermission(
   req: Request,
   permKey: string

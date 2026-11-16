@@ -1,11 +1,18 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
-import { clearDomainCache } from "@/lib/authHelper";
+import { clearDomainCache, getSystemAdminFromRequest } from "@/lib/authHelper";
 
 // API quản trị hệ thống: Quản lý các trường & Tài khoản Admin của từng trường
 export async function GET(req: Request) {
   try {
     await initDb();
+    const systemAdmin = await getSystemAdminFromRequest(req);
+    if (!systemAdmin) {
+      return NextResponse.json(
+        { success: false, message: "Phiên đăng nhập hệ thống không hợp lệ hoặc đã hết hạn!" },
+        { status: 401 }
+      );
+    }
     const db = getDb();
 
     const schoolsRes = await db.execute(`
@@ -62,6 +69,13 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     await initDb();
+    const systemAdmin = await getSystemAdminFromRequest(req);
+    if (!systemAdmin) {
+      return NextResponse.json(
+        { success: false, message: "Phiên đăng nhập hệ thống không hợp lệ hoặc đã hết hạn!" },
+        { status: 401 }
+      );
+    }
     const db = getDb();
     const body = await req.json();
     const { action } = body;
@@ -347,6 +361,25 @@ export async function POST(req: Request) {
       const { admin_id } = body;
       await db.execute({ sql: "DELETE FROM school_admins WHERE id = ?", args: [admin_id] });
       return NextResponse.json({ success: true, message: "Đã xóa tài khoản admin!" });
+    }
+
+    // 4.1 Đổi mật khẩu tài khoản Admin cơ sở từ /he-thong
+    if (action === "update_admin_password") {
+      const { admin_id, new_password } = body;
+      if (!admin_id || !new_password || String(new_password).trim().length < 6) {
+        return NextResponse.json(
+          { success: false, message: "Mật khẩu mới phải có ít nhất 6 ký tự!" },
+          { status: 400 }
+        );
+      }
+      await db.execute({
+        sql: "UPDATE school_admins SET password = ? WHERE id = ?",
+        args: [String(new_password).trim(), admin_id],
+      });
+      return NextResponse.json({
+        success: true,
+        message: "Đã cập nhật mật khẩu cho Admin cơ sở thành công! Các phiên cũ của tài khoản này đã bị hủy.",
+      });
     }
 
     // 5. Cấu hình IP Whitelist cho trường (Bật/tắt IP restriction & danh sách IP cho phép)

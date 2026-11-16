@@ -243,7 +243,7 @@ export async function GET(req: Request) {
     const decoded = Buffer.from(token, "base64").toString("utf-8");
     const creds = await getSystemCredentials();
 
-    // Cấu trúc token mới: username:pwdHash:secretKey:timestamp
+    // Cấu trúc token: username:pwdHash:secretKey:timestamp
     const parts = decoded.split(":");
     if (parts.length >= 4) {
       const [tokenUsername, tokenPwdHash, tokenSecret] = parts;
@@ -261,14 +261,8 @@ export async function GET(req: Request) {
       return NextResponse.json({ success: false, authenticated: false }, { status: 401 });
     }
 
-    // Tương thích ngược với token cũ: username:secretKey:timestamp
-    if (decoded.includes(creds.secretKey) && decoded.startsWith(creds.username)) {
-      return NextResponse.json({
-        success: true,
-        authenticated: true,
-        user: { username: creds.username, role: "SUPER_ADMIN" },
-      });
-    }
+    // Các token cấu trúc cũ (thiếu pwdHash) bị từ chối để đảm bảo bảo mật và hủy phiên hoàn toàn khi đổi mật khẩu
+    return NextResponse.json({ success: false, authenticated: false }, { status: 401 });
 
     return NextResponse.json({ success: false, authenticated: false }, { status: 401 });
   } catch {

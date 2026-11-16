@@ -263,6 +263,11 @@ export default function SystemAdminPage() {
   const [adminToDelete, setAdminToDelete] = useState<SchoolAdmin | null>(null);
   const [isDeletingAdmin, setIsDeletingAdmin] = useState(false);
 
+  // Modal đổi mật khẩu Admin cơ sở từ /he-thong
+  const [adminToResetPass, setAdminToResetPass] = useState<SchoolAdmin | null>(null);
+  const [resetAdminNewPass, setResetAdminNewPass] = useState("");
+  const [isResettingAdminPass, setIsResettingAdminPass] = useState(false);
+
   const [toastMessage, setToastMessage] = useState<{ text: string; type: "success" | "error" | "info" } | null>(null);
 
   const showToast = (text: string, type: "success" | "error" | "info" = "success") => {
@@ -276,10 +281,50 @@ export default function SystemAdminPage() {
     showToast(`Đã sao chép ${label} vào clipboard!`, "success");
   };
 
-  // 1. Kiểm tra xác thực token khi tải trang (Hỗ trợ truy cập cả localhost và qua IP Network)
+  const getSystemAuthHeaders = (): Record<string, string> => {
+    const token = typeof window !== "undefined" ? localStorage.getItem("system_token") : null;
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+    return headers;
+  };
+
+  // 1. Kiểm tra xác thực token khi tải trang và duy trì polling kiểm tra phiên định kỳ
   useEffect(() => {
     checkAuth();
   }, []);
+
+  // Polling mỗi 20s hoặc khi tab trình duyệt active để phát hiện ngay lập tức nếu mật khẩu bị đổi từ nơi khác
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    let cancelled = false;
+
+    const pollAuth = async () => {
+      const token = localStorage.getItem("system_token");
+      if (!token) return;
+      try {
+        const res = await fetch("/api/system/auth", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const json = await res.json();
+        if (cancelled) return;
+        if (!json.authenticated || res.status === 401) {
+          localStorage.removeItem("system_token");
+          document.cookie = "system_auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; max-age=0";
+          setIsAuthenticated(false);
+          showToast("Phiên đăng nhập đã hết hạn hoặc mật khẩu đã bị đổi từ nơi khác. Vui lòng đăng nhập lại!", "info");
+        }
+      } catch {}
+    };
+
+    const interval = setInterval(pollAuth, 20000);
+    const handleFocus = () => pollAuth();
+    window.addEventListener("focus", handleFocus);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+      window.removeEventListener("focus", handleFocus);
+    };
+  }, [isAuthenticated]);
 
   const checkAuth = async () => {
     try {
@@ -296,6 +341,7 @@ export default function SystemAdminPage() {
         }
         loadData();
       } else {
+        localStorage.removeItem("system_token");
         setIsAuthenticated(false);
       }
     } catch {
@@ -357,7 +403,7 @@ export default function SystemAdminPage() {
   const loadData = async () => {
     try {
       setIsLoading(true);
-      const res = await fetch("/api/system");
+      const res = await fetch("/api/system", { headers: getSystemAuthHeaders() });
       const json = await res.json();
       if (json.success) {
         setSchools(json.data.schools);
@@ -953,6 +999,41 @@ export default function SystemAdminPage() {
       showToast("Lỗi kết nối máy chủ", "error");
     } finally {
       setIsDeletingAdmin(false);
+    }
+  };
+
+  // Đổi mật khẩu tài khoản Admin cơ sở từ /he-thong
+  const handleConfirmResetAdminPass = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adminToResetPass) return;
+    if (!resetAdminNewPass.trim() || resetAdminNewPass.trim().length < 6) {
+      showToast("Mật khẩu mới phải có ít nhất 6 ký tự!", "error");
+      return;
+    }
+    try {
+      setIsResettingAdminPass(true);
+      const res = await fetch("/api/system", {
+        method: "POST",
+        headers: getSystemAuthHeaders(),
+        body: JSON.stringify({
+          action: "update_admin_password",
+          admin_id: adminToResetPass.id,
+          new_password: resetAdminNewPass.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(data.message, "success");
+        setAdminToResetPass(null);
+        setResetAdminNewPass("");
+        loadData();
+      } else {
+        showToast(data.message || "Không thể cập nhật mật khẩu!", "error");
+      }
+    } catch {
+      showToast("Lỗi kết nối máy chủ", "error");
+    } finally {
+      setIsResettingAdminPass(false);
     }
   };
 
@@ -1596,6 +1677,17 @@ export default function SystemAdminPage() {
                                   title="Sao chép mật khẩu"
                                 >
                                   <Copy className="w-3.5 h-3.5" />
+                                </button>
+
+                                <button
+                                  onClick={() => {
+                                    setAdminToResetPass(adm);
+                                    setResetAdminNewPass(generateRandomPassword(10));
+                                  }}
+                                  className="p-1 rounded text-slate-400 hover:text-amber-400 hover:bg-amber-500/10 transition"
+                                  title="Đổi mật khẩu cho admin này (Đá văng tất cả máy đang đăng nhập)"
+                                >
+                                  <KeyRound className="w-3.5 h-3.5 text-amber-400" />
                                 </button>
                               </div>
                             </td>
@@ -3126,6 +3218,103 @@ export default function SystemAdminPage() {
                 <span>{isDeletingAdmin ? "Đang xóa..." : "Xác Nhận Xóa Admin"}</span>
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Đổi Mật Khẩu Admin Cơ Sở (Đá văng toàn bộ phiên cũ) */}
+      {adminToResetPass && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-slate-900 border border-amber-500/40 rounded-3xl w-full max-w-md p-6 space-y-5 shadow-2xl">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center shrink-0">
+                <KeyRound className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white leading-snug">
+                  Đổi Mật Khẩu Admin Cơ Sở
+                </h3>
+                <p className="text-xs text-slate-400">
+                  Cập nhật mật khẩu mới và hủy toàn bộ phiên đang đăng nhập
+                </p>
+              </div>
+            </div>
+
+            <form onSubmit={handleConfirmResetAdminPass} className="space-y-4">
+              <div className="p-3.5 rounded-2xl bg-slate-800/80 border border-slate-700/60 text-xs space-y-1.5">
+                <div className="flex justify-between text-slate-400">
+                  <span>Quản trị viên:</span>
+                  <span className="font-bold text-white">{adminToResetPass.full_name}</span>
+                </div>
+                <div className="flex justify-between text-slate-400">
+                  <span>Tên đăng nhập:</span>
+                  <span className="font-mono font-bold text-purple-300">{adminToResetPass.username}</span>
+                </div>
+                <div className="flex justify-between text-slate-400">
+                  <span>Trường:</span>
+                  <span className="text-slate-300">{adminToResetPass.school_name}</span>
+                </div>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-bold text-slate-300">
+                    Mật khẩu mới (Tối thiểu 6 ký tự) *
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setResetAdminNewPass(generateRandomPassword(10))}
+                    className="text-[11px] text-amber-400 hover:text-amber-300 flex items-center gap-1 font-semibold"
+                  >
+                    <Sparkles className="w-3 h-3" />
+                    <span>Sinh ngẫu nhiên 10 ký tự</span>
+                  </button>
+                </div>
+                <div className="relative">
+                  <input
+                    type="text"
+                    required
+                    value={resetAdminNewPass}
+                    onChange={(e) => setResetAdminNewPass(e.target.value)}
+                    placeholder="Nhập mật khẩu mới..."
+                    className="w-full pl-3.5 pr-20 py-2.5 text-sm font-mono font-bold text-amber-300 bg-slate-800 border border-slate-700 rounded-xl focus:ring-2 focus:ring-amber-500 outline-none"
+                  />
+                  {resetAdminNewPass && (
+                    <button
+                      type="button"
+                      onClick={() => copyToClipboard(resetAdminNewPass, "mật khẩu mới")}
+                      className="absolute right-2 top-2 px-2 py-1 rounded bg-amber-500/20 text-amber-300 text-xs font-bold hover:bg-amber-500/30 transition flex items-center gap-1"
+                    >
+                      <Copy className="w-3 h-3" />
+                      <span>Copy</span>
+                    </button>
+                  )}
+                </div>
+                <p className="text-[11px] text-rose-300/80 mt-1.5 flex items-center gap-1">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  <span>Sau khi lưu, tất cả các máy đang đăng nhập tài khoản này sẽ bị đăng xuất ngay lập tức.</span>
+                </p>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
+                <button
+                  type="button"
+                  disabled={isResettingAdminPass}
+                  onClick={() => setAdminToResetPass(null)}
+                  className="px-4 py-2.5 text-xs font-semibold rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition"
+                >
+                  Hủy Bỏ
+                </button>
+                <button
+                  type="submit"
+                  disabled={isResettingAdminPass}
+                  className="px-5 py-2.5 text-xs font-bold rounded-xl bg-amber-600 hover:bg-amber-500 text-white shadow-lg shadow-amber-600/30 transition flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>{isResettingAdminPass ? "Đang lưu..." : "Xác Nhận Đổi Mật Khẩu"}</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

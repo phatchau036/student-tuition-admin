@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
+import { getPwdHash } from "@/lib/authHelper";
 
 export async function POST(req: Request) {
   try {
@@ -64,7 +65,7 @@ export async function POST(req: Request) {
 
     // Verify current password
     const adminCheck = await db.execute({
-      sql: "SELECT id, password FROM school_admins WHERE id = ?",
+      sql: "SELECT id, school_id, password FROM school_admins WHERE id = ?",
       args: [targetAdminId],
     });
 
@@ -89,10 +90,29 @@ export async function POST(req: Request) {
       args: [new_password, targetAdminId],
     });
 
-    return NextResponse.json({
+    // Tạo token mới với pwdHash mới cho chính phiên đổi mật khẩu hiện tại (để tài khoản này tiếp tục dùng được)
+    // trong khi tất cả các máy / trình duyệt khác dùng token cũ sẽ lập tức bị đá văng (401)
+    const schoolId = String(adminCheck.rows[0].school_id || "school-default");
+    const newPwdHash = getPwdHash(new_password);
+    const newToken = Buffer.from(
+      `school_admin:${targetAdminId}:${schoolId}:${newPwdHash}:${Date.now()}`
+    ).toString("base64");
+
+    const response = NextResponse.json({
       success: true,
-      message: "Đổi mật khẩu thành công! Hãy ghi nhớ mật khẩu mới của bạn.",
+      message: "Đổi mật khẩu thành công! Tất cả các phiên đăng nhập cũ trên thiết bị khác đã được đăng xuất.",
+      token: newToken,
     });
+
+    response.cookies.set("admin_session_token", newToken, {
+      httpOnly: false,
+      secure: false,
+      sameSite: "lax",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 7,
+    });
+
+    return response;
   } catch (error: unknown) {
     console.error("Change Password Error:", error);
     return NextResponse.json(

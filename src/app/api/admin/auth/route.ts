@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
-import { resolveSchoolIdByHost } from "@/lib/authHelper";
+import { resolveSchoolIdByHost, getPwdHash } from "@/lib/authHelper";
 
 // API Đăng nhập cho Quản trị viên của từng trường học
 export async function POST(req: Request) {
@@ -98,8 +98,9 @@ export async function POST(req: Request) {
       permissions = [];
     }
 
+    const pwdHash = getPwdHash(String(admin.password || ""));
     const token = Buffer.from(
-      `school_admin:${admin.id}:${admin.school_id}:${Date.now()}`
+      `school_admin:${admin.id}:${admin.school_id}:${pwdHash}:${Date.now()}`
     ).toString("base64");
 
     const response = NextResponse.json({
@@ -170,7 +171,7 @@ export async function GET(req: Request) {
     const adminId = parts[1];
     const adminRes = await db.execute({
       sql: `
-        SELECT a.id, a.school_id, a.username, a.full_name, a.phone, a.role_id, a.is_active, a.is_owner,
+        SELECT a.id, a.school_id, a.username, a.password, a.full_name, a.phone, a.role_id, a.is_active, a.is_owner,
                s.name as school_name, s.code as school_code, s.address as school_address, s.phone as school_phone,
                r.name as role_name, r.permissions_json
         FROM school_admins a
@@ -186,6 +187,18 @@ export async function GET(req: Request) {
     }
 
     const admin = adminRes.rows[0];
+
+    // Kiểm tra tính hợp lệ của token theo mật khẩu hiện tại (đá văng phiên khi đổi pass)
+    if (parts.length >= 5) {
+      const tokenPwdHash = parts[3];
+      const currentPwdHash = getPwdHash(String(admin.password || ""));
+      if (tokenPwdHash !== currentPwdHash) {
+        return NextResponse.json(
+          { success: false, authenticated: false, message: "Mật khẩu đã được thay đổi. Vui lòng đăng nhập lại!" },
+          { status: 401 }
+        );
+      }
+    }
 
     // Kiểm tra cô lập tên miền (Domain Isolation) trong phiên làm việc
     const rawHost = req.headers.get("x-forwarded-host") || req.headers.get("host") || "";

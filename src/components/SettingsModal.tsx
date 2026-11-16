@@ -392,6 +392,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       const data = await res.json();
       if (data.success) {
         showToast(data.message, "success");
+        if (data.token) {
+          localStorage.setItem("admin_token", data.token);
+        }
         setCurrentPassword("");
         setNewPassword("");
         setConfirmPassword("");

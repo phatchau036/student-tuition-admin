@@ -407,10 +407,6 @@ export default function Dashboard() {
           } catch {}
 
           setCurrentSchool(initialSchool);
-          loadSettings(initialSchool.id);
-          loadTeachers(initialSchool.id);
-          loadClasses(initialSchool.id);
-          loadStudents(selectedMonth, initialSchool.id);
         } else {
           localStorage.removeItem("admin_token");
           setIsAuthenticated(false);
@@ -531,10 +527,6 @@ export default function Dashboard() {
         } catch {}
 
         setCurrentSchool(schoolObj);
-        loadSettings(schoolObj.id);
-        loadTeachers(schoolObj.id);
-        loadClasses(schoolObj.id);
-        loadStudents(selectedMonth, schoolObj.id);
       } else {
         showToast(data.message || "Đăng nhập thất bại!", "error");
       }
@@ -552,10 +544,6 @@ export default function Dashboard() {
     if (typeof window !== "undefined") {
       localStorage.setItem("admin_last_school_id", school.id);
     }
-    loadSettings(school.id);
-    loadTeachers(school.id);
-    loadClasses(school.id);
-    loadStudents(selectedMonth, school.id);
     showToast(`Đã chuyển sang chi nhánh "${school.name}" (${school.code})`, "success");
   };
 
@@ -657,7 +645,7 @@ export default function Dashboard() {
         setSepayAccountNumber(json.data.sepay_account_number || "");
         setSepayBankName(json.data.sepay_bank_name || "");
         setSepayPrefix(json.data.sepay_prefix || "HP");
-        if (json.data.current_school && (!currentSchool || currentSchool.id === json.data.current_school.id)) {
+        if (json.data.current_school && (!currentSchool || currentSchool.id !== json.data.current_school.id)) {
           setCurrentSchool(json.data.current_school);
         }
       }
@@ -748,7 +736,7 @@ export default function Dashboard() {
       return;
     }
     loadStudents(selectedMonth, currentSchool.id);
-  }, [isAuthenticated, currentSchool, selectedMonth, isRangeMode, periodFrom, periodTo]);
+  }, [isAuthenticated, currentSchool?.id, selectedMonth, isRangeMode, periodFrom, periodTo]);
 
   // Refresh all
   const handleRefresh = () => {
