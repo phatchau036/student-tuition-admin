@@ -172,6 +172,63 @@ export async function POST(req: Request) {
         ],
       });
 
+      // 6. Nhóm quyền / Vai trò mẫu (RBAC) cho trường mới
+      const defaultRoles = [
+        {
+          id: `role-office-${id}`,
+          name: "Nhân Viên Văn Phòng / Lễ Tân",
+          description: "Tiếp đón phụ huynh, thêm/sửa học sinh, xem ma trận lịch, tư vấn ca trống, điểm danh và xếp ca học bù.",
+          permissions_json: JSON.stringify([
+            "students.view",
+            "students.create",
+            "students.edit",
+            "schedule.matrix",
+            "attendance.manage",
+            "makeups.manage",
+            "schedule.consult",
+          ]),
+        },
+        {
+          id: `role-accountant-${id}`,
+          name: "Kế Toán / Thu Ngân",
+          description: "Xem học phí, công nợ, đối soát thu tiền, xuất biên lai điện tử, gửi nhắc nợ Zalo và xem tổng kết doanh thu tháng.",
+          permissions_json: JSON.stringify([
+            "students.view",
+            "tuition.view",
+            "tuition.audit",
+            "tuition.receipt",
+            "tuition.remind",
+            "revenue.reports",
+          ]),
+        },
+        {
+          id: `role-academic-${id}`,
+          name: "Quản Lý Đào Tạo / Giáo Vụ",
+          description: "Quản lý danh sách học sinh, quản lý lớp học, phân công giáo viên đứng lớp, quản lý bảo lưu/nghỉ học và lịch học bù.",
+          permissions_json: JSON.stringify([
+            "students.view",
+            "students.create",
+            "students.edit",
+            "students.status",
+            "schedule.matrix",
+            "attendance.manage",
+            "makeups.manage",
+            "schedule.consult",
+            "classes.manage",
+            "teachers.manage",
+          ]),
+        },
+      ];
+
+      for (const r of defaultRoles) {
+        try {
+          await db.execute({
+            sql: "INSERT OR IGNORE INTO admin_roles (id, school_id, name, description, permissions_json) VALUES (?, ?, ?, ?, ?)",
+            args: [r.id, id, r.name, r.description, r.permissions_json],
+          });
+        } catch {}
+      }
+
       return NextResponse.json({
         success: true,
         message: "Tạo trường mới thành công!",

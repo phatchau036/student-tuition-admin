@@ -76,6 +76,7 @@ interface SchoolAdmin {
   username: string;
   password?: string;
   full_name: string;
+  is_owner?: number;
   school_name: string;
   school_code: string;
   created_at: string;
@@ -1534,6 +1535,7 @@ export default function SystemAdminPage() {
                     <thead>
                       <tr className="bg-slate-900/60 border-b border-slate-700 text-slate-400 font-bold uppercase tracking-wider">
                         <th className="py-3 px-4">Họ và tên Admin</th>
+                        <th className="py-3 px-4">Vai trò / Chức vụ</th>
                         <th className="py-3 px-4">Tên đăng nhập (Username)</th>
                         <th className="py-3 px-4">Mật khẩu (Có nút xem & copy)</th>
                         <th className="py-3 px-4">Trường quản lý</th>
@@ -1547,6 +1549,17 @@ export default function SystemAdminPage() {
                         return (
                           <tr key={adm.id} className="hover:bg-slate-700/30 transition">
                             <td className="py-3.5 px-4 font-semibold text-white">{adm.full_name}</td>
+                            <td className="py-3.5 px-4">
+                              {adm.is_owner === 1 ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-black bg-amber-500/10 text-amber-400 border border-amber-500/30">
+                                  👑 Chủ Cơ Sở (Toàn quyền)
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-indigo-500/10 text-indigo-400 border border-indigo-500/30">
+                                  Nhân viên
+                                </span>
+                              )}
+                            </td>
                             <td className="py-3.5 px-4 font-mono text-purple-300 font-bold flex items-center gap-2">
                               <span>{adm.username}</span>
                               <button
@@ -2560,12 +2573,12 @@ export default function SystemAdminPage() {
                   <Sparkles className="w-4 h-4 text-purple-400" />
                   Hệ Thống Đã Tự Động Thiết Lập Tài Khoản & Mật Khẩu
                 </span>
-                <span className="px-2 py-0.5 rounded text-[11px] font-black uppercase bg-purple-600 text-white">
-                  {`QTV${(admins.filter((a) => a.school_id === selectedSchoolId).length || 0) + 1}`}
+                <span className="px-2 py-0.5 rounded text-[11px] font-black uppercase bg-amber-500 text-slate-950">
+                  👑 Chủ Cơ Sở (Toàn quyền)
                 </span>
               </div>
               <p className="text-[11px] text-purple-200/80 leading-relaxed">
-                Tài khoản và mật khẩu 10 ký tự mạnh đã được sinh sẵn theo thông tin trường và vị trí chi nhánh. Bạn chỉ việc bấm <strong>"Cấp Tài Khoản Admin"</strong> bên dưới là hoàn tất!
+                Tài khoản và mật khẩu 10 ký tự mạnh đã được sinh sẵn theo thông tin trường. Tài khoản được cấp với tư cách <strong>Chủ Cơ Sở (Toàn quyền quản trị)</strong>. Bạn chỉ việc bấm <strong>"Cấp Tài Khoản Admin"</strong> bên dưới là hoàn tất!
               </p>
             </div>
 

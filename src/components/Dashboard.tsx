@@ -657,7 +657,7 @@ export default function Dashboard() {
         setSepayAccountNumber(json.data.sepay_account_number || "");
         setSepayBankName(json.data.sepay_bank_name || "");
         setSepayPrefix(json.data.sepay_prefix || "HP");
-        if (json.data.current_school) {
+        if (json.data.current_school && (!currentSchool || currentSchool.id === json.data.current_school.id)) {
           setCurrentSchool(json.data.current_school);
         }
       }
@@ -718,32 +718,37 @@ export default function Dashboard() {
         setStudents(json.data.students);
         setBaseTuition(json.data.base_tuition);
         setPeriodRevenue(json.data.period_revenue || null);
-      } else {
-        showToast("Không thể tải danh sách học sinh", "error");
+      } else if (!silent) {
+        // Chỉ thông báo khi không phải silent refresh và có thông báo lỗi cụ thể
+        showToast(json.message || "Không thể tải danh sách học sinh", "error");
       }
     } catch {
-      showToast("Lỗi kết nối khi tải học sinh", "error");
+      if (!silent) {
+        showToast("Lỗi kết nối khi tải học sinh", "error");
+      }
     } finally {
       if (!silent) setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    if (!isAuthenticated) return;
-    loadSettings();
-    loadTeachers();
-    loadClasses();
-  }, [isAuthenticated]);
-
-  useEffect(() => {
-    if (!isAuthenticated) return;
-    if (isRangeMode && (!periodFrom || !periodTo || periodFrom > periodTo)) return;
-    if (currentSchool?.id) {
-      loadStudents(selectedMonth, currentSchool.id);
-    } else {
-      loadStudents(selectedMonth);
+    if (!isAuthenticated || !currentSchool?.id) {
+      setStudents([]);
+      setClasses([]);
+      setTeachers([]);
+      return;
     }
-  }, [selectedMonth, currentSchool, isRangeMode, periodFrom, periodTo, isAuthenticated]);
+    
+    loadSettings(currentSchool.id);
+    loadTeachers(currentSchool.id);
+    loadClasses(currentSchool.id);
+
+    if (isRangeMode && (!periodFrom || !periodTo || periodFrom > periodTo)) {
+      setStudents([]);
+      return;
+    }
+    loadStudents(selectedMonth, currentSchool.id);
+  }, [isAuthenticated, currentSchool, selectedMonth, isRangeMode, periodFrom, periodTo]);
 
   // Refresh all
   const handleRefresh = () => {

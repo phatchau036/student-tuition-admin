@@ -63,3 +63,4 @@
 | KI-005 | Không thêm được giáo viên và danh sách hiển thị 0 | Đã xử lý triệt để (Fixed) | 2026-10-29 |
 | KI-006 | Zalo Bot getUpdates object is not iterable & timeout 408 | Đã xử lý triệt để (Fixed) | 2026-11-14 |
 | KI-007 | Rò rỉ dữ liệu chéo giữa các cơ sở khi admin đăng nhập qua admin_last_school_id và query fallback | Đã xử lý triệt để (Fixed) | 2026-11-15 |
+| KI-008 | Admin trung tâm mới bị gán nhãn "Nhân viên" và báo lỗi "Không thể tải danh sách học sinh" | Đã xử lý triệt để (Fixed) | 2026-11-16 |

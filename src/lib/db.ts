@@ -123,8 +123,29 @@ export async function initDb() {
   `);
 
   // Đảm bảo tài khoản admin khởi tạo có cờ is_owner = 1 (toàn quyền)
+  // và nếu mỗi cơ sở chưa có tài khoản chủ cơ sở nào (hoặc các admin tạo từ /he-thong mà role_id là NULL),
+  // tự động thiết lập admin đầu tiên của cơ sở đó làm Chủ Cơ Sở (is_owner = 1) để tránh bị gán thành Nhân viên
   try {
-    await db.execute("UPDATE school_admins SET is_owner = 1 WHERE (is_owner IS NULL OR is_owner = 0) AND (username = 'admin' OR id = 'admin-1')");
+    await db.execute("UPDATE school_admins SET is_owner = 1 WHERE (is_owner IS NULL OR is_owner = 0) AND (username = 'admin' OR id = 'admin-1' OR role_id IS NULL OR role_id = '')");
+  } catch {}
+
+  // Đảm bảo mỗi trường luôn có ít nhất 1 Chủ cơ sở
+  try {
+    const allSchoolsRes = await db.execute("SELECT id FROM schools");
+    for (const sc of allSchoolsRes.rows) {
+      const sId = String(sc.id);
+      const ownerCountRes = await db.execute({
+        sql: "SELECT COUNT(*) as count FROM school_admins WHERE school_id = ? AND is_owner = 1",
+        args: [sId],
+      });
+      if (Number(ownerCountRes.rows[0]?.count || 0) === 0) {
+        // Nâng tài khoản admin đầu tiên của trường này lên làm Chủ Cơ Sở
+        await db.execute({
+          sql: "UPDATE school_admins SET is_owner = 1 WHERE id = (SELECT id FROM school_admins WHERE school_id = ? ORDER BY created_at ASC LIMIT 1)",
+          args: [sId],
+        });
+      }
+    }
   } catch {}
 
   // Khởi tạo các vai trò mẫu cho cơ sở nếu chưa có vai trò nào
