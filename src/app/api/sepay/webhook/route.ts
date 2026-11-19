@@ -223,7 +223,7 @@ export async function POST(req: Request) {
 • Ngân hàng: ${gateway} (Mã GD: ${referenceCode || code || txIdStr})
 • Trạng thái: Hệ thống đã tự động gạch nợ học phí & cấp giờ học vào ví.`;
 
-      notifyAdminViaZaloBot(msgForAdmin, "payment").catch(() => {});
+      notifyAdminViaZaloBot(msgForAdmin, "payment", matchedSchoolId || undefined).catch(() => {});
 
       return NextResponse.json({
         success: true,

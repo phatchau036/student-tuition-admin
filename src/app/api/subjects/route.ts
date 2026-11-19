@@ -9,13 +9,10 @@ export async function GET(req: Request) {
     const db = getDb();
     const schoolId = getSchoolIdFromRequest(req);
 
-    let res = await db.execute({
+    const res = await db.execute({
       sql: "SELECT * FROM subjects WHERE school_id = ? ORDER BY created_at ASC",
       args: [schoolId],
     });
-    if (res.rows.length === 0) {
-      res = await db.execute("SELECT * FROM subjects ORDER BY created_at ASC");
-    }
 
     const subjects = res.rows.map((row) => ({
       id: String(row.id),

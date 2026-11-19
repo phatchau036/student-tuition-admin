@@ -6,6 +6,17 @@
 
 ## 1. LỊCH SỬ PHIÊN BẢN (CHANGELOG)
 
+### [v2.9.7] - 2026-11-19
+- **⭐ CÔ LẬP CƠ SỞ TOÀN DIỆN & SỬA LỖI ĐĂNG KÝ ZALO BOT WEBHOOK:**
+  - **Sửa lỗi setWebhook Zalo Bot:** Bổ sung `secret_token` (được băm MD5 an toàn từ bot token) vào payload đăng ký `setWebhook` của Zalo Bot Platform theo chuẩn mới, khắc phục dứt điểm lỗi `Bad request: The secret_token must not be empty`.
+  - **Khắc phục lỗi rò rỉ cài đặt chéo giữa các cơ sở (Cross-Tenant Data Leak):**
+    - Mở rộng bảng `schools` lưu trực tiếp cấu hình SePay (`sepay_bank_name`, `sepay_account_number`, `sepay_api_key`, `sepay_prefix`), mức học phí chuẩn (`base_tuition`), kiểu lịch học (`schedule_presets`) và Zalo Bot (`zalo_bot_token`, `zalo_bot_name`, `zalo_admin_chat_id`) của riêng từng cơ sở.
+    - Cập nhật `GET /api/settings` & `POST /api/settings`: Cô lập tuyệt đối theo `school_id`. Khi cơ sở mới chưa cấu hình, không rò rỉ thông tin của trường khác; khi lưu cài đặt, chỉ xóa và ghi đè `time_slots`, `level_surcharges`, `discount_presets` thuộc phạm vi `WHERE school_id = ?`.
+    - Loại bỏ triệt để các câu query fallback `SELECT * FROM ...` không có điều kiện `school_id` trong `/api/packages` và `/api/subjects`.
+    - Thêm cơ chế tự động migrate dữ liệu cũ từ bảng `settings` cho trường mặc định và tự sinh seed data mẫu độc lập (Ca học, Level, Giảm giá, Gói phí, Bộ môn, Vai trò phân quyền) cho bất kỳ cơ sở mới nào được tạo trên hệ thống.
+    - Cập nhật webhook SePay thông báo Zalo Bot theo đúng `school_id` của học sinh.
+  - **Kiểm tra:** `npm run build` hoàn thành không lỗi.
+
 ### [v2.9.6] - 2026-11-13
 - **⭐ SIẾT CHẶT PHÂN QUYỀN XEM DOANH THU / HỌC PHÍ (RBAC ENFORCEMENT TOÀN DIỆN):**
   - **Nguyên nhân:** Quyền `revenue.reports`/`tuition.view` chỉ được ẩn ở một số nút giao diện, nhưng dữ liệu tài chính vẫn nằm trong response `/api/students`, trong prompt Trợ lý AI và một số màn hình phụ; quyền trên trình duyệt của nhân viên chỉ tải lúc đăng nhập nên không cập nhật khi Chủ cơ sở sửa vai trò.

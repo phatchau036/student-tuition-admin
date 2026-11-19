@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
 import { getSchoolIdFromRequest } from "@/lib/authHelper";
+import crypto from "crypto";
 
 const ZALO_BOT_BASE_URL = "https://bot-api.zapps.me";
 
@@ -101,10 +102,15 @@ export async function POST(req: Request) {
 
       try {
         const url = `${ZALO_BOT_BASE_URL}/bot${token}/setWebhook`;
+        // Zalo Bot Platform yêu cầu secret_token (1-256 ký tự). Tự động tạo hash an toàn từ token để làm secret_token
+        const secretToken = crypto.createHash("md5").update(token).digest("hex");
         const res = await fetch(url, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ url: webhookUrl }),
+          body: JSON.stringify({
+            url: webhookUrl,
+            secret_token: secretToken,
+          }),
         });
         const data = await res.json();
         if (data.ok) {

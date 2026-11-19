@@ -12,13 +12,10 @@ export async function GET(req: Request) {
     }
     const db = getDb();
     const schoolId = getSchoolIdFromRequest(req);
-    let res = await db.execute({
+    const res = await db.execute({
       sql: "SELECT * FROM tuition_packages WHERE school_id = ? ORDER BY cycle_value ASC, amount ASC",
       args: [schoolId],
     });
-    if (res.rows.length === 0) {
-      res = await db.execute("SELECT * FROM tuition_packages ORDER BY cycle_value ASC, amount ASC");
-    }
     const packages = res.rows.map((row) => ({
       id: String(row.id),
       school_id: String(row.school_id || schoolId),
