@@ -6,6 +6,16 @@
 
 ## 1. LỊCH SỬ PHIÊN BẢN (CHANGELOG)
 
+### [v2.12.0] - 2026-11-20
+- **⭐ VÁ LỖ HỔNG BẢO MẬT & SIẾT CHẶT ĐA CƠ SỞ (SECURITY HARDENING):**
+  - **Localhost Guard thật cho `/he-thong`:** Hiện thực `src/proxy.ts` (Next.js 16 Proxy) — request ngoài loopback nhận **404 ngụy trang**; có `HETHONG_GUARD=off` và `HETHONG_ALLOWED_IPS` cho vận hành qua SSH tunnel.
+  - **Bổ sung xác thực cho 14 route trước đây công khai:** `teachers`, `teachers/[id]`, `classes`, `subjects`, `status-logs`, `admin/attendance`, `admin/teacher-leaves`, `system/team`, `system/upgrade`, `feedbacks/parent`, `feedbacks/system`, `zalo-bot`, và các action quản trị của `makeups` (`complete`, `reset_pending`, `delete`). Mỗi route kiểm tra đúng quyền RBAC tương ứng.
+  - **Chặn rò rỉ dữ liệu chéo cơ sở (cross-tenant):** Thêm `resolveSchoolScopeForAdmin()` — `x-school-id` / `?school_id` chỉ được chấp nhận khi thuộc cùng tổ chức (`parent_school_id`); giá trị lạ bị bỏ qua. Áp dụng cho `/api/students` (GET & POST), `/api/settings`, `/api/packages`, `/api/subjects`.
+  - **Ký HMAC-SHA256 token phiên:** Module `src/lib/sessionToken.ts` sinh/xác thực token `base64url(payload).hmac`. Token cũ không ký vẫn hoạt động (tương thích ngược); `SESSION_STRICT=on` để buộc đăng nhập lại.
+  - **Cổng Giáo viên:** Bắt buộc nhập mật khẩu, không còn bypass khi bỏ trống.
+  - **Cổng Phụ huynh:** Chặn hoàn toàn hành động `confirm_payment` (trả 403) — phụ huynh không thể tự đánh dấu đã nộp học phí; việc ghi nhận chỉ do admin hoặc SePay webhook.
+  - **Kiểm tra:** ESLint 0/0 · typecheck pass · `npm test` 10/10 · build 47 route.
+
 ### [v2.11.0] - 2026-11-20
 - **⭐ CHUẨN HÓA CODEBASE — GIAI ĐOẠN 2 (DOMAIN-DRIVEN RESTRUCTURE):**
   - **Tái cấu trúc kiểu dữ liệu (`src/types/`):** Tách `src/lib/types.ts` (685 dòng) thành 9 module domain — `common`, `school`, `catalog`, `student`, `teacher`, `class`, `finance`, `feedback`, `lesson`. `lib/types.ts` còn 15 dòng barrel tương thích.
