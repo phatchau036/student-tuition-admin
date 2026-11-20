@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { Student, StudentStatus } from "@/lib/types";
 import { X } from "lucide-react";
-import { useToast } from "@/components/Toast";
+import { useToast } from "@/components/ui/Toast";
 
 interface ChangeStatusModalProps {
   isOpen: boolean;

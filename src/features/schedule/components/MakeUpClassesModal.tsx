@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import { Student, MakeUpClass, TimeSlot } from "@/lib/types";
-import { useToast } from "@/components/Toast";
+import { useToast } from "@/components/ui/Toast";
 import { detectShiftTeachers } from "@/lib/shiftDetection";
 import { createLogger } from "@/lib/logger";
 

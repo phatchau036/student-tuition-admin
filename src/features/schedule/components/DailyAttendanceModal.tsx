@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { Student, Teacher, ClassRoom, AttendanceRecordInput, DbRow } from "@/lib/types";
 import { getDayNameVi, getTodayDateStr } from "@/lib/tuition";
 import { isTimeOverlap } from "@/lib/shiftDetection";
-import { useToast } from "@/components/Toast";
+import { useToast } from "@/components/ui/Toast";
 import {
   CheckCircle2,
   Calendar,

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { StudentStatusLog, MonthFormat } from "@/lib/types";
-import { useToast } from "@/components/Toast";
+import { useToast } from "@/components/ui/Toast";
 import { createLogger } from "@/lib/logger";
 
 const log = createLogger("ui/StatusLogModal");

@@ -14,7 +14,7 @@ import {
   Bot,
   Sparkles,
 } from "lucide-react";
-import { useToast } from "@/components/Toast";
+import { useToast } from "@/components/ui/Toast";
 
 interface ZaloReminderModalProps {
   isOpen: boolean;

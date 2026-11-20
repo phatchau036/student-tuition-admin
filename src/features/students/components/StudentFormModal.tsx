@@ -17,7 +17,7 @@ import {
 } from "@/lib/types";
 import { calculateStudentTuition, formatVND, formatTimeSlotLabel } from "@/lib/tuition";
 import { checkClassCapacityForSchedule } from "@/lib/shiftDetection";
-import { useToast } from "@/components/Toast";
+import { useToast } from "@/components/ui/Toast";
 import {
   User,
   Phone,

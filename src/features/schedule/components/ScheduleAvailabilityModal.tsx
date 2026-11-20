@@ -3,7 +3,7 @@
 import React, { useState, useMemo } from "react";
 import { Student, Teacher, TimeSlot, Subject, ClassRoom, DAYS_OF_WEEK, DbRow } from "@/lib/types";
 import { timeToMinutes } from "@/lib/shiftDetection";
-import { useToast } from "@/components/Toast";
+import { useToast } from "@/components/ui/Toast";
 import {
   Clock,
   Copy,

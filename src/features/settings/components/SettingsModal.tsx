@@ -17,7 +17,7 @@ import {
 } from "@/lib/types";
 import { formatVND } from "@/lib/tuition";
 import { useLanguage } from "@/lib/i18n";
-import { useToast } from "@/components/Toast";
+import { useToast } from "@/components/ui/Toast";
 import {
   Clock,
   Layers,

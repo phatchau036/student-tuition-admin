@@ -5,7 +5,7 @@ import { formatVND, formatMonthDisplay } from "@/lib/tuition";
 import { Student, StudentPayment, MonthFormat } from "@/lib/types";
 import { X, Download, CheckCircle2, Building2, MapPin, Phone } from "lucide-react";
 import html2canvas from "html2canvas";
-import { useToast } from "@/components/Toast";
+import { useToast } from "@/components/ui/Toast";
 import { createLogger } from "@/lib/logger";
 
 const log = createLogger("ui/ReceiptModal");

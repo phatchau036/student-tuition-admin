@@ -3,8 +3,8 @@
 import React, { useState, useEffect } from "react";
 import { Student, MonthFormat, TuitionPackage, StudentPayment, DbRow } from "@/lib/types";
 import { formatVND, formatMonthDisplay, getPreviousMonthStr, getNextMonthStr } from "@/lib/tuition";
-import { useToast } from "@/components/Toast";
-import { ReceiptModal } from "./ReceiptModal";
+import { useToast } from "@/components/ui/Toast";
+import { ReceiptModal } from "@/features/tuition/components/ReceiptModal";
 import {
   CheckCircle2,
   AlertCircle,

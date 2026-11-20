@@ -11,7 +11,7 @@ import {
   DAYS_OF_WEEK,
   DbRow,
 } from "@/lib/types";
-import { useToast } from "@/components/Toast";
+import { useToast } from "@/components/ui/Toast";
 import { formatScheduleCompact } from "@/lib/shiftDetection";
 import {
   Layers,

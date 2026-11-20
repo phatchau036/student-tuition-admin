@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { useToast } from "@/components/Toast";
+import { useToast } from "@/components/ui/Toast";
 import { Building2, X, Save, Phone, MapPin, Tag, Sparkles } from "lucide-react";
 
 interface CreateBranchModalProps {

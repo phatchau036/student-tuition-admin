@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { Student, MonthFormat, TuitionAdjustmentItem } from "@/lib/types";
 import { formatVND, formatMonthDisplay } from "@/lib/tuition";
-import { useToast } from "@/components/Toast";
+import { useToast } from "@/components/ui/Toast";
 import {
   DollarSign,
   FileText,
@@ -15,7 +15,7 @@ import {
   Plus,
   Trash2,
 } from "lucide-react";
-import { MonthPicker } from "@/components/MonthPicker";
+import { MonthPicker } from "@/components/ui/MonthPicker";
 
 interface MonthlyTuitionModalProps {
   isOpen: boolean;

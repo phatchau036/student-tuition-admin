@@ -14,7 +14,7 @@ import {
   RefreshCw,
   Search,
 } from "lucide-react";
-import { MonthPicker } from "./MonthPicker";
+import { MonthPicker } from "@/components/ui/MonthPicker";
 import { createLogger } from "@/lib/logger";
 
 const log = createLogger("ui/MonthlySummaryModal");

@@ -24,7 +24,7 @@ import {
   Maximize2,
 } from "lucide-react";
 import { ParentFeedback, SystemFeedback } from "@/lib/types";
-import { useToast } from "@/components/Toast";
+import { useToast } from "@/components/ui/Toast";
 import { createLogger } from "@/lib/logger";
 import { APP_VERSION } from "@/lib/constants";
 

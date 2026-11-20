@@ -21,16 +21,16 @@ import {
   formatTimeSlotLabel,
   detectStudentPresetName,
 } from "@/lib/tuition";
-import { useToast } from "@/components/Toast";
-import { SettingsModal } from "@/components/SettingsModal";
-import { StudentFormModal } from "@/components/StudentFormModal";
-import { MonthlyTuitionModal } from "@/components/MonthlyTuitionModal";
-import { MakeUpClassesModal } from "@/components/MakeUpClassesModal";
-import { MonthPicker } from "@/components/MonthPicker";
-import { ZaloReminderModal } from "@/components/ZaloReminderModal";
-import { StudentDetailModal } from "@/components/StudentDetailModal";
-import { ChangeStatusModal } from "@/components/ChangeStatusModal";
-import { StatusLogModal } from "@/components/StatusLogModal";
+import { useToast } from "@/components/ui/Toast";
+import { SettingsModal } from "@/features/settings/components/SettingsModal";
+import { StudentFormModal } from "@/features/students/components/StudentFormModal";
+import { MonthlyTuitionModal } from "@/features/tuition/components/MonthlyTuitionModal";
+import { MakeUpClassesModal } from "@/features/schedule/components/MakeUpClassesModal";
+import { MonthPicker } from "@/components/ui/MonthPicker";
+import { ZaloReminderModal } from "@/features/tuition/components/ZaloReminderModal";
+import { StudentDetailModal } from "@/features/students/components/StudentDetailModal";
+import { ChangeStatusModal } from "@/features/students/components/ChangeStatusModal";
+import { StatusLogModal } from "@/features/students/components/StatusLogModal";
 import {
   Users,
   Search,
@@ -53,14 +53,9 @@ import {
   Building2,
   ExternalLink,
   ShieldCheck,
-  Lock,
   LogOut,
-  ArrowRight,
-  User,
-  ShieldAlert,
   ChevronRight,
   ChevronDown,
-  TrendingUp,
   AlertCircle,
   AlertTriangle,
   RefreshCw,
@@ -86,18 +81,18 @@ import {
   ArrowDown,
 } from "lucide-react";
 import Link from "next/link";
-import { MonthlySummaryModal } from "./MonthlySummaryModal";
-import { AppInfoModal } from "./AppInfoModal";
-import { SmartExcelImportModal } from "./SmartExcelImportModal";
-import { QuickAuditModal } from "./QuickAuditModal";
-import { ClassroomScheduleMatrix } from "./ClassroomScheduleMatrix";
-import { ClassManagementModal } from "./ClassManagementModal";
-import { ScheduleAvailabilityModal } from "./ScheduleAvailabilityModal";
-import { StaffManagementModal } from "./StaffManagementModal";
-import { DailyAttendanceModal } from "./DailyAttendanceModal";
-import { TuitionReminderQueueModal } from "./TuitionReminderQueueModal";
-import { AdminAiAssistantModal } from "./AdminAiAssistantModal";
-import { CreateBranchModal } from "./CreateBranchModal";
+import { MonthlySummaryModal } from "@/features/tuition/components/MonthlySummaryModal";
+import { AppInfoModal } from "@/features/dashboard/components/AppInfoModal";
+import { SmartExcelImportModal } from "@/features/students/components/SmartExcelImportModal";
+import { QuickAuditModal } from "@/features/tuition/components/QuickAuditModal";
+import { ClassroomScheduleMatrix } from "@/features/schedule/components/ClassroomScheduleMatrix";
+import { ClassManagementModal } from "@/features/classes/components/ClassManagementModal";
+import { ScheduleAvailabilityModal } from "@/features/schedule/components/ScheduleAvailabilityModal";
+import { StaffManagementModal } from "@/features/staff/components/StaffManagementModal";
+import { DailyAttendanceModal } from "@/features/schedule/components/DailyAttendanceModal";
+import { TuitionReminderQueueModal } from "@/features/tuition/components/TuitionReminderQueueModal";
+import { AdminAiAssistantModal } from "@/features/ai/components/AdminAiAssistantModal";
+import { CreateBranchModal } from "@/features/dashboard/components/CreateBranchModal";
 import { exportStudentsToExcel } from "@/lib/exportExcel";
 import { useLanguage } from "@/lib/i18n";
 import { useTheme } from "@/lib/ThemeContext";
@@ -109,6 +104,10 @@ import {
   ZaloReminderMode,
 } from "@/lib/types";
 import { createLogger } from "@/lib/logger";
+import { IpBlockedScreen } from "@/features/dashboard/components/IpBlockedScreen";
+import { DashboardLoadingScreen } from "@/features/dashboard/components/DashboardLoadingScreen";
+import { AdminLoginScreen } from "@/features/dashboard/components/AdminLoginScreen";
+import { DashboardKpiCards } from "@/features/dashboard/components/DashboardKpiCards";
 
 const log = createLogger("ui/Dashboard");
 
@@ -1032,155 +1031,27 @@ export default function Dashboard() {
     }
   };
 
-  // 0. IP Blocked: If school enabled IP restriction and client IP is not in whitelist -> Web Error
+  // 0. IP Blocked: Cơ sở bật IP Whitelist và IP hiện tại không được phép truy cập
   if (ipStatus.checked && !ipStatus.allowed) {
-    return (
-      <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-center items-center p-4 font-sans text-center">
-        <div className="w-full max-w-md p-8 rounded-3xl bg-slate-900 border border-rose-500/30 shadow-2xl space-y-5">
-          <div className="w-16 h-16 rounded-3xl bg-rose-500/10 border border-rose-500/20 text-rose-500 flex items-center justify-center mx-auto">
-            <ShieldAlert className="w-8 h-8" />
-          </div>
-          <div>
-            <span className="px-2.5 py-1 text-xs font-black uppercase rounded-md bg-rose-500/20 text-rose-400 border border-rose-500/30 tracking-wider">
-              Web Error • 403 Forbidden
-            </span>
-            <h1 className="text-xl font-extrabold text-white mt-3">Truy Cập Bị Từ Chối</h1>
-            <p className="text-xs text-rose-300 font-semibold mt-1">
-              Trường học đã bật tính năng Bảo Vệ Giới Hạn IP
-            </p>
-          </div>
-
-          <div className="p-3.5 rounded-2xl bg-slate-800/80 border border-slate-700 text-xs text-slate-300 space-y-1.5 text-left font-mono">
-            <p>
-              • IP của bạn:{" "}
-              <span className="text-rose-400 font-bold">
-                {ipStatus.client_ip || "Không xác định"}
-              </span>
-            </p>
-            <p>
-              • Trường quản lý:{" "}
-              <span className="text-white font-semibold">
-                {ipStatus.school_name || "Trung tâm"}
-              </span>
-            </p>
-            <p className="text-[11px] text-slate-400 pt-1 border-t border-slate-700/60 font-sans">
-              Địa chỉ IP này chưa được cấp phép trong danh sách IP Whitelist của trường.
-            </p>
-          </div>
-
-          <p className="text-xs text-slate-400">
-            Vui lòng liên hệ <strong>Chủ Hệ Thống</strong> để thêm IP của bạn vào danh sách cho phép
-            truy cập.
-          </p>
-
-          <div className="pt-2">
-            <Link
-              href="/"
-              className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 transition"
-            >
-              Về Cổng Phụ Huynh
-            </Link>
-          </div>
-        </div>
-      </div>
-    );
+    return <IpBlockedScreen clientIp={ipStatus.client_ip} schoolName={ipStatus.school_name} />;
   }
 
-  // 1. Loading screen while verifying admin auth
+  // 1. Màn hình chờ xác thực phiên quản trị
   if (isAuthenticated === null) {
-    return (
-      <div className="min-h-screen bg-slate-900/5 dark:bg-slate-950 flex items-center justify-center text-slate-500">
-        <div className="flex items-center gap-2.5 bg-white dark:bg-slate-900 px-5 py-3 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-800">
-          <div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
-          <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-            Đang kiểm tra quyền quản trị cơ sở...
-          </span>
-        </div>
-      </div>
-    );
+    return <DashboardLoadingScreen />;
   }
 
-  // 2. Unauthenticated: School Admin Login Screen
+  // 2. Chưa đăng nhập: màn hình đăng nhập Quản trị cơ sở
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-slate-900/5 dark:bg-slate-950 text-slate-800 dark:text-slate-100 flex flex-col justify-center items-center p-4 font-sans relative overflow-hidden">
-        {/* Subtle background glow */}
-        <div className="absolute top-1/4 -left-20 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute bottom-1/4 -right-20 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
-
-        <div className="w-full max-w-md p-8 sm:p-10 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-2xl space-y-6 relative z-10">
-          <div className="text-center space-y-2.5">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-indigo-600 to-indigo-500 text-white mx-auto flex items-center justify-center shadow-lg shadow-indigo-600/30">
-              <BookOpen className="w-8 h-8" />
-            </div>
-            <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-              Đăng Nhập Quản Trị Cơ Sở
-            </h1>
-            <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xs mx-auto leading-relaxed">
-              Nhập tài khoản quản trị viên và mật khẩu do Chủ Hệ Thống cấp để quản lý học sinh và
-              giáo viên cơ sở.
-            </p>
-          </div>
-
-          <form onSubmit={handleAdminLogin} className="space-y-4">
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
-                Tài khoản Admin
-              </label>
-              <div className="relative">
-                <User className="w-4 h-4 absolute left-3.5 top-3.5 text-slate-400" />
-                <input
-                  type="text"
-                  required
-                  placeholder="Tên tài khoản quản trị"
-                  value={loginUsername}
-                  onChange={(e) => setLoginUsername(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 text-sm font-semibold rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500 transition"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1.5">
-                Mật khẩu
-              </label>
-              <div className="relative">
-                <Lock className="w-4 h-4 absolute left-3.5 top-3.5 text-slate-400" />
-                <input
-                  type="password"
-                  required
-                  placeholder="Mật khẩu của bạn"
-                  value={loginPassword}
-                  onChange={(e) => setLoginPassword(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 text-sm font-semibold rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500 transition"
-                />
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={isSubmittingLogin}
-              className="w-full py-3.5 px-4 rounded-2xl bg-indigo-600 hover:bg-indigo-700 active:scale-[0.99] text-white font-bold text-sm shadow-lg shadow-indigo-600/30 transition flex items-center justify-center gap-2 disabled:opacity-50"
-            >
-              {isSubmittingLogin ? (
-                <span>Đang xác thực...</span>
-              ) : (
-                <>
-                  <span>Vào Bảng Quản Trị</span>
-                  <ArrowRight className="w-4 h-4" />
-                </>
-              )}
-            </button>
-          </form>
-
-          <div className="pt-2 border-t border-slate-100 dark:border-slate-800 text-center">
-            <p className="text-[11px] text-slate-400">
-              Nếu bạn chưa có tài khoản, vui lòng liên hệ Chủ Hệ Thống để được cấp quyền quản lý cơ
-              sở.
-            </p>
-          </div>
-        </div>
-      </div>
+      <AdminLoginScreen
+        username={loginUsername}
+        password={loginPassword}
+        isSubmitting={isSubmittingLogin}
+        onUsernameChange={setLoginUsername}
+        onPasswordChange={setLoginPassword}
+        onSubmit={handleAdminLogin}
+      />
     );
   }
 
@@ -1889,82 +1760,20 @@ export default function Dashboard() {
               )}
             </div>
           </div>
-
-          {/* KPI Stat 1: Total Revenue for Month */}
-          <div className="bg-gradient-to-tr from-indigo-600 to-indigo-700 text-white p-5 rounded-3xl shadow-md shadow-indigo-600/20 flex flex-col justify-between relative overflow-hidden">
-            <div className="absolute right-0 top-0 translate-x-4 -translate-y-4 w-32 h-32 bg-white/10 rounded-full blur-xl pointer-events-none" />
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-indigo-200 flex items-center gap-1.5">
-                <TrendingUp className="w-4 h-4 text-indigo-300" />
-                {t.expected_revenue}{" "}
-                {isRangeValid
-                  ? `KỲ ${periodShortLabel}`
-                  : formatMonthDisplay(selectedMonth, monthFormat)}
-              </span>
-              <div className="w-9 h-9 rounded-xl bg-white/20 backdrop-blur-xs flex items-center justify-center">
-                <DollarSign className="w-5 h-5 text-white" />
-              </div>
-            </div>
-            <div className="mt-2">
-              <div className="text-3xl font-black tracking-tight">
-                {canViewRevenue ? (
-                  formatVND(totalRevenueThisMonth)
-                ) : (
-                  <span
-                    className="text-2xl font-bold tracking-widest text-indigo-200 select-none"
-                    title="Tài khoản không có quyền xem tổng doanh thu cơ sở"
-                  >
-                    •••••••• đ
-                  </span>
-                )}
-              </div>
-              <span className="text-xs text-indigo-100 font-medium mt-1 flex items-center gap-1">
-                <Users className="w-3.5 h-3.5 opacity-80" />
-                <strong>{filteredStudents.length}</strong> {t.total_active_students}
-              </span>
-              {isRangeValid && periodRevenue && canViewRevenue && (
-                <span
-                  className="text-[10.5px] text-indigo-100 font-semibold mt-1 flex items-center gap-1 flex-wrap"
-                  title="Tổng tiền các kỳ thanh toán (student_payments) bao phủ tháng neo — tháng của ngày bắt đầu kỳ học phí"
-                >
-                  <CheckCircle2 className="w-3 h-3 opacity-90 shrink-0" />
-                  Đã thu theo kỳ:
-                  <strong className="text-white">{formatVND(periodRevenue.total)}</strong>
-                  <span className="opacity-80">({periodRevenue.paid_students} HS)</span>
-                </span>
-              )}
-            </div>
-          </div>
-
-          {/* KPI Stat 2: Active Packages & Overrides */}
-          <div className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col justify-between">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                <Package className="w-4 h-4 text-emerald-500" />
-                {t.tuition_packages_custom}
-              </span>
-              <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 flex items-center justify-center">
-                <Sparkles className="w-5 h-5" />
-              </div>
-            </div>
-            <div className="mt-2">
-              <div className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-                {tuitionPackages.length}{" "}
-                <span className="text-sm font-semibold text-slate-400">{t.packages_applied}</span>
-              </div>
-              {canViewTuition ? (
-                <span className="text-xs text-amber-600 dark:text-amber-400 font-bold mt-1 inline-flex items-center gap-1">
-                  <Sparkles className="w-3.5 h-3.5" />
-                  {overriddenCount} {t.overridden_students}
-                </span>
-              ) : (
-                <span className="text-xs text-slate-400 font-semibold mt-1 inline-flex items-center gap-1">
-                  <Lock className="w-3.5 h-3.5" />
-                  Không có quyền xem học phí
-                </span>
-              )}
-            </div>
-          </div>
+          <DashboardKpiCards
+            t={t}
+            isRangeValid={isRangeValid}
+            periodShortLabel={periodShortLabel}
+            selectedMonth={selectedMonth}
+            monthFormat={monthFormat}
+            periodRevenue={periodRevenue}
+            totalRevenueThisMonth={totalRevenueThisMonth}
+            visibleStudentsCount={filteredStudents.length}
+            packageCount={tuitionPackages.length}
+            overriddenCount={overriddenCount}
+            canViewRevenue={canViewRevenue}
+            canViewTuition={canViewTuition}
+          />
         </div>
 
         {/* Filter and Search Bar: Modern Executive Toolbar */}

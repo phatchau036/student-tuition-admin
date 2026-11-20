@@ -14,7 +14,7 @@ import {
   BookOpen,
   MessageSquare,
 } from "lucide-react";
-import { useToast } from "@/components/Toast";
+import { useToast } from "@/components/ui/Toast";
 
 /** Sinh ID duy nhất cho một tin nhắn chat (tách khỏi render để tránh impure call). */
 function createChatId(prefix: "user" | "ai" | "err"): string {

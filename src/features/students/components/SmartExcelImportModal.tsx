@@ -3,7 +3,7 @@
 import React, { useState, useRef } from "react";
 import * as XLSX from "xlsx";
 import { Subject, LevelSurcharge, Teacher, DbRow } from "@/lib/types";
-import { useToast } from "@/components/Toast";
+import { useToast } from "@/components/ui/Toast";
 import { FileSpreadsheet, Upload, CheckCircle2, X, Sparkles, Eye, RefreshCw } from "lucide-react";
 import { createLogger } from "@/lib/logger";
 

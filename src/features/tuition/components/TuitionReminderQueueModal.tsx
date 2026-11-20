@@ -16,8 +16,8 @@ import {
   Eye,
   QrCode,
 } from "lucide-react";
-import { useToast } from "@/components/Toast";
-import { MonthPicker } from "./MonthPicker";
+import { useToast } from "@/components/ui/Toast";
+import { MonthPicker } from "@/components/ui/MonthPicker";
 import { createLogger } from "@/lib/logger";
 
 const log = createLogger("ui/TuitionReminderQueueModal");

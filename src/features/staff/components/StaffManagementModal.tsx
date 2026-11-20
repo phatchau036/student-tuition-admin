@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import { SchoolAdmin, AdminRole, Teacher, TimeSlot, ADMIN_PERMISSION_GROUPS } from "@/lib/types";
-import { useToast } from "@/components/Toast";
+import { useToast } from "@/components/ui/Toast";
 import {
   ShieldCheck,
   Users,
