@@ -37,7 +37,8 @@ export async function POST(req: Request) {
       }
     }
 
-    if (!token) {
+    // Chỉ cơ sở mặc định mới được dùng bot toàn cục trong bảng settings.
+    if (!token && (!currentSchoolId || currentSchoolId === "school-default")) {
       const tokenRes = await db.execute("SELECT value FROM settings WHERE key = 'zalo_bot_token'");
       if (tokenRes.rows.length > 0) {
         token = String(tokenRes.rows[0].value).trim();

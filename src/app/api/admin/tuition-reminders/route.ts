@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
 import { getSchoolIdFromRequest, getAdminFromRequest } from "@/lib/authHelper";
 import { createLogger } from "@/lib/logger";
+import { getSchoolSettings } from "@/server/settings/schoolSettings";
 import { getErrorMessage } from "@/lib/errors";
 
 const log = createLogger("api/admin/tuition-reminders");
@@ -252,11 +253,9 @@ export async function POST(req: Request) {
       }
 
       // Lấy Bot Token
-      let botToken = "";
-      const tokenRes = await db.execute("SELECT value FROM settings WHERE key = 'zalo_bot_token'");
-      if (tokenRes.rows.length > 0) {
-        botToken = String(tokenRes.rows[0].value).trim();
-      }
+      // Token phải lấy theo đúng cơ sở đang quản lý, không dùng chung toàn hệ thống.
+      const schoolCfg = await getSchoolSettings(querySchoolId);
+      const botToken = schoolCfg.zalo_bot_token.trim();
 
       if (!botToken) {
         return NextResponse.json(
@@ -335,11 +334,9 @@ export async function POST(req: Request) {
         );
       }
 
-      let botToken = "";
-      const tokenRes = await db.execute("SELECT value FROM settings WHERE key = 'zalo_bot_token'");
-      if (tokenRes.rows.length > 0) {
-        botToken = String(tokenRes.rows[0].value).trim();
-      }
+      // Token phải lấy theo đúng cơ sở đang quản lý, không dùng chung toàn hệ thống.
+      const schoolCfg = await getSchoolSettings(querySchoolId);
+      const botToken = schoolCfg.zalo_bot_token.trim();
 
       if (!botToken) {
         return NextResponse.json(

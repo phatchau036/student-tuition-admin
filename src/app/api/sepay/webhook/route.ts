@@ -16,21 +16,19 @@ export async function POST(req: Request) {
     // 1. Kiểm tra xác thực API Key từ SePay header (Authorization: Apikey API_KEY_CUA_BAN)
     const authHeader = req.headers.get("authorization") || req.headers.get("Authorization") || "";
 
-    // Lấy cấu hình SePay từ database
-    const settingsRes = await db.execute(
-      "SELECT key, value FROM settings WHERE key IN ('sepay_api_key')"
+    // Lấy danh sách API Key SePay hợp lệ từ mọi cơ sở (mỗi cơ sở cấu hình riêng).
+    // Nếu không cơ sở nào cấu hình key thì bỏ qua kiểm tra (webhook công khai theo thiết kế cũ).
+    const apiKeyRows = await db.execute(
+      "SELECT id, sepay_api_key FROM schools WHERE sepay_api_key IS NOT NULL AND sepay_api_key <> ''"
     );
-    let configuredApiKey = "";
+    const validApiKeys = apiKeyRows.rows
+      .map((row) => String(row.sepay_api_key || "").trim())
+      .filter(Boolean);
 
-    for (const row of settingsRes.rows) {
-      if (row.key === "sepay_api_key") configuredApiKey = String(row.value || "").trim();
-    }
-
-    // Nếu hệ thống đã set API Key, kiểm tra khớp header
-    if (configuredApiKey) {
-      const expectedBearer = `Apikey ${configuredApiKey}`.toLowerCase();
+    if (validApiKeys.length > 0) {
       const currentAuth = authHeader.trim().toLowerCase();
-      if (!currentAuth.includes(configuredApiKey.toLowerCase()) && currentAuth !== expectedBearer) {
+      const matched = validApiKeys.some((key) => currentAuth.includes(key.toLowerCase()));
+      if (!matched) {
         return NextResponse.json(
           { success: false, message: "Xác thực API Key SePay không hợp lệ!" },
           { status: 401 }

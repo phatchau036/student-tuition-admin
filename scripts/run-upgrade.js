@@ -55,9 +55,41 @@ log("[1/5] Đã bật chế độ bảo trì hệ thống (.maintenance)");
 
 // 2. Kéo code mới nhất từ GitHub
 log("[2/5] Đang kéo mã nguồn mới nhất từ GitHub (git pull origin main)...");
+
+// Bảo toàn .env: sao lưu trước khi pull và phục hồi sau khi pull.
+// Lý do: tệp .env không còn được track trên Git (chứa mật khẩu Super Admin).
+// Nếu bản cũ của server vẫn đang track .env, git pull có thể xóa tệp khỏi đĩa.
+const envPath = path.join(cwd, ".env");
+const envBackupPath = path.join(cwd, ".env.backup-upgrade");
+let envBackedUp = false;
+try {
+  if (fs.existsSync(envPath)) {
+    fs.copyFileSync(envPath, envBackupPath);
+    envBackedUp = true;
+    log("[2a/5] Đã sao lưu .env trước khi pull");
+  }
+} catch (err) {
+  log(`[CẢNH BÁO] Không sao lưu được .env: ${err.message}`);
+}
+
 // Tự động bỏ qua thay đổi file tạm để không bị xung đột git pull
 runCmd("git checkout package-lock.json", true);
 runCmd("git pull origin main");
+
+// Phục hồi .env ngay sau pull (nếu pull đã xóa hoặc ghi đè)
+try {
+  if (envBackedUp) {
+    if (!fs.existsSync(envPath)) {
+      fs.copyFileSync(envBackupPath, envPath);
+      log("[2b/5] Đã phục hồi .env sau khi pull (tệp từng bị xóa)");
+    }
+    fs.unlinkSync(envBackupPath);
+  } else if (!fs.existsSync(envPath)) {
+    log("[CẢNH BÁO] Không tìm thấy .env! Cần tạo lại từ .env.example trước khi chạy.");
+  }
+} catch (err) {
+  log(`[CẢNH BÁO] Không phục hồi được .env: ${err.message}`);
+}
 
 // 3. Cài đặt thư viện nếu có thay đổi
 log("[3/5] Đang kiểm tra và cài đặt thư viện phụ thuộc (npm install)...");

@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
 import {
-  getSchoolIdFromRequest,
   getAdminFromRequest,
   resolveSchoolScopeForAdmin,
 } from "@/lib/authHelper";
 import { SchedulePreset, DbRow } from "@/lib/types";
+import { syncLegacyDefaultSchoolSettings } from "@/server/settings/schoolSettings";
 import { createLogger } from "@/lib/logger";
 
 const log = createLogger("api/settings");
@@ -324,7 +324,8 @@ export async function POST(req: Request) {
       );
     }
     const db = getDb();
-    const schoolId = body.school_id || getSchoolIdFromRequest(req);
+    // Phạm vi cơ sở đáng tin cậy: body.school_id chỉ được chấp nhận trong cùng tổ chức.
+    const schoolId = await resolveSchoolScopeForAdmin(req, admin, body.school_id);
 
     const {
       base_tuition,
@@ -468,30 +469,10 @@ export async function POST(req: Request) {
       }
     }
 
-    // Nếu là trường mặc định thì đồng bộ thêm vào bảng settings để tương thích ngược
-    if (schoolId === "school-default" || !schoolId) {
-      const legacyMap: Record<string, string | undefined> = {
-        base_tuition: base_tuition !== undefined ? String(base_tuition) : undefined,
-        sepay_bank_name: sepay_bank_name !== undefined ? String(sepay_bank_name).trim() : undefined,
-        sepay_account_number:
-          sepay_account_number !== undefined ? String(sepay_account_number).trim() : undefined,
-        sepay_api_key: sepay_api_key !== undefined ? String(sepay_api_key).trim() : undefined,
-        sepay_prefix:
-          sepay_prefix !== undefined ? String(sepay_prefix).trim().toUpperCase() : undefined,
-        schedule_presets: jsonSchedulePresets,
-        zalo_bot_token: zalo_bot_token !== undefined ? String(zalo_bot_token).trim() : undefined,
-        zalo_bot_name: zalo_bot_name !== undefined ? String(zalo_bot_name).trim() : undefined,
-        zalo_admin_chat_id:
-          zalo_admin_chat_id !== undefined ? String(zalo_admin_chat_id).trim() : undefined,
-      };
-      for (const [key, val] of Object.entries(legacyMap)) {
-        if (val !== undefined) {
-          await db.execute({
-            sql: "INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = ?",
-            args: [key, val, val],
-          });
-        }
-      }
+    // Đồng bộ tương thích ngược: với cơ sở mặc định, sao chép cấu hình sang bảng settings
+    // để các module cũ (wallet, báo cáo) vẫn đọc được cùng một giá trị duy nhất.
+    if (schoolId) {
+      await syncLegacyDefaultSchoolSettings(schoolId);
     }
 
     // 2. Save Time Slots (Cô lập tuyệt đối theo school_id)

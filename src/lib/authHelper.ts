@@ -216,9 +216,11 @@ export async function getAdminFromRequest(req: Request): Promise<RequestAdminCon
  */
 export async function resolveSchoolScopeForAdmin(
   req: Request,
-  admin: RequestAdminContext
+  admin: RequestAdminContext,
+  explicitSchoolId?: string
 ): Promise<string> {
   const requested = (() => {
+    if (explicitSchoolId && explicitSchoolId.trim()) return explicitSchoolId.trim();
     const header = req.headers.get("x-school-id");
     if (header && header.trim()) return header.trim();
     try {

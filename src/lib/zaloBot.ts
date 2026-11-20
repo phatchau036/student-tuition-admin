@@ -25,7 +25,9 @@ export async function notifyAdminViaZaloBot(
     let botToken = "";
     let adminChatId = "";
 
-    if (schoolId && schoolId !== "school-default") {
+    const isDefaultSchool = !schoolId || schoolId === "school-default";
+
+    if (!isDefaultSchool) {
       try {
         const schoolRes = await db.execute({
           sql: "SELECT zalo_bot_token, zalo_admin_chat_id FROM schools WHERE id = ? LIMIT 1",
@@ -61,8 +63,10 @@ export async function notifyAdminViaZaloBot(
     for (const r of settingsRes.rows) {
       const k = String(r.key);
       const val = String(r.value ?? "").trim();
-      if (!botToken && k === "zalo_bot_token") botToken = val;
-      if (!adminChatId && k === "zalo_admin_chat_id") adminChatId = val;
+      // Chỉ dùng bot toàn cục (bảng settings) cho cơ sở mặc định.
+      // Cơ sở khác tuyệt đối không kế thừa bot/chat_id của cơ sở mặc định.
+      if (isDefaultSchool && !botToken && k === "zalo_bot_token") botToken = val;
+      if (isDefaultSchool && !adminChatId && k === "zalo_admin_chat_id") adminChatId = val;
       if (k === "zalo_notify_payment" && val === "0") notifyPayment = false;
       if (k === "zalo_notify_student_absence" && val === "0") notifyStudentAbsence = false;
       if (k === "zalo_notify_teacher_leave" && val === "0") notifyTeacherLeave = false;

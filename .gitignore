@@ -39,8 +39,11 @@ data/*.db-shm
 *.sqlite3
 !data/.gitkeep
 
-# env files (committed as requested by user)
-!.env
+# env files — KHÔNG BAO GIỜ commit .env thật (chứa mật khẩu Super Admin)
+.env
+.env.local
+.env.*.local
+!.env.example
 
 # local IDE & agent files
 .zcode/

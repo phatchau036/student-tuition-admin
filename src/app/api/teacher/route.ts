@@ -368,16 +368,12 @@ export async function GET(req: Request) {
     // 4. Get all Time Slots for displaying teacher's assigned slots
     const slotsRes = await db.execute("SELECT * FROM time_slots ORDER BY id ASC");
 
-    // 5. Get Zalo Bot name from settings if configured
-    const botSettingRes = await db.execute(
-      "SELECT key, value FROM settings WHERE key IN ('zalo_bot_name', 'zalo_bot_token')"
-    );
-    let zaloBotName = "";
-    let isBotConfigured = false;
-    for (const r of botSettingRes.rows) {
-      if (r.key === "zalo_bot_name") zaloBotName = String(r.value || "");
-      if (r.key === "zalo_bot_token" && r.value) isBotConfigured = true;
-    }
+    // 5. Zalo Bot của cơ sở mà giáo viên trực thuộc (không dùng bot cơ sở khác).
+    const teacherSchoolId = String(rawTeacher.school_id || "school-default");
+    const { getSchoolSettings } = await import("@/server/settings/schoolSettings");
+    const schoolCfg = await getSchoolSettings(teacherSchoolId);
+    const zaloBotName = schoolCfg.zalo_bot_name;
+    const isBotConfigured = Boolean(schoolCfg.zalo_bot_token);
 
     // 6. Get attendance/lessons for the selected date if provided
     const targetDate = searchParams.get("date") || new Date().toISOString().slice(0, 10);

@@ -516,7 +516,8 @@ export async function executeAiAdminTool(
       if (scRes.rows.length > 0 && scRes.rows[0].zalo_bot_token) {
         botToken = String(scRes.rows[0].zalo_bot_token).trim();
       }
-      if (!botToken) {
+      // Chỉ cơ sở mặc định mới được fallback sang token toàn cục trong settings.
+      if (!botToken && (!schoolId || schoolId === "school-default")) {
         const tokenRes = await db.execute(
           "SELECT value FROM settings WHERE key = 'zalo_bot_token'"
         );

@@ -4,6 +4,7 @@ import { calculateStudentTuition, getPreviousMonthStr } from "@/lib/tuition";
 import { syncPendingMakeupsToWallet } from "@/lib/wallet";
 import { resolveSchoolIdByHost } from "@/lib/authHelper";
 import { createLogger } from "@/lib/logger";
+import { getSchoolSettings } from "@/server/settings/schoolSettings";
 
 const log = createLogger("api/parent");
 
@@ -98,28 +99,29 @@ export async function POST(req: Request) {
         );
       }
 
-      // Get base tuition, month format & bank settings for VietQR (SePay tự động đối soát)
-      const settingsRes = await db.execute(
-        "SELECT key, value FROM settings WHERE key IN ('base_tuition', 'month_format', 'sepay_bank_name', 'sepay_account_number', 'sepay_prefix', 'sepay_api_key', 'reconciliation_mode', 'zalo_bot_name', 'zalo_bot_token')"
+      // Cấu hình theo cơ sở (nguồn sự thật: bảng `schools`) + vài khóa toàn hệ thống.
+      const globalRes = await db.execute(
+        "SELECT key, value FROM settings WHERE key IN ('month_format', 'reconciliation_mode')"
       );
-      let baseTuition = 1000000;
       let monthFormat = "vietnamese";
-      let sepayBankName = "";
-      let sepayAccountNumber = "";
-      let sepayPrefix = "HP";
       let reconciliationMode = "manual";
-      let zaloBotName = "";
-      let isBotConfigured = false;
-      for (const row of settingsRes.rows) {
-        if (row.key === "base_tuition") baseTuition = Number(row.value) || 1000000;
+      for (const row of globalRes.rows) {
         if (row.key === "month_format") monthFormat = String(row.value) || "vietnamese";
-        if (row.key === "sepay_bank_name") sepayBankName = String(row.value || "").trim();
-        if (row.key === "sepay_account_number") sepayAccountNumber = String(row.value || "").trim();
-        if (row.key === "sepay_prefix") sepayPrefix = String(row.value || "HP").trim();
         if (row.key === "reconciliation_mode") reconciliationMode = String(row.value || "manual");
-        if (row.key === "zalo_bot_name") zaloBotName = String(row.value || "");
-        if (row.key === "zalo_bot_token" && row.value) isBotConfigured = true;
       }
+
+      // Cơ sở của học sinh đầu tiên trong kết quả (mọi học sinh cùng 1 cơ sở khi truy cập bằng domain).
+      // Nếu không xác định được, dùng cơ sở mặc định.
+      const resolvedSchoolId = String(
+        studentsRes.rows[0]?.school_id || domainSchoolId || "school-default"
+      );
+      const schoolCfg = await getSchoolSettings(resolvedSchoolId);
+      const baseTuition = schoolCfg.base_tuition;
+      const sepayBankName = schoolCfg.sepay_bank_name;
+      const sepayAccountNumber = schoolCfg.sepay_account_number;
+      const sepayPrefix = schoolCfg.sepay_prefix;
+      const zaloBotName = schoolCfg.zalo_bot_name;
+      const isBotConfigured = Boolean(schoolCfg.zalo_bot_token);
 
       // Trung tâm chỉ bật hiển thị QR chuyển khoản khi có đầy đủ cấu hình SePay tự đối soát
       const isSepayConfigured = Boolean(sepayBankName && sepayAccountNumber);
