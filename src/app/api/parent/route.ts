@@ -390,67 +390,16 @@ export async function POST(req: Request) {
 
     // 3. Phụ huynh xác nhận đã chuyển khoản / nộp học phí
     if (action === "confirm_payment") {
-      const { student_id, month, amount, note } = body;
-      if (!student_id || !month) {
-        return NextResponse.json(
-          { success: false, message: "Thiếu thông tin thanh toán!" },
-          { status: 400 }
-        );
-      }
-
-      // Lấy thông tin học sinh & gói học phí
-      const stRes = await db.execute({
-        sql: `SELECT s.*, p.name as package_name, p.amount as package_amount, p.cycle_unit, p.cycle_value
-              FROM students s
-              LEFT JOIN tuition_packages p ON s.tuition_package_id = p.id
-              WHERE s.id = ?`,
-        args: [student_id],
-      });
-
-      if (stRes.rows.length === 0) {
-        return NextResponse.json(
-          { success: false, message: "Không tìm thấy học sinh!" },
-          { status: 404 }
-        );
-      }
-
-      const st = stRes.rows[0];
-      const todayStr = new Date().toISOString().slice(0, 10);
-      const paymentId = `pay-parent-${Date.now()}`;
-      const packageName = String(st.package_name || "Học phí chuẩn");
-      const targetPackageId = st.tuition_package_id ? String(st.tuition_package_id) : null;
-      const paymentAmount = Number(amount) || 0;
-
-      // Xóa bản ghi thanh toán cùng kỳ nếu có để cập nhật mới
-      await db.execute({
-        sql: "DELETE FROM student_payments WHERE student_id = ? AND start_period = ?",
-        args: [student_id, month],
-      });
-
-      // Tạo bản ghi thanh toán với trạng thái 'paid'
-      await db.execute({
-        sql: `INSERT INTO student_payments (
-                id, student_id, package_id, package_name, amount, paid_date, start_period, end_period, status, note
-              )
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'paid', ?)`,
-        args: [
-          paymentId,
-          student_id,
-          targetPackageId,
-          packageName,
-          paymentAmount,
-          todayStr,
-          month,
-          month,
-          note || "Phụ huynh xác nhận chuyển khoản nộp học phí qua Cổng phụ huynh",
-        ],
-      });
-
-      return NextResponse.json({
-        success: true,
-        message: `Đã ghi nhận thanh toán học phí thành công cho tháng ${month}!`,
-        payment_id: paymentId,
-      });
+      // BẢO MẬT: Phụ huynh KHÔNG được tự đánh dấu đã nộp học phí.
+      // Việc ghi nhận thanh toán chỉ do Quản trị cơ sở thực hiện (thủ công hoặc qua SePay webhook).
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            "Cổng phụ huynh không thể tự xác nhận thanh toán. Vui lòng chuyển khoản theo thông tin VietQR hoặc liên hệ trung tâm để được ghi nhận học phí.",
+        },
+        { status: 403 }
+      );
     }
 
     return NextResponse.json(
