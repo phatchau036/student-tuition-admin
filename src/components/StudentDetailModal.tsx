@@ -1,34 +1,24 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Student, StudentStatusLog, StudentPayment, LessonRecord } from "@/lib/types";
+import { Student, StudentStatusLog, LessonRecord, DbRow } from "@/lib/types";
 import { formatVND, formatMonthDisplay, getDayNameVi } from "@/lib/tuition";
 import { createLogger } from "@/lib/logger";
 
 const log = createLogger("ui/StudentDetailModal");
 import {
-  User,
-  Phone,
-  Calendar,
   Clock,
-  Layers,
-  GraduationCap,
   MessageSquare,
   History,
   CheckCircle2,
   AlertCircle,
   PauseCircle,
   UserX,
-  UserCheck,
   X,
   CreditCard,
-  Tag,
-  ArrowRight,
-  ExternalLink,
   Calculator,
   Plus,
   Minus,
-  Sparkles,
   BookOpen,
   Star,
   Lock,
@@ -65,17 +55,21 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
   const [statusLogs, setStatusLogs] = useState<StudentStatusLog[]>([]);
   const [studentLessons, setStudentLessons] = useState<LessonRecord[]>([]);
   const [isLoadingLogs, setIsLoadingLogs] = useState(false);
-  const [isLoadingLessons, setIsLoadingLessons] = useState(false);
-  const [activeTab, setActiveTab] = useState<"info" | "status_history" | "schedule" | "diary">("info");
+  const [_isLoadingLessons, setIsLoadingLessons] = useState(false);
+  const [activeTab, setActiveTab] = useState<"info" | "status_history" | "schedule" | "diary">(
+    "info"
+  );
 
   useEffect(() => {
     if (isOpen && student) {
+      // eslint-disable-next-line react-hooks/immutability -- Hàm khai báo bằng function (được hoisting) gọi trong effect mount là an toàn; rule báo nhầm thứ tự khai báo.
       loadStudentStatusLogs(student.id);
+      // eslint-disable-next-line react-hooks/immutability -- Hàm khai báo bằng function (được hoisting) gọi trong effect mount là an toàn; rule báo nhầm thứ tự khai báo.
       loadStudentLessons(student.id);
     }
   }, [isOpen, student]);
 
-  const loadStudentStatusLogs = async (studentId: string) => {
+  async function loadStudentStatusLogs(studentId: string) {
     try {
       setIsLoadingLogs(true);
       const res = await fetch(`/api/status-logs?student_id=${studentId}`);
@@ -88,9 +82,9 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
     } finally {
       setIsLoadingLogs(false);
     }
-  };
+  }
 
-  const loadStudentLessons = async (studentId: string) => {
+  async function loadStudentLessons(studentId: string) {
     try {
       setIsLoadingLessons(true);
       const res = await fetch(`/api/status-logs?type=lessons&student_id=${studentId}`);
@@ -103,13 +97,13 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
     } finally {
       setIsLoadingLessons(false);
     }
-  };
+  }
 
   if (!isOpen || !student) return null;
 
   const status = student.status || "studying";
   const isPaid = student.payment_status === "paid";
-  const zaloPhone = student.phone ? student.phone.replace(/\D/g, "") : "";
+  const _zaloPhone = student.phone ? student.phone.replace(/\D/g, "") : "";
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5 overflow-y-auto font-sans">
@@ -213,13 +207,16 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                       Học sinh đang trong thời gian BẢO LƯU
                     </span>
                     <p className="text-slate-600 dark:text-slate-400">
-                      Ngày bắt đầu bảo lưu: <strong>{student.status_date || "Chưa ghi nhận"}</strong>
+                      Ngày bắt đầu bảo lưu:{" "}
+                      <strong>{student.status_date || "Chưa ghi nhận"}</strong>
                     </p>
                     <p className="text-amber-900 dark:text-amber-200 font-extrabold">
                       Dự kiến học lại vào: {student.expected_return_date || "Chưa xác định"}
                     </p>
                     {student.status_note && (
-                      <p className="text-slate-500 italic mt-0.5">&ldquo;{student.status_note}&rdquo;</p>
+                      <p className="text-slate-500 italic mt-0.5">
+                        &ldquo;{student.status_note}&rdquo;
+                      </p>
                     )}
                   </div>
                   {canChangeStatus && (
@@ -271,7 +268,9 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                       Ngày nghỉ học: <strong>{student.status_date || "Chưa ghi nhận"}</strong>
                     </p>
                     {student.status_note && (
-                      <p className="text-slate-500 italic mt-0.5">&ldquo;{student.status_note}&rdquo;</p>
+                      <p className="text-slate-500 italic mt-0.5">
+                        &ldquo;{student.status_note}&rdquo;
+                      </p>
                     )}
                   </div>
                   {canChangeStatus && (
@@ -296,14 +295,22 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                     Học Phí & Đối Soát ({formatMonthDisplay(selectedMonth)})
                   </span>
                   <span className="text-xs font-extrabold text-indigo-600">
-                    {student.tuition_package_name ? `Gói: ${student.tuition_package_name}` : "Gói chuẩn"}
+                    {student.tuition_package_name
+                      ? `Gói: ${student.tuition_package_name}`
+                      : "Gói chuẩn"}
                   </span>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3 pt-1">
-                  <div className={`p-3 bg-white dark:bg-slate-900 rounded-xl border ${student.is_overdue ? "border-rose-300 dark:border-rose-900/60 bg-rose-50/40 dark:bg-rose-950/20" : "border-slate-200 dark:border-slate-700/70"}`}>
-                    <span className="text-[10px] uppercase font-bold text-slate-400 block">Số tiền cần đóng</span>
-                    <span className={`text-lg font-black mt-0.5 block ${student.is_overdue ? "text-rose-600 dark:text-rose-400" : "text-slate-900 dark:text-white"}`}>
+                  <div
+                    className={`p-3 bg-white dark:bg-slate-900 rounded-xl border ${student.is_overdue ? "border-rose-300 dark:border-rose-900/60 bg-rose-50/40 dark:bg-rose-950/20" : "border-slate-200 dark:border-slate-700/70"}`}
+                  >
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block">
+                      Số tiền cần đóng
+                    </span>
+                    <span
+                      className={`text-lg font-black mt-0.5 block ${student.is_overdue ? "text-rose-600 dark:text-rose-400" : "text-slate-900 dark:text-white"}`}
+                    >
                       {!canViewTuition ? (
                         <span className="font-mono tracking-widest text-slate-400">•••••• đ</span>
                       ) : student.total_tuition_due ? (
@@ -314,7 +321,8 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                     </span>
                     {!canViewTuition ? null : student.is_overdue && student.previous_debt_amount ? (
                       <span className="text-[10px] text-rose-600 dark:text-rose-400 font-bold block mt-0.5">
-                        * Bao gồm nợ cũ: +{formatVND(student.previous_debt_amount)} (Nợ {student.unpaid_months_count} tháng)
+                        * Bao gồm nợ cũ: +{formatVND(student.previous_debt_amount)} (Nợ{" "}
+                        {student.unpaid_months_count} tháng)
                       </span>
                     ) : student.monthly_override ? (
                       <div className="mt-1 space-y-0.5">
@@ -325,13 +333,19 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                           try {
                             const items = JSON.parse(student.monthly_override.items_json || "[]");
                             if (Array.isArray(items) && items.length > 0) {
-                              return items.map((it: any) => (
+                              return items.map((it: DbRow) => (
                                 <span key={it.id} className="text-[10px] text-slate-500 block">
-                                  • {it.type === "add" ? "+" : "-"}{formatVND(it.amount)} ({it.name})
+                                  • {it.type === "add" ? "+" : "-"}
+                                  {formatVND(it.amount)} ({it.name})
                                 </span>
                               ));
                             }
-                          } catch {}
+                          } catch (err) {
+                            log.debug(
+                              "Bỏ qua lỗi không ảnh hưởng luồng chính (StudentDetailModal)",
+                              { error: err }
+                            );
+                          }
                           return null;
                         })()}
                       </div>
@@ -340,14 +354,17 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
 
                   <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700/70 flex flex-col justify-between">
                     <div>
-                      <span className="text-[10px] uppercase font-bold text-slate-400 block">Trạng thái công nợ</span>
+                      <span className="text-[10px] uppercase font-bold text-slate-400 block">
+                        Trạng thái công nợ
+                      </span>
                       {isPaid ? (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-black bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 mt-1">
                           <CheckCircle2 className="w-3.5 h-3.5" /> Đã đóng học phí
                         </span>
                       ) : student.is_overdue ? (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-black bg-rose-600 text-white mt-1 shadow-xs animate-pulse">
-                          <AlertCircle className="w-3.5 h-3.5" /> NỢ QUÁ HẠN ({student.unpaid_months_count} THÁNG)
+                          <AlertCircle className="w-3.5 h-3.5" /> NỢ QUÁ HẠN (
+                          {student.unpaid_months_count} THÁNG)
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-black bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 mt-1">
@@ -390,10 +407,19 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                       {/* 1. Học phí gốc (Gói hoặc Base) */}
                       <div className="flex items-center justify-between py-0.5">
                         <span className="text-slate-600 dark:text-slate-400 flex items-center gap-1">
-                          • {student.tuition_package_name ? `Gói học phí (${student.tuition_package_name})` : "Mức học phí cơ bản"}:
+                          •{" "}
+                          {student.tuition_package_name
+                            ? `Gói học phí (${student.tuition_package_name})`
+                            : "Mức học phí cơ bản"}
+                          :
                         </span>
                         <span className="font-mono font-bold text-slate-900 dark:text-white">
-                          {formatVND(student.tuition_base_amount || (student.standard_tuition ? student.standard_tuition - (student.level_surcharge || 0) : 1000000))}
+                          {formatVND(
+                            student.tuition_base_amount ||
+                              (student.standard_tuition
+                                ? student.standard_tuition - (student.level_surcharge || 0)
+                                : 1000000)
+                          )}
                         </span>
                       </div>
 
@@ -401,7 +427,8 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                       {student.level_surcharge && student.level_surcharge > 0 ? (
                         <div className="flex items-center justify-between py-0.5 text-emerald-600 dark:text-emerald-400">
                           <span className="flex items-center gap-1 font-semibold">
-                            <Plus className="w-3 h-3 stroke-[2.5]" /> Phụ thu level ({student.level_name || "Trình độ"}):
+                            <Plus className="w-3 h-3 stroke-[2.5]" /> Phụ thu level (
+                            {student.level_name || "Trình độ"}):
                           </span>
                           <span className="font-mono font-black">
                             +{formatVND(student.level_surcharge)}
@@ -413,45 +440,69 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                       {student.is_discount_enabled && student.discount_percent > 0 ? (
                         <div className="flex items-center justify-between py-0.5 text-amber-600 dark:text-amber-400">
                           <span className="flex items-center gap-1 font-semibold">
-                            <Minus className="w-3 h-3 stroke-[2.5]" /> Chiết khấu riêng (-{student.discount_percent}%{student.discount_reason ? ` • ${student.discount_reason}` : ""}):
+                            <Minus className="w-3 h-3 stroke-[2.5]" /> Chiết khấu riêng (-
+                            {student.discount_percent}%
+                            {student.discount_reason ? ` • ${student.discount_reason}` : ""}):
                           </span>
                           <span className="font-mono font-black">
-                            -{formatVND(student.tuition_discount_amount || Math.round(((student.tuition_base_amount || 1000000) + (student.level_surcharge || 0)) * (student.discount_percent / 100)))}
+                            -
+                            {formatVND(
+                              student.tuition_discount_amount ||
+                                Math.round(
+                                  ((student.tuition_base_amount || 1000000) +
+                                    (student.level_surcharge || 0)) *
+                                    (student.discount_percent / 100)
+                                )
+                            )}
                           </span>
                         </div>
                       ) : null}
 
                       {/* 4. Điều chỉnh riêng tháng này (nếu có override) */}
-                      {student.monthly_override && (() => {
-                        try {
-                          const items = JSON.parse(student.monthly_override.items_json || "[]");
-                          if (Array.isArray(items) && items.length > 0) {
-                            return items.map((it: any) => (
-                              <div
-                                key={it.id}
-                                className={`flex items-center justify-between py-0.5 ${
-                                  it.type === "add" ? "text-indigo-600 dark:text-indigo-400" : "text-rose-600 dark:text-rose-400"
-                                }`}
-                              >
-                                <span className="flex items-center gap-1 font-semibold">
-                                  {it.type === "add" ? <Plus className="w-3 h-3" /> : <Minus className="w-3 h-3" />}
-                                  Điều chỉnh tháng ({it.name}):
-                                </span>
-                                <span className="font-mono font-black">
-                                  {it.type === "add" ? "+" : "-"}{formatVND(it.amount)}
-                                </span>
-                              </div>
-                            ));
+                      {student.monthly_override &&
+                        (() => {
+                          try {
+                            const items = JSON.parse(student.monthly_override.items_json || "[]");
+                            if (Array.isArray(items) && items.length > 0) {
+                              return items.map((it: DbRow) => (
+                                <div
+                                  key={it.id}
+                                  className={`flex items-center justify-between py-0.5 ${
+                                    it.type === "add"
+                                      ? "text-indigo-600 dark:text-indigo-400"
+                                      : "text-rose-600 dark:text-rose-400"
+                                  }`}
+                                >
+                                  <span className="flex items-center gap-1 font-semibold">
+                                    {it.type === "add" ? (
+                                      <Plus className="w-3 h-3" />
+                                    ) : (
+                                      <Minus className="w-3 h-3" />
+                                    )}
+                                    Điều chỉnh tháng ({it.name}):
+                                  </span>
+                                  <span className="font-mono font-black">
+                                    {it.type === "add" ? "+" : "-"}
+                                    {formatVND(it.amount)}
+                                  </span>
+                                </div>
+                              ));
+                            }
+                          } catch (err) {
+                            log.debug(
+                              "Bỏ qua lỗi không ảnh hưởng luồng chính (StudentDetailModal)",
+                              { error: err }
+                            );
                           }
-                        } catch {}
-                        return null;
-                      })()}
+                          return null;
+                        })()}
 
                       {/* 5. Nợ cũ cộng dồn (nếu có) */}
                       {student.is_overdue && student.previous_debt_amount ? (
                         <div className="flex items-center justify-between py-0.5 text-rose-600 dark:text-rose-400 pt-1 border-t border-dashed border-rose-200 dark:border-rose-900/60">
                           <span className="flex items-center gap-1 font-extrabold">
-                            <AlertCircle className="w-3 h-3" /> Nợ cũ tích lũy ({student.unpaid_months_count} tháng):
+                            <AlertCircle className="w-3 h-3" /> Nợ cũ tích lũy (
+                            {student.unpaid_months_count} tháng):
                           </span>
                           <span className="font-mono font-black">
                             +{formatVND(student.previous_debt_amount)}
@@ -462,7 +513,9 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                       {/* Tổng kết dòng tính toán */}
                       <div className="pt-1.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
                         <span className="text-[11px] font-extrabold uppercase text-slate-500">
-                          {student.total_tuition_due ? "Tổng thực thu cần đóng:" : "Học phí tháng này:"}
+                          {student.total_tuition_due
+                            ? "Tổng thực thu cần đóng:"
+                            : "Học phí tháng này:"}
                         </span>
                         <span className="text-sm font-black text-indigo-600 dark:text-indigo-400 font-mono">
                           {formatVND(student.total_tuition_due || student.current_tuition)}
@@ -524,7 +577,9 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                 <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
                   <span className="text-slate-400 font-medium">Lớp học tham gia:</span>
                   <span className="font-bold text-emerald-600 dark:text-emerald-400">
-                    {student.class_name ? `${student.class_name} ${student.class_room ? `(${student.class_room})` : ""}` : "Chưa gán lớp"}
+                    {student.class_name
+                      ? `${student.class_name} ${student.class_room ? `(${student.class_room})` : ""}`
+                      : "Chưa gán lớp"}
                   </span>
                 </div>
                 <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
@@ -544,7 +599,8 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                 <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
                   <span className="text-slate-400 font-medium">Hình thức học:</span>
                   <span className="font-bold text-slate-800 dark:text-slate-200">
-                    {student.hours_per_week || 3} tiếng / tuần ({student.sessions_per_week || 3} buổi)
+                    {student.hours_per_week || 3} tiếng / tuần ({student.sessions_per_week || 3}{" "}
+                    buổi)
                   </span>
                 </div>
                 <div className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
@@ -602,7 +658,8 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                       badge = "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300";
                       label = "Nghỉ Học";
                     } else if (log.action_type === "resume") {
-                      badge = "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300";
+                      badge =
+                        "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300";
                       label = "Học Tiếp";
                     }
 
@@ -612,7 +669,9 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                         className="p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/40 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2"
                       >
                         <div className="flex items-start gap-2.5">
-                          <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black uppercase shrink-0 ${badge}`}>
+                          <span
+                            className={`px-2 py-0.5 rounded-lg text-[10px] font-black uppercase shrink-0 ${badge}`}
+                          >
                             {label}
                           </span>
                           <div>
@@ -625,7 +684,9 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                               )}
                             </p>
                             {log.reason && (
-                              <p className="text-slate-500 italic mt-0.5">&ldquo;{log.reason}&rdquo;</p>
+                              <p className="text-slate-500 italic mt-0.5">
+                                &ldquo;{log.reason}&rdquo;
+                              </p>
                             )}
                           </div>
                         </div>
@@ -655,7 +716,12 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                       const abs = Math.abs(avail);
                       const h = Math.floor(abs / 60);
                       const m = abs % 60;
-                      const label = avail === 0 ? "0 giờ" : h > 0 ? `${h}h${m > 0 ? String(m).padStart(2, "0") : ""}` : `${m} phút`;
+                      const label =
+                        avail === 0
+                          ? "0 giờ"
+                          : h > 0
+                            ? `${h}h${m > 0 ? String(m).padStart(2, "0") : ""}`
+                            : `${m} phút`;
                       return `${avail < 0 ? "-" : ""}${label}`;
                     })()}
                   </p>
@@ -712,7 +778,8 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                     Chưa có nhật ký buổi học nào được ghi nhận
                   </p>
                   <p className="text-[11px] text-slate-400">
-                    Khi giáo viên thực hiện điểm danh và gửi nhận xét tại Cổng Giáo Viên, nhật ký sẽ tự động hiển thị tại đây.
+                    Khi giáo viên thực hiện điểm danh và gửi nhận xét tại Cổng Giáo Viên, nhật ký sẽ
+                    tự động hiển thị tại đây.
                   </p>
                 </div>
               ) : (
@@ -733,7 +800,8 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
                                 {dayName}, {ld}/{lm}/{ly}
                               </strong>
                               <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
-                                ⏰ {les.start_time} ({les.actual_minutes || les.planned_minutes || 90}p)
+                                ⏰ {les.start_time} (
+                                {les.actual_minutes || les.planned_minutes || 90}p)
                               </span>
                             </div>
                             <p className="text-[11px] text-slate-500 mt-0.5">

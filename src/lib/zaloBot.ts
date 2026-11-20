@@ -6,10 +6,7 @@ const log = createLogger("lib/zaloBot");
 const ZALO_BOT_BASE_URL = "https://bot-api.zapps.me";
 
 export type ZaloAdminNotificationEvent =
-  | "payment"
-  | "student_absence"
-  | "teacher_leave"
-  | "parent_feedback";
+  "payment" | "student_absence" | "teacher_leave" | "parent_feedback";
 
 /**
  * Helper gửi thông báo tự động về Zalo của Admin / Quản lý cơ sở qua Zalo Bot Platform
@@ -38,7 +35,9 @@ export async function notifyAdminViaZaloBot(
           botToken = String(schoolRes.rows[0].zalo_bot_token || "").trim();
           adminChatId = String(schoolRes.rows[0].zalo_admin_chat_id || "").trim();
         }
-      } catch {}
+      } catch (err) {
+        log.debug("Bỏ qua lỗi không ảnh hưởng luồng chính (zaloBot)", { error: err });
+      }
     }
 
     // 2. Lấy cấu hình toàn cục từ settings nếu trường chưa có cấu hình riêng

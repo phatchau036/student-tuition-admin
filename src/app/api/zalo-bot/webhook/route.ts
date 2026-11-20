@@ -3,6 +3,7 @@ import { getDb, initDb } from "@/lib/db";
 import { askAiAssistant } from "@/lib/aiBrain";
 import { resolveSchoolIdByHost } from "@/lib/authHelper";
 import { createLogger } from "@/lib/logger";
+import { getErrorMessage } from "@/lib/errors";
 
 const log = createLogger("api/zalo-bot/webhook");
 
@@ -40,7 +41,9 @@ export async function POST(req: Request) {
           if (sc.zalo_admin_chat_id) adminChatId = String(sc.zalo_admin_chat_id).trim();
           if (sc.zalo_bot_name || sc.name) botName = String(sc.zalo_bot_name || sc.name).trim();
         }
-      } catch {}
+      } catch (err) {
+        log.debug("Bỏ qua lỗi không ảnh hưởng luồng chính (route)", { error: err });
+      }
     }
 
     // 3. Fallback lấy token bot từ bảng settings toàn cục nếu trường chưa có riêng
@@ -52,7 +55,8 @@ export async function POST(req: Request) {
 
       for (const r of settingsRes.rows) {
         if (!botToken && r.key === "zalo_bot_token") botToken = String(r.value || "").trim();
-        if (!adminChatId && r.key === "zalo_admin_chat_id") adminChatId = String(r.value || "").trim();
+        if (!adminChatId && r.key === "zalo_admin_chat_id")
+          adminChatId = String(r.value || "").trim();
         if (r.key === "zalo_bot_name" && r.value) botName = String(r.value || "").trim();
       }
     }
@@ -99,7 +103,9 @@ export async function POST(req: Request) {
               VALUES (?, ?, ?, ?, ?)`,
         args: [msgId, targetSchoolId, chatId, senderName, userText.slice(0, 500)],
       });
-    } catch {}
+    } catch (err) {
+      log.debug("Bỏ qua lỗi không ảnh hưởng luồng chính (route)", { error: err });
+    }
 
     // 5. Kiểm tra xem người gửi có phải là Admin đã kết nối hay không
     const isAdmin = adminChatId && chatId === adminChatId;
@@ -134,7 +140,11 @@ export async function POST(req: Request) {
     }
 
     // 6. Nếu không phải Admin (phụ huynh nhắn tin chào Bot)
-    if (userText.toLowerCase().includes("hi") || userText.toLowerCase().includes("chào") || userText.startsWith("/")) {
+    if (
+      userText.toLowerCase().includes("hi") ||
+      userText.toLowerCase().includes("chào") ||
+      userText.startsWith("/")
+    ) {
       const welcomeMsg = `Xin chào ${senderName}!
 Em là ${botName} - Trợ lý tự động của trung tâm.
 Chat ID của bạn là: ${chatId}
@@ -151,11 +161,15 @@ Chat ID của bạn là: ${chatId}
       });
     }
 
-    return NextResponse.json({ success: true, handled: "guest_welcome", school_id: targetSchoolId });
-  } catch (error: any) {
+    return NextResponse.json({
+      success: true,
+      handled: "guest_welcome",
+      school_id: targetSchoolId,
+    });
+  } catch (error: unknown) {
     log.error("Zalo Bot Webhook error:", { error: error });
     return NextResponse.json(
-      { success: false, message: error.message || "Webhook processing error" },
+      { success: false, message: getErrorMessage(error) || "Webhook processing error" },
       { status: 500 }
     );
   }

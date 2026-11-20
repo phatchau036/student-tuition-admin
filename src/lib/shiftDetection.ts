@@ -8,6 +8,7 @@
  */
 
 import { timeToMinutes, minutesToTime } from "@/lib/tuition";
+import type { DbRow } from "@/lib/types";
 export { timeToMinutes, minutesToTime };
 
 export interface TeacherShiftItem {
@@ -59,7 +60,9 @@ export const DAYS_ORDER_MAP: Record<string, number> = {
  * Ví dụ: Thứ 2 (17:00-20:00), Thứ 3 (17:00-20:00)... Thứ 7 (17:00-20:00)
  * -> "Thứ 2 – Thứ 7 (17:00 - 20:00)"
  */
-export function formatScheduleCompact(scheduleItems: Array<{ day: string; start_time: string; end_time: string }>): string[] {
+export function formatScheduleCompact(
+  scheduleItems: Array<{ day: string; start_time: string; end_time: string }>
+): string[] {
   if (!Array.isArray(scheduleItems) || scheduleItems.length === 0) return [];
 
   // Gom nhóm theo khung giờ: "17:00 - 20:00" -> ["Thứ 2", "Thứ 3", "Thứ 4", ...]
@@ -96,9 +99,19 @@ export function formatScheduleCompact(scheduleItems: Array<{ day: string; start_
       results.push(`Tất cả các ngày: ${timeRange}`);
     } else if (isConsecutive) {
       results.push(`${days[0]} – ${days[days.length - 1]}: ${timeRange}`);
-    } else if (days.length === 3 && days[0] === "Thứ 2" && days[1] === "Thứ 4" && days[2] === "Thứ 6") {
+    } else if (
+      days.length === 3 &&
+      days[0] === "Thứ 2" &&
+      days[1] === "Thứ 4" &&
+      days[2] === "Thứ 6"
+    ) {
       results.push(`Thứ 2, 4, 6: ${timeRange}`);
-    } else if (days.length === 3 && days[0] === "Thứ 3" && days[1] === "Thứ 5" && days[2] === "Thứ 7") {
+    } else if (
+      days.length === 3 &&
+      days[0] === "Thứ 3" &&
+      days[1] === "Thứ 5" &&
+      days[2] === "Thứ 7"
+    ) {
       results.push(`Thứ 3, 5, 7: ${timeRange}`);
     } else if (days.length === 2 && days[0] === "Thứ 7" && days[1] === "Chủ Nhật") {
       results.push(`Cuối tuần T7, CN: ${timeRange}`);
@@ -182,9 +195,7 @@ export function detectShiftTeachers(
 
   if (uniqueTeachers.length >= 2) {
     // Có từ 2 giáo viên đổi ca
-    const segmentsDesc = overlaps
-      .map((ov) => `${ov.teacher_name} (${ov.time_label})`)
-      .join(" và ");
+    const segmentsDesc = overlaps.map((ov) => `${ov.teacher_name} (${ov.time_label})`).join(" và ");
 
     const namesText = teacherNames.join(" và ");
 
@@ -338,10 +349,12 @@ export function checkClassCapacityForSchedule(params: {
   }>;
   excludeStudentId?: string; // Không tính học sinh đang chỉnh sửa
 }): ClassCapacityCheckResult {
-  const { selectedClassId, selectedDays, sessionTimeStr, classes, allStudents, excludeStudentId } = params;
+  const { selectedClassId, selectedDays, sessionTimeStr, classes, allStudents, excludeStudentId } =
+    params;
 
   const targetClass = classes.find((c) => c.id === selectedClassId);
-  const maxCapacity = targetClass?.max_students && targetClass.max_students > 0 ? targetClass.max_students : 10;
+  const maxCapacity =
+    targetClass?.max_students && targetClass.max_students > 0 ? targetClass.max_students : 10;
 
   if (!selectedClassId || !Array.isArray(selectedDays) || selectedDays.length === 0) {
     return {
@@ -360,10 +373,7 @@ export function checkClassCapacityForSchedule(params: {
 
   // Lọc các học sinh khác trong cùng lớp (bỏ qua học sinh đã nghỉ học 'dropped' và chính học sinh đang sửa)
   const otherClassStudents = allStudents.filter(
-    (s) =>
-      s.class_id === selectedClassId &&
-      s.id !== excludeStudentId &&
-      s.status !== "dropped"
+    (s) => s.class_id === selectedClassId && s.id !== excludeStudentId && s.status !== "dropped"
   );
 
   const dayDetails: DayCapacityDetail[] = [];
@@ -384,16 +394,20 @@ export function checkClassCapacityForSchedule(params: {
         try {
           const items = JSON.parse(st.schedule_details_json);
           if (Array.isArray(items) && items.length > 0) {
-            const dayItem = items.find((it: any) => normalizeDayOfWeek(it.day) === day);
+            const dayItem = items.find((it: DbRow) => normalizeDayOfWeek(it.day) === day);
             if (dayItem && dayItem.start_time) {
-              const itemRange = extractTimeRangeMinutes(`${dayItem.start_time} - ${dayItem.end_time || ""}`);
+              const itemRange = extractTimeRangeMinutes(
+                `${dayItem.start_time} - ${dayItem.end_time || ""}`
+              );
               if (Math.max(candStart, itemRange.startMin) < Math.min(candEnd, itemRange.endMin)) {
                 isOverlap = true;
                 matchedTimeDetail = itemRange.display;
               }
             }
           }
-        } catch {}
+        } catch {
+          /* Bỏ qua có chủ đích: lỗi không ảnh hưởng luồng chính. */
+        }
       }
 
       // 2. Kiểm tra từ study_time_detail nếu chưa xác định được từ json
@@ -402,13 +416,19 @@ export function checkClassCapacityForSchedule(params: {
         if (raw && !raw.toLowerCase().includes("linh hoạt")) {
           let clauses: string[] = [raw];
           if (/[|;]/.test(raw)) {
-            clauses = raw.split(/[|;]+/).map((s) => s.trim()).filter(Boolean);
+            clauses = raw
+              .split(/[|;]+/)
+              .map((s) => s.trim())
+              .filter(Boolean);
           } else if (/\)\s*,\s*(?=[A-Za-zÀ-ỹ0-9])/.test(raw)) {
-            clauses = raw.split(/\)\s*,\s*(?=[A-Za-zÀ-ỹ0-9])/).map((s, idx, arr) => {
-              let res = s.trim();
-              if (idx < arr.length - 1 && !res.endsWith(")")) res += ")";
-              return res;
-            }).filter(Boolean);
+            clauses = raw
+              .split(/\)\s*,\s*(?=[A-Za-zÀ-ỹ0-9])/)
+              .map((s, idx, arr) => {
+                let res = s.trim();
+                if (idx < arr.length - 1 && !res.endsWith(")")) res += ")";
+                return res;
+              })
+              .filter(Boolean);
           }
 
           for (const clause of clauses) {
@@ -442,7 +462,9 @@ export function checkClassCapacityForSchedule(params: {
 
             if (clauseHasDay) {
               const parsedClause = extractTimeRangeMinutes(clause);
-              if (Math.max(candStart, parsedClause.startMin) < Math.min(candEnd, parsedClause.endMin)) {
+              if (
+                Math.max(candStart, parsedClause.startMin) < Math.min(candEnd, parsedClause.endMin)
+              ) {
                 isOverlap = true;
                 matchedTimeDetail = parsedClause.display;
                 break;

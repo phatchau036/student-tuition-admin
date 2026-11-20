@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
 import { getSchoolIdFromRequest, getAdminFromRequest } from "@/lib/authHelper";
-import { SchedulePreset } from "@/lib/types";
+import { SchedulePreset, DbRow } from "@/lib/types";
 import { createLogger } from "@/lib/logger";
 
 const log = createLogger("api/settings");
@@ -12,7 +12,10 @@ export async function GET(req: Request) {
     const admin = await getAdminFromRequest(req);
     if (!admin) {
       return NextResponse.json(
-        { success: false, message: "Phiên đăng nhập không hợp lệ hoặc đã hết hạn! Vui lòng đăng nhập lại." },
+        {
+          success: false,
+          message: "Phiên đăng nhập không hợp lệ hoặc đã hết hạn! Vui lòng đăng nhập lại.",
+        },
         { status: 401 }
       );
     }
@@ -34,16 +37,18 @@ export async function GET(req: Request) {
     }
 
     // Lấy thông tin cấu hình riêng biệt của cơ sở (Multi-Tenant School Settings)
-    let schoolRow: Record<string, any> | null = null;
+    let schoolRow: DbRow | null = null;
     try {
       const schoolRes = await db.execute({
         sql: "SELECT * FROM schools WHERE id = ? LIMIT 1",
         args: [schoolId],
       });
       if (schoolRes.rows.length > 0) {
-        schoolRow = schoolRes.rows[0] as Record<string, any>;
+        schoolRow = schoolRes.rows[0] as DbRow;
       }
-    } catch {}
+    } catch (err) {
+      log.debug("Bỏ qua lỗi không ảnh hưởng luồng chính (route)", { error: err });
+    }
 
     const isDefaultSchool = schoolId === "school-default" || !schoolId;
 
@@ -61,21 +66,31 @@ export async function GET(req: Request) {
 
     const durationMode = (settingsMap["duration_mode"] as "by_hours" | "by_sessions") || "by_hours";
     const appLanguage = (settingsMap["app_language"] as "vi" | "en" | "zh" | "ja") || "vi";
-    const monthFormat = (settingsMap["month_format"] as "vietnamese" | "english" | "chinese" | "japanese" | "number") || "vietnamese";
+    const monthFormat =
+      (settingsMap["month_format"] as
+        "vietnamese" | "english" | "chinese" | "japanese" | "number") || "vietnamese";
     const defaultHours = Number(settingsMap["default_hours_per_week"] || 3);
     const defaultSessions = Number(settingsMap["default_sessions_per_week"] || 3);
     const defaultStudyTime = settingsMap["default_study_time"] || "18:00 - 19:00";
     const maxStudentsPerSlot = Number(settingsMap["max_students_per_slot"] || 10);
     const crowdedThresholdPercent = Number(settingsMap["crowded_threshold_percent"] || 80);
     const capacityMode = (settingsMap["capacity_mode"] as "by_slot" | "by_teacher") || "by_slot";
-    const reconciliationMode = (settingsMap["reconciliation_mode"] as "manual" | "auto") || "manual";
+    const reconciliationMode =
+      (settingsMap["reconciliation_mode"] as "manual" | "auto") || "manual";
     const defaultMinutesPerSession = Number(settingsMap["default_minutes_per_session"] || 90);
     const zaloReminderMode = (settingsMap["zalo_reminder_mode"] as "manual" | "bot") || "manual";
 
     // Zalo Bot Settings theo từng trường
-    const zaloBotToken = String(schoolRow?.zalo_bot_token || (isDefaultSchool ? settingsMap["zalo_bot_token"] || "" : ""));
-    const zaloBotName = String(schoolRow?.zalo_bot_name || (isDefaultSchool ? settingsMap["zalo_bot_name"] || "" : ""));
-    const zaloAdminChatId = String(schoolRow?.zalo_admin_chat_id || (isDefaultSchool ? settingsMap["zalo_admin_chat_id"] || "" : ""));
+    const zaloBotToken = String(
+      schoolRow?.zalo_bot_token || (isDefaultSchool ? settingsMap["zalo_bot_token"] || "" : "")
+    );
+    const zaloBotName = String(
+      schoolRow?.zalo_bot_name || (isDefaultSchool ? settingsMap["zalo_bot_name"] || "" : "")
+    );
+    const zaloAdminChatId = String(
+      schoolRow?.zalo_admin_chat_id ||
+        (isDefaultSchool ? settingsMap["zalo_admin_chat_id"] || "" : "")
+    );
 
     const zaloNotifyPayment = settingsMap["zalo_notify_payment"] !== "0";
     const zaloNotifyStudentAbsence = settingsMap["zalo_notify_student_absence"] !== "0";
@@ -86,25 +101,58 @@ export async function GET(req: Request) {
     const zaloTemplateId = settingsMap["zalo_template_id"] || "";
 
     // SePay Webhook Settings theo từng trường
-    const sepayApiKey = String(schoolRow?.sepay_api_key || (isDefaultSchool ? settingsMap["sepay_api_key"] || "" : ""));
-    const sepayAccountNumber = String(schoolRow?.sepay_account_number || (isDefaultSchool ? settingsMap["sepay_account_number"] || "" : ""));
-    const sepayBankName = String(schoolRow?.sepay_bank_name || (isDefaultSchool ? settingsMap["sepay_bank_name"] || "" : ""));
-    const sepayPrefix = String(schoolRow?.sepay_prefix || (isDefaultSchool ? settingsMap["sepay_prefix"] || "HP" : "HP"));
+    const sepayApiKey = String(
+      schoolRow?.sepay_api_key || (isDefaultSchool ? settingsMap["sepay_api_key"] || "" : "")
+    );
+    const sepayAccountNumber = String(
+      schoolRow?.sepay_account_number ||
+        (isDefaultSchool ? settingsMap["sepay_account_number"] || "" : "")
+    );
+    const sepayBankName = String(
+      schoolRow?.sepay_bank_name || (isDefaultSchool ? settingsMap["sepay_bank_name"] || "" : "")
+    );
+    const sepayPrefix = String(
+      schoolRow?.sepay_prefix || (isDefaultSchool ? settingsMap["sepay_prefix"] || "HP" : "HP")
+    );
 
     // Schedule Presets (Kiểu lịch học cơ sở)
     let schedulePresets: SchedulePreset[] = [
-      { id: "preset-even", name: "Thứ chẵn (2-4-6)", days: ["Thứ 2", "Thứ 4", "Thứ 6"], hours_per_session: 1.5, default_start_time: "18:00", is_default: true },
-      { id: "preset-odd", name: "Thứ lẻ (3-5-7)", days: ["Thứ 3", "Thứ 5", "Thứ 7"], hours_per_session: 1.5, default_start_time: "18:00", is_default: false },
-      { id: "preset-weekend", name: "Cuối tuần (T7-CN)", days: ["Thứ 7", "Chủ Nhật"], hours_per_session: 2.0, default_start_time: "09:00", is_default: false },
+      {
+        id: "preset-even",
+        name: "Thứ chẵn (2-4-6)",
+        days: ["Thứ 2", "Thứ 4", "Thứ 6"],
+        hours_per_session: 1.5,
+        default_start_time: "18:00",
+        is_default: true,
+      },
+      {
+        id: "preset-odd",
+        name: "Thứ lẻ (3-5-7)",
+        days: ["Thứ 3", "Thứ 5", "Thứ 7"],
+        hours_per_session: 1.5,
+        default_start_time: "18:00",
+        is_default: false,
+      },
+      {
+        id: "preset-weekend",
+        name: "Cuối tuần (T7-CN)",
+        days: ["Thứ 7", "Chủ Nhật"],
+        hours_per_session: 2.0,
+        default_start_time: "09:00",
+        is_default: false,
+      },
     ];
-    const rawPresets = schoolRow?.schedule_presets || (isDefaultSchool ? settingsMap["schedule_presets"] : "");
+    const rawPresets =
+      schoolRow?.schedule_presets || (isDefaultSchool ? settingsMap["schedule_presets"] : "");
     if (rawPresets) {
       try {
         const parsed = JSON.parse(rawPresets);
         if (Array.isArray(parsed) && parsed.length > 0) {
           schedulePresets = parsed;
         }
-      } catch {}
+      } catch (err) {
+        log.debug("Bỏ qua lỗi không ảnh hưởng luồng chính (route)", { error: err });
+      }
     }
 
     // 2. Get Time Slots for this school (Cô lập tuyệt đối theo school_id)
@@ -133,7 +181,7 @@ export async function GET(req: Request) {
       id: String(row.id),
       level_name: String(row.level_name),
       surcharge_amount: canViewTuition ? Number(row.surcharge_amount) : 0,
-      surcharge_type: (String(row.surcharge_type || "fixed") as "fixed" | "percent"),
+      surcharge_type: String(row.surcharge_type || "fixed") as "fixed" | "percent",
       sort_order: Number(row.sort_order),
     }));
 
@@ -264,7 +312,10 @@ export async function POST(req: Request) {
     );
     if (!canManageSettings && !isLanguagePreferenceOnly) {
       return NextResponse.json(
-        { success: false, message: "Tài khoản không có quyền thay đổi cấu hình cơ sở (settings.manage)!" },
+        {
+          success: false,
+          message: "Tài khoản không có quyền thay đổi cấu hình cơ sở (settings.manage)!",
+        },
         { status: 403 }
       );
     }
@@ -306,23 +357,45 @@ export async function POST(req: Request) {
     } = body;
 
     // 1. Cập nhật cấu hình chung vào bảng settings
-    const generalKeysToUpdate: Record<string, any> = {
+    const generalKeysToUpdate: DbRow = {
       duration_mode: duration_mode !== undefined ? String(duration_mode) : undefined,
       app_language: app_language !== undefined ? String(app_language) : undefined,
       month_format: month_format !== undefined ? String(month_format) : undefined,
-      default_hours_per_week: default_hours_per_week !== undefined ? String(default_hours_per_week) : undefined,
-      default_sessions_per_week: default_sessions_per_week !== undefined ? String(default_sessions_per_week) : undefined,
+      default_hours_per_week:
+        default_hours_per_week !== undefined ? String(default_hours_per_week) : undefined,
+      default_sessions_per_week:
+        default_sessions_per_week !== undefined ? String(default_sessions_per_week) : undefined,
       default_study_time: default_study_time !== undefined ? String(default_study_time) : undefined,
-      max_students_per_slot: max_students_per_slot !== undefined ? String(max_students_per_slot) : undefined,
-      crowded_threshold_percent: crowded_threshold_percent !== undefined ? String(crowded_threshold_percent) : undefined,
+      max_students_per_slot:
+        max_students_per_slot !== undefined ? String(max_students_per_slot) : undefined,
+      crowded_threshold_percent:
+        crowded_threshold_percent !== undefined ? String(crowded_threshold_percent) : undefined,
       capacity_mode: capacity_mode !== undefined ? String(capacity_mode) : undefined,
-      reconciliation_mode: reconciliation_mode !== undefined ? String(reconciliation_mode) : undefined,
-      default_minutes_per_session: default_minutes_per_session !== undefined ? String(default_minutes_per_session) : undefined,
+      reconciliation_mode:
+        reconciliation_mode !== undefined ? String(reconciliation_mode) : undefined,
+      default_minutes_per_session:
+        default_minutes_per_session !== undefined ? String(default_minutes_per_session) : undefined,
       zalo_reminder_mode: zalo_reminder_mode !== undefined ? String(zalo_reminder_mode) : undefined,
-      zalo_notify_payment: zalo_notify_payment !== undefined ? (zalo_notify_payment ? "1" : "0") : undefined,
-      zalo_notify_student_absence: zalo_notify_student_absence !== undefined ? (zalo_notify_student_absence ? "1" : "0") : undefined,
-      zalo_notify_teacher_leave: zalo_notify_teacher_leave !== undefined ? (zalo_notify_teacher_leave ? "1" : "0") : undefined,
-      zalo_notify_parent_feedback: zalo_notify_parent_feedback !== undefined ? (zalo_notify_parent_feedback ? "1" : "0") : undefined,
+      zalo_notify_payment:
+        zalo_notify_payment !== undefined ? (zalo_notify_payment ? "1" : "0") : undefined,
+      zalo_notify_student_absence:
+        zalo_notify_student_absence !== undefined
+          ? zalo_notify_student_absence
+            ? "1"
+            : "0"
+          : undefined,
+      zalo_notify_teacher_leave:
+        zalo_notify_teacher_leave !== undefined
+          ? zalo_notify_teacher_leave
+            ? "1"
+            : "0"
+          : undefined,
+      zalo_notify_parent_feedback:
+        zalo_notify_parent_feedback !== undefined
+          ? zalo_notify_parent_feedback
+            ? "1"
+            : "0"
+          : undefined,
       zalo_oa_secret_key: zalo_oa_secret_key !== undefined ? String(zalo_oa_secret_key) : undefined,
       zalo_access_token: zalo_access_token !== undefined ? String(zalo_access_token) : undefined,
       zalo_template_id: zalo_template_id !== undefined ? String(zalo_template_id) : undefined,
@@ -347,8 +420,11 @@ export async function POST(req: Request) {
                   days: Array.isArray(p.days)
                     ? p.days.map((d: string) => String(d).trim()).filter(Boolean)
                     : ["Thứ 2", "Thứ 4", "Thứ 6"],
-                  hours_per_session: Number(p.hours_per_session) > 0 ? Number(p.hours_per_session) : 1.5,
-                  default_start_time: p.default_start_time ? String(p.default_start_time).trim() : "18:00",
+                  hours_per_session:
+                    Number(p.hours_per_session) > 0 ? Number(p.hours_per_session) : 1.5,
+                  default_start_time: p.default_start_time
+                    ? String(p.default_start_time).trim()
+                    : "18:00",
                   is_default: Boolean(p.is_default),
                 }))
               : []
@@ -393,13 +469,16 @@ export async function POST(req: Request) {
       const legacyMap: Record<string, string | undefined> = {
         base_tuition: base_tuition !== undefined ? String(base_tuition) : undefined,
         sepay_bank_name: sepay_bank_name !== undefined ? String(sepay_bank_name).trim() : undefined,
-        sepay_account_number: sepay_account_number !== undefined ? String(sepay_account_number).trim() : undefined,
+        sepay_account_number:
+          sepay_account_number !== undefined ? String(sepay_account_number).trim() : undefined,
         sepay_api_key: sepay_api_key !== undefined ? String(sepay_api_key).trim() : undefined,
-        sepay_prefix: sepay_prefix !== undefined ? String(sepay_prefix).trim().toUpperCase() : undefined,
+        sepay_prefix:
+          sepay_prefix !== undefined ? String(sepay_prefix).trim().toUpperCase() : undefined,
         schedule_presets: jsonSchedulePresets,
         zalo_bot_token: zalo_bot_token !== undefined ? String(zalo_bot_token).trim() : undefined,
         zalo_bot_name: zalo_bot_name !== undefined ? String(zalo_bot_name).trim() : undefined,
-        zalo_admin_chat_id: zalo_admin_chat_id !== undefined ? String(zalo_admin_chat_id).trim() : undefined,
+        zalo_admin_chat_id:
+          zalo_admin_chat_id !== undefined ? String(zalo_admin_chat_id).trim() : undefined,
       };
       for (const [key, val] of Object.entries(legacyMap)) {
         if (val !== undefined) {
@@ -418,7 +497,8 @@ export async function POST(req: Request) {
         args: [schoolId],
       });
       for (const slot of time_slots) {
-        const id = slot.id || `slot-${schoolId}-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+        const id =
+          slot.id || `slot-${schoolId}-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
         const fromDay = slot.from_day || "Thứ 2";
         const toDay = slot.to_day || "Thứ 7";
         const computedDays = fromDay === toDay ? fromDay : `${fromDay} – ${toDay}`;
@@ -450,12 +530,20 @@ export async function POST(req: Request) {
       });
       let sort = 1;
       for (const lvl of level_surcharges) {
-        const id = lvl.id || `lvl-${schoolId}-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+        const id =
+          lvl.id || `lvl-${schoolId}-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
         const stype = lvl.surcharge_type === "percent" ? "percent" : "fixed";
         await db.execute({
           sql: `INSERT INTO level_surcharges (id, school_id, level_name, surcharge_amount, surcharge_type, sort_order)
                 VALUES (?, ?, ?, ?, ?, ?)`,
-          args: [id, schoolId, lvl.level_name || "Level mới", Number(lvl.surcharge_amount) || 0, stype, sort++],
+          args: [
+            id,
+            schoolId,
+            lvl.level_name || "Level mới",
+            Number(lvl.surcharge_amount) || 0,
+            stype,
+            sort++,
+          ],
         });
       }
     }
@@ -467,7 +555,8 @@ export async function POST(req: Request) {
         args: [schoolId],
       });
       for (const disc of discount_presets) {
-        const id = disc.id || `disc-${schoolId}-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+        const id =
+          disc.id || `disc-${schoolId}-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
         const percent = Number(disc.percentage) || 0;
         await db.execute({
           sql: `INSERT INTO discount_presets (id, school_id, percentage, label) VALUES (?, ?, ?, ?)`,

@@ -13,7 +13,7 @@ export async function GET(req: Request) {
     const schoolId = searchParams.get("school_id") || "";
 
     let sql = "SELECT * FROM parent_feedbacks";
-    const args: any[] = [];
+    const args: (string | number | null)[] = [];
 
     if (schoolId) {
       sql += " WHERE school_id = ?";
@@ -100,7 +100,8 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       success: true,
-      message: "Cảm ơn quý phụ huynh đã gửi ý kiến đóng góp! Trung tâm sẽ ghi nhận và cải thiện dịch vụ.",
+      message:
+        "Cảm ơn quý phụ huynh đã gửi ý kiến đóng góp! Trung tâm sẽ ghi nhận và cải thiện dịch vụ.",
       data: { id },
     });
   } catch (error: unknown) {

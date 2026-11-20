@@ -17,7 +17,9 @@ export async function GET(req: Request) {
     student_id = url.searchParams.get("student_id") || "";
     querySchoolId = url.searchParams.get("school_id") || "";
     type = url.searchParams.get("type") || "";
-  } catch {}
+  } catch (err) {
+    log.debug("Bỏ qua lỗi không ảnh hưởng luồng chính (route)", { error: err });
+  }
 
   try {
     await initDb();
@@ -55,7 +57,9 @@ export async function GET(req: Request) {
 
     for (const st of unloggedStudentsRes.rows) {
       const actType = st.status === "reserved" ? "reserve" : "drop";
-      const effDate = st.status_date ? String(st.status_date) : new Date().toISOString().slice(0, 10);
+      const effDate = st.status_date
+        ? String(st.status_date)
+        : new Date().toISOString().slice(0, 10);
       const logMonth = effDate.slice(0, 7);
       const logId = `log-sync-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
       await db.execute({
@@ -81,7 +85,7 @@ export async function GET(req: Request) {
       JOIN students s ON l.student_id = s.id
       WHERE s.school_id = ?
     `;
-    const args: any[] = [schoolId];
+    const args: (string | number | null)[] = [schoolId];
 
     if (student_id) {
       sql += " AND l.student_id = ?";

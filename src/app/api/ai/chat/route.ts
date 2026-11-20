@@ -9,7 +9,16 @@ const log = createLogger("api/ai/chat");
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { action = "chat", message, history = [], student_name, subject_name, rating = 5, keywords = "", class_name } = body;
+    const {
+      action = "chat",
+      message,
+      history = [],
+      student_name,
+      subject_name,
+      rating = 5,
+      keywords = "",
+      class_name,
+    } = body;
 
     const schoolId = getSchoolIdFromRequest(req) || body.school_id || "school-default";
     const senderName = body.sender_name || "Admin";
@@ -82,8 +91,11 @@ export async function POST(req: Request) {
       });
     }
 
-    return NextResponse.json({ success: false, message: "Hành động không hợp lệ!" }, { status: 400 });
-  } catch (error: any) {
+    return NextResponse.json(
+      { success: false, message: "Hành động không hợp lệ!" },
+      { status: 400 }
+    );
+  } catch (error: unknown) {
     log.error("AI Chat API Error:", { error: error });
     return NextResponse.json(
       { success: false, message: "Tính năng này hiện chưa được hỗ trợ." },

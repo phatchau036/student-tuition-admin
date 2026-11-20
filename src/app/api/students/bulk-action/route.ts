@@ -11,7 +11,7 @@ export async function POST(req: Request) {
   try {
     await initDb();
     const db = getDb();
-    const schoolId = getSchoolIdFromRequest(req);
+    const _schoolId = getSchoolIdFromRequest(req);
     const body = await req.json();
 
     const {
@@ -54,10 +54,16 @@ export async function POST(req: Request) {
     if (action === "delete") {
       for (const id of student_ids) {
         // Xóa các bảng phụ thuộc
-        await db.execute({ sql: "DELETE FROM student_monthly_tuitions WHERE student_id = ?", args: [id] });
+        await db.execute({
+          sql: "DELETE FROM student_monthly_tuitions WHERE student_id = ?",
+          args: [id],
+        });
         await db.execute({ sql: "DELETE FROM makeup_classes WHERE student_id = ?", args: [id] });
         await db.execute({ sql: "DELETE FROM student_payments WHERE student_id = ?", args: [id] });
-        await db.execute({ sql: "DELETE FROM student_status_logs WHERE student_id = ?", args: [id] });
+        await db.execute({
+          sql: "DELETE FROM student_status_logs WHERE student_id = ?",
+          args: [id],
+        });
         await db.execute({ sql: "DELETE FROM students WHERE id = ?", args: [id] });
       }
 
@@ -76,7 +82,7 @@ export async function POST(req: Request) {
       else if (action === "resume") toStatus = "studying";
 
       const effDate = effective_date || new Date().toISOString().slice(0, 10);
-      const retDate = action === "reserve" ? (return_date || null) : null;
+      const retDate = action === "reserve" ? return_date || null : null;
       const month = effDate.slice(0, 7);
       const nowTimestamp = new Date().toISOString().replace("T", " ").slice(0, 19);
 
@@ -86,7 +92,10 @@ export async function POST(req: Request) {
           sql: "SELECT status FROM students WHERE id = ?",
           args: [id],
         });
-        const fromStatus = stRes.rows.length > 0 ? (String(stRes.rows[0].status || "studying") as StudentStatus) : "studying";
+        const fromStatus =
+          stRes.rows.length > 0
+            ? (String(stRes.rows[0].status || "studying") as StudentStatus)
+            : "studying";
 
         // Cập nhật học sinh
         await db.execute({
@@ -105,7 +114,18 @@ export async function POST(req: Request) {
           sql: `INSERT INTO student_status_logs 
                 (id, student_id, action_type, from_status, to_status, effective_date, return_date, reason, logged_at, month)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          args: [logId, id, action, fromStatus, toStatus, effDate, retDate, reason || "", nowTimestamp, month],
+          args: [
+            logId,
+            id,
+            action,
+            fromStatus,
+            toStatus,
+            effDate,
+            retDate,
+            reason || "",
+            nowTimestamp,
+            month,
+          ],
         });
       }
 
@@ -121,7 +141,10 @@ export async function POST(req: Request) {
       });
     }
 
-    return NextResponse.json({ success: false, message: "Hành động không hợp lệ!" }, { status: 400 });
+    return NextResponse.json(
+      { success: false, message: "Hành động không hợp lệ!" },
+      { status: 400 }
+    );
   } catch (error: unknown) {
     log.error("Bulk Action API Error:", { error: error });
     return NextResponse.json(

@@ -39,7 +39,9 @@ export async function GET(req: Request) {
           const parsed = JSON.parse(String(row.permissions_json));
           if (Array.isArray(parsed)) permissions = parsed;
         }
-      } catch {}
+      } catch (err) {
+        log.debug("Bỏ qua lỗi không ảnh hưởng luồng chính (route)", { error: err });
+      }
 
       return {
         id: String(row.id),
@@ -66,7 +68,8 @@ export async function GET(req: Request) {
       id: "role-system-teacher",
       school_id: schoolId,
       name: "Giáo Viên Đứng Lớp (Cố Định)",
-      description: "Vai trò mặc định cố định cho Đội ngũ Giáo viên — Quyền hạn giới hạn tại Cổng Giáo Viên (/giao-vien) để xem lịch dạy, điểm danh, chấm sao, nhận xét và báo nghỉ. Khóa cố định để bảo vệ an toàn dữ liệu cơ sở.",
+      description:
+        "Vai trò mặc định cố định cho Đội ngũ Giáo viên — Quyền hạn giới hạn tại Cổng Giáo Viên (/giao-vien) để xem lịch dạy, điểm danh, chấm sao, nhận xét và báo nghỉ. Khóa cố định để bảo vệ an toàn dữ liệu cơ sở.",
       permissions_json: JSON.stringify(["attendance.manage"]),
       permissions: ["attendance.manage"],
       staff_count: teacherCount,
@@ -105,12 +108,16 @@ export async function POST(req: Request) {
     const targetSchoolId = school_id || querySchoolId || headerSchoolId || "school-default";
 
     if (!name || !name.trim()) {
-      return NextResponse.json({ success: false, message: "Vui lòng nhập tên vai trò / nhóm quyền!" }, { status: 400 });
+      return NextResponse.json(
+        { success: false, message: "Vui lòng nhập tên vai trò / nhóm quyền!" },
+        { status: 400 }
+      );
     }
 
-    const permsJson = typeof permissions_json === "string" 
-      ? permissions_json 
-      : JSON.stringify(Array.isArray(permissions) ? permissions : []);
+    const permsJson =
+      typeof permissions_json === "string"
+        ? permissions_json
+        : JSON.stringify(Array.isArray(permissions) ? permissions : []);
 
     // Cập nhật vai trò cũ
     if (id) {
@@ -171,7 +178,10 @@ export async function DELETE(req: Request) {
     const id = searchParams.get("id");
 
     if (!id) {
-      return NextResponse.json({ success: false, message: "Thiếu ID nhóm quyền cần xóa!" }, { status: 400 });
+      return NextResponse.json(
+        { success: false, message: "Thiếu ID nhóm quyền cần xóa!" },
+        { status: 400 }
+      );
     }
 
     if (id === "role-system-teacher" || id.startsWith("role-system-")) {

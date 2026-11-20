@@ -40,7 +40,9 @@ export async function GET(req: Request) {
           const parsed = JSON.parse(String(row.permissions_json));
           if (Array.isArray(parsed)) permissions = parsed;
         }
-      } catch {}
+      } catch (err) {
+        log.debug("Bỏ qua lỗi không ảnh hưởng luồng chính (route)", { error: err });
+      }
 
       return {
         id: String(row.id),
@@ -49,7 +51,12 @@ export async function GET(req: Request) {
         full_name: String(row.full_name),
         phone: row.phone ? String(row.phone) : "",
         role_id: row.role_id ? String(row.role_id) : "",
-        role_name: row.is_owner === 1 ? "Chủ Cơ Sở (Toàn quyền)" : row.role_name ? String(row.role_name) : "Chưa phân vai trò",
+        role_name:
+          row.is_owner === 1
+            ? "Chủ Cơ Sở (Toàn quyền)"
+            : row.role_name
+              ? String(row.role_name)
+              : "Chưa phân vai trò",
         is_active: Number(row.is_active ?? 1),
         is_owner: Number(row.is_owner ?? 0),
         permissions: row.is_owner === 1 ? ["*"] : permissions,
@@ -82,13 +89,17 @@ export async function POST(req: Request) {
     const headerSchoolId = getSchoolIdFromRequest(req);
 
     const body = await req.json();
-    const { action, id, username, password, full_name, phone, role_id, is_active, school_id } = body;
+    const { action, id, username, password, full_name, phone, role_id, is_active, school_id } =
+      body;
     const targetSchoolId = school_id || querySchoolId || headerSchoolId || "school-default";
 
     // 1. Action: Khóa / Mở khóa tài khoản nhân viên (Toggle active)
     if (action === "toggle_active") {
       if (!id) {
-        return NextResponse.json({ success: false, message: "Thiếu ID tài khoản!" }, { status: 400 });
+        return NextResponse.json(
+          { success: false, message: "Thiếu ID tài khoản!" },
+          { status: 400 }
+        );
       }
 
       // Không cho phép khóa tài khoản chủ cơ sở
@@ -111,7 +122,8 @@ export async function POST(req: Request) {
 
       return NextResponse.json({
         success: true,
-        message: nextState === 1 ? "Đã mở khóa tài khoản thành công!" : "Đã tạm khóa tài khoản nhân viên!",
+        message:
+          nextState === 1 ? "Đã mở khóa tài khoản thành công!" : "Đã tạm khóa tài khoản nhân viên!",
         is_active: nextState,
       });
     }
@@ -119,7 +131,10 @@ export async function POST(req: Request) {
     // 2. Action: Cập nhật tài khoản cũ
     if (id) {
       if (!full_name || !full_name.trim()) {
-        return NextResponse.json({ success: false, message: "Vui lòng nhập họ và tên nhân viên!" }, { status: 400 });
+        return NextResponse.json(
+          { success: false, message: "Vui lòng nhập họ và tên nhân viên!" },
+          { status: 400 }
+        );
       }
 
       if (password && password.trim()) {
@@ -146,9 +161,19 @@ export async function POST(req: Request) {
     }
 
     // 3. Action: Tạo mới tài khoản nhân viên
-    if (!username || !username.trim() || !password || !password.trim() || !full_name || !full_name.trim()) {
+    if (
+      !username ||
+      !username.trim() ||
+      !password ||
+      !password.trim() ||
+      !full_name ||
+      !full_name.trim()
+    ) {
       return NextResponse.json(
-        { success: false, message: "Vui lòng nhập đầy đủ tên đăng nhập, mật khẩu và họ tên nhân viên!" },
+        {
+          success: false,
+          message: "Vui lòng nhập đầy đủ tên đăng nhập, mật khẩu và họ tên nhân viên!",
+        },
         { status: 400 }
       );
     }
@@ -162,7 +187,10 @@ export async function POST(req: Request) {
     });
     if (checkUser.rows.length > 0) {
       return NextResponse.json(
-        { success: false, message: `Tên đăng nhập "${cleanUser}" đã tồn tại! Vui lòng chọn tên khác.` },
+        {
+          success: false,
+          message: `Tên đăng nhập "${cleanUser}" đã tồn tại! Vui lòng chọn tên khác.`,
+        },
         { status: 400 }
       );
     }
@@ -171,7 +199,15 @@ export async function POST(req: Request) {
     await db.execute({
       sql: `INSERT INTO school_admins (id, school_id, username, password, full_name, phone, role_id, is_active, is_owner)
             VALUES (?, ?, ?, ?, ?, ?, ?, 1, 0)`,
-      args: [newId, targetSchoolId, cleanUser, password.trim(), full_name.trim(), phone?.trim() || "", role_id || null],
+      args: [
+        newId,
+        targetSchoolId,
+        cleanUser,
+        password.trim(),
+        full_name.trim(),
+        phone?.trim() || "",
+        role_id || null,
+      ],
     });
 
     return NextResponse.json({
@@ -202,7 +238,10 @@ export async function DELETE(req: Request) {
     const id = searchParams.get("id");
 
     if (!id) {
-      return NextResponse.json({ success: false, message: "Thiếu ID tài khoản cần xóa!" }, { status: 400 });
+      return NextResponse.json(
+        { success: false, message: "Thiếu ID tài khoản cần xóa!" },
+        { status: 400 }
+      );
     }
 
     // Kiểm tra tuyệt đối không cho xóa tài khoản chủ cơ sở
@@ -211,7 +250,10 @@ export async function DELETE(req: Request) {
       args: [id],
     });
     if (checkOwner.rows.length === 0) {
-      return NextResponse.json({ success: false, message: "Không tìm thấy tài khoản!" }, { status: 404 });
+      return NextResponse.json(
+        { success: false, message: "Không tìm thấy tài khoản!" },
+        { status: 404 }
+      );
     }
 
     if (checkOwner.rows[0].is_owner === 1) {

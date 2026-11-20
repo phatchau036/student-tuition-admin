@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useMemo, useEffect } from "react";
-import { Student, Teacher, TimeSlot, Subject, ClassRoom } from "@/lib/types";
+import { Student, Teacher, TimeSlot, Subject, ClassRoom, DbRow } from "@/lib/types";
 import { parseStudentScheduleSlots } from "@/lib/tuition";
 import {
   Calendar,
@@ -9,31 +9,20 @@ import {
   GraduationCap,
   Users,
   Search,
-  Filter,
-  Layers,
   BookOpen,
   Printer,
-  ChevronLeft,
-  ChevronRight,
   Plus,
-  Send,
-  Eye,
   Sparkles,
   CheckCircle2,
   CalendarCheck,
   AlertCircle,
   Phone,
-  MessageCircle,
-  UserCheck,
-  DollarSign,
   Maximize2,
   LayoutGrid,
   Columns,
   User,
   ArrowRight,
-  ExternalLink,
   X,
-  SlidersHorizontal,
   Trash2,
   Loader2,
   AlertTriangle,
@@ -68,26 +57,50 @@ interface ClassroomScheduleMatrixProps {
 }
 
 // 7 Ngày trong tuần chuẩn
-const DAYS_OF_WEEK = [
-  "Thứ 2",
-  "Thứ 3",
-  "Thứ 4",
-  "Thứ 5",
-  "Thứ 6",
-  "Thứ 7",
-  "Chủ Nhật",
-];
+const DAYS_OF_WEEK = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ Nhật"];
 
 // Màu badge bộ môn cho sinh động và dễ nhận diện
 const SUBJECT_COLORS: Record<string, { bg: string; text: string; border: string }> = {
-  piano: { bg: "bg-indigo-50 dark:bg-indigo-950/40", text: "text-indigo-600 dark:text-indigo-300", border: "border-indigo-200 dark:border-indigo-800" },
-  guitar: { bg: "bg-amber-50 dark:bg-amber-950/40", text: "text-amber-700 dark:text-amber-300", border: "border-amber-200 dark:border-amber-800" },
-  organ: { bg: "bg-emerald-50 dark:bg-emerald-950/40", text: "text-emerald-700 dark:text-emerald-300", border: "border-emerald-200 dark:border-emerald-800" },
-  "thanh nhạc": { bg: "bg-rose-50 dark:bg-rose-950/40", text: "text-rose-600 dark:text-rose-300", border: "border-rose-200 dark:border-rose-800" },
-  vocal: { bg: "bg-rose-50 dark:bg-rose-950/40", text: "text-rose-600 dark:text-rose-300", border: "border-rose-200 dark:border-rose-800" },
-  trống: { bg: "bg-purple-50 dark:bg-purple-950/40", text: "text-purple-600 dark:text-purple-300", border: "border-purple-200 dark:border-purple-800" },
-  drum: { bg: "bg-purple-50 dark:bg-purple-950/40", text: "text-purple-600 dark:text-purple-300", border: "border-purple-200 dark:border-purple-800" },
-  default: { bg: "bg-slate-100 dark:bg-slate-800", text: "text-slate-700 dark:text-slate-300", border: "border-slate-200 dark:border-slate-700" },
+  piano: {
+    bg: "bg-indigo-50 dark:bg-indigo-950/40",
+    text: "text-indigo-600 dark:text-indigo-300",
+    border: "border-indigo-200 dark:border-indigo-800",
+  },
+  guitar: {
+    bg: "bg-amber-50 dark:bg-amber-950/40",
+    text: "text-amber-700 dark:text-amber-300",
+    border: "border-amber-200 dark:border-amber-800",
+  },
+  organ: {
+    bg: "bg-emerald-50 dark:bg-emerald-950/40",
+    text: "text-emerald-700 dark:text-emerald-300",
+    border: "border-emerald-200 dark:border-emerald-800",
+  },
+  "thanh nhạc": {
+    bg: "bg-rose-50 dark:bg-rose-950/40",
+    text: "text-rose-600 dark:text-rose-300",
+    border: "border-rose-200 dark:border-rose-800",
+  },
+  vocal: {
+    bg: "bg-rose-50 dark:bg-rose-950/40",
+    text: "text-rose-600 dark:text-rose-300",
+    border: "border-rose-200 dark:border-rose-800",
+  },
+  trống: {
+    bg: "bg-purple-50 dark:bg-purple-950/40",
+    text: "text-purple-600 dark:text-purple-300",
+    border: "border-purple-200 dark:border-purple-800",
+  },
+  drum: {
+    bg: "bg-purple-50 dark:bg-purple-950/40",
+    text: "text-purple-600 dark:text-purple-300",
+    border: "border-purple-200 dark:border-purple-800",
+  },
+  default: {
+    bg: "bg-slate-100 dark:bg-slate-800",
+    text: "text-slate-700 dark:text-slate-300",
+    border: "border-slate-200 dark:border-slate-700",
+  },
 };
 
 function getSubjectBadge(subjectName?: string) {
@@ -238,7 +251,9 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
   }, []);
 
   // Mode: "week_grid" (Lưới 7 Ngày Chuẩn) | "single_day" (Xem Chi Tiết Từng Thứ) | "teacher_centric" (Theo Giáo Viên)
-  const [viewMode, setViewMode] = useState<"week_grid" | "single_day" | "teacher_centric">("week_grid");
+  const [viewMode, setViewMode] = useState<"week_grid" | "single_day" | "teacher_centric">(
+    "week_grid"
+  );
   // Mặc định ưu tiên chọn Thứ của Hôm Nay trước
   const [activeDay, setActiveDay] = useState<string>(() => {
     const dayIndex = new Date().getDay();
@@ -251,7 +266,9 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
   const [selectedClassFilter, setSelectedClassFilter] = useState<string>("all");
   const [selectedSubjectFilter, setSelectedSubjectFilter] = useState<string>("all");
   const [selectedTeacherFilter, setSelectedTeacherFilter] = useState<string>("all");
-  const [selectedPaymentStatusFilter, setSelectedPaymentStatusFilter] = useState<"all" | "paid" | "unpaid">("all");
+  const [selectedPaymentStatusFilter, setSelectedPaymentStatusFilter] = useState<
+    "all" | "paid" | "unpaid"
+  >("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [hideEmptyHours, setHideEmptyHours] = useState<boolean>(true); // Mặc định ẩn ca trống để gọn gàng
   const [isHotspotMode, setIsHotspotMode] = useState<boolean>(false); // Chế độ Điểm Nóng
@@ -332,7 +349,7 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
   } | null>(null);
 
   // Lọc danh sách giáo viên đang hoạt động
-  const activeTeachers = useMemo(() => {
+  const _activeTeachers = useMemo(() => {
     let list = teachers.filter((t) => t.is_active !== 0);
     if (selectedTeacherFilter !== "all") {
       list = list.filter((t) => t.id === selectedTeacherFilter);
@@ -408,9 +425,7 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
 
         // Các khung giờ mà ca học này giao thoa (ví dụ học 18h-20h thì phủ cả 18h và 19h)
         const coveredHours =
-          slot.coveredHours && slot.coveredHours.length > 0
-            ? slot.coveredHours
-            : [slot.hourSlot];
+          slot.coveredHours && slot.coveredHours.length > 0 ? slot.coveredHours : [slot.hourSlot];
 
         for (let idx = 0; idx < coveredHours.length; idx++) {
           const h = coveredHours[idx];
@@ -423,7 +438,7 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
             try {
               const assignments = JSON.parse(st.class_teacher_assignments_json);
               if (Array.isArray(assignments)) {
-                const matched = assignments.filter((a: any) => {
+                const matched = assignments.filter((a: DbRow) => {
                   const matchDay = !a.day || a.day === "Tất cả các ngày" || a.day.includes(d);
                   if (!matchDay) return false;
                   if (!a.start_time || !a.end_time) return true;
@@ -431,9 +446,11 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
                   const [eh] = a.end_time.split(":").map(Number);
                   return currentHNum >= sh && currentHNum < eh;
                 });
-                currentTargetTeacherIds = matched.map((m: any) => m.teacher_id).filter(Boolean);
+                currentTargetTeacherIds = matched.map((m: DbRow) => m.teacher_id).filter(Boolean);
               }
-            } catch {}
+            } catch {
+              /* Bỏ qua có chủ đích: lỗi không ảnh hưởng luồng chính. */
+            }
           }
 
           if (currentTargetTeacherIds.length === 0) {
@@ -452,7 +469,9 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
           }
 
           for (const resolvedTeacherId of currentTargetTeacherIds) {
-            const targetTeacherId = data[d][h][resolvedTeacherId] ? resolvedTeacherId : "unassigned";
+            const targetTeacherId = data[d][h][resolvedTeacherId]
+              ? resolvedTeacherId
+              : "unassigned";
             const subName = slot.subjectName || st.subject_name || "Piano";
             const tcObj = teachers.find((t) => t.id === targetTeacherId);
 
@@ -464,7 +483,8 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
               timeDetail: slot.timeDetail,
               subjectName: subName,
               teacherId: targetTeacherId,
-              teacherName: tcObj?.name || (targetTeacherId === "unassigned" ? "Chờ gán GV" : undefined),
+              teacherName:
+                tcObj?.name || (targetTeacherId === "unassigned" ? "Chờ gán GV" : undefined),
               isContinuing,
               startTime: slot.startTime,
               endTime: slot.endTime,
@@ -526,7 +546,10 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
           for (const tcId in hourMap) {
             if (selectedTeacherFilter !== "all" && tcId !== selectedTeacherFilter) continue;
             for (const item of hourMap[tcId]) {
-              if (isStudentMatched(item.student) && isSubjectMatched(item.subjectName, item.student.subject_id)) {
+              if (
+                isStudentMatched(item.student) &&
+                isSubjectMatched(item.subjectName, item.student.subject_id)
+              ) {
                 return true;
               }
             }
@@ -537,7 +560,18 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
     }
 
     return sorted;
-  }, [students, timeSlots, teachers, hideEmptyHours, matrixData, selectedTeacherFilter, selectedPaymentStatusFilter, searchQuery, selectedSubjectFilter]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Loader là hàm khai báo trong component, chỉ gọi khi mở modal/mount; thêm vào deps sẽ gây gọi lại vô hạn. Sẽ chuyển sang useCallback ở Giai đoạn 2.
+  }, [
+    students,
+    timeSlots,
+    teachers,
+    hideEmptyHours,
+    matrixData,
+    selectedTeacherFilter,
+    selectedPaymentStatusFilter,
+    searchQuery,
+    selectedSubjectFilter,
+  ]);
 
   // Lấy toàn bộ học sinh trong ô (Day, Hour) đã qua bộ lọc
   const getSlotFilteredEntries = (day: string, hour: string): StudentSlotEntry[] => {
@@ -548,7 +582,10 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
     for (const tcId in hourMap) {
       if (selectedTeacherFilter !== "all" && tcId !== selectedTeacherFilter) continue;
       for (const item of hourMap[tcId]) {
-        if (isStudentMatched(item.student) && isSubjectMatched(item.subjectName, item.student.subject_id)) {
+        if (
+          isStudentMatched(item.student) &&
+          isSubjectMatched(item.subjectName, item.student.subject_id)
+        ) {
           if (selectedTeacherFilter === "all") {
             const existingIndex = seenStudentIndexes.get(item.student.id);
             if (existingIndex !== undefined) {
@@ -616,7 +653,11 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
           if (selectedTeacherFilter !== "all" && tcId !== selectedTeacherFilter) continue;
           for (const item of hourMap[tcId]) {
             if (item.isContinuing) continue; // Không tính đếm trùng ca kéo dài
-            if (!isStudentMatched(item.student) || !isSubjectMatched(item.subjectName, item.student.subject_id)) continue;
+            if (
+              !isStudentMatched(item.student) ||
+              !isSubjectMatched(item.subjectName, item.student.subject_id)
+            )
+              continue;
 
             if (seenStudentIds.has(item.student.id)) continue;
             seenStudentIds.add(item.student.id);
@@ -630,7 +671,16 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
       map[d] = { total, unpaid, unassigned };
     }
     return map;
-  }, [matrixData, allWeekHours, selectedTeacherFilter, selectedPaymentStatusFilter, searchQuery, selectedSubjectFilter, isHotspotMode]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Loader là hàm khai báo trong component, chỉ gọi khi mở modal/mount; thêm vào deps sẽ gây gọi lại vô hạn. Sẽ chuyển sang useCallback ở Giai đoạn 2.
+  }, [
+    matrixData,
+    allWeekHours,
+    selectedTeacherFilter,
+    selectedPaymentStatusFilter,
+    searchQuery,
+    selectedSubjectFilter,
+    isHotspotMode,
+  ]);
 
   // Danh sách các ca giờ hiển thị trong chế độ xem Theo Thứ (nếu bật Ẩn ca trống thì chỉ hiện các ca có học sinh của thứ đó)
   const singleDayHours = useMemo(() => {
@@ -641,7 +691,18 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
       const entries = getSlotFilteredEntries(activeDay, h);
       return entries.length > 0;
     });
-  }, [allWeekHours, hideEmptyHours, activeDay, matrixData, selectedTeacherFilter, selectedPaymentStatusFilter, searchQuery, selectedSubjectFilter, isHotspotMode]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Loader là hàm khai báo trong component, chỉ gọi khi mở modal/mount; thêm vào deps sẽ gây gọi lại vô hạn. Sẽ chuyển sang useCallback ở Giai đoạn 2.
+  }, [
+    allWeekHours,
+    hideEmptyHours,
+    activeDay,
+    matrixData,
+    selectedTeacherFilter,
+    selectedPaymentStatusFilter,
+    searchQuery,
+    selectedSubjectFilter,
+    isHotspotMode,
+  ]);
 
   // Dữ liệu ca học đang phóng to: nhóm học viên thành các CỘT DỌC theo từng Lớp
   const zoomSlotData = useMemo(() => {
@@ -727,6 +788,7 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
       entries,
       columns,
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Loader là hàm khai báo trong component, chỉ gọi khi mở modal/mount; thêm vào deps sẽ gây gọi lại vô hạn. Sẽ chuyển sang useCallback ở Giai đoạn 2.
   }, [
     zoomSlot,
     matrixData,
@@ -758,8 +820,8 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
                   viewMode === "week_grid"
                     ? "4px"
                     : viewMode === "single_day"
-                    ? "calc(33.333% + 2px)"
-                    : "calc(66.666%)",
+                      ? "calc(33.333% + 2px)"
+                      : "calc(66.666%)",
                 width: "calc(33.333% - 4px)",
               }}
             />
@@ -907,7 +969,9 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
           {canViewTuition && (
             <select
               value={selectedPaymentStatusFilter}
-              onChange={(e) => setSelectedPaymentStatusFilter(e.target.value as any)}
+              onChange={(e) =>
+                setSelectedPaymentStatusFilter(e.target.value as "all" | "paid" | "unpaid")
+              }
               className="px-2.5 py-1.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 outline-none cursor-pointer"
             >
               <option value="all">Tất cả học phí</option>
@@ -974,7 +1038,10 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
           CHẾ ĐỘ 1: MA TRẬN LƯỚI 7 NGÀY TOÀN TUẦN (HERO TIMETABLE GRID)
           ========================================================================= */}
       {viewMode === "week_grid" && (
-        <div key="week_grid" className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-3xl overflow-hidden shadow-sm animate-in fade-in duration-200 ease-out">
+        <div
+          key="week_grid"
+          className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-3xl overflow-hidden shadow-sm animate-in fade-in duration-200 ease-out"
+        >
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-left table-fixed min-w-[960px]">
               {/* HEADER 7 NGÀY */}
@@ -998,8 +1065,8 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
                           isToday
                             ? "bg-indigo-50/80 dark:bg-indigo-950/40 text-indigo-950 dark:text-indigo-200"
                             : isWeekend
-                            ? "bg-amber-50/50 dark:bg-amber-950/20 text-slate-800 dark:text-slate-200"
-                            : "text-slate-800 dark:text-slate-200"
+                              ? "bg-amber-50/50 dark:bg-amber-950/20 text-slate-800 dark:text-slate-200"
+                              : "text-slate-800 dark:text-slate-200"
                         }`}
                       >
                         <div className="flex items-center justify-between gap-1">
@@ -1010,8 +1077,8 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
                                 isToday
                                   ? "bg-indigo-600 text-white"
                                   : isWeekend
-                                  ? "bg-amber-500 text-white"
-                                  : "bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200"
+                                    ? "bg-amber-500 text-white"
+                                    : "bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200"
                               }`}
                             >
                               {dayName === "Chủ Nhật" ? "CN" : dayName.replace("Thứ ", "T")}
@@ -1037,7 +1104,10 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
                               <div className="mt-1 h-1 w-full bg-slate-200/80 dark:bg-slate-700/60 rounded-full overflow-hidden flex">
                                 <div
                                   style={{
-                                    width: stats.total > 0 ? `${Math.round(((stats.total - (stats.unassigned || 0)) / stats.total) * 100)}%` : "0%",
+                                    width:
+                                      stats.total > 0
+                                        ? `${Math.round(((stats.total - (stats.unassigned || 0)) / stats.total) * 100)}%`
+                                        : "0%",
                                   }}
                                   className="h-full bg-indigo-500 rounded-full transition-all duration-300"
                                   title={`Đã gán GV: ${stats.total - (stats.unassigned || 0)}/${stats.total}`}
@@ -1048,7 +1118,9 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
 
                           <button
                             type="button"
-                            onClick={() => onAddStudentToSlot?.(dayName, isWeekend ? "09:00" : "18:00")}
+                            onClick={() =>
+                              onAddStudentToSlot?.(dayName, isWeekend ? "09:00" : "18:00")
+                            }
                             className="w-6 h-6 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-indigo-50 dark:hover:bg-slate-800 hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center justify-center text-slate-400 transition cursor-pointer shrink-0"
                             title={`Thêm nhanh học sinh vào ${dayName}`}
                           >
@@ -1069,7 +1141,10 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
                   const isNowInThisHour = currentClock.hour === rowHourNum;
 
                   return (
-                    <tr key={hour} className="hover:bg-slate-50/20 dark:hover:bg-slate-800/20 transition-colors">
+                    <tr
+                      key={hour}
+                      className="hover:bg-slate-50/20 dark:hover:bg-slate-800/20 transition-colors"
+                    >
                       {/* Cột Mốc Giờ Tinh Gọn (56-64px) */}
                       <td className="w-16 p-2 text-center align-top bg-slate-50/60 dark:bg-slate-950/30 border-r border-slate-200 dark:border-slate-800 select-none">
                         <div className="font-mono font-black text-xs text-slate-700 dark:text-slate-300">
@@ -1104,7 +1179,8 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
                                 <span className="w-2 h-2 rounded-full bg-rose-500 shadow-sm animate-ping mr-0.5" />
                                 <div className="h-[2px] bg-rose-500 flex-1 opacity-90 shadow-2xs" />
                                 <span className="text-[8.5px] font-black text-rose-600 bg-rose-50 dark:bg-rose-950 px-1 py-0.2 rounded border border-rose-300 ml-0.5 shadow-2xs">
-                                  {String(currentClock.hour).padStart(2, "0")}:{String(currentClock.minute).padStart(2, "0")}
+                                  {String(currentClock.hour).padStart(2, "0")}:
+                                  {String(currentClock.minute).padStart(2, "0")}
                                 </span>
                               </div>
                             )}
@@ -1143,94 +1219,107 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
                                   </button>
                                 </div>
                               ) : (
-                                  entries.map(({ student, timeDetail, subjectName, teacherId, isContinuing, startTime }) => {
-                                  const isUnassigned = teacherId === "unassigned" || !student.teacher_id;
-                                  const isOverdue = canViewTuition && Boolean(student.is_overdue);
-                                  const isHighlighted = hoveredStudentId && hoveredStudentId === student.id;
-                                  const isDimmed = hoveredStudentId && hoveredStudentId !== student.id;
+                                entries.map(
+                                  ({
+                                    student,
+                                    timeDetail,
+                                    subjectName,
+                                    teacherId,
+                                    isContinuing,
+                                  }) => {
+                                    const isUnassigned =
+                                      teacherId === "unassigned" || !student.teacher_id;
+                                    const isOverdue = canViewTuition && Boolean(student.is_overdue);
+                                    const isHighlighted =
+                                      hoveredStudentId && hoveredStudentId === student.id;
+                                    const isDimmed =
+                                      hoveredStudentId && hoveredStudentId !== student.id;
 
-                                  // Chỉ hiện mốc giờ khi lệch với giờ chuẩn của ca (ví dụ 18:30 trong ca 18:00)
-                                  const isCustomTime = Boolean(
-                                    timeDetail &&
+                                    // Chỉ hiện mốc giờ khi lệch với giờ chuẩn của ca (ví dụ 18:30 trong ca 18:00)
+                                    const isCustomTime = Boolean(
+                                      timeDetail &&
                                       !timeDetail.startsWith(`${hourLabel}`) &&
                                       !timeDetail.startsWith(`${hour.replace("h", "")}:00`) &&
                                       timeDetail !== hourLabel
-                                  );
+                                    );
 
-                                  return (
-                                    <div
-                                      key={`${student.id}_${hour}_${isContinuing ? "cont" : "start"}`}
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        onSelectStudent(student);
-                                      }}
-                                      onMouseEnter={(e) => {
-                                        setHoveredStudentId(student.id);
-                                        const rect = e.currentTarget.getBoundingClientRect();
-                                        setHoveredStudent({
-                                          student,
-                                          timeDetail: isContinuing ? `${timeDetail} (học tiếp từ ca trước)` : timeDetail,
-                                          subjectName,
-                                          x: rect.right + 10,
-                                          y: rect.top,
-                                        });
-                                      }}
-                                      onMouseLeave={() => {
-                                        setHoveredStudentId(null);
-                                        setHoveredStudent(null);
-                                      }}
-                                      className={`h-7 px-2 rounded-lg border flex items-center justify-between gap-1 text-left cursor-pointer transition-all duration-150 relative ${getSubjectBorderClass(
-                                        subjectName
-                                      )} border-l-[3.5px] ${
-                                        isHighlighted
-                                          ? "ring-2 ring-indigo-500 bg-indigo-50/95 dark:bg-indigo-950 shadow-md scale-[1.02] z-10 border-indigo-300 font-bold"
-                                          : isDimmed
-                                          ? "opacity-35 scale-[0.98]"
-                                          : isContinuing
-                                          ? "bg-amber-50/50 dark:bg-amber-950/25 border-dashed border-amber-300/80 dark:border-amber-700/80 hover:border-amber-400"
-                                          : isUnassigned
-                                          ? "bg-amber-50/70 dark:bg-amber-950/20 border-dashed border-amber-300/80 dark:border-amber-700/80 hover:border-amber-400"
-                                          : "bg-white dark:bg-slate-800/90 border-slate-200/90 dark:border-slate-700/80 hover:border-indigo-400 hover:shadow-2xs"
-                                      }`}
-                                    >
-                                      {/* Tên học sinh */}
-                                      <div className="flex items-center gap-1 min-w-0">
-                                        <span
-                                          className="font-bold text-[11px] text-slate-800 dark:text-slate-100 truncate"
-                                          title={`${student.name} (${subjectName})${isContinuing ? ` - Học tiếp từ ${timeDetail}` : ""}`}
-                                        >
-                                          {student.name}
-                                        </span>
-                                        {isOverdue && (
+                                    return (
+                                      <div
+                                        key={`${student.id}_${hour}_${isContinuing ? "cont" : "start"}`}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          onSelectStudent(student);
+                                        }}
+                                        onMouseEnter={(e) => {
+                                          setHoveredStudentId(student.id);
+                                          const rect = e.currentTarget.getBoundingClientRect();
+                                          setHoveredStudent({
+                                            student,
+                                            timeDetail: isContinuing
+                                              ? `${timeDetail} (học tiếp từ ca trước)`
+                                              : timeDetail,
+                                            subjectName,
+                                            x: rect.right + 10,
+                                            y: rect.top,
+                                          });
+                                        }}
+                                        onMouseLeave={() => {
+                                          setHoveredStudentId(null);
+                                          setHoveredStudent(null);
+                                        }}
+                                        className={`h-7 px-2 rounded-lg border flex items-center justify-between gap-1 text-left cursor-pointer transition-all duration-150 relative ${getSubjectBorderClass(
+                                          subjectName
+                                        )} border-l-[3.5px] ${
+                                          isHighlighted
+                                            ? "ring-2 ring-indigo-500 bg-indigo-50/95 dark:bg-indigo-950 shadow-md scale-[1.02] z-10 border-indigo-300 font-bold"
+                                            : isDimmed
+                                              ? "opacity-35 scale-[0.98]"
+                                              : isContinuing
+                                                ? "bg-amber-50/50 dark:bg-amber-950/25 border-dashed border-amber-300/80 dark:border-amber-700/80 hover:border-amber-400"
+                                                : isUnassigned
+                                                  ? "bg-amber-50/70 dark:bg-amber-950/20 border-dashed border-amber-300/80 dark:border-amber-700/80 hover:border-amber-400"
+                                                  : "bg-white dark:bg-slate-800/90 border-slate-200/90 dark:border-slate-700/80 hover:border-indigo-400 hover:shadow-2xs"
+                                        }`}
+                                      >
+                                        {/* Tên học sinh */}
+                                        <div className="flex items-center gap-1 min-w-0">
                                           <span
-                                            className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse shrink-0"
-                                            title="Nợ học phí quá hạn"
-                                          />
-                                        )}
-                                      </div>
-
-                                      {/* Thông tin phụ: Giờ học nếu lệch / Nhãn Chờ GV / Nhãn Từ ca trước */}
-                                      <div className="flex items-center gap-1 shrink-0">
-                                        {isContinuing ? (
-                                          <span
-                                            className="font-mono text-[8.5px] font-bold text-amber-700 dark:text-amber-300 bg-amber-100/90 dark:bg-amber-950/80 px-1 py-0.2 rounded border border-amber-300 dark:border-amber-700 leading-tight"
-                                            title={`Học viên học tiếp từ ${timeDetail}`}
+                                            className="font-bold text-[11px] text-slate-800 dark:text-slate-100 truncate"
+                                            title={`${student.name} (${subjectName})${isContinuing ? ` - Học tiếp từ ${timeDetail}` : ""}`}
                                           >
-                                            ↳ {timeDetail.split("-")[0]?.trim()}
+                                            {student.name}
                                           </span>
-                                        ) : isCustomTime ? (
-                                          <span className="font-mono text-[9px] font-bold text-amber-700 dark:text-amber-400 bg-amber-100/80 dark:bg-amber-950/60 px-1 py-0.2 rounded leading-tight">
-                                            {timeDetail.split("-")[0]?.trim() || timeDetail}
-                                          </span>
-                                        ) : isUnassigned ? (
-                                          <span className="text-[8.5px] font-extrabold text-amber-700 dark:text-amber-400 bg-amber-100/60 dark:bg-amber-950/40 px-1 rounded">
-                                            Chờ GV
-                                          </span>
-                                        ) : null}
+                                          {isOverdue && (
+                                            <span
+                                              className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse shrink-0"
+                                              title="Nợ học phí quá hạn"
+                                            />
+                                          )}
+                                        </div>
+
+                                        {/* Thông tin phụ: Giờ học nếu lệch / Nhãn Chờ GV / Nhãn Từ ca trước */}
+                                        <div className="flex items-center gap-1 shrink-0">
+                                          {isContinuing ? (
+                                            <span
+                                              className="font-mono text-[8.5px] font-bold text-amber-700 dark:text-amber-300 bg-amber-100/90 dark:bg-amber-950/80 px-1 py-0.2 rounded border border-amber-300 dark:border-amber-700 leading-tight"
+                                              title={`Học viên học tiếp từ ${timeDetail}`}
+                                            >
+                                              ↳ {timeDetail.split("-")[0]?.trim()}
+                                            </span>
+                                          ) : isCustomTime ? (
+                                            <span className="font-mono text-[9px] font-bold text-amber-700 dark:text-amber-400 bg-amber-100/80 dark:bg-amber-950/60 px-1 py-0.2 rounded leading-tight">
+                                              {timeDetail.split("-")[0]?.trim() || timeDetail}
+                                            </span>
+                                          ) : isUnassigned ? (
+                                            <span className="text-[8.5px] font-extrabold text-amber-700 dark:text-amber-400 bg-amber-100/60 dark:bg-amber-950/40 px-1 rounded">
+                                              Chờ GV
+                                            </span>
+                                          ) : null}
+                                        </div>
                                       </div>
-                                    </div>
-                                  );
-                                })
+                                    );
+                                  }
+                                )
                               )}
                             </div>
 
@@ -1290,7 +1379,9 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
                       Hôm nay
                     </span>
                   )}
-                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${isActive ? "bg-white/20 text-white" : "bg-slate-100 dark:bg-slate-700 text-slate-500"}`}>
+                  <span
+                    className={`text-[10px] px-1.5 py-0.2 rounded-full ${isActive ? "bg-white/20 text-white" : "bg-slate-100 dark:bg-slate-700 text-slate-500"}`}
+                  >
                     {stats.total}
                   </span>
                   {canViewTuition && stats.unpaid > 0 && (
@@ -1311,7 +1402,10 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
           </div>
 
           {/* Chi tiết ca học trong ngày đã chọn */}
-          <div key={activeDay} className="animate-in fade-in slide-in-from-right-3 duration-250 ease-out bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-3xl p-4 shadow-sm space-y-4">
+          <div
+            key={activeDay}
+            className="animate-in fade-in slide-in-from-right-3 duration-250 ease-out bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-3xl p-4 shadow-sm space-y-4"
+          >
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
               <div className="flex items-center gap-2">
                 <Calendar className="w-5 h-5 text-indigo-600" />
@@ -1413,61 +1507,75 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
                             Chưa có học viên nào
                           </div>
                         ) : (
-                          entries.map(({ student, timeDetail, subjectName, teacherName, isContinuing, startTime }) => {
-                            const isPaid = student.payment_status === "paid";
-                            const subBadge = getSubjectBadge(subjectName);
+                          entries.map(
+                            ({
+                              student,
+                              timeDetail,
+                              subjectName,
+                              teacherName,
+                              isContinuing,
+                              startTime,
+                            }) => {
+                              const _isPaid = student.payment_status === "paid";
+                              const subBadge = getSubjectBadge(subjectName);
 
-                            return (
-                              <div
-                                key={`${student.id}_${hour}_${isContinuing ? "cont" : "start"}`}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  onSelectStudent(student);
-                                }}
-                                className={`p-2 rounded-xl border text-left cursor-pointer transition ${getSubjectBorderClass(
-                                  subjectName
-                                )} border-l-4 ${
-                                  isContinuing
-                                    ? "bg-amber-50/40 dark:bg-amber-950/20 border-amber-200/90 dark:border-amber-900/60 hover:border-amber-400"
-                                    : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-indigo-400"
-                                }`}
-                              >
-                                <div className="flex items-center justify-between gap-1">
-                                  <div className="flex items-center gap-1.5 min-w-0">
-                                    <span className="font-bold text-xs text-slate-900 dark:text-white truncate">
-                                      {student.name}
-                                    </span>
-                                    {isContinuing && (
+                              return (
+                                <div
+                                  key={`${student.id}_${hour}_${isContinuing ? "cont" : "start"}`}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onSelectStudent(student);
+                                  }}
+                                  className={`p-2 rounded-xl border text-left cursor-pointer transition ${getSubjectBorderClass(
+                                    subjectName
+                                  )} border-l-4 ${
+                                    isContinuing
+                                      ? "bg-amber-50/40 dark:bg-amber-950/20 border-amber-200/90 dark:border-amber-900/60 hover:border-amber-400"
+                                      : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-indigo-400"
+                                  }`}
+                                >
+                                  <div className="flex items-center justify-between gap-1">
+                                    <div className="flex items-center gap-1.5 min-w-0">
+                                      <span className="font-bold text-xs text-slate-900 dark:text-white truncate">
+                                        {student.name}
+                                      </span>
+                                      {isContinuing && (
+                                        <span
+                                          className="text-[8.5px] font-extrabold uppercase px-1.5 py-0.2 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-800 shrink-0"
+                                          title={`Học viên học tiếp từ ca trước sang (${timeDetail})`}
+                                        >
+                                          ↳ Từ {startTime || timeDetail.split("-")[0]?.trim()}
+                                        </span>
+                                      )}
+                                    </div>
+                                    {canViewTuition && student.is_overdue && (
                                       <span
-                                        className="text-[8.5px] font-extrabold uppercase px-1.5 py-0.2 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-800 shrink-0"
-                                        title={`Học viên học tiếp từ ca trước sang (${timeDetail})`}
+                                        className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse shrink-0"
+                                        title="Nợ học phí quá hạn"
+                                      />
+                                    )}
+                                  </div>
+                                  <div className="flex items-center justify-between gap-1 text-[10px] text-slate-500 mt-1">
+                                    <div className="flex items-center gap-1.5 min-w-0">
+                                      <span
+                                        className={`font-bold px-1 rounded ${subBadge.bg} ${subBadge.text}`}
                                       >
-                                        ↳ Từ {startTime || timeDetail.split("-")[0]?.trim()}
+                                        {subjectName}
                                       </span>
-                                    )}
-                                  </div>
-                                  {canViewTuition && student.is_overdue && (
-                                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse shrink-0" title="Nợ học phí quá hạn" />
-                                  )}
-                                </div>
-                                <div className="flex items-center justify-between gap-1 text-[10px] text-slate-500 mt-1">
-                                  <div className="flex items-center gap-1.5 min-w-0">
-                                    <span className={`font-bold px-1 rounded ${subBadge.bg} ${subBadge.text}`}>
-                                      {subjectName}
+                                      {teacherName && (
+                                        <span className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
+                                          • {teacherName}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <span className="font-mono font-bold text-amber-700 dark:text-amber-400 shrink-0">
+                                      {timeDetail || hourLabel}
                                     </span>
-                                    {teacherName && (
-                                      <span className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
-                                        • {teacherName}
-                                      </span>
-                                    )}
                                   </div>
-                                  <span className="font-mono font-bold text-amber-700 dark:text-amber-400 shrink-0">
-                                    {timeDetail || hourLabel}
-                                  </span>
                                 </div>
-                              </div>
-                            );
-                          })
+                              );
+                            }
+                          )
                         )}
                       </div>
 
@@ -1527,7 +1635,10 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
           </div>
 
           {/* Bảng danh sách các ca dạy của giáo viên đã chọn */}
-          <div key={selectedTeacherTab} className="animate-in fade-in duration-200 ease-out grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div
+            key={selectedTeacherTab}
+            className="animate-in fade-in duration-200 ease-out grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
+          >
             {teachers
               .filter((t) => selectedTeacherTab === "all" || t.id === selectedTeacherTab)
               .map((tc) => {
@@ -1535,7 +1646,9 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
                 for (const d of DAYS_OF_WEEK) {
                   for (const h of allWeekHours) {
                     if (matrixData[d]?.[h]?.[tc.id]) {
-                      teacherTotalStudents += matrixData[d][h][tc.id].filter((it) => !it.isContinuing).length;
+                      teacherTotalStudents += matrixData[d][h][tc.id].filter(
+                        (it) => !it.isContinuing
+                      ).length;
                     }
                   }
                 }
@@ -1561,7 +1674,9 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
                         <div className="text-lg font-black text-indigo-600 dark:text-indigo-400">
                           {teacherTotalStudents}
                         </div>
-                        <div className="text-[9px] font-bold text-slate-400 uppercase">Lượt học</div>
+                        <div className="text-[9px] font-bold text-slate-400 uppercase">
+                          Lượt học
+                        </div>
                       </div>
                     </div>
 
@@ -1574,7 +1689,10 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
                         if (dayActiveHours.length === 0) return null;
 
                         return (
-                          <div key={d} className="bg-slate-50 dark:bg-slate-800/50 p-2.5 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 space-y-1.5">
+                          <div
+                            key={d}
+                            className="bg-slate-50 dark:bg-slate-800/50 p-2.5 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 space-y-1.5"
+                          >
                             <div className="text-xs font-black text-slate-800 dark:text-slate-200 flex items-center justify-between">
                               <span>{d}</span>
                               <span className="text-[10px] font-bold text-slate-400">
@@ -1586,7 +1704,10 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
                               {dayActiveHours.map((h) => {
                                 const studentsInSlot = matrixData[d][h][tc.id];
                                 return (
-                                  <div key={h} className="text-[11px] bg-white dark:bg-slate-800 p-2 rounded-xl border border-slate-200/80 dark:border-slate-700">
+                                  <div
+                                    key={h}
+                                    className="text-[11px] bg-white dark:bg-slate-800 p-2 rounded-xl border border-slate-200/80 dark:border-slate-700"
+                                  >
                                     <div className="flex items-center justify-between font-bold text-indigo-600 dark:text-indigo-400 mb-1">
                                       <span>Ca {formatHourLabel(h)}</span>
                                       <span className="text-[10px] text-slate-400">
@@ -1594,25 +1715,34 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
                                       </span>
                                     </div>
                                     <div className="flex flex-wrap gap-1">
-                                      {studentsInSlot.map(({ student, timeDetail, isContinuing }) => (
-                                        <button
-                                          key={`${student.id}_${h}_${isContinuing ? "cont" : "start"}`}
-                                          type="button"
-                                          onClick={() => onSelectStudent(student)}
-                                          className={`text-[10px] px-2 py-0.5 rounded-lg border font-semibold transition cursor-pointer hover:border-indigo-400 ${
-                                            isContinuing
-                                              ? "bg-amber-50 dark:bg-amber-950/40 border-amber-300 dark:border-amber-800 text-amber-800 dark:text-amber-300"
-                                              : canViewTuition && student.payment_status === "paid"
-                                              ? "bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200"
-                                              : canViewTuition
-                                              ? "bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-900/60 text-rose-700 dark:text-rose-300"
-                                              : "bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200"
-                                          }`}
-                                          title={`Bấm để xem hồ sơ học viên${isContinuing ? " (học tiếp từ ca trước)" : ""}`}
-                                        >
-                                          {student.name} {isContinuing && <span className="text-[8.5px] opacity-80">(↳ ca trước)</span>} {timeDetail && `(${timeDetail})`}
-                                        </button>
-                                      ))}
+                                      {studentsInSlot.map(
+                                        ({ student, timeDetail, isContinuing }) => (
+                                          <button
+                                            key={`${student.id}_${h}_${isContinuing ? "cont" : "start"}`}
+                                            type="button"
+                                            onClick={() => onSelectStudent(student)}
+                                            className={`text-[10px] px-2 py-0.5 rounded-lg border font-semibold transition cursor-pointer hover:border-indigo-400 ${
+                                              isContinuing
+                                                ? "bg-amber-50 dark:bg-amber-950/40 border-amber-300 dark:border-amber-800 text-amber-800 dark:text-amber-300"
+                                                : canViewTuition &&
+                                                    student.payment_status === "paid"
+                                                  ? "bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200"
+                                                  : canViewTuition
+                                                    ? "bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-900/60 text-rose-700 dark:text-rose-300"
+                                                    : "bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200"
+                                            }`}
+                                            title={`Bấm để xem hồ sơ học viên${isContinuing ? " (học tiếp từ ca trước)" : ""}`}
+                                          >
+                                            {student.name}{" "}
+                                            {isContinuing && (
+                                              <span className="text-[8.5px] opacity-80">
+                                                (↳ ca trước)
+                                              </span>
+                                            )}{" "}
+                                            {timeDetail && `(${timeDetail})`}
+                                          </button>
+                                        )
+                                      )}
                                     </div>
                                   </div>
                                 );
@@ -1656,7 +1786,8 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
                   </h3>
                   <div className="text-[10px] sm:text-[11px] font-semibold text-slate-500 dark:text-slate-400 truncate">
                     {zoomSlotData.entries.length} học viên ·{" "}
-                    {zoomSlotData.columns.filter((col) => col.entries.length > 0).length} lớp có học viên
+                    {zoomSlotData.columns.filter((col) => col.entries.length > 0).length} lớp có học
+                    viên
                   </div>
                 </div>
               </div>
@@ -1695,7 +1826,9 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
                   </p>
                   <button
                     type="button"
-                    onClick={() => onAddStudentToSlot?.(zoomSlotData.day, formatHourLabel(zoomSlotData.hour))}
+                    onClick={() =>
+                      onAddStudentToSlot?.(zoomSlotData.day, formatHourLabel(zoomSlotData.hour))
+                    }
                     className="mt-3 px-3.5 py-1.5 text-xs font-bold rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white transition inline-flex items-center gap-1.5 cursor-pointer"
                   >
                     <Plus className="w-3.5 h-3.5" />
@@ -1707,7 +1840,8 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
                   {zoomSlotData.columns.map((column) => {
                     const accent = getClassAccent(column.color);
                     const unpaidCount = canViewTuition
-                      ? column.entries.filter((entry) => entry.student.payment_status !== "paid").length
+                      ? column.entries.filter((entry) => entry.student.payment_status !== "paid")
+                          .length
                       : 0;
                     const overdueCount = canViewTuition
                       ? column.entries.filter((entry) => entry.student.is_overdue).length
@@ -1715,7 +1849,10 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
                     const hasCapacity = column.maxStudents > 0;
                     const isFull = hasCapacity && column.entries.length >= column.maxStudents;
                     const capacityPct = hasCapacity
-                      ? Math.min(100, Math.round((column.entries.length / column.maxStudents) * 100))
+                      ? Math.min(
+                          100,
+                          Math.round((column.entries.length / column.maxStudents) * 100)
+                        )
                       : 0;
 
                     return (
@@ -1727,7 +1864,9 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
                         <div className={`h-1.5 ${accent.bar}`} />
 
                         {/* Header cột lớp */}
-                        <div className={`p-3 border-b border-slate-100 dark:border-slate-800 ${accent.softBg}`}>
+                        <div
+                          className={`p-3 border-b border-slate-100 dark:border-slate-800 ${accent.softBg}`}
+                        >
                           <div className="flex items-start justify-between gap-2">
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center gap-1.5 min-w-0">
@@ -1817,8 +1956,15 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
                             </div>
                           ) : (
                             column.entries.map((entry) => {
-                              const { student, timeDetail, subjectName, teacherName, isContinuing, startTime, endTime } =
-                                entry;
+                              const {
+                                student,
+                                timeDetail,
+                                subjectName,
+                                teacherName,
+                                isContinuing,
+                                startTime,
+                                endTime,
+                              } = entry;
                               const subjectBadge = getSubjectBadge(subjectName);
                               const isPaid = student.payment_status === "paid";
                               const isOverdue = canViewTuition && Boolean(student.is_overdue);
@@ -1888,7 +2034,9 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
                                     {canEditSchedule && onRemoveStudentFromSlot ? (
                                       <button
                                         type="button"
-                                        onClick={() => setConfirmRemoveKey(isConfirming ? null : cardKey)}
+                                        onClick={() =>
+                                          setConfirmRemoveKey(isConfirming ? null : cardKey)
+                                        }
                                         className={`w-6 h-6 rounded-lg border flex items-center justify-center transition shrink-0 cursor-pointer ${
                                           isConfirming
                                             ? "bg-rose-600 border-rose-600 text-white"
@@ -1933,7 +2081,8 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
                                       <div className="flex items-center gap-1 text-[9.5px] font-bold text-rose-700 dark:text-rose-300">
                                         <AlertTriangle className="w-3 h-3 shrink-0" />
                                         <span>
-                                          Gỡ {student.name} khỏi ca {formatHourLabel(zoomSlotData.hour)}?
+                                          Gỡ {student.name} khỏi ca{" "}
+                                          {formatHourLabel(zoomSlotData.hour)}?
                                         </span>
                                       </div>
                                       <p className="mt-0.5 text-[8.5px] leading-snug text-rose-600/90 dark:text-rose-400/90">
@@ -2019,7 +2168,10 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
             <div className="shrink-0 px-4 sm:px-6 py-2.5 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col sm:flex-row items-center justify-between gap-2">
               <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-2 flex-wrap">
                 <span>
-                  Tổng <strong className="text-slate-800 dark:text-white">{zoomSlotData.entries.length}</strong>{" "}
+                  Tổng{" "}
+                  <strong className="text-slate-800 dark:text-white">
+                    {zoomSlotData.entries.length}
+                  </strong>{" "}
                   học viên trong ca
                 </span>
                 <span className="text-slate-300 dark:text-slate-700">•</span>
@@ -2030,15 +2182,20 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
                   lớp có học viên
                 </span>
                 {canViewTuition &&
-                  zoomSlotData.entries.filter((entry) => entry.student.payment_status !== "paid").length > 0 && (
-                  <>
-                    <span className="text-slate-300 dark:text-slate-700">•</span>
-                    <span className="text-amber-600 dark:text-amber-400 font-bold">
-                      {zoomSlotData.entries.filter((entry) => entry.student.payment_status !== "paid").length} chưa
-                      đóng phí
-                    </span>
-                  </>
-                )}
+                  zoomSlotData.entries.filter((entry) => entry.student.payment_status !== "paid")
+                    .length > 0 && (
+                    <>
+                      <span className="text-slate-300 dark:text-slate-700">•</span>
+                      <span className="text-amber-600 dark:text-amber-400 font-bold">
+                        {
+                          zoomSlotData.entries.filter(
+                            (entry) => entry.student.payment_status !== "paid"
+                          ).length
+                        }{" "}
+                        chưa đóng phí
+                      </span>
+                    </>
+                  )}
               </div>
               <button
                 type="button"
@@ -2139,8 +2296,8 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
                         isContinuing
                           ? "bg-amber-50/40 dark:bg-amber-950/20 border-amber-200 dark:border-amber-900/60 hover:border-amber-400"
                           : isPaid
-                          ? "bg-slate-50/60 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 hover:border-indigo-400"
-                          : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-indigo-400"
+                            ? "bg-slate-50/60 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 hover:border-indigo-400"
+                            : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-indigo-400"
                       }`}
                     >
                       <div className="flex items-center justify-between">
@@ -2172,7 +2329,9 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
                       </div>
 
                       <div className="mt-2 flex items-center justify-between text-xs text-slate-500">
-                        <span className={`font-bold px-1.5 py-0.5 rounded ${subBadge.bg} ${subBadge.text}`}>
+                        <span
+                          className={`font-bold px-1.5 py-0.5 rounded ${subBadge.bg} ${subBadge.text}`}
+                        >
                           {subjectName}
                         </span>
                         <span className="text-slate-600 dark:text-slate-300 font-semibold">
@@ -2184,7 +2343,9 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
                         <span>SĐT: {student.phone || "---"}</span>
                         {/* Luôn hiển thị giờ học, nếu timeDetail rỗng thì lấy từ study_time_detail hoặc giờ của ca */}
                         <span className="font-mono font-bold text-amber-700 dark:text-amber-400 bg-amber-100/80 dark:bg-amber-950/60 px-1.5 py-0.5 rounded text-[10px]">
-                          {timeDetail || student.study_time_detail || formatHourLabel(drawerSlot.hour)}
+                          {timeDetail ||
+                            student.study_time_detail ||
+                            formatHourLabel(drawerSlot.hour)}
                         </span>
                       </div>
                     </div>
@@ -2245,7 +2406,10 @@ export const ClassroomScheduleMatrix: React.FC<ClassroomScheduleMatrixProps> = (
             </div>
             <div className="flex items-center gap-1.5">
               <BookOpen className="w-3.5 h-3.5 text-indigo-400" />
-              <span>Môn: {hoveredStudent.subjectName} ({hoveredStudent.student.level_name || "Tiêu chuẩn"})</span>
+              <span>
+                Môn: {hoveredStudent.subjectName} (
+                {hoveredStudent.student.level_name || "Tiêu chuẩn"})
+              </span>
             </div>
             {hoveredStudent.timeDetail && (
               <div className="flex items-center gap-1.5 text-amber-300 font-mono">

@@ -1,7 +1,8 @@
 import { getDb, initDb } from "@/lib/db";
-import { formatVND, formatMonthDisplay } from "@/lib/tuition";
+import { formatVND } from "@/lib/tuition";
 import { AI_ADMIN_TOOLS, executeAiAdminTool } from "@/lib/aiTools";
 import { createLogger } from "@/lib/logger";
+import type { DbRow } from "@/lib/types";
 
 const log = createLogger("lib/aiBrain");
 
@@ -146,7 +147,9 @@ export async function getSchoolOperationalContext(
       sql: "SELECT name, code, phone, address FROM schools WHERE id = ? OR id = 'school-default' LIMIT 1",
       args: [schoolId],
     });
-    const schoolName = schoolRes.rows[0]?.name ? String(schoolRes.rows[0].name) : "Trung tâm đào tạo";
+    const schoolName = schoolRes.rows[0]?.name
+      ? String(schoolRes.rows[0].name)
+      : "Trung tâm đào tạo";
 
     // 2. Thống kê học sinh
     const studentsRes = await db.execute({
@@ -328,7 +331,7 @@ QUY TẮC PHẢN HỒI QUAN TRỌNG:
     const modelToUse = config.model || "gemini-3.8-flash";
 
     // Vòng 1: Gửi prompt kèm tools để AI quyết định trả lời hay thực thi tác vụ
-    const requestBody: any = {
+    const requestBody: DbRow = {
       model: modelToUse,
       messages: messagesPayload,
       temperature: 0.5,
@@ -337,7 +340,7 @@ QUY TẮC PHẢN HỒI QUAN TRỌNG:
       tool_choice: "auto",
     };
 
-    let response = await fetch(url, {
+    const response = await fetch(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -355,19 +358,25 @@ QUY TẮC PHẢN HỒI QUAN TRỌNG:
       return "Tính năng này hiện chưa được hỗ trợ.";
     }
 
-    let data = await response.json();
-    let choiceMessage = data.choices?.[0]?.message;
+    const data = await response.json();
+    const choiceMessage = data.choices?.[0]?.message;
 
     // Kiểm tra nếu AI quyết định gọi Tool tác vụ (Function Calling)
-    if (choiceMessage?.tool_calls && Array.isArray(choiceMessage.tool_calls) && choiceMessage.tool_calls.length > 0) {
-      const toolResultsMessages: any[] = [choiceMessage];
+    if (
+      choiceMessage?.tool_calls &&
+      Array.isArray(choiceMessage.tool_calls) &&
+      choiceMessage.tool_calls.length > 0
+    ) {
+      const toolResultsMessages: DbRow[] = [choiceMessage];
 
       for (const tCall of choiceMessage.tool_calls) {
         const fnName = tCall.function?.name;
-        let fnArgs: Record<string, any> = {};
+        let fnArgs: DbRow = {};
         try {
           fnArgs = JSON.parse(tCall.function?.arguments || "{}");
-        } catch {}
+        } catch (err) {
+          log.debug("Bỏ qua lỗi không ảnh hưởng luồng chính (aiBrain)", { error: err });
+        }
 
         log.debug(`[AI Agent] Executing action tool: ${fnName}`, fnArgs);
         const result = await executeAiAdminTool(fnName, fnArgs, schoolId);
@@ -411,7 +420,7 @@ QUY TẮC PHẢN HỒI QUAN TRỌNG:
 
     const answer = choiceMessage?.content || "Tính năng này hiện chưa được hỗ trợ.";
     return answer.trim();
-  } catch (error: any) {
+  } catch (error: unknown) {
     log.error("askAiAssistant error:", { error: error });
     return "Tính năng này hiện chưa được hỗ trợ.";
   }
@@ -490,7 +499,10 @@ Chỉ trả về JSON hợp lệ, không kèm văn bản giải thích.
     const data = await response.json();
     const rawContent = data.choices?.[0]?.message?.content || "";
 
-    const cleanJsonStr = rawContent.replace(/```json/g, "").replace(/```/g, "").trim();
+    const cleanJsonStr = rawContent
+      .replace(/```json/g, "")
+      .replace(/```/g, "")
+      .trim();
     const parsed = JSON.parse(cleanJsonStr);
 
     return {
@@ -498,7 +510,7 @@ Chỉ trả về JSON hợp lệ, không kèm văn bản giải thích.
       teacher_notes: parsed.teacher_notes || "Hôm nay bé học rất chăm chỉ và tập trung.",
       homework: parsed.homework || "Về nhà ôn lại bài học 15 phút mỗi ngày.",
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     log.error("generateLessonReview error:", { error: error });
     return {
       success: false,

@@ -5,7 +5,6 @@ import {
   Sparkles,
   X,
   Send,
-  Bot,
   User,
   Copy,
   Check,
@@ -14,13 +13,13 @@ import {
   BarChart3,
   BookOpen,
   MessageSquare,
-  ShieldCheck,
-  Maximize2,
-  Minimize2,
-  AlertCircle,
-  ChevronDown,
 } from "lucide-react";
 import { useToast } from "@/components/Toast";
+
+/** Sinh ID duy nhất cho một tin nhắn chat (tách khỏi render để tránh impure call). */
+function createChatId(prefix: "user" | "ai" | "err"): string {
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
 
 interface AdminAiAssistantModalProps {
   isOpen: boolean;
@@ -55,7 +54,8 @@ const DEFAULT_PROMPT_CHIPS = [
   {
     icon: MessageSquare,
     label: "Soạn thông báo Zalo",
-    query: "Soạn giúp tôi một mẫu thông báo lịch nghỉ lễ sắp tới gửi cho phụ huynh qua Zalo thật lịch sự và trang trọng.",
+    query:
+      "Soạn giúp tôi một mẫu thông báo lịch nghỉ lễ sắp tới gửi cho phụ huynh qua Zalo thật lịch sự và trang trọng.",
   },
 ];
 
@@ -85,21 +85,28 @@ export const AdminAiAssistantModal: React.FC<AdminAiAssistantModalProps> = ({
   // Check AI ready status
   useEffect(() => {
     if (isOpen) {
+      // eslint-disable-next-line react-hooks/immutability -- Hàm khai báo bằng function (được hoisting) gọi trong effect mount là an toàn; rule báo nhầm thứ tự khai báo.
       checkAiStatus();
       if (messages.length === 0) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- Đồng bộ state khi mở modal hoặc nạp dữ liệu; sẽ chuyển sang pattern key-remount ở Giai đoạn 2.
         setMessages([
           {
             id: "welcome",
             role: "assistant",
             content: `Xin chào **${adminName}**! Em là **Trợ Lý AI** của **${schoolName}** 🌟\n\nEm có thể giúp anh/chị:\n• **Tra cứu dữ liệu tức thì**: Doanh thu tháng, ai chưa đóng học phí, sĩ số các lớp...\n• **Hướng dẫn sử dụng phần mềm**: Cách thêm học sinh, điểm danh, đổi ca, học bù, phân quyền...\n• **Soạn thảo văn bản**: Mẫu tin nhắn nhắc học phí, thông báo nghỉ lễ, lời giải thích khéo léo gửi phụ huynh.\n\n*Anh/chị cần em hỗ trợ điều gì hôm nay ạ?*`,
-            timestamp: new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }),
+            timestamp: new Date().toLocaleTimeString("vi-VN", {
+              hour: "2-digit",
+              minute: "2-digit",
+            }),
           },
         ]);
       }
     }
-  }, [isOpen]);
 
-  const checkAiStatus = async () => {
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Chỉ chạy khi mở modal; messages.length thay đổi sẽ reset hội thoại sai.
+  }, [isOpen, adminName, schoolName]);
+
+  async function checkAiStatus() {
     try {
       const token = typeof window !== "undefined" ? localStorage.getItem("admin_token") : null;
       const res = await fetch("/api/ai/chat", {
@@ -115,14 +122,14 @@ export const AdminAiAssistantModal: React.FC<AdminAiAssistantModalProps> = ({
     } catch {
       setIsReady(false);
     }
-  };
+  }
 
   const handleSendMessage = async (textToSend?: string) => {
     const text = (textToSend || inputMessage).trim();
     if (!text || isLoading) return;
 
     const userMsg: ChatMessage = {
-      id: `user-${Date.now()}`,
+      id: createChatId("user"),
       role: "user",
       content: text,
       timestamp: new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }),
@@ -154,10 +161,11 @@ export const AdminAiAssistantModal: React.FC<AdminAiAssistantModalProps> = ({
       });
 
       const data = await res.json();
-      const replyContent = data.answer || data.message || "Xin lỗi, em không thể xử lý câu trả lời lúc này.";
+      const replyContent =
+        data.answer || data.message || "Xin lỗi, em không thể xử lý câu trả lời lúc này.";
 
       const aiMsg: ChatMessage = {
-        id: `ai-${Date.now()}`,
+        id: createChatId("ai"),
         role: "assistant",
         content: replyContent,
         timestamp: new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }),
@@ -166,7 +174,7 @@ export const AdminAiAssistantModal: React.FC<AdminAiAssistantModalProps> = ({
       setMessages((prev) => [...prev, aiMsg]);
     } catch {
       const errorMsg: ChatMessage = {
-        id: `err-${Date.now()}`,
+        id: createChatId("err"),
         role: "assistant",
         content: "Tính năng này hiện chưa được hỗ trợ.",
         timestamp: new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }),
@@ -189,7 +197,6 @@ export const AdminAiAssistantModal: React.FC<AdminAiAssistantModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-end sm:p-4 bg-slate-950/60 backdrop-blur-xs animate-in fade-in duration-200">
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-t-3xl sm:rounded-3xl shadow-2xl w-full sm:w-[500px] h-[92vh] flex flex-col overflow-hidden animate-in slide-in-from-right duration-250">
-        
         {/* HEADER */}
         <div className="p-4 border-b border-slate-200 dark:border-slate-800 bg-gradient-to-r from-purple-500/10 via-indigo-500/10 to-blue-500/10 dark:from-purple-950/30 dark:to-indigo-950/30 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -202,7 +209,10 @@ export const AdminAiAssistantModal: React.FC<AdminAiAssistantModalProps> = ({
                   Trợ Lý AI Quản Trị
                 </h3>
                 {isReady === true && (
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" title="AI sẵn sàng" />
+                  <span
+                    className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"
+                    title="AI sẵn sàng"
+                  />
                 )}
               </div>
               <p className="text-[11px] text-slate-500 dark:text-slate-400">
@@ -249,7 +259,11 @@ export const AdminAiAssistantModal: React.FC<AdminAiAssistantModalProps> = ({
                       : "bg-gradient-to-br from-purple-600 to-indigo-600 text-white shadow-xs"
                   }`}
                 >
-                  {isUser ? <User className="w-3.5 h-3.5" /> : <Sparkles className="w-3.5 h-3.5 text-amber-300" />}
+                  {isUser ? (
+                    <User className="w-3.5 h-3.5" />
+                  ) : (
+                    <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                  )}
                 </div>
 
                 {/* Bubble */}
@@ -273,7 +287,11 @@ export const AdminAiAssistantModal: React.FC<AdminAiAssistantModalProps> = ({
                         className="hover:text-slate-700 dark:hover:text-slate-200 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition"
                         title="Sao chép nội dung"
                       >
-                        {copiedId === m.id ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
+                        {copiedId === m.id ? (
+                          <Check className="w-3 h-3 text-emerald-500" />
+                        ) : (
+                          <Copy className="w-3 h-3" />
+                        )}
                         <span>{copiedId === m.id ? "Đã copy" : "Copy"}</span>
                       </button>
                     </div>
@@ -347,10 +365,10 @@ export const AdminAiAssistantModal: React.FC<AdminAiAssistantModalProps> = ({
           </form>
 
           <p className="text-[10px] text-center text-slate-400">
-            📱 Mẹo: Bạn cũng có thể nhắn tin hỏi trực tiếp các câu này cho <strong>Zalo Bot</strong> trên điện thoại!
+            📱 Mẹo: Bạn cũng có thể nhắn tin hỏi trực tiếp các câu này cho <strong>Zalo Bot</strong>{" "}
+            trên điện thoại!
           </p>
         </div>
-
       </div>
     </div>
   );

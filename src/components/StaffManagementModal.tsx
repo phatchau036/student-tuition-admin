@@ -15,7 +15,6 @@ import {
   Check,
   Copy,
   X,
-  UserCheck,
   AlertCircle,
   Sparkles,
   CheckSquare,
@@ -24,12 +23,7 @@ import {
   RefreshCw,
   GraduationCap,
   Phone,
-  Mail,
-  BookOpen,
   MessageCircle,
-  ExternalLink,
-  HelpCircle,
-  Info,
 } from "lucide-react";
 
 interface StaffManagementModalProps {
@@ -46,12 +40,48 @@ interface StaffManagementModalProps {
 }
 
 const COLOR_PRESETS = [
-  { val: "indigo", name: "Chàm", bg: "bg-indigo-600", light: "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/60 dark:text-indigo-300 dark:border-indigo-800" },
-  { val: "emerald", name: "Ngọc", bg: "bg-emerald-600", light: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800" },
-  { val: "amber", name: "Hổ phách", bg: "bg-amber-600", light: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800" },
-  { val: "rose", name: "Hoa hồng", bg: "bg-rose-600", light: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800" },
-  { val: "purple", name: "Tím Huế", bg: "bg-purple-600", light: "bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/60 dark:text-purple-300 dark:border-purple-800" },
-  { val: "sky", name: "Da trời", bg: "bg-sky-600", light: "bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/60 dark:text-sky-300 dark:border-sky-800" },
+  {
+    val: "indigo",
+    name: "Chàm",
+    bg: "bg-indigo-600",
+    light:
+      "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/60 dark:text-indigo-300 dark:border-indigo-800",
+  },
+  {
+    val: "emerald",
+    name: "Ngọc",
+    bg: "bg-emerald-600",
+    light:
+      "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800",
+  },
+  {
+    val: "amber",
+    name: "Hổ phách",
+    bg: "bg-amber-600",
+    light:
+      "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800",
+  },
+  {
+    val: "rose",
+    name: "Hoa hồng",
+    bg: "bg-rose-600",
+    light:
+      "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800",
+  },
+  {
+    val: "purple",
+    name: "Tím Huế",
+    bg: "bg-purple-600",
+    light:
+      "bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/60 dark:text-purple-300 dark:border-purple-800",
+  },
+  {
+    val: "sky",
+    name: "Da trời",
+    bg: "bg-sky-600",
+    light:
+      "bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/60 dark:text-sky-300 dark:border-sky-800",
+  },
 ];
 
 const QUICK_SUBJECTS = ["Piano", "Guitar", "Organ", "Thanh nhạc", "Violin", "Trống", "Hội họa"];
@@ -62,7 +92,6 @@ export const StaffManagementModal: React.FC<StaffManagementModalProps> = ({
   schoolId,
   schoolName = "Trung tâm",
   teachers = [],
-  timeSlots = [],
   onRefresh,
   initialTab = "teachers",
   hasPerm,
@@ -82,6 +111,7 @@ export const StaffManagementModal: React.FC<StaffManagementModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       if (!canManageStaff && (initialTab === "staff" || initialTab === "roles")) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- Đồng bộ state khi mở modal hoặc nạp dữ liệu; sẽ chuyển sang pattern key-remount ở Giai đoạn 2.
         setActiveTab("teachers");
       } else {
         setActiveTab(initialTab);
@@ -91,6 +121,7 @@ export const StaffManagementModal: React.FC<StaffManagementModalProps> = ({
 
   // Sync teachers from props
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Đồng bộ state khi mở modal hoặc nạp dữ liệu; sẽ chuyển sang pattern key-remount ở Giai đoạn 2.
     setTeachersList(teachers);
   }, [teachers]);
 
@@ -172,8 +203,10 @@ export const StaffManagementModal: React.FC<StaffManagementModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Đồng bộ state khi mở modal hoặc nạp dữ liệu; sẽ chuyển sang pattern key-remount ở Giai đoạn 2.
       loadData();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Loader là hàm khai báo trong component, chỉ gọi khi mở modal/mount; thêm vào deps sẽ gây gọi lại vô hạn. Sẽ chuyển sang useCallback ở Giai đoạn 2.
   }, [isOpen, schoolId]);
 
   // =========================================================================
@@ -206,7 +239,10 @@ export const StaffManagementModal: React.FC<StaffManagementModalProps> = ({
       return;
     }
     if (!teacherPhone.trim()) {
-      showToast("Vui lòng nhập số điện thoại (dùng làm tài khoản đăng nhập Cổng Giáo Viên)!", "error");
+      showToast(
+        "Vui lòng nhập số điện thoại (dùng làm tài khoản đăng nhập Cổng Giáo Viên)!",
+        "error"
+      );
       return;
     }
 
@@ -429,7 +465,8 @@ Thầy/Cô vui lòng truy cập để theo dõi ca dạy nhé!`;
       showToast("Không thể xóa tài khoản Chủ cơ sở!", "error");
       return;
     }
-    if (!confirm(`Bạn có chắc chắn muốn xóa tài khoản nhân viên "${staff.full_name}" không?`)) return;
+    if (!confirm(`Bạn có chắc chắn muốn xóa tài khoản nhân viên "${staff.full_name}" không?`))
+      return;
 
     try {
       const res = await fetch(`/api/admin/staff?id=${staff.id}`, {
@@ -448,7 +485,12 @@ Thầy/Cô vui lòng truy cập để theo dõi ca dạy nhé!`;
     }
   };
 
-  const handleCopyCredentials = (creds: { fullName: string; username: string; password: string; roleName: string }) => {
+  const handleCopyCredentials = (creds: {
+    fullName: string;
+    username: string;
+    password: string;
+    roleName: string;
+  }) => {
     const text = `Tài khoản Quản trị cơ sở:\n- Họ tên: ${creds.fullName}\n- Vai trò: ${creds.roleName}\n- Tên đăng nhập: ${creds.username}\n- Mật khẩu: ${creds.password}`;
     navigator.clipboard.writeText(text);
     showToast("Đã sao chép tài khoản vào clipboard!", "success");
@@ -576,7 +618,6 @@ Thầy/Cô vui lòng truy cập để theo dõi ca dạy nhé!`;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-200">
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl w-full max-w-5xl max-h-[92vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
-        
         {/* Modal Header */}
         <div className="px-6 py-5 border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between bg-slate-50/70 dark:bg-slate-950/40 shrink-0">
           <div className="flex items-center gap-3">
@@ -591,7 +632,8 @@ Thầy/Cô vui lòng truy cập để theo dõi ca dạy nhé!`;
                 </span>
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Quản lý tập trung Đội ngũ Giáo viên đứng lớp (/giao-vien) và Tài khoản Nhân viên văn phòng (/admin)
+                Quản lý tập trung Đội ngũ Giáo viên đứng lớp (/giao-vien) và Tài khoản Nhân viên văn
+                phòng (/admin)
               </p>
             </div>
           </div>
@@ -693,7 +735,6 @@ Thầy/Cô vui lòng truy cập để theo dõi ca dạy nhé!`;
 
         {/* Modal Body Content */}
         <div className="p-6 overflow-y-auto flex-1 space-y-5">
-          
           {/* =========================================================================
               TAB 1: ĐỘI NGŨ GIÁO VIÊN (/giao-vien) - VAI TRÒ CỐ ĐỊNH
               ========================================================================= */}
@@ -712,7 +753,18 @@ Thầy/Cô vui lòng truy cập để theo dõi ca dạy nhé!`;
                     </h4>
                   </div>
                   <p className="text-xs text-amber-800 dark:text-amber-300/90 leading-relaxed">
-                    Giáo viên dùng <strong>Số điện thoại</strong> và <strong>Mật khẩu</strong> (mặc định: <code className="font-mono font-bold bg-amber-100 dark:bg-amber-900/60 px-1.5 py-0.2 rounded text-amber-900 dark:text-amber-200">123456</code>) để đăng nhập trên điện thoại. Giáo viên có thể tự đổi mật khẩu sau khi vào Cổng Giáo Viên. Quyền hạn được <strong>khóa cố định</strong>: Chỉ xem ca dạy, điểm danh, chấm sao, nhận xét bài học và xin nghỉ. <em>Bảo vệ an toàn tuyệt đối, giáo viên không thể xem tiền học phí hay doanh thu cơ sở.</em>
+                    Giáo viên dùng <strong>Số điện thoại</strong> và <strong>Mật khẩu</strong> (mặc
+                    định:{" "}
+                    <code className="font-mono font-bold bg-amber-100 dark:bg-amber-900/60 px-1.5 py-0.2 rounded text-amber-900 dark:text-amber-200">
+                      123456
+                    </code>
+                    ) để đăng nhập trên điện thoại. Giáo viên có thể tự đổi mật khẩu sau khi vào
+                    Cổng Giáo Viên. Quyền hạn được <strong>khóa cố định</strong>: Chỉ xem ca dạy,
+                    điểm danh, chấm sao, nhận xét bài học và xin nghỉ.{" "}
+                    <em>
+                      Bảo vệ an toàn tuyệt đối, giáo viên không thể xem tiền học phí hay doanh thu
+                      cơ sở.
+                    </em>
                   </p>
                 </div>
                 <button
@@ -737,7 +789,11 @@ Thầy/Cô vui lòng truy cập để theo dõi ca dạy nhé!`;
                   <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-3">
                     <h4 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
                       <GraduationCap className="w-4 h-4 text-amber-600" />
-                      <span>{editingTeacherId ? "Chỉnh Sửa Giáo Viên" : "Thêm Giáo Viên Mới (Cấp Tài Khoản Cố Định)"}</span>
+                      <span>
+                        {editingTeacherId
+                          ? "Chỉnh Sửa Giáo Viên"
+                          : "Thêm Giáo Viên Mới (Cấp Tài Khoản Cố Định)"}
+                      </span>
                     </h4>
                     <button
                       type="button"
@@ -832,7 +888,9 @@ Thầy/Cô vui lòng truy cập để theo dõi ca dạy nhé!`;
                             type="button"
                             onClick={() => setTeacherColor(preset.val)}
                             className={`w-6 h-6 rounded-full ${preset.bg} transition ${
-                              teacherColor === preset.val ? "ring-2 ring-offset-2 ring-amber-500 scale-110" : "opacity-70 hover:opacity-100"
+                              teacherColor === preset.val
+                                ? "ring-2 ring-offset-2 ring-amber-500 scale-110"
+                                : "opacity-70 hover:opacity-100"
                             }`}
                             title={preset.name}
                           />
@@ -860,7 +918,13 @@ Thầy/Cô vui lòng truy cập để theo dõi ca dạy nhé!`;
                         className="flex items-center gap-1.5 px-5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white text-xs font-bold shadow-md transition cursor-pointer"
                       >
                         <Save className="w-3.5 h-3.5" />
-                        <span>{isSavingTeacher ? "Đang lưu..." : editingTeacherId ? "Lưu Thay Đổi" : "Tạo Giáo Viên"}</span>
+                        <span>
+                          {isSavingTeacher
+                            ? "Đang lưu..."
+                            : editingTeacherId
+                              ? "Lưu Thay Đổi"
+                              : "Tạo Giáo Viên"}
+                        </span>
                       </button>
                     </div>
                   </div>
@@ -881,20 +945,30 @@ Thầy/Cô vui lòng truy cập để theo dõi ca dạy nhé!`;
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                     {teachersList.map((tc) => {
-                      const colorObj = COLOR_PRESETS.find((c) => c.val === tc.color) || COLOR_PRESETS[0];
+                      const colorObj =
+                        COLOR_PRESETS.find((c) => c.val === tc.color) || COLOR_PRESETS[0];
 
                       return (
-                        <tr key={tc.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition">
+                        <tr
+                          key={tc.id}
+                          className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition"
+                        >
                           <td className="py-3.5 px-4">
                             <div className="flex items-center gap-2.5">
-                              <div className={`w-8 h-8 rounded-xl ${colorObj.bg} text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs`}>
+                              <div
+                                className={`w-8 h-8 rounded-xl ${colorObj.bg} text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs`}
+                              >
                                 {tc.name.slice(0, 1).toUpperCase()}
                               </div>
                               <div>
                                 <span className="font-extrabold text-slate-900 dark:text-white block">
                                   {tc.name}
                                 </span>
-                                {tc.email && <span className="text-[11px] text-slate-400 block">{tc.email}</span>}
+                                {tc.email && (
+                                  <span className="text-[11px] text-slate-400 block">
+                                    {tc.email}
+                                  </span>
+                                )}
                               </div>
                             </div>
                           </td>
@@ -906,7 +980,10 @@ Thầy/Cô vui lòng truy cập để theo dõi ca dạy nhé!`;
                                 <span>{tc.phone}</span>
                               </span>
                               <span className="text-[10px] text-slate-400 mt-0.5">
-                                MK mặc định: <strong className="font-mono text-slate-600 dark:text-slate-300">123456</strong>
+                                MK mặc định:{" "}
+                                <strong className="font-mono text-slate-600 dark:text-slate-300">
+                                  123456
+                                </strong>
                               </span>
                             </div>
                           </td>
@@ -970,7 +1047,8 @@ Thầy/Cô vui lòng truy cập để theo dõi ca dạy nhé!`;
                     {teachersList.length === 0 && (
                       <tr>
                         <td colSpan={5} className="py-8 text-center text-slate-400 text-xs">
-                          Chưa có giáo viên nào trong danh sách. Hãy bấm <strong>&ldquo;+ Thêm Giáo Viên Mới&rdquo;</strong> ở trên.
+                          Chưa có giáo viên nào trong danh sách. Hãy bấm{" "}
+                          <strong>&ldquo;+ Thêm Giáo Viên Mới&rdquo;</strong> ở trên.
                         </td>
                       </tr>
                     )}
@@ -983,8 +1061,8 @@ Thầy/Cô vui lòng truy cập để theo dõi ca dạy nhé!`;
           {/* =========================================================================
               TAB 2: TÀI KHOẢN NHÂN VIÊN (/admin) - PHÂN QUYỀN TÙY BIẾN
               ========================================================================= */}
-          {activeTab === "staff" && (
-            !canManageStaff ? (
+          {activeTab === "staff" &&
+            (!canManageStaff ? (
               <div className="py-12 px-6 text-center bg-slate-50 dark:bg-slate-800/40 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-3">
                 <div className="w-12 h-12 rounded-2xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 flex items-center justify-center text-rose-600 mx-auto">
                   <Lock className="w-6 h-6" />
@@ -993,313 +1071,357 @@ Thầy/Cô vui lòng truy cập để theo dõi ca dạy nhé!`;
                   Bạn không có quyền quản lý tài khoản nhân viên
                 </h4>
                 <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto">
-                  Chức năng này yêu cầu quyền <strong>Quản lý Nhân viên &amp; Phân quyền (staff.manage)</strong> hoặc tài khoản <strong>Chủ Cơ Sở</strong>.
+                  Chức năng này yêu cầu quyền{" "}
+                  <strong>Quản lý Nhân viên &amp; Phân quyền (staff.manage)</strong> hoặc tài khoản{" "}
+                  <strong>Chủ Cơ Sở</strong>.
                 </p>
               </div>
             ) : (
-            <div className="space-y-5">
-              {/* Thông báo thông tin tài khoản vừa tạo */}
-              {createdCredentials && (
-                <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-in fade-in">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-300 font-black text-sm">
-                      <Sparkles className="w-4 h-4" />
-                      <span>Đã tạo tài khoản cho nhân viên: {createdCredentials.fullName}</span>
+              <div className="space-y-5">
+                {/* Thông báo thông tin tài khoản vừa tạo */}
+                {createdCredentials && (
+                  <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-in fade-in">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-300 font-black text-sm">
+                        <Sparkles className="w-4 h-4" />
+                        <span>Đã tạo tài khoản cho nhân viên: {createdCredentials.fullName}</span>
+                      </div>
+                      <p className="text-xs text-emerald-700 dark:text-emerald-400">
+                        Vai trò: <strong>{createdCredentials.roleName}</strong> | Tên đăng nhập:{" "}
+                        <code className="px-1.5 py-0.5 rounded bg-white dark:bg-slate-900 font-bold">
+                          {createdCredentials.username}
+                        </code>{" "}
+                        | Mật khẩu:{" "}
+                        <code className="px-1.5 py-0.5 rounded bg-white dark:bg-slate-900 font-bold">
+                          {createdCredentials.password}
+                        </code>
+                      </p>
                     </div>
-                    <p className="text-xs text-emerald-700 dark:text-emerald-400">
-                      Vai trò: <strong>{createdCredentials.roleName}</strong> | Tên đăng nhập:{" "}
-                      <code className="px-1.5 py-0.5 rounded bg-white dark:bg-slate-900 font-bold">{createdCredentials.username}</code> | Mật khẩu:{" "}
-                      <code className="px-1.5 py-0.5 rounded bg-white dark:bg-slate-900 font-bold">{createdCredentials.password}</code>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => handleCopyCredentials(createdCredentials)}
+                        className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm transition cursor-pointer"
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                        <span>Sao Chép Tài Khoản</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setCreatedCredentials(null)}
+                        className="p-2 text-emerald-700 hover:text-emerald-900"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Action bar */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-200/70 dark:border-indigo-800/60">
+                  <div className="space-y-0.5">
+                    <h4 className="text-xs sm:text-sm font-extrabold text-indigo-950 dark:text-indigo-200">
+                      Tài Khoản Nhân Viên Văn Phòng / Quản Trị (/admin)
+                    </h4>
+                    <p className="text-xs text-indigo-700 dark:text-indigo-300/80">
+                      Đăng nhập bằng Tên đăng nhập và Mật khẩu. Được phân quyền linh hoạt theo vai
+                      trò (Lễ tân, Kế toán...).
                     </p>
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => handleCopyCredentials(createdCredentials)}
-                      className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm transition cursor-pointer"
-                    >
-                      <Copy className="w-3.5 h-3.5" />
-                      <span>Sao Chép Tài Khoản</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setCreatedCredentials(null)}
-                      className="p-2 text-emerald-700 hover:text-emerald-900"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={handleOpenCreateStaff}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md shadow-indigo-500/20 shrink-0 transition cursor-pointer"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>+ Tạo Tài Khoản Nhân Viên</span>
+                  </button>
                 </div>
-              )}
 
-              {/* Action bar */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-200/70 dark:border-indigo-800/60">
-                <div className="space-y-0.5">
-                  <h4 className="text-xs sm:text-sm font-extrabold text-indigo-950 dark:text-indigo-200">
-                    Tài Khoản Nhân Viên Văn Phòng / Quản Trị (/admin)
-                  </h4>
-                  <p className="text-xs text-indigo-700 dark:text-indigo-300/80">
-                    Đăng nhập bằng Tên đăng nhập và Mật khẩu. Được phân quyền linh hoạt theo vai trò (Lễ tân, Kế toán...).
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleOpenCreateStaff}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md shadow-indigo-500/20 shrink-0 transition cursor-pointer"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>+ Tạo Tài Khoản Nhân Viên</span>
-                </button>
-              </div>
-
-              {/* Form Tạo / Sửa Nhân viên */}
-              {isStaffFormOpen && (
-                <form
-                  onSubmit={handleSaveStaff}
-                  className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-4 animate-in fade-in"
-                >
-                  <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-3">
-                    <h4 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
-                      <Users className="w-4 h-4 text-indigo-600" />
-                      <span>{editingStaffId ? "Chỉnh Sửa Tài Khoản Nhân Viên" : "Tạo Tài Khoản Nhân Viên Mới"}</span>
-                    </h4>
-                    <button
-                      type="button"
-                      onClick={() => setIsStaffFormOpen(false)}
-                      className="text-slate-400 hover:text-slate-600 p-1 rounded-lg"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                        Họ và tên nhân viên *
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={staffFullName}
-                        onChange={(e) => setStaffFullName(e.target.value)}
-                        placeholder="VD: Nguyễn Thị Mai"
-                        className="w-full px-3.5 py-2 text-xs sm:text-sm rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none"
-                      />
+                {/* Form Tạo / Sửa Nhân viên */}
+                {isStaffFormOpen && (
+                  <form
+                    onSubmit={handleSaveStaff}
+                    className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-4 animate-in fade-in"
+                  >
+                    <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-3">
+                      <h4 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
+                        <Users className="w-4 h-4 text-indigo-600" />
+                        <span>
+                          {editingStaffId
+                            ? "Chỉnh Sửa Tài Khoản Nhân Viên"
+                            : "Tạo Tài Khoản Nhân Viên Mới"}
+                        </span>
+                      </h4>
+                      <button
+                        type="button"
+                        onClick={() => setIsStaffFormOpen(false)}
+                        className="text-slate-400 hover:text-slate-600 p-1 rounded-lg"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
                     </div>
 
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                        Số điện thoại liên hệ
-                      </label>
-                      <input
-                        type="tel"
-                        value={staffPhone}
-                        onChange={(e) => setStaffPhone(e.target.value)}
-                        placeholder="VD: 0909123456"
-                        className="w-full px-3.5 py-2 text-xs sm:text-sm rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none font-mono"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                        Vai trò / Nhóm quyền phân công *
-                      </label>
-                      {rolesList.filter((r) => r.is_system !== 1).length === 0 ? (
-                        <div className="text-xs text-amber-600 p-2 bg-amber-50 rounded-xl">
-                          Chưa có nhóm quyền nào! Vui lòng sang tab <strong>&ldquo;Nhóm Quyền &amp; Vai Trò&rdquo;</strong> để tạo vai trò trước.
-                        </div>
-                      ) : (
-                        <select
-                          value={staffRoleId}
-                          onChange={(e) => setStaffRoleId(e.target.value)}
-                          className="w-full px-3.5 py-2 text-xs sm:text-sm rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none"
-                        >
-                          <option value="">-- Chọn vai trò --</option>
-                          {rolesList.filter((r) => r.is_system !== 1).map((r) => (
-                            <option key={r.id} value={r.id}>
-                              {r.name}
-                            </option>
-                          ))}
-                        </select>
-                      )}
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                        Tên đăng nhập (Username) *
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        disabled={Boolean(editingStaffId)}
-                        value={staffUsername}
-                        onChange={(e) => setStaffUsername(e.target.value)}
-                        placeholder="VD: mai.letan"
-                        className="w-full px-3.5 py-2 text-xs sm:text-sm rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white disabled:opacity-60 focus:ring-2 focus:ring-indigo-500 outline-none"
-                      />
-                    </div>
-
-                    <div className="sm:col-span-2">
-                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                        {editingStaffId ? "Mật khẩu mới (Để trống nếu giữ nguyên)" : "Mật khẩu đăng nhập *"}
-                      </label>
-                      <div className="flex items-center gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                          Họ và tên nhân viên *
+                        </label>
                         <input
                           type="text"
-                          required={!editingStaffId}
-                          value={staffPassword}
-                          onChange={(e) => setStaffPassword(e.target.value)}
-                          placeholder={editingStaffId ? "Nhập mật khẩu mới nếu muốn đổi..." : "Nhập mật khẩu hoặc bấm Tự sinh..."}
-                          className="flex-1 px-3.5 py-2 text-xs sm:text-sm rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none"
+                          required
+                          value={staffFullName}
+                          onChange={(e) => setStaffFullName(e.target.value)}
+                          placeholder="VD: Nguyễn Thị Mai"
+                          className="w-full px-3.5 py-2 text-xs sm:text-sm rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none"
                         />
-                        <button
-                          type="button"
-                          onClick={handleGeneratePassword}
-                          className="px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 hover:bg-slate-100 text-xs font-bold text-slate-700 dark:text-slate-200 shrink-0 cursor-pointer"
-                        >
-                          <KeyRound className="w-3.5 h-3.5 inline mr-1" />
-                          Tự sinh mã
-                        </button>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                          Số điện thoại liên hệ
+                        </label>
+                        <input
+                          type="tel"
+                          value={staffPhone}
+                          onChange={(e) => setStaffPhone(e.target.value)}
+                          placeholder="VD: 0909123456"
+                          className="w-full px-3.5 py-2 text-xs sm:text-sm rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none font-mono"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                          Vai trò / Nhóm quyền phân công *
+                        </label>
+                        {rolesList.filter((r) => r.is_system !== 1).length === 0 ? (
+                          <div className="text-xs text-amber-600 p-2 bg-amber-50 rounded-xl">
+                            Chưa có nhóm quyền nào! Vui lòng sang tab{" "}
+                            <strong>&ldquo;Nhóm Quyền &amp; Vai Trò&rdquo;</strong> để tạo vai trò
+                            trước.
+                          </div>
+                        ) : (
+                          <select
+                            value={staffRoleId}
+                            onChange={(e) => setStaffRoleId(e.target.value)}
+                            className="w-full px-3.5 py-2 text-xs sm:text-sm rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none"
+                          >
+                            <option value="">-- Chọn vai trò --</option>
+                            {rolesList
+                              .filter((r) => r.is_system !== 1)
+                              .map((r) => (
+                                <option key={r.id} value={r.id}>
+                                  {r.name}
+                                </option>
+                              ))}
+                          </select>
+                        )}
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                          Tên đăng nhập (Username) *
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          disabled={Boolean(editingStaffId)}
+                          value={staffUsername}
+                          onChange={(e) => setStaffUsername(e.target.value)}
+                          placeholder="VD: mai.letan"
+                          className="w-full px-3.5 py-2 text-xs sm:text-sm rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white disabled:opacity-60 focus:ring-2 focus:ring-indigo-500 outline-none"
+                        />
+                      </div>
+
+                      <div className="sm:col-span-2">
+                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                          {editingStaffId
+                            ? "Mật khẩu mới (Để trống nếu giữ nguyên)"
+                            : "Mật khẩu đăng nhập *"}
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            required={!editingStaffId}
+                            value={staffPassword}
+                            onChange={(e) => setStaffPassword(e.target.value)}
+                            placeholder={
+                              editingStaffId
+                                ? "Nhập mật khẩu mới nếu muốn đổi..."
+                                : "Nhập mật khẩu hoặc bấm Tự sinh..."
+                            }
+                            className="flex-1 px-3.5 py-2 text-xs sm:text-sm rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleGeneratePassword}
+                            className="px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 hover:bg-slate-100 text-xs font-bold text-slate-700 dark:text-slate-200 shrink-0 cursor-pointer"
+                          >
+                            <KeyRound className="w-3.5 h-3.5 inline mr-1" />
+                            Tự sinh mã
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  <div className="flex items-center justify-end gap-2 pt-2">
-                    <button
-                      type="button"
-                      onClick={() => setIsStaffFormOpen(false)}
-                      className="px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 transition cursor-pointer"
-                    >
-                      Hủy
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={isSavingStaff}
-                      className="flex items-center gap-1.5 px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-xs font-bold shadow-md transition cursor-pointer"
-                    >
-                      <Save className="w-3.5 h-3.5" />
-                      <span>{isSavingStaff ? "Đang lưu..." : editingStaffId ? "Lưu Cập Nhật" : "Tạo Tài Khoản"}</span>
-                    </button>
-                  </div>
-                </form>
-              )}
+                    <div className="flex items-center justify-end gap-2 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => setIsStaffFormOpen(false)}
+                        className="px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 transition cursor-pointer"
+                      >
+                        Hủy
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={isSavingStaff}
+                        className="flex items-center gap-1.5 px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-xs font-bold shadow-md transition cursor-pointer"
+                      >
+                        <Save className="w-3.5 h-3.5" />
+                        <span>
+                          {isSavingStaff
+                            ? "Đang lưu..."
+                            : editingStaffId
+                              ? "Lưu Cập Nhật"
+                              : "Tạo Tài Khoản"}
+                        </span>
+                      </button>
+                    </div>
+                  </form>
+                )}
 
-              {/* Bảng Danh Sách Tài Khoản Nhân Viên */}
-              <div className="border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-2xs">
-                <table className="w-full text-left border-collapse text-xs sm:text-sm">
-                  <thead>
-                    <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/40 text-slate-500 font-bold">
-                      <th className="py-3 px-4">Họ Và Tên</th>
-                      <th className="py-3 px-4">Tên Đăng Nhập</th>
-                      <th className="py-3 px-4">Vai Trò Phân Quyền</th>
-                      <th className="py-3 px-4 text-center">Trạng Thái</th>
-                      <th className="py-3 px-4 text-right">Thao Tác</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                    {staffList.map((st) => (
-                      <tr key={st.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition">
-                        <td className="py-3 px-4 font-bold text-slate-900 dark:text-white">
-                          <div className="flex items-center gap-2">
-                            <span>{st.full_name}</span>
-                            {st.is_owner === 1 && (
-                              <span className="text-[10px] font-black px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-700">
-                                CHỦ CƠ SỞ
+                {/* Bảng Danh Sách Tài Khoản Nhân Viên */}
+                <div className="border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-2xs">
+                  <table className="w-full text-left border-collapse text-xs sm:text-sm">
+                    <thead>
+                      <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/40 text-slate-500 font-bold">
+                        <th className="py-3 px-4">Họ Và Tên</th>
+                        <th className="py-3 px-4">Tên Đăng Nhập</th>
+                        <th className="py-3 px-4">Vai Trò Phân Quyền</th>
+                        <th className="py-3 px-4 text-center">Trạng Thái</th>
+                        <th className="py-3 px-4 text-right">Thao Tác</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                      {staffList.map((st) => (
+                        <tr
+                          key={st.id}
+                          className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition"
+                        >
+                          <td className="py-3 px-4 font-bold text-slate-900 dark:text-white">
+                            <div className="flex items-center gap-2">
+                              <span>{st.full_name}</span>
+                              {st.is_owner === 1 && (
+                                <span className="text-[10px] font-black px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300 dark:border-amber-700">
+                                  CHỦ CƠ SỞ
+                                </span>
+                              )}
+                            </div>
+                            {st.phone && (
+                              <span className="text-[11px] text-slate-400 block font-normal">
+                                {st.phone}
                               </span>
                             )}
-                          </div>
-                          {st.phone && <span className="text-[11px] text-slate-400 block font-normal">{st.phone}</span>}
-                        </td>
-                        <td className="py-3 px-4">
-                          <code className="px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 font-bold text-indigo-600 dark:text-indigo-400 text-xs">
-                            {st.username}
-                          </code>
-                        </td>
-                        <td className="py-3 px-4">
-                          <span
-                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-bold ${
-                              st.is_owner === 1
-                                ? "bg-indigo-100 text-indigo-800 dark:bg-indigo-950/70 dark:text-indigo-300"
-                                : "bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800"
-                            }`}
-                          >
-                            <ShieldCheck className="w-3.5 h-3.5" />
-                            <span>{st.role_name}</span>
-                          </span>
-                          {st.is_owner !== 1 && (
-                            <span className="ml-2 text-[11px] text-slate-400">
-                              ({st.permissions?.length || 0} quyền được cấp)
+                          </td>
+                          <td className="py-3 px-4">
+                            <code className="px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 font-bold text-indigo-600 dark:text-indigo-400 text-xs">
+                              {st.username}
+                            </code>
+                          </td>
+                          <td className="py-3 px-4">
+                            <span
+                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-bold ${
+                                st.is_owner === 1
+                                  ? "bg-indigo-100 text-indigo-800 dark:bg-indigo-950/70 dark:text-indigo-300"
+                                  : "bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800"
+                              }`}
+                            >
+                              <ShieldCheck className="w-3.5 h-3.5" />
+                              <span>{st.role_name}</span>
                             </span>
-                          )}
-                        </td>
-                        <td className="py-3 px-4 text-center">
-                          {st.is_active === 1 ? (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300">
-                              <Check className="w-3 h-3" /> Đang hoạt động
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-100 text-rose-800 dark:bg-rose-950/70 dark:text-rose-300">
-                              <Lock className="w-3 h-3" /> Đã khóa
-                            </span>
-                          )}
-                        </td>
-                        <td className="py-3 px-4 text-right">
-                          {st.is_owner === 1 ? (
-                            <span className="text-xs text-slate-400 italic">Mặc định toàn quyền</span>
-                          ) : (
-                            <div className="inline-flex items-center gap-1.5">
-                              <button
-                                type="button"
-                                onClick={() => handleOpenEditStaff(st)}
-                                className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-indigo-50 text-slate-600 hover:text-indigo-600 dark:text-slate-300 transition cursor-pointer"
-                                title="Sửa thông tin / Đổi vai trò / Đổi mật khẩu"
-                              >
-                                <Edit2 className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleToggleStaffActive(st)}
-                                className={`p-1.5 rounded-lg border transition cursor-pointer ${
-                                  st.is_active === 1
-                                    ? "border-amber-200 hover:bg-amber-50 text-amber-600"
-                                    : "border-emerald-200 hover:bg-emerald-50 text-emerald-600"
-                                }`}
-                                title={st.is_active === 1 ? "Tạm khóa tài khoản này" : "Mở khóa tài khoản"}
-                              >
-                                {st.is_active === 1 ? <Lock className="w-3.5 h-3.5" /> : <Unlock className="w-3.5 h-3.5" />}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteStaff(st)}
-                                className="p-1.5 rounded-lg border border-rose-200 hover:bg-rose-50 text-rose-600 transition cursor-pointer"
-                                title="Xóa tài khoản nhân viên"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                    {staffList.length === 0 && (
-                      <tr>
-                        <td colSpan={5} className="py-8 text-center text-slate-400 text-xs">
-                          Chưa có tài khoản nhân viên nào.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
+                            {st.is_owner !== 1 && (
+                              <span className="ml-2 text-[11px] text-slate-400">
+                                ({st.permissions?.length || 0} quyền được cấp)
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-3 px-4 text-center">
+                            {st.is_active === 1 ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300">
+                                <Check className="w-3 h-3" /> Đang hoạt động
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-100 text-rose-800 dark:bg-rose-950/70 dark:text-rose-300">
+                                <Lock className="w-3 h-3" /> Đã khóa
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-3 px-4 text-right">
+                            {st.is_owner === 1 ? (
+                              <span className="text-xs text-slate-400 italic">
+                                Mặc định toàn quyền
+                              </span>
+                            ) : (
+                              <div className="inline-flex items-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenEditStaff(st)}
+                                  className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-indigo-50 text-slate-600 hover:text-indigo-600 dark:text-slate-300 transition cursor-pointer"
+                                  title="Sửa thông tin / Đổi vai trò / Đổi mật khẩu"
+                                >
+                                  <Edit2 className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleStaffActive(st)}
+                                  className={`p-1.5 rounded-lg border transition cursor-pointer ${
+                                    st.is_active === 1
+                                      ? "border-amber-200 hover:bg-amber-50 text-amber-600"
+                                      : "border-emerald-200 hover:bg-emerald-50 text-emerald-600"
+                                  }`}
+                                  title={
+                                    st.is_active === 1
+                                      ? "Tạm khóa tài khoản này"
+                                      : "Mở khóa tài khoản"
+                                  }
+                                >
+                                  {st.is_active === 1 ? (
+                                    <Lock className="w-3.5 h-3.5" />
+                                  ) : (
+                                    <Unlock className="w-3.5 h-3.5" />
+                                  )}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteStaff(st)}
+                                  className="p-1.5 rounded-lg border border-rose-200 hover:bg-rose-50 text-rose-600 transition cursor-pointer"
+                                  title="Xóa tài khoản nhân viên"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                      {staffList.length === 0 && (
+                        <tr>
+                          <td colSpan={5} className="py-8 text-center text-slate-400 text-xs">
+                            Chưa có tài khoản nhân viên nào.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            </div>
-            )
-          )}
+            ))}
 
           {/* =========================================================================
               TAB 3: QUẢN LÝ NHÓM QUYỀN (VAI TRÒ RBAC)
               ========================================================================= */}
-          {activeTab === "roles" && (
-            !canManageStaff ? (
+          {activeTab === "roles" &&
+            (!canManageStaff ? (
               <div className="py-12 px-6 text-center bg-slate-50 dark:bg-slate-800/40 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-3">
                 <div className="w-12 h-12 rounded-2xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 flex items-center justify-center text-rose-600 mx-auto">
                   <Lock className="w-6 h-6" />
@@ -1308,328 +1430,353 @@ Thầy/Cô vui lòng truy cập để theo dõi ca dạy nhé!`;
                   Bạn không có quyền cấu hình nhóm quyền &amp; vai trò
                 </h4>
                 <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto">
-                  Chức năng này yêu cầu quyền <strong>Quản lý Nhân viên &amp; Phân quyền (staff.manage)</strong> hoặc tài khoản <strong>Chủ Cơ Sở</strong>.
+                  Chức năng này yêu cầu quyền{" "}
+                  <strong>Quản lý Nhân viên &amp; Phân quyền (staff.manage)</strong> hoặc tài khoản{" "}
+                  <strong>Chủ Cơ Sở</strong>.
                 </p>
               </div>
             ) : (
-            <div className="space-y-5">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/70 dark:border-emerald-800/60">
-                <div className="space-y-0.5">
-                  <h4 className="text-xs sm:text-sm font-extrabold text-emerald-950 dark:text-emerald-200">
-                    Thiết lập các Nhóm Quyền / Vai Trò (Ví dụ: Nhân viên Lễ tân, Kế toán...)
-                  </h4>
-                  <p className="text-xs text-emerald-700 dark:text-emerald-300/80">
-                    Bạn tick chọn mục nào thì nhân viên thuộc vai trò đó mới nhìn thấy và thao tác được mục đó trên /admin.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleOpenCreateRole}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md shadow-emerald-500/20 shrink-0 transition cursor-pointer"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>Tạo Nhóm Quyền Mới</span>
-                </button>
-              </div>
-
-              {/* Form Tạo / Sửa Nhóm Quyền */}
-              {isRoleFormOpen && (
-                <form
-                  onSubmit={handleSaveRole}
-                  className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-5 animate-in fade-in"
-                >
-                  <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-3">
-                    <h4 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
-                      <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                      <span>{editingRoleId ? "Chỉnh Sửa Nhóm Quyền" : "Tạo Nhóm Quyền (Vai Trò) Mới"}</span>
+              <div className="space-y-5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/70 dark:border-emerald-800/60">
+                  <div className="space-y-0.5">
+                    <h4 className="text-xs sm:text-sm font-extrabold text-emerald-950 dark:text-emerald-200">
+                      Thiết lập các Nhóm Quyền / Vai Trò (Ví dụ: Nhân viên Lễ tân, Kế toán...)
                     </h4>
-                    <button
-                      type="button"
-                      onClick={() => setIsRoleFormOpen(false)}
-                      className="text-slate-400 hover:text-slate-600 p-1 rounded-lg"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                        Tên vai trò / nhóm quyền *
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={roleName}
-                        onChange={(e) => setRoleName(e.target.value)}
-                        placeholder="VD: Nhân viên Lễ tân, Kế toán, Giáo vụ..."
-                        className="w-full px-3.5 py-2 text-xs sm:text-sm rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                        Mô tả ngắn (Tùy chọn)
-                      </label>
-                      <input
-                        type="text"
-                        value={roleDesc}
-                        onChange={(e) => setRoleDesc(e.target.value)}
-                        placeholder="VD: Chỉ tiếp nhận học sinh và xếp lịch bù, không xem doanh thu..."
-                        className="w-full px-3.5 py-2 text-xs sm:text-sm rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Thanh chọn nhanh tất cả */}
-                  <div className="flex items-center justify-between pt-1">
-                    <span className="text-xs font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                      Tick chọn các chức năng mà vai trò này được phép thấy ({selectedPermissions.length}/{allPermissionKeys.length} quyền):
-                    </span>
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setSelectedPermissions(allPermissionKeys)}
-                        className="text-xs font-bold text-indigo-600 hover:underline cursor-pointer"
-                      >
-                        Chọn tất cả
-                      </button>
-                      <span className="text-slate-300">•</span>
-                      <button
-                        type="button"
-                        onClick={() => setSelectedPermissions([])}
-                        className="text-xs font-bold text-slate-500 hover:underline cursor-pointer"
-                      >
-                        Bỏ chọn hết
-                      </button>
-                    </div>
-                  </div>
-
-                  <p className="text-[10.5px] leading-relaxed font-semibold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl px-3 py-2">
-                    Lưu ý: Để nhân viên hoàn toàn không thấy số tiền, cần bỏ chọn cả hai quyền
-                    <strong> “Xem học phí &amp; công nợ”</strong> và
-                    <strong> “Xem báo cáo tổng doanh thu”</strong> trong nhóm Học Phí &amp; Doanh Thu.
-                    Quyền mới sẽ tự động áp dụng cho nhân viên đang đăng nhập trong vòng 30 giây.
-                  </p>
-
-                  {/* Danh sách 5 nhóm quyền hạn */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {ADMIN_PERMISSION_GROUPS.map((group) => {
-                      const groupItemIds = group.items.map((i) => i.id);
-                      const isAllGroupSelected = groupItemIds.every((id) => selectedPermissions.includes(id));
-                      const isSomeGroupSelected =
-                        groupItemIds.some((id) => selectedPermissions.includes(id)) && !isAllGroupSelected;
-
-                      return (
-                        <div
-                          key={group.id}
-                          className="p-3.5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 space-y-2.5 shadow-2xs"
-                        >
-                          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
-                            <div>
-                              <div className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">
-                                {group.name}
-                              </div>
-                              <p className="text-[11px] text-slate-400">{group.description}</p>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => handleSelectAllGroupPermissions(group.id)}
-                              className="text-[11px] font-bold text-indigo-600 hover:text-indigo-700 cursor-pointer"
-                            >
-                              {isAllGroupSelected ? "Bỏ chọn nhóm" : "Chọn hết nhóm"}
-                            </button>
-                          </div>
-
-                          <div className="space-y-1.5">
-                            {group.items.map((item) => {
-                              const checked = selectedPermissions.includes(item.id);
-
-                              return (
-                                <label
-                                  key={item.id}
-                                  onClick={() => handleTogglePermission(item.id)}
-                                  className={`flex items-start gap-2.5 p-2 rounded-xl border transition cursor-pointer select-none ${
-                                    checked
-                                      ? "bg-indigo-50/70 dark:bg-indigo-950/40 border-indigo-300 dark:border-indigo-800"
-                                      : "bg-slate-50/50 dark:bg-slate-800/30 border-transparent hover:border-slate-200"
-                                  }`}
-                                >
-                                  <div className="mt-0.5 text-indigo-600 dark:text-indigo-400">
-                                    {checked ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4 text-slate-400" />}
-                                  </div>
-                                  <div className="flex-1">
-                                    <div className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                                      {item.label}
-                                    </div>
-                                    <div className="text-[11px] text-slate-500 dark:text-slate-400">
-                                      {item.description}
-                                    </div>
-                                  </div>
-                                </label>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  <div className="flex items-center justify-end gap-2 pt-2">
-                    <button
-                      type="button"
-                      onClick={() => setIsRoleFormOpen(false)}
-                      className="px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 transition cursor-pointer"
-                    >
-                      Hủy
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={isSavingRole}
-                      className="flex items-center gap-1.5 px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-bold shadow-md transition cursor-pointer"
-                    >
-                      <Save className="w-3.5 h-3.5" />
-                      <span>{isSavingRole ? "Đang lưu..." : editingRoleId ? "Cập Nhật Nhóm Quyền" : "Lưu Nhóm Quyền"}</span>
-                    </button>
-                  </div>
-                </form>
-              )}
-
-              {/* Danh sách các vai trò đã tạo */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {rolesList.map((role) => (
-                  <div
-                    key={role.id}
-                    className={`p-4 rounded-2xl border flex flex-col justify-between gap-3 shadow-2xs ${
-                      role.is_system === 1
-                        ? "border-amber-300 dark:border-amber-800 bg-amber-50/40 dark:bg-amber-950/20"
-                        : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900"
-                    }`}
-                  >
-                    <div className="space-y-2">
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <h4 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
-                              {role.is_system === 1 ? (
-                                <Lock className="w-4 h-4 text-amber-600" />
-                              ) : (
-                                <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                              )}
-                              <span>{role.name}</span>
-                            </h4>
-                            {role.is_system === 1 && (
-                              <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200 border border-amber-300">
-                                Vai trò cố định
-                              </span>
-                            )}
-                          </div>
-                          {role.description && (
-                            <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">{role.description}</p>
-                          )}
-                        </div>
-                        <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 shrink-0">
-                          {role.staff_count || 0} thành viên
-                        </span>
-                      </div>
-
-                      {/* Chips hiển thị các quyền */}
-                      <div className="flex flex-wrap gap-1.5 pt-1">
-                        {role.is_system === 1 ? (
-                          <span className="px-2 py-0.5 rounded-lg bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-300 border border-amber-300 dark:border-amber-800 text-[11px] font-bold">
-                            Chỉ Cổng Giáo Viên (/giao-vien): Điểm danh, Chấm sao, Nhận xét, Dặn bài tập, Báo nghỉ
-                          </span>
-                        ) : (
-                          (role.permissions || []).map((permKey) => {
-                            const foundItem = ADMIN_PERMISSION_GROUPS.flatMap((g) => g.items).find((i) => i.id === permKey);
-                            return (
-                              <span
-                                key={permKey}
-                                className="px-2 py-0.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800 text-[11px] font-semibold"
-                              >
-                                {foundItem ? foundItem.label : permKey}
-                              </span>
-                            );
-                          })
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800">
-                      {role.is_system === 1 ? (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setActiveTab("teachers");
-                            resetTeacherForm();
-                            setIsTeacherFormOpen(true);
-                          }}
-                          className="text-xs font-bold text-amber-700 dark:text-amber-400 hover:underline cursor-pointer flex items-center gap-1"
-                        >
-                          <Plus className="w-3.5 h-3.5" />
-                          <span>+ Thêm giáo viên mới</span>
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setActiveTab("staff");
-                            handleOpenCreateStaff();
-                            setStaffRoleId(role.id);
-                          }}
-                          className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer flex items-center gap-1"
-                        >
-                          <Plus className="w-3.5 h-3.5" />
-                          <span>+ Tạo tài khoản nhân viên</span>
-                        </button>
-                      )}
-
-                      <div className="flex items-center gap-1.5">
-                        {role.is_system === 1 ? (
-                          <span className="text-[11px] font-bold text-slate-400 flex items-center gap-1 px-2 py-1">
-                            <Lock className="w-3 h-3" />
-                            <span>Khóa cố định</span>
-                          </span>
-                        ) : (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => handleOpenEditRole(role)}
-                              className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 text-xs font-bold text-slate-700 dark:text-slate-300 transition cursor-pointer"
-                            >
-                              <Edit2 className="w-3.5 h-3.5" />
-                              <span>Sửa quyền</span>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteRole(role)}
-                              className="p-1.5 rounded-lg border border-rose-200 hover:bg-rose-50 text-rose-600 transition cursor-pointer"
-                              title="Xóa nhóm quyền"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-
-                {rolesList.length === 0 && !isRoleFormOpen && (
-                  <div className="md:col-span-2 py-10 px-4 text-center border border-dashed border-slate-300 dark:border-slate-700 rounded-2xl space-y-2">
-                    <AlertCircle className="w-8 h-8 text-slate-400 mx-auto" />
-                    <div className="text-sm font-bold text-slate-700 dark:text-slate-300">
-                      Chưa có nhóm quyền (vai trò) nào được tạo
-                    </div>
-                    <p className="text-xs text-slate-500 max-w-md mx-auto">
-                      Hãy bấm nút <strong>&ldquo;+ Tạo Nhóm Quyền Mới&rdquo;</strong> để tạo vai trò (ví dụ: Nhân viên Lễ tân, Kế toán...) và tick chọn các mục được phép xem.
+                    <p className="text-xs text-emerald-700 dark:text-emerald-300/80">
+                      Bạn tick chọn mục nào thì nhân viên thuộc vai trò đó mới nhìn thấy và thao tác
+                      được mục đó trên /admin.
                     </p>
                   </div>
-                )}
-              </div>
-            </div>
-            )
-          )}
+                  <button
+                    type="button"
+                    onClick={handleOpenCreateRole}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md shadow-emerald-500/20 shrink-0 transition cursor-pointer"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Tạo Nhóm Quyền Mới</span>
+                  </button>
+                </div>
 
+                {/* Form Tạo / Sửa Nhóm Quyền */}
+                {isRoleFormOpen && (
+                  <form
+                    onSubmit={handleSaveRole}
+                    className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-5 animate-in fade-in"
+                  >
+                    <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-3">
+                      <h4 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
+                        <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                        <span>
+                          {editingRoleId ? "Chỉnh Sửa Nhóm Quyền" : "Tạo Nhóm Quyền (Vai Trò) Mới"}
+                        </span>
+                      </h4>
+                      <button
+                        type="button"
+                        onClick={() => setIsRoleFormOpen(false)}
+                        className="text-slate-400 hover:text-slate-600 p-1 rounded-lg"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                          Tên vai trò / nhóm quyền *
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={roleName}
+                          onChange={(e) => setRoleName(e.target.value)}
+                          placeholder="VD: Nhân viên Lễ tân, Kế toán, Giáo vụ..."
+                          className="w-full px-3.5 py-2 text-xs sm:text-sm rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                          Mô tả ngắn (Tùy chọn)
+                        </label>
+                        <input
+                          type="text"
+                          value={roleDesc}
+                          onChange={(e) => setRoleDesc(e.target.value)}
+                          placeholder="VD: Chỉ tiếp nhận học sinh và xếp lịch bù, không xem doanh thu..."
+                          className="w-full px-3.5 py-2 text-xs sm:text-sm rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Thanh chọn nhanh tất cả */}
+                    <div className="flex items-center justify-between pt-1">
+                      <span className="text-xs font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                        Tick chọn các chức năng mà vai trò này được phép thấy (
+                        {selectedPermissions.length}/{allPermissionKeys.length} quyền):
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedPermissions(allPermissionKeys)}
+                          className="text-xs font-bold text-indigo-600 hover:underline cursor-pointer"
+                        >
+                          Chọn tất cả
+                        </button>
+                        <span className="text-slate-300">•</span>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedPermissions([])}
+                          className="text-xs font-bold text-slate-500 hover:underline cursor-pointer"
+                        >
+                          Bỏ chọn hết
+                        </button>
+                      </div>
+                    </div>
+
+                    <p className="text-[10.5px] leading-relaxed font-semibold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl px-3 py-2">
+                      Lưu ý: Để nhân viên hoàn toàn không thấy số tiền, cần bỏ chọn cả hai quyền
+                      <strong> “Xem học phí &amp; công nợ”</strong> và
+                      <strong> “Xem báo cáo tổng doanh thu”</strong> trong nhóm Học Phí &amp; Doanh
+                      Thu. Quyền mới sẽ tự động áp dụng cho nhân viên đang đăng nhập trong vòng 30
+                      giây.
+                    </p>
+
+                    {/* Danh sách 5 nhóm quyền hạn */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {ADMIN_PERMISSION_GROUPS.map((group) => {
+                        const groupItemIds = group.items.map((i) => i.id);
+                        const isAllGroupSelected = groupItemIds.every((id) =>
+                          selectedPermissions.includes(id)
+                        );
+                        const _isSomeGroupSelected =
+                          groupItemIds.some((id) => selectedPermissions.includes(id)) &&
+                          !isAllGroupSelected;
+
+                        return (
+                          <div
+                            key={group.id}
+                            className="p-3.5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 space-y-2.5 shadow-2xs"
+                          >
+                            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
+                              <div>
+                                <div className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">
+                                  {group.name}
+                                </div>
+                                <p className="text-[11px] text-slate-400">{group.description}</p>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => handleSelectAllGroupPermissions(group.id)}
+                                className="text-[11px] font-bold text-indigo-600 hover:text-indigo-700 cursor-pointer"
+                              >
+                                {isAllGroupSelected ? "Bỏ chọn nhóm" : "Chọn hết nhóm"}
+                              </button>
+                            </div>
+
+                            <div className="space-y-1.5">
+                              {group.items.map((item) => {
+                                const checked = selectedPermissions.includes(item.id);
+
+                                return (
+                                  <label
+                                    key={item.id}
+                                    onClick={() => handleTogglePermission(item.id)}
+                                    className={`flex items-start gap-2.5 p-2 rounded-xl border transition cursor-pointer select-none ${
+                                      checked
+                                        ? "bg-indigo-50/70 dark:bg-indigo-950/40 border-indigo-300 dark:border-indigo-800"
+                                        : "bg-slate-50/50 dark:bg-slate-800/30 border-transparent hover:border-slate-200"
+                                    }`}
+                                  >
+                                    <div className="mt-0.5 text-indigo-600 dark:text-indigo-400">
+                                      {checked ? (
+                                        <CheckSquare className="w-4 h-4" />
+                                      ) : (
+                                        <Square className="w-4 h-4 text-slate-400" />
+                                      )}
+                                    </div>
+                                    <div className="flex-1">
+                                      <div className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                                        {item.label}
+                                      </div>
+                                      <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                                        {item.description}
+                                      </div>
+                                    </div>
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    <div className="flex items-center justify-end gap-2 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => setIsRoleFormOpen(false)}
+                        className="px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 transition cursor-pointer"
+                      >
+                        Hủy
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={isSavingRole}
+                        className="flex items-center gap-1.5 px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-bold shadow-md transition cursor-pointer"
+                      >
+                        <Save className="w-3.5 h-3.5" />
+                        <span>
+                          {isSavingRole
+                            ? "Đang lưu..."
+                            : editingRoleId
+                              ? "Cập Nhật Nhóm Quyền"
+                              : "Lưu Nhóm Quyền"}
+                        </span>
+                      </button>
+                    </div>
+                  </form>
+                )}
+
+                {/* Danh sách các vai trò đã tạo */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {rolesList.map((role) => (
+                    <div
+                      key={role.id}
+                      className={`p-4 rounded-2xl border flex flex-col justify-between gap-3 shadow-2xs ${
+                        role.is_system === 1
+                          ? "border-amber-300 dark:border-amber-800 bg-amber-50/40 dark:bg-amber-950/20"
+                          : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900"
+                      }`}
+                    >
+                      <div className="space-y-2">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h4 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
+                                {role.is_system === 1 ? (
+                                  <Lock className="w-4 h-4 text-amber-600" />
+                                ) : (
+                                  <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                                )}
+                                <span>{role.name}</span>
+                              </h4>
+                              {role.is_system === 1 && (
+                                <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200 border border-amber-300">
+                                  Vai trò cố định
+                                </span>
+                              )}
+                            </div>
+                            {role.description && (
+                              <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
+                                {role.description}
+                              </p>
+                            )}
+                          </div>
+                          <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 shrink-0">
+                            {role.staff_count || 0} thành viên
+                          </span>
+                        </div>
+
+                        {/* Chips hiển thị các quyền */}
+                        <div className="flex flex-wrap gap-1.5 pt-1">
+                          {role.is_system === 1 ? (
+                            <span className="px-2 py-0.5 rounded-lg bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-300 border border-amber-300 dark:border-amber-800 text-[11px] font-bold">
+                              Chỉ Cổng Giáo Viên (/giao-vien): Điểm danh, Chấm sao, Nhận xét, Dặn
+                              bài tập, Báo nghỉ
+                            </span>
+                          ) : (
+                            (role.permissions || []).map((permKey) => {
+                              const foundItem = ADMIN_PERMISSION_GROUPS.flatMap(
+                                (g) => g.items
+                              ).find((i) => i.id === permKey);
+                              return (
+                                <span
+                                  key={permKey}
+                                  className="px-2 py-0.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800 text-[11px] font-semibold"
+                                >
+                                  {foundItem ? foundItem.label : permKey}
+                                </span>
+                              );
+                            })
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800">
+                        {role.is_system === 1 ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setActiveTab("teachers");
+                              resetTeacherForm();
+                              setIsTeacherFormOpen(true);
+                            }}
+                            className="text-xs font-bold text-amber-700 dark:text-amber-400 hover:underline cursor-pointer flex items-center gap-1"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>+ Thêm giáo viên mới</span>
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setActiveTab("staff");
+                              handleOpenCreateStaff();
+                              setStaffRoleId(role.id);
+                            }}
+                            className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer flex items-center gap-1"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>+ Tạo tài khoản nhân viên</span>
+                          </button>
+                        )}
+
+                        <div className="flex items-center gap-1.5">
+                          {role.is_system === 1 ? (
+                            <span className="text-[11px] font-bold text-slate-400 flex items-center gap-1 px-2 py-1">
+                              <Lock className="w-3 h-3" />
+                              <span>Khóa cố định</span>
+                            </span>
+                          ) : (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => handleOpenEditRole(role)}
+                                className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 text-xs font-bold text-slate-700 dark:text-slate-300 transition cursor-pointer"
+                              >
+                                <Edit2 className="w-3.5 h-3.5" />
+                                <span>Sửa quyền</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteRole(role)}
+                                className="p-1.5 rounded-lg border border-rose-200 hover:bg-rose-50 text-rose-600 transition cursor-pointer"
+                                title="Xóa nhóm quyền"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+
+                  {rolesList.length === 0 && !isRoleFormOpen && (
+                    <div className="md:col-span-2 py-10 px-4 text-center border border-dashed border-slate-300 dark:border-slate-700 rounded-2xl space-y-2">
+                      <AlertCircle className="w-8 h-8 text-slate-400 mx-auto" />
+                      <div className="text-sm font-bold text-slate-700 dark:text-slate-300">
+                        Chưa có nhóm quyền (vai trò) nào được tạo
+                      </div>
+                      <p className="text-xs text-slate-500 max-w-md mx-auto">
+                        Hãy bấm nút <strong>&ldquo;+ Tạo Nhóm Quyền Mới&rdquo;</strong> để tạo vai
+                        trò (ví dụ: Nhân viên Lễ tân, Kế toán...) và tick chọn các mục được phép
+                        xem.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
         </div>
 
         {/* Modal Footer */}
@@ -1640,8 +1787,8 @@ Thầy/Cô vui lòng truy cập để theo dõi ca dạy nhé!`;
               {activeTab === "teachers"
                 ? "Giáo viên đăng nhập Cổng Giáo Viên (/giao-vien) bằng SĐT • Quyền hạn cố định an toàn"
                 : activeTab === "staff"
-                ? "Nhân viên văn phòng đăng nhập /admin bằng Username/Mật khẩu • Phân quyền tùy biến"
-                : "Chủ trường có thể tạo vai trò mới và tích chọn 19 quyền hạn chi tiết"}
+                  ? "Nhân viên văn phòng đăng nhập /admin bằng Username/Mật khẩu • Phân quyền tùy biến"
+                  : "Chủ trường có thể tạo vai trò mới và tích chọn 19 quyền hạn chi tiết"}
             </span>
           </div>
           <button
@@ -1652,7 +1799,6 @@ Thầy/Cô vui lòng truy cập để theo dõi ca dạy nhé!`;
             Đóng Cửa Sổ
           </button>
         </div>
-
       </div>
 
       {/* Confirmation Modal: Delete Teacher */}

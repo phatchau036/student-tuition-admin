@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useCallback, useContext, useState } from "react";
 import { AppLanguage } from "./types";
 
 export interface Translations {
@@ -224,7 +224,8 @@ export const DICTIONARY: Record<AppLanguage, Translations> = {
     filter_level: "Level / Trình độ:",
     filter_slot: "Ca mở cửa:",
     no_students_found: "Không tìm thấy học sinh nào",
-    no_students_hint: 'Bấm nút "+ Thêm Học Sinh" ở góc trên bên phải để ghi danh học sinh mới vào hệ thống.',
+    no_students_hint:
+      'Bấm nút "+ Thêm Học Sinh" ở góc trên bên phải để ghi danh học sinh mới vào hệ thống.',
     loading_students: "Đang tải danh sách học sinh...",
     monthly_package: "Gói Tháng",
     hours_per_week_unit: "h/tuần",
@@ -251,7 +252,8 @@ export const DICTIONARY: Record<AppLanguage, Translations> = {
 
   en: {
     school_portal: "School Management",
-    app_subtitle: "Student tracking, teacher assignment, tuition billing & makeup scheduling system",
+    app_subtitle:
+      "Student tracking, teacher assignment, tuition billing & makeup scheduling system",
     admin_portal: "Admin Portal",
     teacher_portal: "Teacher",
     parent_portal: "Parents",
@@ -616,25 +618,26 @@ const LanguageContext = createContext<LanguageContextType>({
   t: DICTIONARY.vi,
 });
 
+/** Đọc ngôn ngữ đã lưu trong localStorage (chỉ chạy phía client). */
+function resolveInitialLanguage(): AppLanguage {
+  if (typeof window === "undefined") return "vi";
+  const saved = localStorage.getItem("app_language");
+  if (saved === "vi" || saved === "en" || saved === "zh" || saved === "ja") return saved;
+  return "vi";
+}
+
 export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [language, setLanguageState] = useState<AppLanguage>("vi");
+  // Khởi tạo trực tiếp từ localStorage: tránh setState trong effect và cascading render.
+  const [language, setLanguageState] = useState<AppLanguage>(resolveInitialLanguage);
 
-  useEffect(() => {
-    // 1. Check local storage
-    const saved = localStorage.getItem("app_language") as AppLanguage;
-    if (saved && ["vi", "en", "zh", "ja"].includes(saved)) {
-      setLanguageState(saved);
-    }
-  }, []);
-
-  const setLanguage = (lang: AppLanguage) => {
+  const setLanguage = useCallback((lang: AppLanguage) => {
     setLanguageState(lang);
     localStorage.setItem("app_language", lang);
     // Sync with html lang attribute
     if (typeof document !== "undefined") {
       document.documentElement.lang = lang;
     }
-  };
+  }, []);
 
   const t = DICTIONARY[language] || DICTIONARY.vi;
 

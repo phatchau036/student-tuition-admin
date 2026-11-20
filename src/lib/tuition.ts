@@ -1,4 +1,5 @@
 import { MonthFormat } from "./types";
+import type { DbRow } from "@/lib/types";
 
 export function formatVND(amount: number | string | undefined | null): string {
   if (amount === undefined || amount === null) return "0 đ";
@@ -23,19 +24,19 @@ function weekdayOf(d: Date): number {
 }
 
 export interface CycleGrantResult {
-  days: number;           // Số ngày của chu kỳ (28..31)
-  fullWeeks: number;      // Số tuần đủ
-  leftoverDays: number;   // Số ngày lẻ cuối tháng
-  sessions: number;       // Số buổi học thực tế rơi vào chu kỳ (đã trừ ngày nghỉ lễ)
-  minutes: number;        // Tổng số phút được cấp vào ví
+  days: number; // Số ngày của chu kỳ (28..31)
+  fullWeeks: number; // Số tuần đủ
+  leftoverDays: number; // Số ngày lẻ cuối tháng
+  sessions: number; // Số buổi học thực tế rơi vào chu kỳ (đã trừ ngày nghỉ lễ)
+  minutes: number; // Tổng số phút được cấp vào ví
 }
 
 export function calcCycleGrant(p: {
-  start: Date;                    // 00:00 UTC ngày bắt đầu chu kỳ (bắt đầu tháng hoặc ngày vào học giữa tháng)
-  endExclusive: Date;             // 00:00 UTC ngày kết thúc KHÔNG bao gồm (ngày 1 tháng sau)
-  weekdays: number[];             // Mảng thứ học, không trùng lặp (VD: [2,4,6])
-  minutesPerSession: number;      // ⭐ "1 buổi = bao nhiêu phút" của em học sinh này
-  closedDates?: string[];         // Danh sách ngày trung tâm nghỉ 'YYYY-MM-DD'
+  start: Date; // 00:00 UTC ngày bắt đầu chu kỳ (bắt đầu tháng hoặc ngày vào học giữa tháng)
+  endExclusive: Date; // 00:00 UTC ngày kết thúc KHÔNG bao gồm (ngày 1 tháng sau)
+  weekdays: number[]; // Mảng thứ học, không trùng lặp (VD: [2,4,6])
+  minutesPerSession: number; // ⭐ "1 buổi = bao nhiêu phút" của em học sinh này
+  closedDates?: string[]; // Danh sách ngày trung tâm nghỉ 'YYYY-MM-DD'
 }): CycleGrantResult {
   const N = Math.round((p.endExclusive.getTime() - p.start.getTime()) / DAY_MS);
   const fullWeeks = Math.floor(N / 7);
@@ -51,7 +52,12 @@ export function calcCycleGrant(p: {
   // Trừ các ngày trung tâm nghỉ rơi vào thứ học của em
   for (const iso of p.closedDates ?? []) {
     const d = new Date(iso + "T00:00:00Z");
-    if (!isNaN(d.getTime()) && d >= p.start && d < p.endExclusive && p.weekdays.includes(weekdayOf(d))) {
+    if (
+      !isNaN(d.getTime()) &&
+      d >= p.start &&
+      d < p.endExclusive &&
+      p.weekdays.includes(weekdayOf(d))
+    ) {
       sessions = Math.max(0, sessions - 1);
     }
   }
@@ -121,18 +127,17 @@ export function calculateStudentTuition(params: {
 }): TuitionBreakdown {
   const pkgAmount = Number(params.packageAmount) || 0;
   const base = pkgAmount > 0 ? pkgAmount : Number(params.baseTuition) || 0;
-  const baseLabel = pkgAmount > 0 ? (params.packageName || "Gói học phí") : "Học phí cơ bản";
+  const baseLabel = pkgAmount > 0 ? params.packageName || "Gói học phí" : "Học phí cơ bản";
   const rawSurchargeVal = Number(params.levelSurcharge) || 0;
   const surchargeType = params.levelSurchargeType || "fixed";
 
   // Nếu là kiểu phần trăm (percent), tính phụ thu = (base * rawSurchargeVal) / 100
   const surcharge =
-    surchargeType === "percent"
-      ? Math.round((base * rawSurchargeVal) / 100)
-      : rawSurchargeVal;
+    surchargeType === "percent" ? Math.round((base * rawSurchargeVal) / 100) : rawSurchargeVal;
 
   const subtotal = base + surcharge;
-  const hasDiscount = Boolean(Number(params.isDiscountEnabled)) && Number(params.discountPercent || 0) > 0;
+  const hasDiscount =
+    Boolean(Number(params.isDiscountEnabled)) && Number(params.discountPercent || 0) > 0;
   const discountPercent = hasDiscount ? Number(params.discountPercent || 0) : 0;
   const discountMultiplier = Math.max(0, 1 - discountPercent / 100);
   const finalTuition = Math.round(subtotal * discountMultiplier);
@@ -150,7 +155,9 @@ export function calculateStudentTuition(params: {
       surchargeType === "percent"
         ? `${rawSurchargeVal}% (${formatVND(surcharge)})`
         : formatVND(surcharge);
-    parts.push(`+ ${surchargeDesc} (${params.levelName ? `Level ${params.levelName}` : "Phụ thu level"})`);
+    parts.push(
+      `+ ${surchargeDesc} (${params.levelName ? `Level ${params.levelName}` : "Phụ thu level"})`
+    );
   }
   if (hasDiscount) {
     parts.push(`- ${discountPercent}% (${formatVND(discountAmount)})`);
@@ -226,6 +233,15 @@ export function getCurrentMonthStr(): string {
   return `${year}-${month}`;
 }
 
+/** Ngày hôm nay theo định dạng `YYYY-MM-DD` (múi giờ máy). */
+export function getTodayDateStr(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 /**
  * Tính toán tháng kết thúc từ chu kỳ gói phí (startMonth + cycleMonths - 1)
  * Ví dụ: computeEndMonth("2026-10", 3) => "2026-12" (tháng 10, 11, 12 là 3 tháng)
@@ -275,7 +291,8 @@ export function formatMonthDisplay(monthStr: string, format: MonthFormat = "viet
   const monthNum = parseInt(month, 10);
 
   if (format === "english") {
-    const monthName = !isNaN(monthNum) && monthNum >= 1 && monthNum <= 12 ? ENGLISH_MONTHS[monthNum - 1] : month;
+    const monthName =
+      !isNaN(monthNum) && monthNum >= 1 && monthNum <= 12 ? ENGLISH_MONTHS[monthNum - 1] : month;
     return `${monthName} ${year}`;
   }
 
@@ -305,7 +322,10 @@ const DAY_ORDER: Record<string, number> = {
   "Chủ Nhật": 8,
 };
 
-export function isDayInSlot(day: string, slot: { from_day?: string; to_day?: string; days?: string }): boolean {
+export function isDayInSlot(
+  day: string,
+  slot: { from_day?: string; to_day?: string; days?: string }
+): boolean {
   if (!day) return false;
   // If slot specifies exact days string containing this day
   if (slot.days && slot.days.includes(day)) return true;
@@ -333,7 +353,9 @@ export function formatTimeSlotLabel(slot: {
   end_time?: string;
 }): string {
   const time =
-    slot.start_time && slot.end_time ? `${slot.start_time} - ${slot.end_time}` : (slot.start_time || slot.end_time || "");
+    slot.start_time && slot.end_time
+      ? `${slot.start_time} - ${slot.end_time}`
+      : slot.start_time || slot.end_time || "";
   const days =
     slot.days ||
     (slot.from_day && slot.to_day
@@ -342,9 +364,9 @@ export function formatTimeSlotLabel(slot: {
         : `${slot.from_day} – ${slot.to_day}`
       : "");
 
-  let rawName = (slot.name || "").trim();
+  const rawName = (slot.name || "").trim();
   // Strip redundant text like "Khung giờ mở cửa mới", "Khung giờ mở cửa", "Khung giờ mới"
-  let cleanName = rawName
+  const cleanName = rawName
     .replace(/^khung\s*giờ\s*(?:mở\s*cửa)?\s*(?:mới)?\s*/i, "")
     .replace(/\s*\([^)]*\)\s*$/g, "")
     .trim();
@@ -490,14 +512,14 @@ export function getDayEndTimes(
 
 // Model một buổi học đã phân tích của học sinh để hiển thị lên Sơ đồ ma trận lớp
 export interface ParsedStudentSchedule {
-  day: string;          // "Thứ 2", "Thứ 4", "Thứ 6"...
-  hourSlot: string;     // "17h", "18h", "19h", "09h", "08h"...
-  timeDetail: string;   // "18h30", "17h30 - 19h", "18h - 19h30" hoặc rỗng nếu đúng giờ chuẩn
+  day: string; // "Thứ 2", "Thứ 4", "Thứ 6"...
+  hourSlot: string; // "17h", "18h", "19h", "09h", "08h"...
+  timeDetail: string; // "18h30", "17h30 - 19h", "18h - 19h30" hoặc rỗng nếu đúng giờ chuẩn
   subjectName?: string; // Tên bộ môn nếu có ghi riêng (VD: "Piano", "Guitar")
   detectedTeacherId?: string; // ID giáo viên nếu phát hiện từ chuỗi
   matchedTeacherIds?: string[]; // Danh sách các GV đứng ca tương ứng trong lớp (hỗ trợ nhiều GV cùng giờ)
-  startTime?: string;   // "18:00"
-  endTime?: string;     // "20:00"
+  startTime?: string; // "18:00"
+  endTime?: string; // "20:00"
   durationMinutes?: number; // 120
   coveredHours?: string[]; // ["18h", "19h"] - các khung giờ chuẩn mà ca học này diễn ra
 }
@@ -505,7 +527,12 @@ export interface ParsedStudentSchedule {
 /**
  * Tính toán các khung giờ chuẩn 1 tiếng ("17h", "18h", "19h"...) mà một ca học giao thoa
  */
-function calculateCoveredHourSlots(startH: number, startM: number, endH: number, endM: number): string[] {
+function calculateCoveredHourSlots(
+  startH: number,
+  startM: number,
+  endH: number,
+  endM: number
+): string[] {
   const sMin = startH * 60 + startM;
   let eMin = endH * 60 + endM;
   if (eMin <= sMin) eMin = sMin + 60;
@@ -553,7 +580,10 @@ export function parseStudentScheduleSlots(
       if (tcName.length >= 2 && clean.includes(tcName)) return tc.id;
       if (mainName && mainName.length >= 3 && clean.includes(mainName)) return tc.id;
       // Khớp đặc biệt nếu gõ Phonk/Phong
-      if ((mainName === "phonk" || mainName === "phong") && (clean.includes("phong") || clean.includes("phonk"))) {
+      if (
+        (mainName === "phonk" || mainName === "phong") &&
+        (clean.includes("phong") || clean.includes("phonk"))
+      ) {
         return tc.id;
       }
     }
@@ -566,7 +596,7 @@ export function parseStudentScheduleSlots(
     try {
       const assignments = JSON.parse(student.class_teacher_assignments_json);
       if (!Array.isArray(assignments)) return [];
-      const matched = assignments.filter((a: any) => {
+      const matched = assignments.filter((a: DbRow) => {
         const matchDay = !a.day || a.day === "Tất cả các ngày" || a.day.includes(day);
         if (!matchDay) return false;
         if (!a.start_time || !a.end_time) return true;
@@ -574,7 +604,7 @@ export function parseStudentScheduleSlots(
         const [eh] = a.end_time.split(":").map(Number);
         return startH >= sh && startH < eh;
       });
-      return matched.map((m: any) => m.teacher_id).filter(Boolean);
+      return matched.map((m: DbRow) => m.teacher_id).filter(Boolean);
     } catch {
       return [];
     }
@@ -643,7 +673,7 @@ export function parseStudentScheduleSlots(
             const slotHourStr = `${String(startH).padStart(2, "0")}h`;
             const classTeachers = findClassTeachersForSlot(item.day, startH);
             const covered = calculateCoveredHourSlots(startH, startM, endH, endM);
-            const durMin = (endH * 60 + endM) - (startH * 60 + startM);
+            const durMin = endH * 60 + endM - (startH * 60 + startM);
 
             results.push({
               day: item.day,
@@ -660,7 +690,9 @@ export function parseStudentScheduleSlots(
         }
         if (results.length > 0) return results;
       }
-    } catch {}
+    } catch {
+      /* Bỏ qua có chủ đích: lỗi không ảnh hưởng luồng chính. */
+    }
   }
 
   // Ưu tiên 2: Phân tích thông minh chuỗi study_time_detail
@@ -669,7 +701,10 @@ export function parseStudentScheduleSlots(
   if (rawText && !rawText.toLowerCase().includes("linh hoạt")) {
     let clauses: string[] = [];
     if (/[|;]/.test(rawText)) {
-      clauses = rawText.split(/[|;]+/).map((s) => s.trim()).filter(Boolean);
+      clauses = rawText
+        .split(/[|;]+/)
+        .map((s) => s.trim())
+        .filter(Boolean);
     } else if (/\)\s*,\s*(?=[A-Za-zÀ-ỹ0-9])/.test(rawText)) {
       clauses = rawText
         .split(/\)\s*,\s*(?=[A-Za-zÀ-ỹ0-9])/)
@@ -774,7 +809,7 @@ export function parseStudentScheduleSlots(
       const teacherInSeg = detectTeacher(seg) || detectedTeacherFromNote;
 
       const covered = calculateCoveredHourSlots(clauseStartH, clauseStartM, clauseEndH, clauseEndM);
-      const durMin = (clauseEndH * 60 + clauseEndM) - (clauseStartH * 60 + clauseStartM);
+      const durMin = clauseEndH * 60 + clauseEndM - (clauseStartH * 60 + clauseStartM);
 
       if (daysFound.length > 0) {
         for (const d of daysFound) {
@@ -803,7 +838,10 @@ export function parseStudentScheduleSlots(
   // Ưu tiên 3: Phân tích từ registered_days nếu có (VD: "Thứ 2, Thứ 4, Thứ 6" hoặc "Thứ 7, Chủ Nhật")
   const regDays = (student.registered_days || "").trim();
   if (regDays) {
-    const daysList = regDays.split(/[,|;]+/).map((d) => d.trim()).filter(Boolean);
+    const daysList = regDays
+      .split(/[,|;]+/)
+      .map((d) => d.trim())
+      .filter(Boolean);
     for (const d of daysList) {
       const isWeekend = d.includes("7") || d.toLowerCase().includes("nhật");
       const defaultStartH = isWeekend ? 9 : 18;
@@ -851,7 +889,10 @@ export function parseStudyTimeToSchedule(raw?: string): {
 
   let rawClauses: string[] = [];
   if (/[|;]/.test(str)) {
-    rawClauses = str.split(/[|;]+/).map((s) => s.trim()).filter(Boolean);
+    rawClauses = str
+      .split(/[|;]+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
   } else if (/\)\s*,\s*(?=[A-Za-zÀ-ỹ0-9])/.test(str)) {
     rawClauses = str
       .split(/\)\s*,\s*(?=[A-Za-zÀ-ỹ0-9])/)
@@ -969,23 +1010,26 @@ export function parseStudyTimeToSchedule(raw?: string): {
  * ========================================================================= */
 
 export interface UpcomingLessonSession {
-  id: string;            // unique: "2026-10-31_09:30"
-  date: string;          // "2026-10-31" (YYYY-MM-DD)
-  dayName: string;       // "Thứ 7"
-  timeRange: string;     // "09:30 - 11:00"
-  subjectName: string;   // "Piano"
+  id: string; // unique: "2026-10-31_09:30"
+  date: string; // "2026-10-31" (YYYY-MM-DD)
+  dayName: string; // "Thứ 7"
+  timeRange: string; // "09:30 - 11:00"
+  subjectName: string; // "Piano"
   teacherName?: string;
   isToday: boolean;
   isPast: boolean;
-  isReported: boolean;   // Đã báo nghỉ buổi này chưa
-  makeupItem?: {
-    id: string;
-    absence_date: string;
-    status: string;      // 'pending' | 'scheduled' | 'completed'
-    makeup_date?: string;
-    makeup_time?: string;
-    absence_reason?: string;
-  };
+  isReported: boolean; // Đã báo nghỉ buổi này chưa
+  makeupItem?: StudentMakeupItem;
+}
+
+/** Thông tin một buổi báo nghỉ đã ghi nhận của học sinh (dùng cho lịch sắp tới). */
+export interface StudentMakeupItem {
+  id: string;
+  absence_date: string;
+  status: string; // 'pending' | 'scheduled' | 'completed'
+  makeup_date?: string;
+  makeup_time?: string;
+  absence_reason?: string;
 }
 
 const VI_WEEKDAYS = ["Chủ Nhật", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7"];
@@ -1021,7 +1065,7 @@ export function generateUpcomingStudentSchedule(
   }
 
   // Map các buổi đã báo nghỉ trước đó theo ngày
-  const makeupsMap = new Map<string, any>();
+  const makeupsMap = new Map<string, StudentMakeupItem>();
   if (Array.isArray(student.makeups)) {
     for (const m of student.makeups) {
       if (m.absence_date && m.status !== "cancelled") {
@@ -1043,7 +1087,9 @@ export function generateUpcomingStudentSchedule(
     if (!slots || slots.length === 0) continue;
 
     for (const slot of slots) {
-      const timeRange = slot.timeDetail || (slot.hourSlot ? `${slot.hourSlot.replace("h", "")}:00` : "18:00 - 19:00");
+      const timeRange =
+        slot.timeDetail ||
+        (slot.hourSlot ? `${slot.hourSlot.replace("h", "")}:00` : "18:00 - 19:00");
       const subName = slot.subjectName || student.subject_name || "Piano";
       const existingMakeup = makeupsMap.get(iso);
 
@@ -1084,15 +1130,20 @@ export function detectStudentPresetName(
   // Thu thập danh sách ngày học từ registered_days hoặc schedule_details_json
   let days: string[] = [];
   if (student.registered_days && student.registered_days.trim()) {
-    days = student.registered_days.split(",").map((d) => d.trim()).filter(Boolean);
+    days = student.registered_days
+      .split(",")
+      .map((d) => d.trim())
+      .filter(Boolean);
   }
   if (days.length === 0 && student.schedule_details_json) {
     try {
       const items = JSON.parse(student.schedule_details_json);
       if (Array.isArray(items)) {
-        days = Array.from(new Set(items.map((i: any) => String(i.day || "")).filter(Boolean)));
+        days = Array.from(new Set(items.map((i: DbRow) => String(i.day || "")).filter(Boolean)));
       }
-    } catch {}
+    } catch {
+      /* Bỏ qua có chủ đích: lỗi không ảnh hưởng luồng chính. */
+    }
   }
 
   // So khớp với danh sách presets đã cấu hình trong Cài Đặt
@@ -1106,20 +1157,36 @@ export function detectStudentPresetName(
   }
 
   // Phân tích văn bản từ study_time_detail & registered_days
-  const combined = `${student.registered_days || ""} ${student.study_time_detail || ""}`.toLowerCase();
+  const combined =
+    `${student.registered_days || ""} ${student.study_time_detail || ""}`.toLowerCase();
 
-  if (/t2[-_ ]*4[-_ ]*6/i.test(combined) || (combined.includes("thứ 2") && combined.includes("thứ 4") && combined.includes("thứ 6"))) {
-    const evenPreset = presets.find((p) => p.name.toLowerCase().includes("chẵn") || p.name.includes("2-4-6"));
+  if (
+    /t2[-_ ]*4[-_ ]*6/i.test(combined) ||
+    (combined.includes("thứ 2") && combined.includes("thứ 4") && combined.includes("thứ 6"))
+  ) {
+    const evenPreset = presets.find(
+      (p) => p.name.toLowerCase().includes("chẵn") || p.name.includes("2-4-6")
+    );
     return evenPreset ? evenPreset.name : "Thứ chẵn (2-4-6)";
   }
 
-  if (/t3[-_ ]*5[-_ ]*7/i.test(combined) || (combined.includes("thứ 3") && combined.includes("thứ 5") && combined.includes("thứ 7"))) {
-    const oddPreset = presets.find((p) => p.name.toLowerCase().includes("lẻ") || p.name.includes("3-5-7"));
+  if (
+    /t3[-_ ]*5[-_ ]*7/i.test(combined) ||
+    (combined.includes("thứ 3") && combined.includes("thứ 5") && combined.includes("thứ 7"))
+  ) {
+    const oddPreset = presets.find(
+      (p) => p.name.toLowerCase().includes("lẻ") || p.name.includes("3-5-7")
+    );
     return oddPreset ? oddPreset.name : "Thứ lẻ (3-5-7)";
   }
 
-  if ((combined.includes("thứ 7") || combined.includes("t7")) && (combined.includes("chủ nhật") || combined.includes("cn"))) {
-    const weekendPreset = presets.find((p) => p.name.toLowerCase().includes("cuối tuần") || p.name.includes("t7-cn"));
+  if (
+    (combined.includes("thứ 7") || combined.includes("t7")) &&
+    (combined.includes("chủ nhật") || combined.includes("cn"))
+  ) {
+    const weekendPreset = presets.find(
+      (p) => p.name.toLowerCase().includes("cuối tuần") || p.name.includes("t7-cn")
+    );
     return weekendPreset ? weekendPreset.name : "Cuối tuần (T7-CN)";
   }
 
@@ -1167,14 +1234,16 @@ export function resolveStudentTeachers(
             if (Array.isArray(items) && items.length > 0 && items[0].start_time) {
               stStartH = parseInt(items[0].start_time.split(":")[0], 10);
             }
-          } catch {}
+          } catch {
+            /* Bỏ qua có chủ đích: lỗi không ảnh hưởng luồng chính. */
+          }
         } else if (student.study_time_detail) {
           const match = student.study_time_detail.match(/(\d{1,2})(?::(\d{2})|h)/);
           if (match) stStartH = parseInt(match[1], 10);
         }
 
         // Lọc các giáo viên đứng ca trùng với giờ của học sinh
-        const matched = assignments.filter((a: any) => {
+        const matched = assignments.filter((a: DbRow) => {
           if (!a.start_time || !a.end_time) return true;
           const [sh] = a.start_time.split(":").map(Number);
           const [eh] = a.end_time.split(":").map(Number);
@@ -1185,7 +1254,7 @@ export function resolveStudentTeachers(
         const names = Array.from(
           new Set(
             targetList
-              .map((a: any) => a.teacher_name || teacherMap.get(a.teacher_id))
+              .map((a: DbRow) => a.teacher_name || teacherMap.get(a.teacher_id))
               .filter(Boolean)
           )
         ) as string[];
@@ -1199,7 +1268,9 @@ export function resolveStudentTeachers(
           };
         }
       }
-    } catch {}
+    } catch {
+      /* Bỏ qua có chủ đích: lỗi không ảnh hưởng luồng chính. */
+    }
   }
 
   // 2. Fallback qua teacher_name / teacher_id cá nhân
@@ -1229,5 +1300,3 @@ export function resolveStudentTeachers(
     teacherDisplay: "Chưa gán GV",
   };
 }
-
-

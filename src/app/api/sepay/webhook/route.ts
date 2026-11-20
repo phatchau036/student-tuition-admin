@@ -15,9 +15,11 @@ export async function POST(req: Request) {
 
     // 1. Kiểm tra xác thực API Key từ SePay header (Authorization: Apikey API_KEY_CUA_BAN)
     const authHeader = req.headers.get("authorization") || req.headers.get("Authorization") || "";
-    
+
     // Lấy cấu hình SePay từ database
-    const settingsRes = await db.execute("SELECT key, value FROM settings WHERE key IN ('sepay_api_key')");
+    const settingsRes = await db.execute(
+      "SELECT key, value FROM settings WHERE key IN ('sepay_api_key')"
+    );
     let configuredApiKey = "";
 
     for (const row of settingsRes.rows) {
@@ -75,7 +77,9 @@ export async function POST(req: Request) {
       });
     }
 
-    const txIdStr = String(sepayTxId || `sepay-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`);
+    const txIdStr = String(
+      sepayTxId || `sepay-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+    );
     const cleanContent = String(content || "").trim();
 
     // 2. Tìm học sinh phù hợp dựa trên nội dung chuyển khoản
@@ -118,7 +122,10 @@ export async function POST(req: Request) {
       }
 
       // 2. Khớp số điện thoại
-      if (phone.length >= 9 && (cleanContent.includes(phone) || cleanContent.includes(cleanPhone))) {
+      if (
+        phone.length >= 9 &&
+        (cleanContent.includes(phone) || cleanContent.includes(cleanPhone))
+      ) {
         matchedStudent = st;
         break;
       }
@@ -174,8 +181,12 @@ export async function POST(req: Request) {
     // 4. Nếu tìm thấy học sinh, tự động tạo thanh toán và đánh dấu ĐÃ ĐÓNG (Paid)
     if (matchedStudent) {
       let cycleMonths = 1;
-      const packageName = matchedStudent.package_name ? String(matchedStudent.package_name) : "Gói chuẩn cơ sở";
-      const targetPackageId = matchedStudent.tuition_package_id ? String(matchedStudent.tuition_package_id) : null;
+      const packageName = matchedStudent.package_name
+        ? String(matchedStudent.package_name)
+        : "Gói chuẩn cơ sở";
+      const targetPackageId = matchedStudent.tuition_package_id
+        ? String(matchedStudent.tuition_package_id)
+        : null;
       const matchedStudentId = String(matchedStudent.id);
 
       if (matchedStudent.cycle_unit === "week") {

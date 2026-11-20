@@ -1,9 +1,19 @@
 "use client";
 
 import React, { useState } from "react";
-import { Student } from "@/lib/types";
+import { Student, DbRow } from "@/lib/types";
 import { formatVND, formatMonthDisplay } from "@/lib/tuition";
-import { MessageSquare, Copy, ExternalLink, X, Check, Send, AlertCircle, Bot, Sparkles } from "lucide-react";
+import {
+  MessageSquare,
+  Copy,
+  ExternalLink,
+  X,
+  Check,
+  Send,
+  AlertCircle,
+  Bot,
+  Sparkles,
+} from "lucide-react";
 import { useToast } from "@/components/Toast";
 
 interface ZaloReminderModalProps {
@@ -33,7 +43,9 @@ export const ZaloReminderModal: React.FC<ZaloReminderModalProps> = ({
   // Parse breakdown of custom items and surcharges if present
   const breakdownParts: string[] = [];
   if (student.level_surcharge && student.level_surcharge > 0) {
-    breakdownParts.push(`  • Phụ thu Level (${student.level_name || "Trình độ"}): +${formatVND(student.level_surcharge)}`);
+    breakdownParts.push(
+      `  • Phụ thu Level (${student.level_name || "Trình độ"}): +${formatVND(student.level_surcharge)}`
+    );
   }
   if (student.is_discount_enabled && student.discount_percent > 0) {
     breakdownParts.push(`  • Chiết khấu ưu đãi: -${student.discount_percent}%`);
@@ -41,12 +53,17 @@ export const ZaloReminderModal: React.FC<ZaloReminderModalProps> = ({
   try {
     const items = JSON.parse(student.monthly_override?.items_json || "[]");
     if (Array.isArray(items) && items.length > 0) {
-      items.forEach((it: any) => {
-        breakdownParts.push(`  • ${it.name}: ${it.type === "add" ? "+" : "-"}${formatVND(it.amount)}`);
+      items.forEach((it: DbRow) => {
+        breakdownParts.push(
+          `  • ${it.name}: ${it.type === "add" ? "+" : "-"}${formatVND(it.amount)}`
+        );
       });
     }
-  } catch {}
-  const breakdownLines = breakdownParts.length > 0 ? "\n- Chi tiết cấu thành:\n" + breakdownParts.join("\n") : "";
+  } catch {
+    /* Bỏ qua có chủ đích: lỗi không ảnh hưởng luồng chính. */
+  }
+  const breakdownLines =
+    breakdownParts.length > 0 ? "\n- Chi tiết cấu thành:\n" + breakdownParts.join("\n") : "";
 
   // Mẫu tin nhắn nhắc học phí chuẩn mực, lịch sự và chuyên nghiệp
   const messageTemplate = `Kính gửi Quý phụ huynh học sinh ${student.name},
@@ -134,8 +151,12 @@ Trung tâm xin trân trọng cảm ơn!`;
           {/* Student summary banner */}
           <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-700/80 flex items-center justify-between text-xs">
             <div>
-              <span className="text-slate-400 font-semibold block text-[10px] uppercase">Học sinh</span>
-              <span className="font-black text-slate-900 dark:text-white text-sm">{student.name}</span>
+              <span className="text-slate-400 font-semibold block text-[10px] uppercase">
+                Học sinh
+              </span>
+              <span className="font-black text-slate-900 dark:text-white text-sm">
+                {student.name}
+              </span>
               <span className="text-slate-500 block font-mono mt-0.5">{student.phone}</span>
               {student.zalo_chat_id && (
                 <span className="text-[10px] text-emerald-600 font-bold block font-mono">
@@ -144,8 +165,12 @@ Trung tâm xin trân trọng cảm ơn!`;
               )}
             </div>
             <div className="text-right">
-              <span className="text-slate-400 font-semibold block text-[10px] uppercase">Công nợ tháng</span>
-              <span className="font-black text-rose-600 dark:text-rose-400 text-base">{amountStr}</span>
+              <span className="text-slate-400 font-semibold block text-[10px] uppercase">
+                Công nợ tháng
+              </span>
+              <span className="font-black text-rose-600 dark:text-rose-400 text-base">
+                {amountStr}
+              </span>
               <span className="inline-block mt-0.5 px-2 py-0.2 rounded text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
                 Cần đóng tiền
               </span>
@@ -163,7 +188,11 @@ Trung tâm xin trân trọng cảm ơn!`;
                 onClick={handleCopy}
                 className="text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
               >
-                {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                {copied ? (
+                  <Check className="w-3.5 h-3.5 text-emerald-600" />
+                ) : (
+                  <Copy className="w-3.5 h-3.5" />
+                )}
                 <span>{copied ? "Đã copy!" : "Copy nội dung"}</span>
               </button>
             </div>
@@ -198,7 +227,9 @@ Trung tâm xin trân trọng cảm ơn!`;
             <div className="p-3 bg-blue-50/50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/40 rounded-xl flex items-start gap-2.5 text-[11px] text-slate-600 dark:text-slate-400">
               <AlertCircle className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
               <p>
-                Bấm <strong>&quot;Mở Zalo Ngay&quot;</strong> để hệ thống tự động copy nội dung vào clipboard và chuyển thẳng vào phòng chat Zalo với phụ huynh số <strong>{student.phone}</strong>.
+                Bấm <strong>&quot;Mở Zalo Ngay&quot;</strong> để hệ thống tự động copy nội dung vào
+                clipboard và chuyển thẳng vào phòng chat Zalo với phụ huynh số{" "}
+                <strong>{student.phone}</strong>.
               </p>
             </div>
           )}
@@ -220,7 +251,11 @@ Trung tâm xin trân trọng cảm ơn!`;
               onClick={handleCopy}
               className="px-3.5 py-2 text-xs font-bold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 text-slate-700 dark:text-slate-200 transition flex items-center gap-1.5 shadow-2xs"
             >
-              {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+              {copied ? (
+                <Check className="w-3.5 h-3.5 text-emerald-600" />
+              ) : (
+                <Copy className="w-3.5 h-3.5" />
+              )}
               <span>{copied ? "Đã copy" : "Copy tin nhắn"}</span>
             </button>
 
@@ -241,4 +276,3 @@ Trung tâm xin trân trọng cảm ơn!`;
     </div>
   );
 };
-

@@ -1,7 +1,7 @@
 /** Hằng số dùng chung toàn hệ thống. */
 
 /** Phiên bản ứng dụng — phải khớp với `version` trong package.json. */
-export const APP_VERSION = "2.9.7";
+export const APP_VERSION = "2.10.0";
 
 /** Tên hiển thị của sản phẩm. */
 export const APP_NAME = "Student Tuition Admin";

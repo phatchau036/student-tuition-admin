@@ -16,7 +16,8 @@ export type LogContext = Record<string, unknown>;
 const isProduction = process.env.NODE_ENV === "production";
 
 /** Các khóa nhạy cảm sẽ bị che khi serialize context. */
-const SENSITIVE_KEY_PATTERN = /(password|pass|token|secret|api[_-]?key|authorization|cookie|credential)/i;
+const SENSITIVE_KEY_PATTERN =
+  /(password|pass|token|secret|api[_-]?key|authorization|cookie|credential)/i;
 
 function redactValue(key: string, value: unknown): unknown {
   if (SENSITIVE_KEY_PATTERN.test(key)) return "***";

@@ -6,6 +6,7 @@ import { formatMinutes, getDayNameVi } from "@/lib/tuition";
 import { isTimeOverlap } from "@/lib/shiftDetection";
 import { notifyAdminViaZaloBot } from "@/lib/zaloBot";
 import { createLogger } from "@/lib/logger";
+import type { DbRow } from "@/lib/types";
 
 const log = createLogger("api/makeups");
 
@@ -79,7 +80,7 @@ export async function GET(req: Request) {
 	      LEFT JOIN classes cls ON m.class_id = cls.id
 	      WHERE 1=1
     `;
-    const args: any[] = [];
+    const args: (string | number | null)[] = [];
 
     if (schoolId && schoolId !== "all") {
       query += ` AND (s.school_id = ? OR (? = 'school-default' AND (s.school_id IS NULL OR s.school_id = '' OR s.school_id = 'school-default')))`;
@@ -210,13 +211,15 @@ export async function POST(req: Request) {
       if (!absMin || isNaN(absMin) || absMin <= 0) {
         const [sh, sm] = sTime.split(":").map(Number);
         const [eh, em] = eTime.split(":").map(Number);
-        if (!isNaN(sh) && !isNaN(eh) && (eh * 60 + (em || 0)) > (sh * 60 + (sm || 0))) {
-          absMin = (eh * 60 + (em || 0)) - (sh * 60 + (sm || 0));
+        if (!isNaN(sh) && !isNaN(eh) && eh * 60 + (em || 0) > sh * 60 + (sm || 0)) {
+          absMin = eh * 60 + (em || 0) - (sh * 60 + (sm || 0));
         } else {
           let dayName: string | undefined;
           try {
             dayName = getDayNameVi(absence_date);
-          } catch {}
+          } catch (err) {
+            log.debug("Bỏ qua lỗi không ảnh hưởng luồng chính (route)", { error: err });
+          }
           absMin = await getStudentSessionMinutes(student_id, dayName);
         }
       }
@@ -229,7 +232,8 @@ export async function POST(req: Request) {
         args: [student_id],
       });
       const stName = stRes.rows.length > 0 && stRes.rows[0].name ? String(stRes.rows[0].name) : "";
-      const stPhone = stRes.rows.length > 0 && stRes.rows[0].phone ? String(stRes.rows[0].phone) : "";
+      const stPhone =
+        stRes.rows.length > 0 && stRes.rows[0].phone ? String(stRes.rows[0].phone) : "";
 
       // Lưu bản ghi báo nghỉ
       await db.execute({
@@ -279,7 +283,9 @@ export async function POST(req: Request) {
             "parent",
           ],
         });
-      } catch {}
+      } catch (err) {
+        log.debug("Bỏ qua lỗi không ảnh hưởng luồng chính (route)", { error: err });
+      }
 
       const hoursDisplay = (absMin / 60).toFixed(1).replace(".0", "");
       const newWallet = await getWalletBalance(student_id);
@@ -319,7 +325,10 @@ export async function POST(req: Request) {
         args: [makeup_id],
       });
       if (mkRes.rows.length === 0) {
-        return NextResponse.json({ success: false, message: "Không tìm thấy buổi bù này!" }, { status: 404 });
+        return NextResponse.json(
+          { success: false, message: "Không tìm thấy buổi bù này!" },
+          { status: 404 }
+        );
       }
       const mkRecord = mkRes.rows[0];
       const targetStudentId = String(mkRecord.student_id);
@@ -327,11 +336,18 @@ export async function POST(req: Request) {
       // Xác định thời lượng bù
       let plannedMin = Number(makeup_minutes || body.minutes);
       if (!plannedMin || isNaN(plannedMin) || plannedMin <= 0) {
-        plannedMin = Number(mkRecord.absence_minutes) || (await getStudentSessionMinutes(targetStudentId)) || 60;
+        plannedMin =
+          Number(mkRecord.absence_minutes) ||
+          (await getStudentSessionMinutes(targetStudentId)) ||
+          60;
       }
 
       // Chuẩn bị thông tin giờ bắt đầu - kết thúc ca bù
-      const sStart = (makeup_start_time || (makeup_time ? makeup_time.split("-")[0]?.trim() : "18:00") || "18:00").trim();
+      const sStart = (
+        makeup_start_time ||
+        (makeup_time ? makeup_time.split("-")[0]?.trim() : "18:00") ||
+        "18:00"
+      ).trim();
       let sEnd = makeup_end_time ? makeup_end_time.trim() : "";
       if (!sEnd && makeup_time && makeup_time.includes("-")) {
         sEnd = makeup_time.split("-")[1]?.trim() || "";
@@ -372,7 +388,7 @@ export async function POST(req: Request) {
           try {
             if (cRow.teacher_assignments_json) {
               const assignments = JSON.parse(String(cRow.teacher_assignments_json));
-              const activeShift = assignments.find((a: any) => {
+              const activeShift = assignments.find((a: DbRow) => {
                 if (a.day && a.day !== "Tất cả các ngày" && !a.day.includes(dayName)) return false;
                 const aStart = a.start_time || "17:00";
                 const aEnd = a.end_time || "20:00";
@@ -388,7 +404,9 @@ export async function POST(req: Request) {
                 }
               }
             }
-          } catch {}
+          } catch (err) {
+            log.debug("Bỏ qua lỗi không ảnh hưởng luồng chính (route)", { error: err });
+          }
 
           // Đếm học sinh chính khóa của lớp học vào ngày này có học giao thoa khung giờ bù
           const studentsInClassRes = await db.execute({
@@ -405,16 +423,20 @@ export async function POST(req: Request) {
                 try {
                   const items = JSON.parse(String(st.schedule_details_json));
                   if (Array.isArray(items)) {
-                    const item = items.find((it: any) => it.day === dayName);
+                    const item = items.find((it: DbRow) => it.day === dayName);
                     if (item && item.start_time) {
                       stStart = String(item.start_time).trim();
                       stEnd = String(item.end_time || "").trim();
                     }
                   }
-                } catch {}
+                } catch (err) {
+                  log.debug("Bỏ qua lỗi không ảnh hưởng luồng chính (route)", { error: err });
+                }
               }
               if (!stStart && st.study_time_detail) {
-                const m = String(st.study_time_detail).match(/(\d{1,2})(?::(\d{2})|h(\d{2})?)\s*[-–to~]\s*(\d{1,2})(?::(\d{2})|h(\d{2})?)/i);
+                const m = String(st.study_time_detail).match(
+                  /(\d{1,2})(?::(\d{2})|h(\d{2})?)\s*[-–to~]\s*(\d{1,2})(?::(\d{2})|h(\d{2})?)/i
+                );
                 if (m) {
                   stStart = `${m[1].padStart(2, "0")}:${(m[2] || m[3] || "00").padStart(2, "0")}`;
                   stEnd = `${m[4].padStart(2, "0")}:${(m[5] || m[6] || "00").padStart(2, "0")}`;
@@ -433,8 +455,16 @@ export async function POST(req: Request) {
           });
           let classMakeupCount = 0;
           for (const mk of makeupsInClassRes.rows) {
-            const mkStart = String(mk.makeup_start_time || (mk.makeup_time ? String(mk.makeup_time).split("-")[0]?.trim() : "") || "");
-            const mkEnd = String(mk.makeup_end_time || (mk.makeup_time ? String(mk.makeup_time).split("-")[1]?.trim() : "") || "");
+            const mkStart = String(
+              mk.makeup_start_time ||
+                (mk.makeup_time ? String(mk.makeup_time).split("-")[0]?.trim() : "") ||
+                ""
+            );
+            const mkEnd = String(
+              mk.makeup_end_time ||
+                (mk.makeup_time ? String(mk.makeup_time).split("-")[1]?.trim() : "") ||
+                ""
+            );
             if (!mkStart || !mkEnd || isTimeOverlap(sStart, sEnd, mkStart, mkEnd)) {
               classMakeupCount++;
             }
@@ -467,17 +497,25 @@ export async function POST(req: Request) {
           sql: "SELECT * FROM time_slots WHERE id = ?",
           args: [targetSlotId],
         });
-        const slotStartTime = slotCheck.rows.length > 0 ? String(slotCheck.rows[0].start_time || "17:00") : "17:00";
-        const slotEndTime = slotCheck.rows.length > 0 ? String(slotCheck.rows[0].end_time || "20:00") : "20:00";
+        const slotStartTime =
+          slotCheck.rows.length > 0 ? String(slotCheck.rows[0].start_time || "17:00") : "17:00";
+        const slotEndTime =
+          slotCheck.rows.length > 0 ? String(slotCheck.rows[0].end_time || "20:00") : "20:00";
 
         // Tính tổng sức chứa các Lớp học mở cửa trong ca này
-        const classesAllRes = await db.execute("SELECT * FROM classes WHERE status = 'active' OR status IS NULL OR status = ''");
+        const classesAllRes = await db.execute(
+          "SELECT * FROM classes WHERE status = 'active' OR status IS NULL OR status = ''"
+        );
         const classesInSlot = classesAllRes.rows.filter((cRow) => {
-          let schedList: any[] = [];
+          let schedList: DbRow[] = [];
           try {
             if (cRow.schedule_json) schedList = JSON.parse(String(cRow.schedule_json));
-          } catch {}
-          const dayMatch = schedList.some((sc) => !sc.day || sc.day === "Tất cả các ngày" || sc.day === dayName);
+          } catch (err) {
+            log.debug("Bỏ qua lỗi không ảnh hưởng luồng chính (route)", { error: err });
+          }
+          const dayMatch = schedList.some(
+            (sc) => !sc.day || sc.day === "Tất cả các ngày" || sc.day === dayName
+          );
           if (!dayMatch && schedList.length > 0) return false;
           if (schedList.length === 0) return true;
           return schedList.some((sc) => {
@@ -498,10 +536,13 @@ export async function POST(req: Request) {
           const countedTids = new Set<string>();
 
           for (const cRow of classesInSlot) {
-            let assignList: any[] = [];
+            let assignList: DbRow[] = [];
             try {
-              if (cRow.teacher_assignments_json) assignList = JSON.parse(String(cRow.teacher_assignments_json));
-            } catch {}
+              if (cRow.teacher_assignments_json)
+                assignList = JSON.parse(String(cRow.teacher_assignments_json));
+            } catch (err) {
+              log.debug("Bỏ qua lỗi không ảnh hưởng luồng chính (route)", { error: err });
+            }
             for (const a of assignList) {
               if (!a.day || a.day === "Tất cả các ngày" || a.day.includes(dayName)) {
                 if (a.teacher_id && !countedTids.has(String(a.teacher_id))) {
@@ -522,15 +563,20 @@ export async function POST(req: Request) {
                 const parsed = JSON.parse(String(tc.assigned_slot_ids));
                 if (Array.isArray(parsed)) assignedSlots = parsed;
               }
-            } catch {}
-            let shifts: any[] = [];
+            } catch (err) {
+              log.debug("Bỏ qua lỗi không ảnh hưởng luồng chính (route)", { error: err });
+            }
+            let shifts: DbRow[] = [];
             try {
               if (tc.working_shifts_json) {
                 const parsed = JSON.parse(String(tc.working_shifts_json));
                 if (Array.isArray(parsed)) shifts = parsed;
               }
-            } catch {}
-            const worksOnSlot = assignedSlots.includes(targetSlotId) || shifts.some((s: any) => s.day === dayName);
+            } catch (err) {
+              log.debug("Bỏ qua lỗi không ảnh hưởng luồng chính (route)", { error: err });
+            }
+            const worksOnSlot =
+              assignedSlots.includes(targetSlotId) || shifts.some((s: DbRow) => s.day === dayName);
             if (worksOnSlot) {
               countedTids.add(tid);
               teacherCapTotal += Number(tc.max_students || defaultMaxCapacity);
@@ -570,7 +616,10 @@ export async function POST(req: Request) {
         const totalOccupied = regularCount + makeupBooked;
         if (totalOccupied >= maxCapacity) {
           return NextResponse.json(
-            { success: false, message: `Khung giờ này trong ngày đã đủ sĩ số (${totalOccupied}/${maxCapacity} học sinh - HẾT SUẤT). Vui lòng chọn ca hoặc ngày khác!` },
+            {
+              success: false,
+              message: `Khung giờ này trong ngày đã đủ sĩ số (${totalOccupied}/${maxCapacity} học sinh - HẾT SUẤT). Vui lòng chọn ca hoặc ngày khác!`,
+            },
             { status: 400 }
           );
         }
@@ -644,11 +693,18 @@ export async function POST(req: Request) {
         args: [makeup_id],
       });
       if (mkRes.rows.length === 0) {
-        return NextResponse.json({ success: false, message: "Không tìm thấy buổi bù!" }, { status: 404 });
+        return NextResponse.json(
+          { success: false, message: "Không tìm thấy buổi bù!" },
+          { status: 404 }
+        );
       }
       const mk = mkRes.rows[0];
       const sid = String(mk.student_id);
-      const usedMin = Number(mk.makeup_minutes) || Number(mk.absence_minutes) || (await getStudentSessionMinutes(sid)) || 60;
+      const usedMin =
+        Number(mk.makeup_minutes) ||
+        Number(mk.absence_minutes) ||
+        (await getStudentSessionMinutes(sid)) ||
+        60;
 
       // Cập nhật trạng thái completed
       await db.execute({
@@ -732,7 +788,10 @@ export async function POST(req: Request) {
       if (mkRes.rows.length > 0) {
         const mk = mkRes.rows[0];
         if (mk.lesson_id) {
-          await db.execute({ sql: "DELETE FROM lessons WHERE id = ?", args: [String(mk.lesson_id)] });
+          await db.execute({
+            sql: "DELETE FROM lessons WHERE id = ?",
+            args: [String(mk.lesson_id)],
+          });
         }
         await db.execute({
           sql: "DELETE FROM hour_ledger WHERE (ref_type IN ('makeup_absence', 'absence') AND ref_id = ?) OR (ref_type IN ('makeup_completed', 'makeup') AND ref_id = ?)",
@@ -751,7 +810,10 @@ export async function POST(req: Request) {
       });
     }
 
-    return NextResponse.json({ success: false, message: "Hành động không hợp lệ!" }, { status: 400 });
+    return NextResponse.json(
+      { success: false, message: "Hành động không hợp lệ!" },
+      { status: 400 }
+    );
   } catch (error: unknown) {
     log.error("Makeups POST Error:", { error: error });
     return NextResponse.json(

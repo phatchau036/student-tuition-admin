@@ -12,7 +12,7 @@ export async function GET(req: Request) {
     const schoolId = searchParams.get("school_id") || "";
 
     let sql = "SELECT * FROM system_feedbacks";
-    const args: any[] = [];
+    const args: (string | number | null)[] = [];
 
     if (schoolId) {
       sql += " WHERE school_id = ?";
@@ -89,9 +89,10 @@ export async function POST(req: Request) {
       );
     }
 
-    const finalImagesJson = typeof images_json === "string" 
-      ? images_json 
-      : JSON.stringify(Array.isArray(images) ? images : []);
+    const finalImagesJson =
+      typeof images_json === "string"
+        ? images_json
+        : JSON.stringify(Array.isArray(images) ? images : []);
 
     const id = `sfb-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
     await db.execute({
@@ -117,7 +118,8 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       success: true,
-      message: "Góp ý đã được gửi đến đội ngũ phát triển TpTeam thành công! Chúng tôi sẽ xem xét và phản hồi sớm nhất.",
+      message:
+        "Góp ý đã được gửi đến đội ngũ phát triển TpTeam thành công! Chúng tôi sẽ xem xét và phản hồi sớm nhất.",
       data: { id },
     });
   } catch (error: unknown) {
@@ -134,15 +136,7 @@ export async function PATCH(req: Request) {
     await initDb();
     const db = getDb();
     const body = await req.json();
-    const { 
-      id, 
-      status, 
-      admin_reply, 
-      action, 
-      assignee_id, 
-      assignee_name, 
-      completed_by 
-    } = body;
+    const { id, status, admin_reply, action, assignee_id, assignee_name, completed_by } = body;
 
     if (!id) {
       return NextResponse.json(
@@ -154,7 +148,10 @@ export async function PATCH(req: Request) {
     // 1. Nhận nhiệm vụ (Assign task)
     if (action === "assign") {
       if (!assignee_name || !assignee_name.trim()) {
-        return NextResponse.json({ success: false, message: "Vui lòng chọn người nhận việc!" }, { status: 400 });
+        return NextResponse.json(
+          { success: false, message: "Vui lòng chọn người nhận việc!" },
+          { status: 400 }
+        );
       }
       const nowStr = new Date().toISOString();
       await db.execute({
@@ -199,7 +196,13 @@ export async function PATCH(req: Request) {
                   completed_by = COALESCE(?, assignee_name),
                   admin_reply = CASE WHEN ? != '' THEN ? ELSE admin_reply END
               WHERE id = ?`,
-        args: [nowStr, completed_by || null, admin_reply ? admin_reply.trim() : "", admin_reply ? admin_reply.trim() : "", id],
+        args: [
+          nowStr,
+          completed_by || null,
+          admin_reply ? admin_reply.trim() : "",
+          admin_reply ? admin_reply.trim() : "",
+          id,
+        ],
       });
       return NextResponse.json({
         success: true,

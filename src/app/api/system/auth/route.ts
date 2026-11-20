@@ -4,6 +4,7 @@ import fs from "fs";
 import path from "path";
 import crypto from "crypto";
 import { createLogger } from "@/lib/logger";
+import type { DbRow } from "@/lib/types";
 
 const log = createLogger("api/system/auth");
 
@@ -38,12 +39,18 @@ function syncEnvFile(newUsername: string, newPassword: string) {
     if (fs.existsSync(envPath)) {
       let content = fs.readFileSync(envPath, "utf-8");
       if (content.includes("SYSTEM_ADMIN_USERNAME=")) {
-        content = content.replace(/SYSTEM_ADMIN_USERNAME=.*/g, `SYSTEM_ADMIN_USERNAME=${newUsername}`);
+        content = content.replace(
+          /SYSTEM_ADMIN_USERNAME=.*/g,
+          `SYSTEM_ADMIN_USERNAME=${newUsername}`
+        );
       } else {
         content += `\nSYSTEM_ADMIN_USERNAME=${newUsername}`;
       }
       if (content.includes("SYSTEM_ADMIN_PASSWORD=")) {
-        content = content.replace(/SYSTEM_ADMIN_PASSWORD=.*/g, `SYSTEM_ADMIN_PASSWORD=${newPassword}`);
+        content = content.replace(
+          /SYSTEM_ADMIN_PASSWORD=.*/g,
+          `SYSTEM_ADMIN_PASSWORD=${newPassword}`
+        );
       } else {
         content += `\nSYSTEM_ADMIN_PASSWORD=${newPassword}`;
       }
@@ -92,7 +99,9 @@ export async function POST(req: Request) {
 
     if (username.trim() === creds.username && password.trim() === creds.password) {
       // Create session token with pwdHash to invalidate immediately when password changes
-      const token = Buffer.from(`${creds.username}:${creds.pwdHash}:${creds.secretKey}:${Date.now()}`).toString("base64");
+      const token = Buffer.from(
+        `${creds.username}:${creds.pwdHash}:${creds.secretKey}:${Date.now()}`
+      ).toString("base64");
 
       const response = NextResponse.json({
         success: true,
@@ -141,12 +150,15 @@ export async function PUT(req: Request) {
   }
 }
 
-async function handleChangeCredentials(body: any) {
+async function handleChangeCredentials(body: DbRow) {
   const { current_password, new_username, new_password, confirm_password } = body;
 
   if (!current_password || !new_username || !new_password || !confirm_password) {
     return NextResponse.json(
-      { success: false, message: "Vui lòng nhập đầy đủ mật khẩu hiện tại, tên tài khoản mới và mật khẩu mới!" },
+      {
+        success: false,
+        message: "Vui lòng nhập đầy đủ mật khẩu hiện tại, tên tài khoản mới và mật khẩu mới!",
+      },
       { status: 400 }
     );
   }
@@ -203,7 +215,9 @@ async function handleChangeCredentials(body: any) {
 
   // Tạo token mới với pwdHash mới
   const newPwdHash = getPwdHash(cleanNewPassword);
-  const token = Buffer.from(`${cleanNewUsername}:${newPwdHash}:${creds.secretKey}:${Date.now()}`).toString("base64");
+  const token = Buffer.from(
+    `${cleanNewUsername}:${newPwdHash}:${creds.secretKey}:${Date.now()}`
+  ).toString("base64");
 
   const response = NextResponse.json({
     success: true,

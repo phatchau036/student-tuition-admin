@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
-import { getAdminFromRequest, requireAdminPermission } from "@/lib/authHelper";
+import { getAdminFromRequest } from "@/lib/authHelper";
 import { createLogger } from "@/lib/logger";
 
 const log = createLogger("api/admin/branches");
@@ -25,7 +25,9 @@ export async function GET(req: Request) {
       args: [admin.school_id],
     });
     const currentSchool = adminSchoolRes.rows[0];
-    const parentId = currentSchool?.parent_school_id ? String(currentSchool.parent_school_id) : null;
+    const parentId = currentSchool?.parent_school_id
+      ? String(currentSchool.parent_school_id)
+      : null;
     const rootSchoolId = parentId || String(admin.school_id);
 
     // Chỉ lấy cơ sở gốc và các chi nhánh trực thuộc cùng tổ chức
@@ -80,7 +82,11 @@ export async function POST(req: Request) {
     }
 
     // Chỉ Chủ cơ sở hoặc tài khoản có quyền cấu hình cài đặt mới được tạo chi nhánh
-    if (admin.is_owner !== 1 && !admin.permissions.includes("*") && !admin.permissions.includes("settings.manage")) {
+    if (
+      admin.is_owner !== 1 &&
+      !admin.permissions.includes("*") &&
+      !admin.permissions.includes("settings.manage")
+    ) {
       return NextResponse.json(
         { success: false, message: "Chỉ Chủ Cơ Sở mới có quyền tạo thêm chi nhánh mới!" },
         { status: 403 }
@@ -114,7 +120,10 @@ export async function POST(req: Request) {
     });
     if (checkCode.rows.length > 0) {
       return NextResponse.json(
-        { success: false, message: `Mã chi nhánh "${cleanCode}" đã tồn tại! Vui lòng chọn mã khác.` },
+        {
+          success: false,
+          message: `Mã chi nhánh "${cleanCode}" đã tồn tại! Vui lòng chọn mã khác.`,
+        },
         { status: 400 }
       );
     }
@@ -126,7 +135,10 @@ export async function POST(req: Request) {
     });
     if (checkName.rows.length > 0) {
       return NextResponse.json(
-        { success: false, message: `Tên chi nhánh "${cleanName}" đã tồn tại! Vui lòng chọn tên khác.` },
+        {
+          success: false,
+          message: `Tên chi nhánh "${cleanName}" đã tồn tại! Vui lòng chọn tên khác.`,
+        },
         { status: 400 }
       );
     }
@@ -136,15 +148,22 @@ export async function POST(req: Request) {
       sql: "SELECT id, parent_school_id FROM schools WHERE id = ?",
       args: [admin.school_id],
     });
-    const rootSchoolId = currentSchoolRes.rows[0]?.parent_school_id 
-      ? String(currentSchoolRes.rows[0].parent_school_id) 
+    const rootSchoolId = currentSchoolRes.rows[0]?.parent_school_id
+      ? String(currentSchoolRes.rows[0].parent_school_id)
       : String(admin.school_id);
 
     const newSchoolId = `school-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
     await db.execute({
       sql: `INSERT INTO schools (id, name, code, address, phone, parent_school_id)
             VALUES (?, ?, ?, ?, ?, ?)`,
-      args: [newSchoolId, cleanName, cleanCode, address?.trim() || "", phone?.trim() || "", rootSchoolId],
+      args: [
+        newSchoolId,
+        cleanName,
+        cleanCode,
+        address?.trim() || "",
+        phone?.trim() || "",
+        rootSchoolId,
+      ],
     });
 
     // Khởi tạo các vai trò mẫu cho chi nhánh mới
@@ -152,7 +171,8 @@ export async function POST(req: Request) {
       {
         id: `role-office-${newSchoolId}`,
         name: "Nhân Viên Văn Phòng / Lễ Tân",
-        description: "Tiếp đón phụ huynh, thêm/sửa học sinh, xem ma trận lịch, tư vấn ca trống, điểm danh và xếp ca học bù.",
+        description:
+          "Tiếp đón phụ huynh, thêm/sửa học sinh, xem ma trận lịch, tư vấn ca trống, điểm danh và xếp ca học bù.",
         permissions_json: JSON.stringify([
           "students.view",
           "students.create",
@@ -166,7 +186,8 @@ export async function POST(req: Request) {
       {
         id: `role-accountant-${newSchoolId}`,
         name: "Kế Toán / Thu Ngân",
-        description: "Xem học phí, công nợ, đối soát thu tiền, xuất biên lai điện tử, gửi nhắc nợ Zalo và xem tổng kết doanh thu tháng.",
+        description:
+          "Xem học phí, công nợ, đối soát thu tiền, xuất biên lai điện tử, gửi nhắc nợ Zalo và xem tổng kết doanh thu tháng.",
         permissions_json: JSON.stringify([
           "students.view",
           "tuition.view",
@@ -179,7 +200,8 @@ export async function POST(req: Request) {
       {
         id: `role-academic-${newSchoolId}`,
         name: "Quản Lý Đào Tạo / Giáo Vụ",
-        description: "Quản lý danh sách học sinh, quản lý lớp học, phân công giáo viên đứng lớp, quản lý bảo lưu/nghỉ học và lịch học bù.",
+        description:
+          "Quản lý danh sách học sinh, quản lý lớp học, phân công giáo viên đứng lớp, quản lý bảo lưu/nghỉ học và lịch học bù.",
         permissions_json: JSON.stringify([
           "students.view",
           "students.create",
@@ -201,7 +223,9 @@ export async function POST(req: Request) {
           sql: "INSERT OR IGNORE INTO admin_roles (id, school_id, name, description, permissions_json) VALUES (?, ?, ?, ?, ?)",
           args: [r.id, newSchoolId, r.name, r.description, r.permissions_json],
         });
-      } catch {}
+      } catch (err) {
+        log.debug("Bỏ qua lỗi không ảnh hưởng luồng chính (route)", { error: err });
+      }
     }
 
     const newBranch = {

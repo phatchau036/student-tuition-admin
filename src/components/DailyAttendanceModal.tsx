@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
-import { Student, Teacher, ClassRoom, AttendanceRecordInput } from "@/lib/types";
-import { getDayNameVi } from "@/lib/tuition";
+import React, { useState, useEffect } from "react";
+import { Student, Teacher, ClassRoom, AttendanceRecordInput, DbRow } from "@/lib/types";
+import { getDayNameVi, getTodayDateStr } from "@/lib/tuition";
 import { isTimeOverlap } from "@/lib/shiftDetection";
 import { useToast } from "@/components/Toast";
 import {
@@ -14,11 +14,7 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
-  Layers,
-  BookOpen,
   Check,
-  UserCheck,
-  AlertCircle,
   Sparkles,
 } from "lucide-react";
 
@@ -29,6 +25,7 @@ interface DailyAttendanceModalProps {
   teachers: Teacher[];
   students: Student[];
   schoolId?: string;
+  defaultMinutesPerSession?: number;
   onRefresh?: () => void;
 }
 
@@ -39,6 +36,7 @@ export const DailyAttendanceModal: React.FC<DailyAttendanceModalProps> = ({
   teachers = [],
   students = [],
   schoolId,
+  defaultMinutesPerSession = 90,
   onRefresh,
 }) => {
   const { showToast } = useToast();
@@ -67,11 +65,13 @@ export const DailyAttendanceModal: React.FC<DailyAttendanceModalProps> = ({
   useEffect(() => {
     if (typeof window !== "undefined") {
       const today = new Date().toISOString().slice(0, 10);
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Đồng bộ state khi mở modal hoặc nạp dữ liệu; sẽ chuyển sang pattern key-remount ở Giai đoạn 2.
       setTodayDateStr(today);
       if (!selectedDate) {
         setSelectedDate(today);
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Loader là hàm khai báo trong component, chỉ gọi khi mở modal/mount; thêm vào deps sẽ gây gọi lại vô hạn. Sẽ chuyển sang useCallback ở Giai đoạn 2.
   }, [isOpen]);
 
   // Load attendance data from backend when date changes
@@ -82,8 +82,8 @@ export const DailyAttendanceModal: React.FC<DailyAttendanceModalProps> = ({
       const res = await fetch(`/api/admin/attendance?date=${dateStr}${q}`);
       const json = await res.json();
       if (json.success && json.data?.lessons_map) {
-        const nextMap: Record<string, any> = {};
-        for (const [key, lesson] of Object.entries(json.data.lessons_map as Record<string, any>)) {
+        const nextMap: DbRow = {};
+        for (const [key, lesson] of Object.entries(json.data.lessons_map as DbRow)) {
           nextMap[key] = {
             status: lesson.status || "attended",
             teacher_notes: lesson.teacher_notes || "",
@@ -104,13 +104,15 @@ export const DailyAttendanceModal: React.FC<DailyAttendanceModalProps> = ({
 
   useEffect(() => {
     if (isOpen && selectedDate) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Đồng bộ state khi mở modal hoặc nạp dữ liệu; sẽ chuyển sang pattern key-remount ở Giai đoạn 2.
       loadAttendance(selectedDate);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Loader là hàm khai báo trong component, chỉ gọi khi mở modal/mount; thêm vào deps sẽ gây gọi lại vô hạn. Sẽ chuyển sang useCallback ở Giai đoạn 2.
   }, [isOpen, selectedDate, schoolId]);
 
   if (!isOpen) return null;
 
-  const dateToUse = selectedDate || todayDateStr || "2026-11-08";
+  const dateToUse = selectedDate || todayDateStr || getTodayDateStr();
   const dayName = getDayNameVi(dateToUse);
   const [y, m, d] = dateToUse.split("-");
   const isToday = Boolean(todayDateStr && dateToUse === todayDateStr);
@@ -124,7 +126,7 @@ export const DailyAttendanceModal: React.FC<DailyAttendanceModalProps> = ({
     setSelectedDate(`${ny}-${nm}-${nd}`);
   };
 
-  const handleUpdateRecord = (key: string, field: string, value: any) => {
+  const handleUpdateRecord = (key: string, field: string, value: string | number) => {
     setAttendanceMap((prev) => {
       const current = prev[key] || {
         status: "attended",
@@ -195,19 +197,34 @@ export const DailyAttendanceModal: React.FC<DailyAttendanceModalProps> = ({
           const parsed = JSON.parse(String(cls.schedule_json));
           if (Array.isArray(parsed)) schList = parsed;
         }
-      } catch {}
+      } catch {
+        /* Bỏ qua có chủ đích: lỗi không ảnh hưởng luồng chính. */
+      }
 
-      let assList: Array<{ teacher_id: string; day?: string; start_time: string; end_time: string; role?: string }> = [];
+      let assList: Array<{
+        teacher_id: string;
+        day?: string;
+        start_time: string;
+        end_time: string;
+        role?: string;
+      }> = [];
       try {
         if (cls.teacher_assignments_json) {
           const parsed = JSON.parse(String(cls.teacher_assignments_json));
           if (Array.isArray(parsed)) assList = parsed;
         }
-      } catch {}
+      } catch {
+        /* Bỏ qua có chủ đích: lỗi không ảnh hưởng luồng chính. */
+      }
 
       // Lọc các ca trong ngày hôm nay
       const matchingSchedules = schList.filter(
-        (sc) => sc && (!sc.day || sc.day === "Tất cả các ngày" || sc.day === dayName || (typeof sc.day === "string" && sc.day.includes(dayName)))
+        (sc) =>
+          sc &&
+          (!sc.day ||
+            sc.day === "Tất cả các ngày" ||
+            sc.day === dayName ||
+            (typeof sc.day === "string" && sc.day.includes(dayName)))
       );
 
       return matchingSchedules.map((sc) => {
@@ -215,7 +232,9 @@ export const DailyAttendanceModal: React.FC<DailyAttendanceModalProps> = ({
         const matchedAss = assList.find(
           (a) =>
             a &&
-            (!a.day || a.day === "Tất cả các ngày" || (typeof a.day === "string" && a.day.includes(dayName))) &&
+            (!a.day ||
+              a.day === "Tất cả các ngày" ||
+              (typeof a.day === "string" && a.day.includes(dayName))) &&
             isTimeOverlap(sc.start_time, sc.end_time, a.start_time, a.end_time)
         );
         let teacherName = cls.teacher_name || "Chưa phân công";
@@ -234,7 +253,8 @@ export const DailyAttendanceModal: React.FC<DailyAttendanceModalProps> = ({
         // Lọc học sinh trong lớp học vào ngày này
         const classStudents = (students || []).filter((st) => {
           if (!st) return false;
-          if (st.class_id !== cls.id && (!cls.teacher_id || st.teacher_id !== cls.teacher_id)) return false;
+          if (st.class_id !== cls.id && (!cls.teacher_id || st.teacher_id !== cls.teacher_id))
+            return false;
           if (st.status === "dropped") return false;
 
           let hasCustomSchedule = false;
@@ -244,11 +264,17 @@ export const DailyAttendanceModal: React.FC<DailyAttendanceModalProps> = ({
               const items = JSON.parse(String(st.schedule_details_json));
               if (Array.isArray(items) && items.length > 0) {
                 hasCustomSchedule = true;
-                if (items.some((it: any) => it && it.day === dayName)) return true;
+                if (items.some((it: DbRow) => it && it.day === dayName)) return true;
               }
-            } catch {}
+            } catch {
+              /* Bỏ qua có chủ đích: lỗi không ảnh hưởng luồng chính. */
+            }
           }
-          if (st.registered_days && typeof st.registered_days === "string" && st.registered_days.trim()) {
+          if (
+            st.registered_days &&
+            typeof st.registered_days === "string" &&
+            st.registered_days.trim()
+          ) {
             hasCustomSchedule = true;
             if (st.registered_days.includes(dayName)) return true;
           }
@@ -292,7 +318,7 @@ export const DailyAttendanceModal: React.FC<DailyAttendanceModalProps> = ({
           student_id: st.id,
           class_id: shiftClassId,
           start_time: shiftStartTime,
-          planned_minutes: 90,
+          planned_minutes: defaultMinutesPerSession,
           status: rec.status,
           teacher_notes: rec.teacher_notes,
           homework: rec.homework,
@@ -330,7 +356,6 @@ export const DailyAttendanceModal: React.FC<DailyAttendanceModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
       <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl w-full max-w-4xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-        
         {/* Header */}
         <div className="px-6 py-4.5 border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between bg-slate-50/70 dark:bg-slate-950/40 shrink-0">
           <div className="flex items-center gap-3">
@@ -427,7 +452,8 @@ export const DailyAttendanceModal: React.FC<DailyAttendanceModalProps> = ({
                 Không có ca học nào diễn ra vào {dayName} ({d}/{m}/{y})
               </p>
               <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                Hãy dùng bộ chọn ngày ở trên để chọn ngày có ca học hoặc kiểm tra lại thời khóa biểu trong Quản Lý Lớp Học.
+                Hãy dùng bộ chọn ngày ở trên để chọn ngày có ca học hoặc kiểm tra lại thời khóa biểu
+                trong Quản Lý Lớp Học.
               </p>
             </div>
           ) : (
@@ -452,7 +478,9 @@ export const DailyAttendanceModal: React.FC<DailyAttendanceModalProps> = ({
                             {shift.class_name}
                           </strong>
                           {shift.room && (
-                            <span className="text-xs text-slate-500 font-medium">📍 {shift.room}</span>
+                            <span className="text-xs text-slate-500 font-medium">
+                              📍 {shift.room}
+                            </span>
                           )}
                         </div>
                         <p className="text-xs text-slate-500 mt-1">
@@ -512,11 +540,15 @@ export const DailyAttendanceModal: React.FC<DailyAttendanceModalProps> = ({
                                             {currentRec.status === "attended"
                                               ? "Có mặt"
                                               : currentRec.status === "absent_excused"
-                                              ? "Vắng có phép"
-                                              : "Không phép"}
+                                                ? "Vắng có phép"
+                                                : "Không phép"}
                                           </span>
                                           <span className="text-[9px] opacity-75">
-                                            ({currentRec.created_by === "admin" ? "bởi Quản lý" : "bởi Giáo viên"})
+                                            (
+                                            {currentRec.created_by === "admin"
+                                              ? "bởi Quản lý"
+                                              : "bởi Giáo viên"}
+                                            )
                                           </span>
                                         </span>
                                       ) : (
@@ -559,7 +591,9 @@ export const DailyAttendanceModal: React.FC<DailyAttendanceModalProps> = ({
                               <div className="grid grid-cols-3 gap-2">
                                 <button
                                   type="button"
-                                  onClick={() => handleUpdateRecord(recordKey, "status", "attended")}
+                                  onClick={() =>
+                                    handleUpdateRecord(recordKey, "status", "attended")
+                                  }
                                   className={`py-1.5 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 border cursor-pointer ${
                                     currentRec.status === "attended"
                                       ? "bg-emerald-600 text-white border-emerald-600 shadow-sm"
@@ -572,7 +606,9 @@ export const DailyAttendanceModal: React.FC<DailyAttendanceModalProps> = ({
 
                                 <button
                                   type="button"
-                                  onClick={() => handleUpdateRecord(recordKey, "status", "absent_excused")}
+                                  onClick={() =>
+                                    handleUpdateRecord(recordKey, "status", "absent_excused")
+                                  }
                                   className={`py-1.5 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 border cursor-pointer ${
                                     currentRec.status === "absent_excused"
                                       ? "bg-amber-500 text-white border-amber-500 shadow-sm"
@@ -585,7 +621,9 @@ export const DailyAttendanceModal: React.FC<DailyAttendanceModalProps> = ({
 
                                 <button
                                   type="button"
-                                  onClick={() => handleUpdateRecord(recordKey, "status", "absent_unexcused")}
+                                  onClick={() =>
+                                    handleUpdateRecord(recordKey, "status", "absent_unexcused")
+                                  }
                                   className={`py-1.5 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 border cursor-pointer ${
                                     currentRec.status === "absent_unexcused"
                                       ? "bg-rose-600 text-white border-rose-600 shadow-sm"
@@ -605,12 +643,22 @@ export const DailyAttendanceModal: React.FC<DailyAttendanceModalProps> = ({
                                 <button
                                   type="button"
                                   disabled={loadingAiKey === recordKey}
-                                  onClick={() => handleAiSuggest(recordKey, st.name, st.subject_name || shift.class_name)}
+                                  onClick={() =>
+                                    handleAiSuggest(
+                                      recordKey,
+                                      st.name,
+                                      st.subject_name || shift.class_name
+                                    )
+                                  }
                                   className="flex items-center gap-1 px-2.5 py-0.5 text-[10.5px] font-bold rounded-lg bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-950/40 dark:to-indigo-950/40 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800/80 hover:from-purple-100 hover:to-indigo-100 transition shadow-2xs cursor-pointer active:scale-95 disabled:opacity-50"
                                   title="Bấm để AI tự động soạn nhận xét sư phạm và dặn dò bài tập về nhà"
                                 >
-                                  <Sparkles className={`w-3 h-3 text-amber-500 ${loadingAiKey === recordKey ? "animate-spin" : ""}`} />
-                                  <span>{loadingAiKey === recordKey ? "AI đang viết..." : "✨ AI Gợi ý"}</span>
+                                  <Sparkles
+                                    className={`w-3 h-3 text-amber-500 ${loadingAiKey === recordKey ? "animate-spin" : ""}`}
+                                  />
+                                  <span>
+                                    {loadingAiKey === recordKey ? "AI đang viết..." : "✨ AI Gợi ý"}
+                                  </span>
                                 </button>
                               </div>
 
@@ -620,7 +668,9 @@ export const DailyAttendanceModal: React.FC<DailyAttendanceModalProps> = ({
                                   <input
                                     type="text"
                                     value={currentRec.teacher_notes}
-                                    onChange={(e) => handleUpdateRecord(recordKey, "teacher_notes", e.target.value)}
+                                    onChange={(e) =>
+                                      handleUpdateRecord(recordKey, "teacher_notes", e.target.value)
+                                    }
                                     placeholder="Nhận xét tiến bộ của học viên..."
                                     className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder:text-slate-400 focus:ring-2 focus:ring-emerald-500 outline-none"
                                   />
@@ -629,7 +679,9 @@ export const DailyAttendanceModal: React.FC<DailyAttendanceModalProps> = ({
                                   <input
                                     type="text"
                                     value={currentRec.homework}
-                                    onChange={(e) => handleUpdateRecord(recordKey, "homework", e.target.value)}
+                                    onChange={(e) =>
+                                      handleUpdateRecord(recordKey, "homework", e.target.value)
+                                    }
                                     placeholder="Dặn dò bài tập về nhà..."
                                     className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder:text-slate-400 focus:ring-2 focus:ring-emerald-500 outline-none"
                                   />
@@ -666,7 +718,9 @@ export const DailyAttendanceModal: React.FC<DailyAttendanceModalProps> = ({
                           className="flex items-center gap-1.5 px-4.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md shadow-emerald-600/20 disabled:opacity-50 transition cursor-pointer"
                         >
                           <Save className="w-3.5 h-3.5" />
-                          <span>{isSaving ? "Đang lưu..." : "Lưu Điểm Danh & Nhận Xét Ca Này"}</span>
+                          <span>
+                            {isSaving ? "Đang lưu..." : "Lưu Điểm Danh & Nhận Xét Ca Này"}
+                          </span>
                         </button>
                       </div>
                     )}

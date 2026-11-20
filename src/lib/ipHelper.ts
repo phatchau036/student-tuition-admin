@@ -41,8 +41,13 @@ export function isIpAllowed(clientIp: string, allowedIpsStr: string): boolean {
   // If list contains 127.0.0.1, also consider localhost
   return allowedList.some((allowed) => {
     if (allowed === clientNormalized) return true;
-    if (allowed === "localhost" && (clientNormalized === "127.0.0.1" || clientNormalized === "::1")) return true;
-    if ((allowed === "127.0.0.1" || allowed === "::1") && (clientNormalized === "127.0.0.1" || clientNormalized === "::1")) return true;
+    if (allowed === "localhost" && (clientNormalized === "127.0.0.1" || clientNormalized === "::1"))
+      return true;
+    if (
+      (allowed === "127.0.0.1" || allowed === "::1") &&
+      (clientNormalized === "127.0.0.1" || clientNormalized === "::1")
+    )
+      return true;
     return false;
   });
 }

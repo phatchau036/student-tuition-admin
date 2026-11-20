@@ -52,7 +52,8 @@ export async function POST(req: Request) {
       return NextResponse.json(
         {
           success: false,
-          message: "Tên đăng nhập hoặc mật khẩu không chính xác! Vui lòng kiểm tra tài khoản được hệ thống cấp.",
+          message:
+            "Tên đăng nhập hoặc mật khẩu không chính xác! Vui lòng kiểm tra tài khoản được hệ thống cấp.",
         },
         { status: 401 }
       );
@@ -76,11 +77,16 @@ export async function POST(req: Request) {
     }
 
     // Kiểm tra tài khoản có bị khóa không
-    if (admin.is_active !== undefined && admin.is_active !== null && Number(admin.is_active) === 0) {
+    if (
+      admin.is_active !== undefined &&
+      admin.is_active !== null &&
+      Number(admin.is_active) === 0
+    ) {
       return NextResponse.json(
         {
           success: false,
-          message: "Tài khoản của bạn đã bị tạm khóa! Vui lòng liên hệ Quản lý cơ sở để được kích hoạt lại.",
+          message:
+            "Tài khoản của bạn đã bị tạm khóa! Vui lòng liên hệ Quản lý cơ sở để được kích hoạt lại.",
         },
         { status: 403 }
       );
@@ -95,7 +101,9 @@ export async function POST(req: Request) {
           const parsed = JSON.parse(String(admin.permissions_json));
           if (Array.isArray(parsed)) permissions = parsed;
         }
-      } catch {}
+      } catch (err) {
+        log.debug("Bỏ qua lỗi không ảnh hưởng luồng chính (route)", { error: err });
+      }
     } else {
       // Nhân viên không phải chủ cơ sở và chưa được phân vai trò -> KHÔNG cấp quyền wildcard
       permissions = [];
@@ -116,7 +124,12 @@ export async function POST(req: Request) {
         full_name: String(admin.full_name),
         phone: admin.phone ? String(admin.phone) : "",
         role_id: admin.role_id ? String(admin.role_id) : "",
-        role_name: admin.is_owner === 1 ? "Chủ Cơ Sở (Toàn quyền)" : admin.role_name ? String(admin.role_name) : "Nhân viên",
+        role_name:
+          admin.is_owner === 1
+            ? "Chủ Cơ Sở (Toàn quyền)"
+            : admin.role_name
+              ? String(admin.role_name)
+              : "Nhân viên",
         is_owner: Number(admin.is_owner ?? 0),
         permissions,
         school_id: String(admin.school_id),
@@ -197,7 +210,11 @@ export async function GET(req: Request) {
       const currentPwdHash = getPwdHash(String(admin.password || ""));
       if (tokenPwdHash !== currentPwdHash) {
         return NextResponse.json(
-          { success: false, authenticated: false, message: "Mật khẩu đã được thay đổi. Vui lòng đăng nhập lại!" },
+          {
+            success: false,
+            authenticated: false,
+            message: "Mật khẩu đã được thay đổi. Vui lòng đăng nhập lại!",
+          },
           { status: 401 }
         );
       }
@@ -208,16 +225,26 @@ export async function GET(req: Request) {
     const domainSchoolId = await resolveSchoolIdByHost(rawHost);
 
     if (domainSchoolId && String(admin.school_id) !== String(domainSchoolId)) {
-      return NextResponse.json({
-        success: false,
-        authenticated: false,
-        message: "Phiên làm việc không thuộc tên miền cơ sở này!",
-      }, { status: 403 });
+      return NextResponse.json(
+        {
+          success: false,
+          authenticated: false,
+          message: "Phiên làm việc không thuộc tên miền cơ sở này!",
+        },
+        { status: 403 }
+      );
     }
 
     // Chặn nếu tài khoản bị khóa trong thời gian phiên làm việc
-    if (admin.is_active !== undefined && admin.is_active !== null && Number(admin.is_active) === 0) {
-      return NextResponse.json({ success: false, authenticated: false, message: "Tài khoản đã bị tạm khóa!" }, { status: 403 });
+    if (
+      admin.is_active !== undefined &&
+      admin.is_active !== null &&
+      Number(admin.is_active) === 0
+    ) {
+      return NextResponse.json(
+        { success: false, authenticated: false, message: "Tài khoản đã bị tạm khóa!" },
+        { status: 403 }
+      );
     }
 
     let permissions: string[] = [];
@@ -229,7 +256,9 @@ export async function GET(req: Request) {
           const parsed = JSON.parse(String(admin.permissions_json));
           if (Array.isArray(parsed)) permissions = parsed;
         }
-      } catch {}
+      } catch (err) {
+        log.debug("Bỏ qua lỗi không ảnh hưởng luồng chính (route)", { error: err });
+      }
     } else {
       // Nhân viên không phải chủ cơ sở và chưa được phân vai trò -> KHÔNG cấp quyền wildcard
       permissions = [];
@@ -244,7 +273,12 @@ export async function GET(req: Request) {
         full_name: String(admin.full_name),
         phone: admin.phone ? String(admin.phone) : "",
         role_id: admin.role_id ? String(admin.role_id) : "",
-        role_name: admin.is_owner === 1 ? "Chủ Cơ Sở (Toàn quyền)" : admin.role_name ? String(admin.role_name) : "Nhân viên",
+        role_name:
+          admin.is_owner === 1
+            ? "Chủ Cơ Sở (Toàn quyền)"
+            : admin.role_name
+              ? String(admin.role_name)
+              : "Nhân viên",
         is_owner: Number(admin.is_owner ?? 0),
         permissions,
         school_id: String(admin.school_id),

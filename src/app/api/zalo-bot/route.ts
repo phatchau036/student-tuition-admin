@@ -3,6 +3,7 @@ import { getDb, initDb } from "@/lib/db";
 import { getSchoolIdFromRequest } from "@/lib/authHelper";
 import crypto from "crypto";
 import { createLogger } from "@/lib/logger";
+import { getErrorMessage } from "@/lib/errors";
 
 const log = createLogger("api/zalo-bot");
 
@@ -29,7 +30,9 @@ export async function POST(req: Request) {
         if (scRes.rows.length > 0 && scRes.rows[0].zalo_bot_token) {
           token = String(scRes.rows[0].zalo_bot_token).trim();
         }
-      } catch {}
+      } catch (err) {
+        log.debug("Bỏ qua lỗi không ảnh hưởng luồng chính (route)", { error: err });
+      }
     }
 
     if (!token) {
@@ -43,7 +46,8 @@ export async function POST(req: Request) {
       return NextResponse.json(
         {
           success: false,
-          message: "Chưa cấu hình Zalo Bot Token! Vui lòng vào Cài Đặt > Nhắc Zalo để nhập Bot Token.",
+          message:
+            "Chưa cấu hình Zalo Bot Token! Vui lòng vào Cài Đặt > Nhắc Zalo để nhập Bot Token.",
         },
         { status: 400 }
       );
@@ -88,10 +92,10 @@ export async function POST(req: Request) {
             data,
           });
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         return NextResponse.json({
           success: false,
-          message: `Lỗi kết nối tới Zalo Bot API: ${err.message}`,
+          message: `Lỗi kết nối tới Zalo Bot API: ${getErrorMessage(err)}`,
         });
       }
     }
@@ -100,7 +104,10 @@ export async function POST(req: Request) {
     if (action === "set_webhook") {
       const webhookUrl = body.webhook_url?.trim();
       if (!webhookUrl) {
-        return NextResponse.json({ success: false, message: "Vui lòng cung cấp URL webhook!" }, { status: 400 });
+        return NextResponse.json(
+          { success: false, message: "Vui lòng cung cấp URL webhook!" },
+          { status: 400 }
+        );
       }
 
       try {
@@ -119,7 +126,8 @@ export async function POST(req: Request) {
         if (data.ok) {
           return NextResponse.json({
             success: true,
-            message: "Đã kích hoạt Webhook Zalo Bot thành công! Mọi tin nhắn sẽ được đồng bộ tức thì.",
+            message:
+              "Đã kích hoạt Webhook Zalo Bot thành công! Mọi tin nhắn sẽ được đồng bộ tức thì.",
             data: data.result,
           });
         } else {
@@ -129,10 +137,10 @@ export async function POST(req: Request) {
             data,
           });
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         return NextResponse.json({
           success: false,
-          message: `Lỗi khi gọi API setWebhook: ${err.message}`,
+          message: `Lỗi khi gọi API setWebhook: ${getErrorMessage(err)}`,
         });
       }
     }
@@ -150,10 +158,10 @@ export async function POST(req: Request) {
           success: data.ok,
           data: data.result,
         });
-      } catch (err: any) {
+      } catch (err: unknown) {
         return NextResponse.json({
           success: false,
-          message: `Lỗi khi kiểm tra getWebhookInfo: ${err.message}`,
+          message: `Lỗi khi kiểm tra getWebhookInfo: ${getErrorMessage(err)}`,
         });
       }
     }
@@ -164,14 +172,18 @@ export async function POST(req: Request) {
         return NextResponse.json(
           {
             success: false,
-            message: "Học sinh chưa có Zalo Chat ID! Phụ huynh cần nhắn tin chào Bot trước để nhận ID cuộc trò chuyện.",
+            message:
+              "Học sinh chưa có Zalo Chat ID! Phụ huynh cần nhắn tin chào Bot trước để nhận ID cuộc trò chuyện.",
           },
           { status: 400 }
         );
       }
 
       if (!text || !text.trim()) {
-        return NextResponse.json({ success: false, message: "Nội dung tin nhắn không được để trống!" }, { status: 400 });
+        return NextResponse.json(
+          { success: false, message: "Nội dung tin nhắn không được để trống!" },
+          { status: 400 }
+        );
       }
 
       const url = `${ZALO_BOT_BASE_URL}/bot${token}/sendMessage`;
@@ -219,10 +231,17 @@ export async function POST(req: Request) {
             botAccountName = meData.result.account_name || "";
             botDisplayName = meData.result.display_name || meData.result.first_name || "";
           }
-        } catch {}
+        } catch (err) {
+          log.debug("Bỏ qua lỗi không ảnh hưởng luồng chính (route)", { error: err });
+        }
 
         // 1. Ưu tiên kiểm tra tin nhắn inbound đã được Webhook tiếp nhận vào CSDL của trường này
-        let inboundChats: Array<{ chat_id: string; from_name: string; text: string; date: number }> = [];
+        let inboundChats: Array<{
+          chat_id: string;
+          from_name: string;
+          text: string;
+          date: number;
+        }> = [];
         try {
           const inboundRes = await db.execute({
             sql: `SELECT chat_id, from_name, message_text, unixepoch(received_at) as date 
@@ -237,7 +256,9 @@ export async function POST(req: Request) {
             text: String(r.message_text || ""),
             date: Number(r.date || 0) * 1000,
           }));
-        } catch {}
+        } catch (err) {
+          log.debug("Bỏ qua lỗi không ảnh hưởng luồng chính (route)", { error: err });
+        }
 
         if (inboundChats.length > 0) {
           return NextResponse.json({
@@ -287,9 +308,10 @@ export async function POST(req: Request) {
 
           return NextResponse.json({
             success: true,
-            message: recentChats.length > 0 
-              ? `Tìm thấy ${recentChats.length} cuộc trò chuyện gần đây với Bot!`
-              : "Chưa có tin nhắn nào trong hộp thư của Bot. Vui lòng nhắn tin cho Bot trước.",
+            message:
+              recentChats.length > 0
+                ? `Tìm thấy ${recentChats.length} cuộc trò chuyện gần đây với Bot!`
+                : "Chưa có tin nhắn nào trong hộp thư của Bot. Vui lòng nhắn tin cho Bot trước.",
             recent_chats: recentChats,
             bot_info: {
               account_name: botAccountName,
@@ -298,7 +320,10 @@ export async function POST(req: Request) {
           });
         } else {
           // Xử lý các mã lỗi phổ biến từ Zalo Bot Platform (VD: error_code 408 Request timeout khi chưa có tin nhắn)
-          if (data.error_code === 408 || String(data.description).toLowerCase().includes("timeout")) {
+          if (
+            data.error_code === 408 ||
+            String(data.description).toLowerCase().includes("timeout")
+          ) {
             return NextResponse.json({
               success: true,
               message: "Chưa có tin nhắn mới nào gửi tới Bot.",
@@ -321,10 +346,10 @@ export async function POST(req: Request) {
             },
           });
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         return NextResponse.json({
           success: false,
-          message: `Lỗi kết nối tới Zalo Bot getUpdates: ${err.message}`,
+          message: `Lỗi kết nối tới Zalo Bot getUpdates: ${getErrorMessage(err)}`,
         });
       }
     }
@@ -366,7 +391,8 @@ Từ bây giờ, bạn sẽ nhận được thông báo tức thì trên Zalo m�
       if (data.ok) {
         return NextResponse.json({
           success: true,
-          message: "Đã gửi tin nhắn thử nghiệm thành công tới Zalo Admin! Vui lòng kiểm tra ứng dụng Zalo của bạn.",
+          message:
+            "Đã gửi tin nhắn thử nghiệm thành công tới Zalo Admin! Vui lòng kiểm tra ứng dụng Zalo của bạn.",
           data: data.result,
         });
       } else {
@@ -381,7 +407,10 @@ Từ bây giờ, bạn sẽ nhận được thông báo tức thì trên Zalo m�
       }
     }
 
-    return NextResponse.json({ success: false, message: "Hành động không hợp lệ!" }, { status: 400 });
+    return NextResponse.json(
+      { success: false, message: "Hành động không hợp lệ!" },
+      { status: 400 }
+    );
   } catch (error: unknown) {
     log.error("Zalo Bot API Error:", { error: error });
     return NextResponse.json(

@@ -35,7 +35,7 @@ export function generateAdminUsernameFromSchool(
   }
 
   // 2. Tên trung tâm / trường: lấy chữ cái đầu
-  let cleanName = school.name.replace(/^(trung\s*tâm|trường|cơ\s*sở)\s*/i, "").trim();
+  const cleanName = school.name.replace(/^(trung\s*tâm|trường|cơ\s*sở)\s*/i, "").trim();
   const nameInitials = getInitials(cleanName) || getInitials(school.name) || "NAME";
 
   // 3. Tên đường: ưu tiên lấy từ trường street, nếu không có thì trích xuất sạch từ address
@@ -49,7 +49,10 @@ export function generateAdminUsernameFromSchool(
       streetInitials = getInitials(streetMatch[1].trim());
     } else {
       // Loại bỏ số nhà ở đầu (chỉ số, gạch chéo, xuyệt, vd: "123/4 ", "Số 45 ")
-      const cleanAddr = addr.split(",")[0].replace(/^(?:số\s+)?[\d\/\-\s]+(?:[a-zA-Z]\b)?\s*/i, "").trim();
+      const cleanAddr = addr
+        .split(",")[0]
+        .replace(/^(?:số\s+)?[\d\/\-\s]+(?:[a-zA-Z]\b)?\s*/i, "")
+        .trim();
       streetInitials = getInitials(cleanAddr) || getInitials(addr) || "LOC";
     }
   }
@@ -78,11 +81,17 @@ export function generateAdminUsernameFromSchool(
 
   // 5. Chi nhánh: lấy từ branch_num hoặc tìm trong name/code
   let branch = "CN1";
-  if (school.branch_num !== undefined && school.branch_num !== null && String(school.branch_num).trim()) {
+  if (
+    school.branch_num !== undefined &&
+    school.branch_num !== null &&
+    String(school.branch_num).trim()
+  ) {
     const num = String(school.branch_num).replace(/\D/g, "") || "1";
     branch = `CN${num}`;
   } else {
-    const branchMatch = (school.name + " " + (school.code || "")).match(/(?:cn|chi\s*nhánh|cơ\s*sở|\-)\s*(\d+)/i);
+    const branchMatch = (school.name + " " + (school.code || "")).match(
+      /(?:cn|chi\s*nhánh|cơ\s*sở|\-)\s*(\d+)/i
+    );
     if (branchMatch && branchMatch[1]) {
       branch = `CN${parseInt(branchMatch[1], 10)}`;
     }
@@ -101,7 +110,7 @@ export function generateRandomPassword(length: number = 10): string {
   const symbols = "@#$%&*!";
 
   // Ensure at least one of each
-  let password = [
+  const password = [
     upper[Math.floor(Math.random() * upper.length)],
     lower[Math.floor(Math.random() * lower.length)],
     digits[Math.floor(Math.random() * digits.length)],

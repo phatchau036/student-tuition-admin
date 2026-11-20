@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
 import { timeToMinutes, isTimeOverlap } from "@/lib/shiftDetection";
-import { TeacherDaySchedule, TeacherAssignedShift, DAYS_OF_WEEK } from "@/lib/types";
+import { TeacherDaySchedule, TeacherAssignedShift, DAYS_OF_WEEK, DbRow } from "@/lib/types";
 import { appendLedger } from "@/lib/wallet";
 import { formatMinutes } from "@/lib/tuition";
 import { notifyAdminViaZaloBot } from "@/lib/zaloBot";
@@ -20,13 +20,15 @@ function studentMatchesShift(
     try {
       const items = JSON.parse(st.schedule_details_json);
       if (Array.isArray(items) && items.length > 0) {
-        const dayItem = items.find((it: any) => it.day === day);
+        const dayItem = items.find((it: DbRow) => it.day === day);
         if (dayItem && dayItem.start_time) {
           const sEnd = dayItem.end_time || dayItem.start_time;
           return isTimeOverlap(dayItem.start_time, sEnd, shiftStart, shiftEnd);
         }
       }
-    } catch {}
+    } catch (err) {
+      log.debug("Bỏ qua lỗi không ảnh hưởng luồng chính (route)", { error: err });
+    }
   }
   if (st.registered_days && st.registered_days.includes(day)) {
     if (st.study_time_detail) {
@@ -49,11 +51,13 @@ function getStudentTimeOnDay(
   if (st.schedule_details_json) {
     try {
       const items = JSON.parse(st.schedule_details_json);
-      const dayItem = items.find((it: any) => it.day === day);
+      const dayItem = items.find((it: DbRow) => it.day === day);
       if (dayItem && dayItem.start_time) {
         return `${dayItem.start_time}${dayItem.end_time ? " - " + dayItem.end_time : ""}`;
       }
-    } catch {}
+    } catch (err) {
+      log.debug("Bỏ qua lỗi không ảnh hưởng luồng chính (route)", { error: err });
+    }
   }
   return st.study_time_detail || "Theo ca mở";
 }
@@ -92,7 +96,10 @@ export async function GET(req: Request) {
     });
 
     if (teacherRes.rows.length === 0) {
-      return NextResponse.json({ success: false, message: "Không tìm thấy giáo viên!" }, { status: 404 });
+      return NextResponse.json(
+        { success: false, message: "Không tìm thấy giáo viên!" },
+        { status: 404 }
+      );
     }
 
     const rawTeacher = teacherRes.rows[0];
@@ -104,7 +111,9 @@ export async function GET(req: Request) {
         const p = JSON.parse(String(rawTeacher.assigned_slot_ids));
         if (Array.isArray(p)) parsedAssignedSlotIds = p;
       }
-    } catch {}
+    } catch (err) {
+      log.debug("Bỏ qua lỗi không ảnh hưởng luồng chính (route)", { error: err });
+    }
 
     const teacher = {
       ...rawTeacher,
@@ -156,10 +165,12 @@ export async function GET(req: Request) {
         if (cls.teacher_assignments_json) {
           const assignments = JSON.parse(String(cls.teacher_assignments_json));
           if (Array.isArray(assignments)) {
-            return assignments.some((a: any) => a.teacher_id === teacherId);
+            return assignments.some((a: DbRow) => a.teacher_id === teacherId);
           }
         }
-      } catch {}
+      } catch (err) {
+        log.debug("Bỏ qua lỗi không ảnh hưởng luồng chính (route)", { error: err });
+      }
       return false;
     });
 
@@ -188,15 +199,25 @@ export async function GET(req: Request) {
         let schList: Array<{ day: string; start_time: string; end_time: string }> = [];
         try {
           if (cls.schedule_json) schList = JSON.parse(String(cls.schedule_json));
-        } catch {}
+        } catch (err) {
+          log.debug("Bỏ qua lỗi không ảnh hưởng luồng chính (route)", { error: err });
+        }
 
-        let assList: Array<{ teacher_id: string; day?: string; start_time: string; end_time: string; role?: string }> = [];
+        let assList: Array<{
+          teacher_id: string;
+          day?: string;
+          start_time: string;
+          end_time: string;
+          role?: string;
+        }> = [];
         try {
           if (cls.teacher_assignments_json) {
             const parsed = JSON.parse(String(cls.teacher_assignments_json));
             if (Array.isArray(parsed)) assList = parsed;
           }
-        } catch {}
+        } catch (err) {
+          log.debug("Bỏ qua lỗi không ảnh hưởng luồng chính (route)", { error: err });
+        }
 
         const myAss = assList.filter((a) => a.teacher_id === teacherId);
 
@@ -252,14 +273,16 @@ export async function GET(req: Request) {
       for (const shift of shifts) {
         for (const st of allActiveStudentsRes.rows) {
           if (st.class_id === shift.class_id || (!st.class_id && st.teacher_id === teacherId)) {
-            if (studentMatchesShift(st as any, day, shift.start_time, shift.end_time)) {
+            if (
+              studentMatchesShift(st as unknown as DbRow, day, shift.start_time, shift.end_time)
+            ) {
               shift.students.push({
                 id: String(st.id),
                 name: String(st.name),
                 phone: String(st.phone || ""),
                 student_code: st.student_code ? String(st.student_code) : undefined,
                 level_name: st.level_name ? String(st.level_name) : undefined,
-                time_label: getStudentTimeOnDay(st as any, day),
+                time_label: getStudentTimeOnDay(st as unknown as DbRow, day),
               });
             }
           }
@@ -346,7 +369,9 @@ export async function GET(req: Request) {
     const slotsRes = await db.execute("SELECT * FROM time_slots ORDER BY id ASC");
 
     // 5. Get Zalo Bot name from settings if configured
-    const botSettingRes = await db.execute("SELECT key, value FROM settings WHERE key IN ('zalo_bot_name', 'zalo_bot_token')");
+    const botSettingRes = await db.execute(
+      "SELECT key, value FROM settings WHERE key IN ('zalo_bot_name', 'zalo_bot_token')"
+    );
     let zaloBotName = "";
     let isBotConfigured = false;
     for (const r of botSettingRes.rows) {
@@ -360,7 +385,7 @@ export async function GET(req: Request) {
       sql: `SELECT * FROM lessons WHERE date = ?`,
       args: [targetDate],
     });
-    const lessonsMap: Record<string, any> = {};
+    const lessonsMap: DbRow = {};
     for (const r of lessonsRes.rows) {
       lessonsMap[`${r.student_id}_${r.start_time}`] = {
         id: String(r.id),
@@ -461,7 +486,8 @@ export async function POST(req: Request) {
         return NextResponse.json(
           {
             success: false,
-            message: "Không tìm thấy giáo viên nào với số điện thoại này tại cơ sở! Vui lòng liên hệ quản trị viên cơ sở.",
+            message:
+              "Không tìm thấy giáo viên nào với số điện thoại này tại cơ sở! Vui lòng liên hệ quản trị viên cơ sở.",
           },
           { status: 404 }
         );
@@ -471,7 +497,8 @@ export async function POST(req: Request) {
 
       // Kiểm tra mật khẩu (mặc định là '123456' nếu chưa thiết lập)
       const expectedPassword = teacher.password ? String(teacher.password).trim() : "123456";
-      const inputPassword = password !== undefined && password !== null ? String(password).trim() : "";
+      const inputPassword =
+        password !== undefined && password !== null ? String(password).trim() : "";
 
       // Nếu người dùng cung cấp mật khẩu, kiểm tra trùng khớp
       if (inputPassword && inputPassword !== expectedPassword) {
@@ -507,7 +534,10 @@ export async function POST(req: Request) {
       const { teacher_id, current_password, new_password, confirm_password } = body;
       if (!teacher_id || !current_password || !new_password || !confirm_password) {
         return NextResponse.json(
-          { success: false, message: "Vui lòng điền đầy đủ mật khẩu hiện tại, mật khẩu mới và xác nhận mật khẩu!" },
+          {
+            success: false,
+            message: "Vui lòng điền đầy đủ mật khẩu hiện tại, mật khẩu mới và xác nhận mật khẩu!",
+          },
           { status: 400 }
         );
       }
@@ -542,7 +572,9 @@ export async function POST(req: Request) {
         );
       }
 
-      const currentDbPass = tcCheck.rows[0].password ? String(tcCheck.rows[0].password).trim() : "123456";
+      const currentDbPass = tcCheck.rows[0].password
+        ? String(tcCheck.rows[0].password).trim()
+        : "123456";
       if (cleanCurrentPass !== currentDbPass) {
         return NextResponse.json(
           { success: false, message: "Mật khẩu hiện tại không chính xác!" },
@@ -557,7 +589,8 @@ export async function POST(req: Request) {
 
       return NextResponse.json({
         success: true,
-        message: "Đổi mật khẩu thành công! Thầy/cô hãy ghi nhớ mật khẩu mới để đăng nhập các lần sau.",
+        message:
+          "Đổi mật khẩu thành công! Thầy/cô hãy ghi nhớ mật khẩu mới để đăng nhập các lần sau.",
       });
     }
 
@@ -565,7 +598,10 @@ export async function POST(req: Request) {
     if (action === "update_zalo_chat_id") {
       const { teacher_id, zalo_chat_id } = body;
       if (!teacher_id) {
-        return NextResponse.json({ success: false, message: "Thiếu mã giáo viên!" }, { status: 400 });
+        return NextResponse.json(
+          { success: false, message: "Thiếu mã giáo viên!" },
+          { status: 400 }
+        );
       }
       const val = zalo_chat_id ? String(zalo_chat_id).trim() : null;
       await db.execute({
@@ -616,7 +652,16 @@ export async function POST(req: Request) {
       }
 
       for (const rec of records) {
-        const { student_id, class_id, start_time, planned_minutes, status, teacher_notes, homework, rating } = rec;
+        const {
+          student_id,
+          class_id,
+          start_time,
+          planned_minutes,
+          status,
+          teacher_notes,
+          homework,
+          rating,
+        } = rec;
         if (!student_id || !start_time || !status) continue;
 
         const pMinutes = Number(planned_minutes) || 90;
@@ -726,7 +771,16 @@ export async function POST(req: Request) {
 
     // 5. Giáo viên gửi đơn xin nghỉ dạy
     if (action === "request_leave") {
-      const { teacher_id, leave_date, shift_desc, start_time, end_time, class_id, reason, substitute_teacher_id } = body;
+      const {
+        teacher_id,
+        leave_date,
+        shift_desc,
+        start_time,
+        end_time,
+        class_id,
+        reason,
+        substitute_teacher_id,
+      } = body;
       if (!teacher_id || !leave_date || !reason || !String(reason).trim()) {
         return NextResponse.json(
           { success: false, message: "Vui lòng chọn ngày nghỉ và nhập lý do xin nghỉ!" },
@@ -738,8 +792,12 @@ export async function POST(req: Request) {
         sql: "SELECT name, school_id FROM teachers WHERE id = ?",
         args: [teacher_id],
       });
-      const teacherName = tcRes.rows.length > 0 && tcRes.rows[0].name ? String(tcRes.rows[0].name) : "Giáo viên";
-      const schoolId = tcRes.rows.length > 0 && tcRes.rows[0].school_id ? String(tcRes.rows[0].school_id) : "school-default";
+      const teacherName =
+        tcRes.rows.length > 0 && tcRes.rows[0].name ? String(tcRes.rows[0].name) : "Giáo viên";
+      const schoolId =
+        tcRes.rows.length > 0 && tcRes.rows[0].school_id
+          ? String(tcRes.rows[0].school_id)
+          : "school-default";
       const leaveId = `tl-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
 
       await db.execute({
@@ -792,7 +850,10 @@ export async function POST(req: Request) {
     if (action === "cancel_leave") {
       const { leave_id, teacher_id } = body;
       if (!leave_id || !teacher_id) {
-        return NextResponse.json({ success: false, message: "Thiếu mã đơn xin nghỉ!" }, { status: 400 });
+        return NextResponse.json(
+          { success: false, message: "Thiếu mã đơn xin nghỉ!" },
+          { status: 400 }
+        );
       }
 
       await db.execute({
@@ -806,7 +867,10 @@ export async function POST(req: Request) {
       });
     }
 
-    return NextResponse.json({ success: false, message: "Hành động không hợp lệ!" }, { status: 400 });
+    return NextResponse.json(
+      { success: false, message: "Hành động không hợp lệ!" },
+      { status: 400 }
+    );
   } catch (error: unknown) {
     log.error("Teacher POST Error:", { error: error });
     return NextResponse.json(

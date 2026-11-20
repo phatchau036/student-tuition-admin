@@ -47,7 +47,8 @@ export async function POST(req: Request) {
 
     const id = `override-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
     const parsedAmount = Math.max(0, Math.round(Number(amount)));
-    const itemsJsonStr = typeof items_json === "string" ? items_json : JSON.stringify(items_json || []);
+    const itemsJsonStr =
+      typeof items_json === "string" ? items_json : JSON.stringify(items_json || []);
 
     // Upsert into student_monthly_tuitions
     await db.execute({

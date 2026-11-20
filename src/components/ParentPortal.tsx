@@ -8,7 +8,6 @@ import {
   Calendar,
   CalendarDays,
   Clock,
-  DollarSign,
   CalendarCheck,
   AlertCircle,
   CheckCircle2,
@@ -17,10 +16,8 @@ import {
   Sparkles,
   LogOut,
   ChevronRight,
-  Plus,
   MessageCircle,
   ExternalLink,
-  ShieldAlert,
   MessageSquareHeart,
   Star,
   Send,
@@ -28,14 +25,18 @@ import {
   Moon,
   QrCode,
   CreditCard,
-  Check,
   X,
   Copy,
   BookOpen,
 } from "lucide-react";
-import Link from "next/link";
-import { formatVND, formatMonthDisplay, generateUpcomingStudentSchedule, UpcomingLessonSession, getDayNameVi } from "@/lib/tuition";
-import { MonthFormat, AppLanguage } from "@/lib/types";
+import {
+  formatVND,
+  formatMonthDisplay,
+  generateUpcomingStudentSchedule,
+  UpcomingLessonSession,
+  getDayNameVi,
+} from "@/lib/tuition";
+import { MonthFormat, AppLanguage, DbRow } from "@/lib/types";
 import { useLanguage } from "@/lib/i18n";
 import { useTheme } from "@/lib/ThemeContext";
 import { detectShiftTeachers, isTimeOverlap } from "@/lib/shiftDetection";
@@ -116,7 +117,7 @@ interface StudentData {
     homework?: string;
     rating?: number;
   }>;
-  current_payment_record?: any;
+  current_payment_record?: DbRow;
 }
 
 interface SlotOccupancy {
@@ -188,7 +189,7 @@ export default function ParentPortal() {
   const [makeupDate, setMakeupDate] = useState("");
   const [selectedSlotId, setSelectedSlotId] = useState("");
   const [selectedClassId, setSelectedClassId] = useState("");
-  const [makeupTime, setMakeupTime] = useState("");
+  const [_makeupTime, setMakeupTime] = useState("");
   const [makeupStartTime, setMakeupStartTime] = useState("18:00");
   const [makeupEndTime, setMakeupEndTime] = useState("19:00");
   const [makeupMinutes, setMakeupMinutes] = useState(60);
@@ -216,7 +217,9 @@ export default function ParentPortal() {
 
   // Feedback modal for parents
   const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
-  const [feedbackCategory, setFeedbackCategory] = useState<"teaching" | "facility" | "tuition" | "schedule" | "other">("teaching");
+  const [feedbackCategory, setFeedbackCategory] = useState<
+    "teaching" | "facility" | "tuition" | "schedule" | "other"
+  >("teaching");
   const [feedbackRating, setFeedbackRating] = useState<number>(5);
   const [feedbackContent, setFeedbackContent] = useState("");
   const [parentNameInput, setParentNameInput] = useState("");
@@ -247,14 +250,19 @@ export default function ParentPortal() {
   const [isSubmittingZalo, setIsSubmittingZalo] = useState(false);
 
   // Receipt Modal State
-  const [isReceiptOpen, setIsReceiptOpen] = useState(false);
-  const [receiptPaymentRecord, setReceiptPaymentRecord] = useState<any>(null);
+  const [_isReceiptOpen, setIsReceiptOpen] = useState(false);
+  const [_receiptPaymentRecord, setReceiptPaymentRecord] = useState<DbRow | null>(null);
 
   // Active Tab for Parent Portal
-  const [activeParentTab, setActiveParentTab] = useState<"schedule" | "diary" | "tuition" | "contact">("schedule");
+  const [activeParentTab, setActiveParentTab] = useState<
+    "schedule" | "diary" | "tuition" | "contact"
+  >("schedule");
 
   // Toast
-  const [toastMessage, setToastMessage] = useState<{ text: string; type: "success" | "error" } | null>(null);
+  const [toastMessage, setToastMessage] = useState<{
+    text: string;
+    type: "success" | "error";
+  } | null>(null);
 
   const showToast = (text: string, type: "success" | "error" = "success") => {
     setToastMessage({ text, type });
@@ -265,12 +273,14 @@ export default function ParentPortal() {
   useEffect(() => {
     const savedPhone = localStorage.getItem("parent_phone");
     if (savedPhone) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Đồng bộ state khi mở modal hoặc nạp dữ liệu; sẽ chuyển sang pattern key-remount ở Giai đoạn 2.
       setPhoneNumber(savedPhone);
       handleLoginWithPhone(savedPhone);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Loader là hàm khai báo trong component, chỉ gọi khi mở modal/mount; thêm vào deps sẽ gây gọi lại vô hạn. Sẽ chuyển sang useCallback ở Giai đoạn 2.
   }, []);
 
-  const handleLoginWithPhone = async (phoneToAuth: string) => {
+  async function handleLoginWithPhone(phoneToAuth: string) {
     if (!phoneToAuth || !phoneToAuth.trim()) {
       showToast("Vui lòng nhập số điện thoại!", "error");
       return;
@@ -305,7 +315,7 @@ export default function ParentPortal() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }
 
   const handleLogout = () => {
     localStorage.removeItem("parent_phone");
@@ -404,7 +414,7 @@ export default function ParentPortal() {
         const [start, end] = chosenLesson.timeRange.split("-").map((s) => s.trim());
         const [sh, sm] = start.split(":").map(Number);
         const [eh, em] = end.split(":").map(Number);
-        const diff = (eh * 60 + (em || 0)) - (sh * 60 + (sm || 0));
+        const diff = eh * 60 + (em || 0) - (sh * 60 + (sm || 0));
         if (diff > 0) sessionMin = diff;
       }
 
@@ -424,7 +434,8 @@ export default function ParentPortal() {
       const data = await res.json();
       if (data.success) {
         showToast(
-          data.message || `Đã báo nghỉ thành công! +${sessionMin} phút đã được cộng vào Ví Giờ Học.`,
+          data.message ||
+            `Đã báo nghỉ thành công! +${sessionMin} phút đã được cộng vào Ví Giờ Học.`,
           "success"
         );
         setIsReportModalOpen(false);
@@ -444,6 +455,7 @@ export default function ParentPortal() {
   // Query occupancy when makeup date changes
   useEffect(() => {
     if (!makeupDate) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Đồng bộ state khi mở modal hoặc nạp dữ liệu; sẽ chuyển sang pattern key-remount ở Giai đoạn 2.
       setOccupancySlots([]);
       setSelectedSlotId("");
       return;
@@ -456,7 +468,9 @@ export default function ParentPortal() {
         const res = await fetch(`/api/classes/occupancy?date=${makeupDate}${schoolQuery}`);
         const json = await res.json();
         if (json.success) {
-          const supportedSlots = (json.data.slots as SlotOccupancy[]).filter((s) => s.is_day_supported);
+          const supportedSlots = (json.data.slots as SlotOccupancy[]).filter(
+            (s) => s.is_day_supported
+          );
           const classesList = (json.data.classes as ParentClassOccupancy[]) || [];
           setOccupancySlots(supportedSlots);
           setOccupancyClasses(classesList);
@@ -469,22 +483,26 @@ export default function ParentPortal() {
             // Tìm giờ bắt đầu ca của lớp nếu có
             let initStart = "18:00";
             if (firstClassAvail.shifts && firstClassAvail.shifts.length > 0) {
-              const firstShift = firstClassAvail.shifts.find((s) => !s.is_full) || firstClassAvail.shifts[0];
+              const firstShift =
+                firstClassAvail.shifts.find((s) => !s.is_full) || firstClassAvail.shifts[0];
               initStart = firstShift.start_time || "18:00";
             }
             handleUpdateMakeupTimes(initStart, makeupMinutes);
 
             // Tìm slot tương ứng với ca của lớp
-            const matchedSlot = supportedSlots.find((s) => {
-              if (firstClassAvail.shifts && firstClassAvail.shifts.length > 0) {
-                const sStart = firstClassAvail.shifts[0].start_time;
-                const sEnd = firstClassAvail.shifts[firstClassAvail.shifts.length - 1].end_time;
-                const slotS = s.start_time || s.time_range.split("-")[0]?.trim() || "";
-                const slotE = s.end_time || s.time_range.split("-")[1]?.trim() || "";
-                return slotS <= sStart && slotE >= sEnd;
-              }
-              return false;
-            }) || supportedSlots.find((s) => !s.is_full) || supportedSlots[0];
+            const matchedSlot =
+              supportedSlots.find((s) => {
+                if (firstClassAvail.shifts && firstClassAvail.shifts.length > 0) {
+                  const sStart = firstClassAvail.shifts[0].start_time;
+                  const sEnd = firstClassAvail.shifts[firstClassAvail.shifts.length - 1].end_time;
+                  const slotS = s.start_time || s.time_range.split("-")[0]?.trim() || "";
+                  const slotE = s.end_time || s.time_range.split("-")[1]?.trim() || "";
+                  return slotS <= sStart && slotE >= sEnd;
+                }
+                return false;
+              }) ||
+              supportedSlots.find((s) => !s.is_full) ||
+              supportedSlots[0];
 
             if (matchedSlot) {
               setSelectedSlotId(matchedSlot.slot_id);
@@ -508,7 +526,7 @@ export default function ParentPortal() {
     };
 
     fetchOccupancy();
-  }, [makeupDate]);
+  }, [makeupDate, makeupMinutes, activeStudent?.school_id]);
 
   // Handle schedule makeup
   const handleScheduleMakeup = async (e: React.FormEvent) => {
@@ -579,7 +597,10 @@ export default function ParentPortal() {
       });
       const data = await res.json();
       if (data.success) {
-        showToast("Cảm ơn quý phụ huynh! Ý kiến đóng góp đã được gửi tới Ban Quản Trị trung tâm.", "success");
+        showToast(
+          "Cảm ơn quý phụ huynh! Ý kiến đóng góp đã được gửi tới Ban Quản Trị trung tâm.",
+          "success"
+        );
         setFeedbackContent("");
         setFeedbackRating(5);
         setIsFeedbackModalOpen(false);
@@ -640,7 +661,11 @@ export default function ParentPortal() {
               className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition"
               title={theme === "dark" ? "Chế độ Sáng" : "Chế độ Tối"}
             >
-              {theme === "dark" ? <Sun className="w-3.5 h-3.5 text-amber-400" /> : <Moon className="w-3.5 h-3.5 text-slate-600" />}
+              {theme === "dark" ? (
+                <Sun className="w-3.5 h-3.5 text-amber-400" />
+              ) : (
+                <Moon className="w-3.5 h-3.5 text-slate-600" />
+              )}
             </button>
 
             {/* Quick Language Dropdown */}
@@ -649,7 +674,15 @@ export default function ParentPortal() {
               onChange={(e) => {
                 const newL = e.target.value as AppLanguage;
                 setLanguage(newL);
-                setMonthFormat(newL === "vi" ? "vietnamese" : newL === "zh" ? "chinese" : newL === "ja" ? "japanese" : "english");
+                setMonthFormat(
+                  newL === "vi"
+                    ? "vietnamese"
+                    : newL === "zh"
+                      ? "chinese"
+                      : newL === "ja"
+                        ? "japanese"
+                        : "english"
+                );
               }}
               className="px-2 py-1 text-xs font-bold rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 outline-none"
             >
@@ -681,9 +714,12 @@ export default function ParentPortal() {
               <div className="w-16 h-16 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 mx-auto flex items-center justify-center">
                 <Phone className="w-8 h-8" />
               </div>
-              <h2 className="text-xl font-bold text-slate-900 dark:text-white">Tra Cứu Học Viên & Học Bù</h2>
+              <h2 className="text-xl font-bold text-slate-900 dark:text-white">
+                Tra Cứu Học Viên & Học Bù
+              </h2>
               <p className="text-xs text-slate-500">
-                Nhập <strong>Số điện thoại</strong> hoặc <strong>Mã học viên</strong> (ví dụ: HS01, HS02...) để tra cứu lịch học, học phí và báo nghỉ học bù.
+                Nhập <strong>Số điện thoại</strong> hoặc <strong>Mã học viên</strong> (ví dụ: HS01,
+                HS02...) để tra cứu lịch học, học phí và báo nghỉ học bù.
               </p>
             </div>
 
@@ -778,12 +814,14 @@ export default function ParentPortal() {
                         ? `Nợ (${activeStudent.unpaid_months_count} tháng)`
                         : `Học phí ${formatMonthDisplay(activeStudent.current_month, monthFormat)}`}
                     </p>
-                    <p className={`text-lg font-black ${activeStudent.is_overdue ? "text-amber-200" : "text-white"}`}>
+                    <p
+                      className={`text-lg font-black ${activeStudent.is_overdue ? "text-amber-200" : "text-white"}`}
+                    >
                       {activeStudent.is_paid
                         ? "Đã đóng"
                         : activeStudent.is_overdue && activeStudent.total_tuition_due
-                        ? formatVND(activeStudent.total_tuition_due)
-                        : formatVND(activeStudent.current_tuition)}
+                          ? formatVND(activeStudent.total_tuition_due)
+                          : formatVND(activeStudent.current_tuition)}
                     </p>
                     {activeStudent.is_paid ? (
                       <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-200 bg-white/10 px-2 py-0.5 rounded mt-0.5">
@@ -806,7 +844,9 @@ export default function ParentPortal() {
                     <p className="text-emerald-100 text-[11px]">⏱️ Quỹ giờ bù:</p>
                     <p
                       className={`font-extrabold mt-0.5 ${
-                        (activeStudent.available_minutes ?? 0) < 0 ? "text-rose-300" : "text-amber-300"
+                        (activeStudent.available_minutes ?? 0) < 0
+                          ? "text-rose-300"
+                          : "text-amber-300"
                       }`}
                     >
                       {(() => {
@@ -814,7 +854,12 @@ export default function ParentPortal() {
                         const abs = Math.abs(avail);
                         const h = Math.floor(abs / 60);
                         const m = abs % 60;
-                        const label = avail === 0 ? "0 giờ" : h > 0 ? `${h}h${m > 0 ? String(m).padStart(2, "0") : ""}` : `${m} phút`;
+                        const label =
+                          avail === 0
+                            ? "0 giờ"
+                            : h > 0
+                              ? `${h}h${m > 0 ? String(m).padStart(2, "0") : ""}`
+                              : `${m} phút`;
                         return avail < 0 ? `Thiếu ${label}` : label;
                       })()}
                     </p>
@@ -861,7 +906,9 @@ export default function ParentPortal() {
                 }`}
               >
                 <CreditCard className="w-3.5 h-3.5" />
-                <span className="truncate">{bankInfo.account_number && bankInfo.bank_name ? "Học phí & QR" : "Học phí"}</span>
+                <span className="truncate">
+                  {bankInfo.account_number && bankInfo.bank_name ? "Học phí & QR" : "Học phí"}
+                </span>
                 {activeStudent && !activeStudent.is_paid && (
                   <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse absolute top-1.5 right-1.5" />
                 )}
@@ -902,11 +949,15 @@ export default function ParentPortal() {
                     <p className="font-semibold text-slate-900 dark:text-white">
                       Kiểu lịch:{" "}
                       <span className="text-indigo-600 dark:text-indigo-400 font-bold">
-                        {activeStudent.schedule_preset_name || activeStudent.registered_days || "Chưa chọn lịch"}
+                        {activeStudent.schedule_preset_name ||
+                          activeStudent.registered_days ||
+                          "Chưa chọn lịch"}
                       </span>
                     </p>
                     {activeStudent.study_time_detail && (
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400">{activeStudent.study_time_detail}</p>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                        {activeStudent.study_time_detail}
+                      </p>
                     )}
                   </div>
 
@@ -957,8 +1008,8 @@ export default function ParentPortal() {
                                   lesson.isToday
                                     ? "bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-800"
                                     : isReported
-                                    ? "bg-slate-50/70 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700 opacity-80"
-                                    : "bg-white dark:bg-slate-900 border-slate-200/80 dark:border-slate-800 shadow-2xs hover:border-slate-300"
+                                      ? "bg-slate-50/70 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700 opacity-80"
+                                      : "bg-white dark:bg-slate-900 border-slate-200/80 dark:border-slate-800 shadow-2xs hover:border-slate-300"
                                 }`}
                               >
                                 <div className="flex items-center gap-3 min-w-0">
@@ -968,14 +1019,18 @@ export default function ParentPortal() {
                                       lesson.isToday
                                         ? "bg-emerald-600 text-white shadow-xs"
                                         : isReported
-                                        ? "bg-slate-200 dark:bg-slate-700 text-slate-500"
-                                        : "bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-900/40"
+                                          ? "bg-slate-200 dark:bg-slate-700 text-slate-500"
+                                          : "bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-900/40"
                                     }`}
                                   >
                                     <span className="text-[10px] uppercase font-black tracking-tight">
-                                      {lesson.dayName === "Chủ Nhật" ? "CN" : lesson.dayName.replace("Thứ ", "T")}
+                                      {lesson.dayName === "Chủ Nhật"
+                                        ? "CN"
+                                        : lesson.dayName.replace("Thứ ", "T")}
                                     </span>
-                                    <span className="text-[11px] font-black leading-none">{dateLabel}</span>
+                                    <span className="text-[11px] font-black leading-none">
+                                      {dateLabel}
+                                    </span>
                                   </div>
 
                                   <div className="min-w-0">
@@ -993,8 +1048,8 @@ export default function ParentPortal() {
                                           {lesson.makeupItem?.status === "scheduled"
                                             ? "ĐÃ XẾP BÙ"
                                             : lesson.makeupItem?.status === "completed"
-                                            ? "ĐÃ HỌC BÙ"
-                                            : "ĐÃ BÁO NGHỈ"}
+                                              ? "ĐÃ HỌC BÙ"
+                                              : "ĐÃ BÁO NGHỈ"}
                                         </span>
                                       )}
                                     </div>
@@ -1057,18 +1112,22 @@ export default function ParentPortal() {
                               {entry.type === "GRANT"
                                 ? "Cấp giờ khi đóng tiền"
                                 : entry.type === "CONSUME"
-                                ? "Học / trừ giờ"
-                                : entry.type === "ADJUST"
-                                ? "Điều chỉnh từ trung tâm"
-                                : entry.type === "EXPIRE"
-                                ? "Giờ hết hạn"
-                                : entry.type}
+                                  ? "Học / trừ giờ"
+                                  : entry.type === "ADJUST"
+                                    ? "Điều chỉnh từ trung tâm"
+                                    : entry.type === "EXPIRE"
+                                      ? "Giờ hết hạn"
+                                      : entry.type}
                             </p>
-                            {entry.note && <p className="text-[11px] text-slate-400 truncate">{entry.note}</p>}
+                            {entry.note && (
+                              <p className="text-[11px] text-slate-400 truncate">{entry.note}</p>
+                            )}
                           </div>
                           <span
                             className={`font-mono font-black shrink-0 ${
-                              entry.minutes >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500"
+                              entry.minutes >= 0
+                                ? "text-emerald-600 dark:text-emerald-400"
+                                : "text-rose-500"
                             }`}
                           >
                             {entry.minutes > 0 ? "+" : ""}
@@ -1076,7 +1135,9 @@ export default function ParentPortal() {
                               const abs = Math.abs(entry.minutes);
                               const h = Math.floor(abs / 60);
                               const m = abs % 60;
-                              return h > 0 ? `${h}h${m > 0 ? String(m).padStart(2, "0") : ""}` : `${m}p`;
+                              return h > 0
+                                ? `${h}h${m > 0 ? String(m).padStart(2, "0") : ""}`
+                                : `${m}p`;
                             })()}
                           </span>
                         </div>
@@ -1129,7 +1190,9 @@ export default function ParentPortal() {
                             )}
                           </div>
                           {mk.absence_reason && (
-                            <p className="text-xs text-slate-500 mt-1">Lý do: {mk.absence_reason}</p>
+                            <p className="text-xs text-slate-500 mt-1">
+                              Lý do: {mk.absence_reason}
+                            </p>
                           )}
                         </div>
 
@@ -1138,7 +1201,9 @@ export default function ParentPortal() {
                             onClick={() => {
                               setSchedulingItem(mk);
                               setMakeupDate("");
-                              const initialMin = mk.absence_minutes ? Math.min(mk.absence_minutes, 120) : 60;
+                              const initialMin = mk.absence_minutes
+                                ? Math.min(mk.absence_minutes, 120)
+                                : 60;
                               handleUpdateMakeupTimes("18:00", initialMin);
                             }}
                             className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shadow-xs transition shrink-0 cursor-pointer"
@@ -1159,7 +1224,9 @@ export default function ParentPortal() {
                               <span className="text-blue-700 font-semibold">{mk.makeup_time}</span>
                             )}
                           </div>
-                          {mk.note && <p className="text-slate-500 text-[11px]">Ghi chú: {mk.note}</p>}
+                          {mk.note && (
+                            <p className="text-slate-500 text-[11px]">Ghi chú: {mk.note}</p>
+                          )}
                         </div>
                       )}
                     </div>
@@ -1192,14 +1259,15 @@ export default function ParentPortal() {
                 </div>
 
                 {/* Danh sách các buổi học */}
-                {(!activeStudent.lesson_history || activeStudent.lesson_history.length === 0) ? (
+                {!activeStudent.lesson_history || activeStudent.lesson_history.length === 0 ? (
                   <div className="p-8 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 text-center space-y-2">
                     <BookOpen className="w-8 h-8 mx-auto text-slate-300 dark:text-slate-600" />
                     <p className="text-xs font-bold text-slate-700 dark:text-slate-300">
                       Chưa có ghi nhận buổi học nào
                     </p>
                     <p className="text-[11px] text-slate-400 max-w-sm mx-auto">
-                      Thầy cô phụ trách sẽ ghi nhận xét và bài tập sau mỗi buổi học trên lớp. Phụ huynh vui lòng kiểm tra lại sau nhé!
+                      Thầy cô phụ trách sẽ ghi nhận xét và bài tập sau mỗi buổi học trên lớp. Phụ
+                      huynh vui lòng kiểm tra lại sau nhé!
                     </p>
                   </div>
                 ) : (
@@ -1225,7 +1293,9 @@ export default function ParentPortal() {
                                 </span>
                               </div>
                               <p className="text-[11px] text-slate-500 mt-0.5 flex items-center gap-1.5 flex-wrap">
-                                <span>Thầy/Cô: <strong>{lesson.teacher_name}</strong></span>
+                                <span>
+                                  Thầy/Cô: <strong>{lesson.teacher_name}</strong>
+                                </span>
                                 {lesson.class_name && <span>• Lớp: {lesson.class_name}</span>}
                               </p>
                             </div>
@@ -1302,20 +1372,24 @@ export default function ParentPortal() {
             {/* TAB 2: HỌC PHÍ & VIETQR */}
             {activeParentTab === "tuition" && activeStudent && (
               <div className="space-y-3.5 animate-in fade-in duration-150">
-                <div className={`p-4.5 rounded-3xl border shadow-sm transition space-y-3.5 ${
-                  activeStudent.is_paid
-                    ? "bg-emerald-50/60 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800/60"
-                    : activeStudent.is_overdue
-                    ? "bg-rose-50/70 dark:bg-rose-950/30 border-rose-200 dark:border-rose-800/80"
-                    : "bg-white dark:bg-slate-900 border-slate-200/80 dark:border-slate-800"
-                }`}>
+                <div
+                  className={`p-4.5 rounded-3xl border shadow-sm transition space-y-3.5 ${
+                    activeStudent.is_paid
+                      ? "bg-emerald-50/60 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800/60"
+                      : activeStudent.is_overdue
+                        ? "bg-rose-50/70 dark:bg-rose-950/30 border-rose-200 dark:border-rose-800/80"
+                        : "bg-white dark:bg-slate-900 border-slate-200/80 dark:border-slate-800"
+                  }`}
+                >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold ${
-                        activeStudent.is_paid
-                          ? "bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300"
-                          : "bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300"
-                      }`}>
+                      <div
+                        className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold ${
+                          activeStudent.is_paid
+                            ? "bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300"
+                            : "bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300"
+                        }`}
+                      >
                         <CreditCard className="w-4 h-4" />
                       </div>
                       <div>
@@ -1323,7 +1397,9 @@ export default function ParentPortal() {
                           Học Phí {formatMonthDisplay(activeStudent.current_month, monthFormat)}
                         </h3>
                         <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                          {activeStudent.tuition_package_name ? `Gói: ${activeStudent.tuition_package_name}` : "Học phí chuẩn hàng tháng"}
+                          {activeStudent.tuition_package_name
+                            ? `Gói: ${activeStudent.tuition_package_name}`
+                            : "Học phí chuẩn hàng tháng"}
                         </p>
                       </div>
                     </div>
@@ -1334,13 +1410,17 @@ export default function ParentPortal() {
                         ĐÃ THANH TOÁN
                       </span>
                     ) : (
-                      <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-black border ${
-                        activeStudent.is_overdue
-                          ? "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border-rose-300 dark:border-rose-700"
-                          : "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border-amber-300 dark:border-amber-700"
-                      }`}>
+                      <span
+                        className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-black border ${
+                          activeStudent.is_overdue
+                            ? "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border-rose-300 dark:border-rose-700"
+                            : "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border-amber-300 dark:border-amber-700"
+                        }`}
+                      >
                         <AlertCircle className="w-3.5 h-3.5" />
-                        {activeStudent.is_overdue ? `Nợ ${activeStudent.unpaid_months_count} tháng` : "CẦN ĐÓNG TIỀN"}
+                        {activeStudent.is_overdue
+                          ? `Nợ ${activeStudent.unpaid_months_count} tháng`
+                          : "CẦN ĐÓNG TIỀN"}
                       </span>
                     )}
                   </div>
@@ -1349,9 +1429,20 @@ export default function ParentPortal() {
                   <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200/70 dark:border-slate-700/60 space-y-2 text-xs">
                     {/* Học phí gốc */}
                     <div className="flex items-center justify-between text-slate-600 dark:text-slate-300">
-                      <span>{activeStudent.tuition_package_name ? `Gói học phí (${activeStudent.tuition_package_name})` : "Học phí chuẩn"}:</span>
+                      <span>
+                        {activeStudent.tuition_package_name
+                          ? `Gói học phí (${activeStudent.tuition_package_name})`
+                          : "Học phí chuẩn"}
+                        :
+                      </span>
                       <span className="font-bold text-slate-900 dark:text-white">
-                        {formatVND(activeStudent.tuition_base_amount || (activeStudent.standard_tuition ? activeStudent.standard_tuition - (activeStudent.level_surcharge || 0) : activeStudent.current_tuition))}
+                        {formatVND(
+                          activeStudent.tuition_base_amount ||
+                            (activeStudent.standard_tuition
+                              ? activeStudent.standard_tuition -
+                                (activeStudent.level_surcharge || 0)
+                              : activeStudent.current_tuition)
+                        )}
                       </span>
                     </div>
 
@@ -1359,7 +1450,9 @@ export default function ParentPortal() {
                     {activeStudent.level_surcharge && activeStudent.level_surcharge > 0 ? (
                       <div className="flex items-center justify-between text-emerald-600 dark:text-emerald-400 font-semibold">
                         <span>+ Phụ thu Level ({activeStudent.level_name}):</span>
-                        <span className="font-bold">+{formatVND(activeStudent.level_surcharge)}</span>
+                        <span className="font-bold">
+                          +{formatVND(activeStudent.level_surcharge)}
+                        </span>
                       </div>
                     ) : null}
 
@@ -1375,7 +1468,7 @@ export default function ParentPortal() {
                       try {
                         const items = JSON.parse(activeStudent.override_items_json || "[]");
                         if (Array.isArray(items) && items.length > 0) {
-                          return items.map((it: any, idx: number) => (
+                          return items.map((it: DbRow, idx: number) => (
                             <div
                               key={it.id || idx}
                               className={`flex items-center justify-between text-xs font-semibold pl-2 border-l-2 ${
@@ -1384,12 +1477,21 @@ export default function ParentPortal() {
                                   : "border-blue-400 text-blue-700 dark:text-blue-400"
                               }`}
                             >
-                              <span>{it.type === "add" ? "+" : "-"} {it.name}:</span>
-                              <span>{it.type === "add" ? "+" : "-"}{formatVND(it.amount)}</span>
+                              <span>
+                                {it.type === "add" ? "+" : "-"} {it.name}:
+                              </span>
+                              <span>
+                                {it.type === "add" ? "+" : "-"}
+                                {formatVND(it.amount)}
+                              </span>
                             </div>
                           ));
                         }
-                      } catch {}
+                      } catch (err) {
+                        log.debug("Bỏ qua lỗi không ảnh hưởng luồng chính (ParentPortal)", {
+                          error: err,
+                        });
+                      }
                       return null;
                     })()}
 
@@ -1402,12 +1504,18 @@ export default function ParentPortal() {
 
                     <div className="flex items-center justify-between font-black text-sm pt-2 border-t border-slate-100 dark:border-slate-700">
                       <span className="text-slate-900 dark:text-white">Tổng số tiền cần nộp:</span>
-                      <span className={activeStudent.is_paid ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}>
+                      <span
+                        className={
+                          activeStudent.is_paid
+                            ? "text-emerald-600 dark:text-emerald-400"
+                            : "text-rose-600 dark:text-rose-400"
+                        }
+                      >
                         {activeStudent.is_paid
                           ? "0 đ (Đã hoàn tất)"
                           : activeStudent.is_overdue && activeStudent.total_tuition_due
-                          ? formatVND(activeStudent.total_tuition_due)
-                          : formatVND(activeStudent.current_tuition)}
+                            ? formatVND(activeStudent.total_tuition_due)
+                            : formatVND(activeStudent.current_tuition)}
                       </span>
                     </div>
                   </div>
@@ -1419,6 +1527,7 @@ export default function ParentPortal() {
                       {bankInfo.account_number && bankInfo.bank_name ? (
                         <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700 flex flex-col sm:flex-row items-center gap-3.5">
                           <div className="w-32 h-32 rounded-xl bg-white p-1.5 shadow-xs border border-slate-200 shrink-0 flex items-center justify-center">
+                            {/* eslint-disable-next-line @next/next/no-img-element -- Ảnh QR sinh động từ VietQR, không thể tối ưu qua next/image. */}
                             <img
                               src={`https://img.vietqr.io/image/${bankInfo.bank_name.trim().toLowerCase()}-${bankInfo.account_number.trim()}-compact2.png?amount=${activeStudent.is_overdue && activeStudent.total_tuition_due ? activeStudent.total_tuition_due : activeStudent.current_tuition}&addInfo=${bankInfo.prefix || "HP"}+${activeStudent.student_code || activeStudent.phone}&accountName=${encodeURIComponent(activeStudent.school_name || "TRUNG TAM")}`}
                               alt="Mã QR Chuyển Khoản Học Phí"
@@ -1428,14 +1537,25 @@ export default function ParentPortal() {
 
                           <div className="space-y-2 text-xs text-slate-600 dark:text-slate-300 flex-1 w-full">
                             <p className="font-bold text-slate-900 dark:text-white flex items-center gap-1 text-xs">
-                              <QrCode className="w-3.5 h-3.5 text-emerald-600" /> Quét mã VietQR chuyển khoản (Tự động đối soát):
+                              <QrCode className="w-3.5 h-3.5 text-emerald-600" /> Quét mã VietQR
+                              chuyển khoản (Tự động đối soát):
                             </p>
                             <div className="flex items-center justify-between bg-white dark:bg-slate-900 px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700">
-                              <span>Ngân hàng: <strong className="text-slate-900 dark:text-white uppercase">{bankInfo.bank_name}</strong></span>
+                              <span>
+                                Ngân hàng:{" "}
+                                <strong className="text-slate-900 dark:text-white uppercase">
+                                  {bankInfo.bank_name}
+                                </strong>
+                              </span>
                             </div>
 
                             <div className="flex items-center justify-between bg-white dark:bg-slate-900 px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700">
-                              <span>STK: <strong className="text-slate-900 dark:text-white font-mono">{bankInfo.account_number}</strong></span>
+                              <span>
+                                STK:{" "}
+                                <strong className="text-slate-900 dark:text-white font-mono">
+                                  {bankInfo.account_number}
+                                </strong>
+                              </span>
                               <button
                                 type="button"
                                 onClick={() => {
@@ -1450,11 +1570,19 @@ export default function ParentPortal() {
                             </div>
 
                             <div className="flex items-center justify-between bg-white dark:bg-slate-900 px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700">
-                              <span className="truncate mr-1">Cú pháp: <strong className="text-emerald-700 dark:text-emerald-400 font-mono font-black">{bankInfo.prefix || "HP"} {activeStudent.student_code || activeStudent.phone}</strong></span>
+                              <span className="truncate mr-1">
+                                Cú pháp:{" "}
+                                <strong className="text-emerald-700 dark:text-emerald-400 font-mono font-black">
+                                  {bankInfo.prefix || "HP"}{" "}
+                                  {activeStudent.student_code || activeStudent.phone}
+                                </strong>
+                              </span>
                               <button
                                 type="button"
                                 onClick={() => {
-                                  navigator.clipboard.writeText(`${bankInfo.prefix || "HP"} ${activeStudent.student_code || activeStudent.phone}`);
+                                  navigator.clipboard.writeText(
+                                    `${bankInfo.prefix || "HP"} ${activeStudent.student_code || activeStudent.phone}`
+                                  );
                                   showToast("Đã copy cú pháp chuyển khoản!", "success");
                                 }}
                                 className="text-[11px] font-bold text-emerald-600 hover:text-emerald-700 flex items-center gap-1 shrink-0"
@@ -1465,7 +1593,8 @@ export default function ParentPortal() {
                             </div>
 
                             <p className="text-[11px] text-emerald-700 dark:text-emerald-300 font-semibold italic">
-                              Hệ thống tự động ghi nhận học phí ngay khi chuyển khoản đúng cú pháp trên.
+                              Hệ thống tự động ghi nhận học phí ngay khi chuyển khoản đúng cú pháp
+                              trên.
                             </p>
                           </div>
                         </div>
@@ -1473,9 +1602,12 @@ export default function ParentPortal() {
                         <div className="p-3.5 rounded-2xl bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/60 text-xs text-amber-900 dark:text-amber-200 flex items-start gap-2.5">
                           <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                           <div className="space-y-1">
-                            <p className="font-bold">Quý Phụ Huynh vui lòng đóng học phí cho bé tại văn phòng trung tâm:</p>
+                            <p className="font-bold">
+                              Quý Phụ Huynh vui lòng đóng học phí cho bé tại văn phòng trung tâm:
+                            </p>
                             <p className="text-[11px] opacity-90 leading-relaxed">
-                              Quý Phụ Huynh có thể đóng trực tiếp bằng tiền mặt hoặc liên hệ bộ phận kế toán trung tâm để hoàn tất học phí cho bé.
+                              Quý Phụ Huynh có thể đóng trực tiếp bằng tiền mặt hoặc liên hệ bộ phận
+                              kế toán trung tâm để hoàn tất học phí cho bé.
                             </p>
                           </div>
                         </div>
@@ -1486,7 +1618,7 @@ export default function ParentPortal() {
                       <button
                         type="button"
                         onClick={() => {
-                          setReceiptPaymentRecord(activeStudent.current_payment_record);
+                          setReceiptPaymentRecord(activeStudent.current_payment_record ?? null);
                           setIsReceiptOpen(true);
                         }}
                         className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 font-bold text-xs border border-indigo-200 dark:border-indigo-900/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition cursor-pointer"
@@ -1532,7 +1664,9 @@ export default function ParentPortal() {
                           : "bg-amber-500 hover:bg-amber-600 text-white shadow-xs"
                       }`}
                     >
-                      <span>{activeStudent.zalo_chat_id ? "Đã kết nối (Sửa)" : "Kết nối ngay"}</span>
+                      <span>
+                        {activeStudent.zalo_chat_id ? "Đã kết nối (Sửa)" : "Kết nối ngay"}
+                      </span>
                     </button>
                   </div>
                 </div>
@@ -1553,7 +1687,9 @@ export default function ParentPortal() {
                         <Phone className="w-4 h-4 text-emerald-600" />
                         <span>Hotline Trung Tâm:</span>
                       </span>
-                      <span className="font-mono">{activeStudent.school_phone || "0909123456"}</span>
+                      <span className="font-mono">
+                        {activeStudent.school_phone || "0909123456"}
+                      </span>
                     </a>
 
                     {activeStudent.teacher_phone && (
@@ -1618,9 +1754,17 @@ export default function ParentPortal() {
             {/* Body: Scrollable */}
             <div className="p-5 overflow-y-auto flex-1 space-y-4">
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Chọn <strong className="text-slate-700 dark:text-slate-200">buổi học cần nghỉ</strong> trong lịch sắp tới của{" "}
-                <strong className="text-emerald-700 dark:text-emerald-400">{activeStudent.name}</strong>. Giờ của buổi đó{" "}
-                <strong className="text-indigo-600 dark:text-indigo-400">vẫn nằm trong Ví Giờ</strong> để xếp lịch học bù — không mất giờ!
+                Chọn{" "}
+                <strong className="text-slate-700 dark:text-slate-200">buổi học cần nghỉ</strong>{" "}
+                trong lịch sắp tới của{" "}
+                <strong className="text-emerald-700 dark:text-emerald-400">
+                  {activeStudent.name}
+                </strong>
+                . Giờ của buổi đó{" "}
+                <strong className="text-indigo-600 dark:text-indigo-400">
+                  vẫn nằm trong Ví Giờ
+                </strong>{" "}
+                để xếp lịch học bù — không mất giờ!
               </p>
 
               {/* Danh sách buổi học sắp tới */}
@@ -1653,8 +1797,8 @@ export default function ParentPortal() {
                           isDisabled
                             ? "opacity-45 bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 cursor-not-allowed"
                             : isSelected
-                            ? "bg-amber-50 dark:bg-amber-950/40 border-amber-500 ring-2 ring-amber-500/20 cursor-pointer active:scale-[0.99]"
-                            : "bg-white dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 hover:border-amber-300 cursor-pointer active:scale-[0.99]"
+                              ? "bg-amber-50 dark:bg-amber-950/40 border-amber-500 ring-2 ring-amber-500/20 cursor-pointer active:scale-[0.99]"
+                              : "bg-white dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 hover:border-amber-300 cursor-pointer active:scale-[0.99]"
                         }`}
                       >
                         <div className="flex items-center gap-3 min-w-0">
@@ -1664,8 +1808,8 @@ export default function ParentPortal() {
                               isSelected
                                 ? "border-amber-500 bg-amber-500"
                                 : isDisabled
-                                ? "border-slate-200 dark:border-slate-700"
-                                : "border-slate-300 dark:border-slate-600"
+                                  ? "border-slate-200 dark:border-slate-700"
+                                  : "border-slate-300 dark:border-slate-600"
                             }`}
                           >
                             {isSelected && <div className="w-1.5 h-1.5 bg-white rounded-full" />}
@@ -1774,7 +1918,10 @@ export default function ParentPortal() {
             </div>
 
             <p className="text-xs text-slate-500">
-              Bù cho buổi nghỉ ngày: <span className="font-bold text-slate-800 dark:text-white">{schedulingItem.absence_date}</span>
+              Bù cho buổi nghỉ ngày:{" "}
+              <span className="font-bold text-slate-800 dark:text-white">
+                {schedulingItem.absence_date}
+              </span>
             </p>
 
             <form onSubmit={handleScheduleMakeup} className="space-y-4">
@@ -1811,7 +1958,8 @@ export default function ParentPortal() {
                     </div>
                   ) : occupancyClasses.length === 0 ? (
                     <div className="p-2.5 text-xs text-center text-slate-500 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl">
-                      Chưa có lớp học cố định trong ngày {dayNameVi}. Phụ huynh chọn ca mở cửa bên dưới.
+                      Chưa có lớp học cố định trong ngày {dayNameVi}. Phụ huynh chọn ca mở cửa bên
+                      dưới.
                     </div>
                   ) : (
                     <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
@@ -1824,16 +1972,19 @@ export default function ParentPortal() {
                               if (!cls.is_full) {
                                 setSelectedClassId(cls.class_id);
                                 // Đồng bộ tự động slot tương ứng của lớp
-                                const matchedSlot = occupancySlots.find((s) => {
-                                  if (cls.shifts && cls.shifts.length > 0) {
-                                    const sStart = cls.shifts[0].start_time;
-                                    const sEnd = cls.shifts[cls.shifts.length - 1].end_time;
-                                    const slotS = s.start_time || s.time_range.split("-")[0]?.trim() || "";
-                                    const slotE = s.end_time || s.time_range.split("-")[1]?.trim() || "";
-                                    return slotS <= sStart && slotE >= sEnd;
-                                  }
-                                  return false;
-                                }) || occupancySlots[0];
+                                const matchedSlot =
+                                  occupancySlots.find((s) => {
+                                    if (cls.shifts && cls.shifts.length > 0) {
+                                      const sStart = cls.shifts[0].start_time;
+                                      const sEnd = cls.shifts[cls.shifts.length - 1].end_time;
+                                      const slotS =
+                                        s.start_time || s.time_range.split("-")[0]?.trim() || "";
+                                      const slotE =
+                                        s.end_time || s.time_range.split("-")[1]?.trim() || "";
+                                      return slotS <= sStart && slotE >= sEnd;
+                                    }
+                                    return false;
+                                  }) || occupancySlots[0];
                                 if (matchedSlot) {
                                   setSelectedSlotId(matchedSlot.slot_id);
                                   setMakeupTime(matchedSlot.time_range);
@@ -1844,16 +1995,21 @@ export default function ParentPortal() {
                               cls.is_full
                                 ? "opacity-60 bg-rose-50/40 dark:bg-rose-950/20 border-rose-200 cursor-not-allowed select-none"
                                 : isPicked
-                                ? "bg-amber-50 dark:bg-amber-950/40 border-amber-500 ring-2 ring-amber-500/20"
-                                : "bg-white dark:bg-slate-800 border-slate-200 hover:border-amber-300"
+                                  ? "bg-amber-50 dark:bg-amber-950/40 border-amber-500 ring-2 ring-amber-500/20"
+                                  : "bg-white dark:bg-slate-800 border-slate-200 hover:border-amber-300"
                             }`}
                           >
                             <div className="flex items-center justify-between">
                               <span className="font-bold text-slate-900 dark:text-white">
-                                {cls.class_name} ({cls.subject_name} {cls.room ? `• ${cls.room}` : ""})
+                                {cls.class_name} ({cls.subject_name}{" "}
+                                {cls.room ? `• ${cls.room}` : ""})
                               </span>
-                              <span className={`text-[10px] font-bold ${cls.is_full ? "text-rose-600" : "text-emerald-600"}`}>
-                                {cls.is_full ? `Hết chỗ (${cls.student_count}/${cls.max_capacity})` : `Còn ${cls.remaining_slots} chỗ`}
+                              <span
+                                className={`text-[10px] font-bold ${cls.is_full ? "text-rose-600" : "text-emerald-600"}`}
+                              >
+                                {cls.is_full
+                                  ? `Hết chỗ (${cls.student_count}/${cls.max_capacity})`
+                                  : `Còn ${cls.remaining_slots} chỗ`}
                               </span>
                             </div>
 
@@ -1861,7 +2017,10 @@ export default function ParentPortal() {
                               <div className="flex items-center gap-1 flex-wrap text-[10px] text-slate-500 dark:text-slate-400">
                                 <span className="font-medium text-slate-400">Ca GV:</span>
                                 {cls.shifts.map((sh, idx) => (
-                                  <span key={idx} className="bg-slate-100 dark:bg-slate-700 px-1.5 py-0.2 rounded font-semibold text-slate-700 dark:text-slate-200">
+                                  <span
+                                    key={idx}
+                                    className="bg-slate-100 dark:bg-slate-700 px-1.5 py-0.2 rounded font-semibold text-slate-700 dark:text-slate-200"
+                                  >
                                     {sh.teacher_name} ({sh.start_time} - {sh.end_time})
                                   </span>
                                 ))}
@@ -1890,8 +2049,11 @@ export default function ParentPortal() {
 
                   {/* A. Gợi ý chọn nhanh theo ca giáo viên của lớp */}
                   {(() => {
-                    const pickedClass = occupancyClasses.find((c) => c.class_id === selectedClassId) || occupancyClasses[0];
-                    if (!pickedClass || !pickedClass.shifts || pickedClass.shifts.length === 0) return null;
+                    const pickedClass =
+                      occupancyClasses.find((c) => c.class_id === selectedClassId) ||
+                      occupancyClasses[0];
+                    if (!pickedClass || !pickedClass.shifts || pickedClass.shifts.length === 0)
+                      return null;
                     return (
                       <div className="space-y-1.5">
                         <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 block">
@@ -1907,19 +2069,22 @@ export default function ParentPortal() {
                                 disabled={sh.is_full}
                                 onClick={() => {
                                   handleUpdateMakeupTimes(sh.start_time, makeupMinutes);
-                                  const matchedSlot = occupancySlots.find((s) => {
-                                    const slotS = s.start_time || s.time_range.split("-")[0]?.trim() || "";
-                                    const slotE = s.end_time || s.time_range.split("-")[1]?.trim() || "";
-                                    return slotS <= sh.start_time && slotE >= sh.start_time;
-                                  }) || occupancySlots[0];
+                                  const matchedSlot =
+                                    occupancySlots.find((s) => {
+                                      const slotS =
+                                        s.start_time || s.time_range.split("-")[0]?.trim() || "";
+                                      const slotE =
+                                        s.end_time || s.time_range.split("-")[1]?.trim() || "";
+                                      return slotS <= sh.start_time && slotE >= sh.start_time;
+                                    }) || occupancySlots[0];
                                   if (matchedSlot) setSelectedSlotId(matchedSlot.slot_id);
                                 }}
                                 className={`p-2.5 rounded-xl border text-left transition flex items-center justify-between gap-2 cursor-pointer ${
                                   sh.is_full
                                     ? "opacity-50 bg-rose-50/50 dark:bg-rose-950/20 border-rose-200 cursor-not-allowed"
                                     : isShiftPicked
-                                    ? "bg-amber-100/80 dark:bg-amber-950/60 border-amber-500 ring-2 ring-amber-500/30 text-amber-900 dark:text-amber-200"
-                                    : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 hover:border-amber-400"
+                                      ? "bg-amber-100/80 dark:bg-amber-950/60 border-amber-500 ring-2 ring-amber-500/30 text-amber-900 dark:text-amber-200"
+                                      : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 hover:border-amber-400"
                                 }`}
                               >
                                 <div>
@@ -1932,12 +2097,16 @@ export default function ParentPortal() {
                                   </div>
                                 </div>
                                 <div className="text-right">
-                                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                                    sh.is_full
-                                      ? "bg-rose-100 text-rose-700 dark:bg-rose-900/50 dark:text-rose-200"
-                                      : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-200"
-                                  }`}>
-                                    {sh.is_full ? `Hết chỗ (${sh.student_count ?? 0}/${sh.max_capacity ?? 10})` : `Còn ${sh.remaining_slots ?? ((sh.max_capacity ?? 10) - (sh.student_count || 0))} chỗ`}
+                                  <span
+                                    className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                                      sh.is_full
+                                        ? "bg-rose-100 text-rose-700 dark:bg-rose-900/50 dark:text-rose-200"
+                                        : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-200"
+                                    }`}
+                                  >
+                                    {sh.is_full
+                                      ? `Hết chỗ (${sh.student_count ?? 0}/${sh.max_capacity ?? 10})`
+                                      : `Còn ${sh.remaining_slots ?? (sh.max_capacity ?? 10) - (sh.student_count || 0)} chỗ`}
                                   </span>
                                 </div>
                               </button>
@@ -2002,7 +2171,9 @@ export default function ParentPortal() {
                               }`}
                             >
                               <div>{min} phút</div>
-                              <div className="text-[9px] font-normal opacity-80">{min / 60} tiếng</div>
+                              <div className="text-[9px] font-normal opacity-80">
+                                {min / 60} tiếng
+                              </div>
                             </button>
                           );
                         })}
@@ -2012,7 +2183,9 @@ export default function ParentPortal() {
 
                   {/* C. Sĩ số thực tế tại khung giờ đã chọn */}
                   {(() => {
-                    const pickedClass = occupancyClasses.find((c) => c.class_id === selectedClassId) || occupancyClasses[0];
+                    const pickedClass =
+                      occupancyClasses.find((c) => c.class_id === selectedClassId) ||
+                      occupancyClasses[0];
                     if (!pickedClass) return null;
                     const overlappingStudents = (pickedClass.students_in_day || []).filter((st) =>
                       isTimeOverlap(makeupStartTime, makeupEndTime, st.start_time, st.end_time)
@@ -2021,16 +2194,19 @@ export default function ParentPortal() {
                     const activeShift = (pickedClass.shifts || []).find((sh) =>
                       isTimeOverlap(makeupStartTime, makeupEndTime, sh.start_time, sh.end_time)
                     );
-                    const currentMaxCap = activeShift?.max_capacity || pickedClass.max_capacity || 15;
+                    const currentMaxCap =
+                      activeShift?.max_capacity || pickedClass.max_capacity || 15;
                     const currentRemaining = Math.max(0, currentMaxCap - currentOverlapCount);
                     const isTimeRangeFull = currentOverlapCount >= currentMaxCap;
 
                     return (
-                      <div className={`p-2.5 rounded-xl border text-xs flex items-center justify-between ${
-                        isTimeRangeFull
-                          ? "bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-900/60 text-rose-800 dark:text-rose-200"
-                          : "bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-900/60 text-emerald-800 dark:text-emerald-200"
-                      }`}>
+                      <div
+                        className={`p-2.5 rounded-xl border text-xs flex items-center justify-between ${
+                          isTimeRangeFull
+                            ? "bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-900/60 text-rose-800 dark:text-rose-200"
+                            : "bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-900/60 text-emerald-800 dark:text-emerald-200"
+                        }`}
+                      >
                         <div>
                           <span className="font-bold block">
                             Sĩ số thực tế ({makeupStartTime} - {makeupEndTime}):
@@ -2042,11 +2218,13 @@ export default function ParentPortal() {
                           </span>
                         </div>
                         <div className="text-right shrink-0">
-                          <span className={`px-2.5 py-1 rounded-lg font-bold text-xs ${
-                            isTimeRangeFull
-                              ? "bg-rose-200 dark:bg-rose-900 text-rose-900 dark:text-rose-100"
-                              : "bg-emerald-200 dark:bg-emerald-900 text-emerald-900 dark:text-emerald-100"
-                          }`}>
+                          <span
+                            className={`px-2.5 py-1 rounded-lg font-bold text-xs ${
+                              isTimeRangeFull
+                                ? "bg-rose-200 dark:bg-rose-900 text-rose-900 dark:text-rose-100"
+                                : "bg-emerald-200 dark:bg-emerald-900 text-emerald-900 dark:text-emerald-100"
+                            }`}
+                          >
                             {isTimeRangeFull
                               ? `Hết chỗ (${currentOverlapCount}/${currentMaxCap})`
                               : `Còn ${currentRemaining} chỗ (${currentOverlapCount}/${currentMaxCap})`}
@@ -2061,10 +2239,17 @@ export default function ParentPortal() {
               {/* Thông báo đổi ca giáo viên (nếu học vắt qua 2 ca của 2 GV) hoặc thông tin giáo viên phụ trách */}
               {(() => {
                 if (!makeupStartTime || !makeupEndTime) return null;
-                const pickedClass = occupancyClasses.find((c) => c.class_id === selectedClassId) || occupancyClasses[0];
-                if (!pickedClass || !pickedClass.shifts || pickedClass.shifts.length === 0) return null;
+                const pickedClass =
+                  occupancyClasses.find((c) => c.class_id === selectedClassId) ||
+                  occupancyClasses[0];
+                if (!pickedClass || !pickedClass.shifts || pickedClass.shifts.length === 0)
+                  return null;
 
-                const detection = detectShiftTeachers(makeupStartTime, makeupEndTime, pickedClass.shifts);
+                const detection = detectShiftTeachers(
+                  makeupStartTime,
+                  makeupEndTime,
+                  pickedClass.shifts
+                );
 
                 if (detection.hasMultipleTeachers) {
                   return (
@@ -2082,7 +2267,8 @@ export default function ParentPortal() {
                       <div className="flex items-center gap-1.5">
                         <GraduationCap className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
                         <span>
-                          Giáo viên đứng lớp: <strong>{detection.singleTeacherName}</strong> ({makeupStartTime} - {makeupEndTime})
+                          Giáo viên đứng lớp: <strong>{detection.singleTeacherName}</strong> (
+                          {makeupStartTime} - {makeupEndTime})
                         </span>
                       </div>
                     </div>
@@ -2122,7 +2308,8 @@ export default function ParentPortal() {
                     const activeShift = (pickedClass.shifts || []).find((sh) =>
                       isTimeOverlap(makeupStartTime, makeupEndTime, sh.start_time, sh.end_time)
                     );
-                    const currentMaxCap = activeShift?.max_capacity || pickedClass.max_capacity || 15;
+                    const currentMaxCap =
+                      activeShift?.max_capacity || pickedClass.max_capacity || 15;
                     isRangeFull = overlappingStudents.length >= currentMaxCap;
                   }
                   const isSubmitDisabled = isSubmittingMakeup || !makeupDate || isRangeFull;
@@ -2133,7 +2320,11 @@ export default function ParentPortal() {
                       disabled={isSubmitDisabled}
                       className="px-4 py-2 text-xs font-bold rounded-xl bg-amber-600 hover:bg-amber-700 text-white shadow-md shadow-amber-600/30 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                     >
-                      {isSubmittingMakeup ? "Đang xếp lịch..." : isRangeFull ? "Khung Giờ Đã Hết Chỗ" : "Xác Nhận Lịch Học Bù"}
+                      {isSubmittingMakeup
+                        ? "Đang xếp lịch..."
+                        : isRangeFull
+                          ? "Khung Giờ Đã Hết Chỗ"
+                          : "Xác Nhận Lịch Học Bù"}
                     </button>
                   );
                 })()}
@@ -2161,7 +2352,8 @@ export default function ParentPortal() {
             </div>
 
             <p className="text-xs text-slate-500">
-              Mọi ý kiến của quý phụ huynh về giáo viên, cơ sở vật chất, lịch học hoặc học phí đều giúp trung tâm nâng cao chất lượng phục vụ các bé tốt hơn.
+              Mọi ý kiến của quý phụ huynh về giáo viên, cơ sở vật chất, lịch học hoặc học phí đều
+              giúp trung tâm nâng cao chất lượng phục vụ các bé tốt hơn.
             </p>
 
             <form onSubmit={handleSubmitFeedback} className="space-y-3.5">
@@ -2172,7 +2364,11 @@ export default function ParentPortal() {
                 </label>
                 <select
                   value={feedbackCategory}
-                  onChange={(e) => setFeedbackCategory(e.target.value as any)}
+                  onChange={(e) =>
+                    setFeedbackCategory(
+                      e.target.value as "teaching" | "facility" | "tuition" | "schedule" | "other"
+                    )
+                  }
                   className="w-full px-3 py-2 text-xs font-bold rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-rose-500"
                 >
                   <option value="teaching">Chất lượng giảng dạy & Giáo viên</option>
@@ -2209,12 +2405,12 @@ export default function ParentPortal() {
                     {feedbackRating === 5
                       ? "Rất hài lòng (5/5)"
                       : feedbackRating === 4
-                      ? "Hài lòng (4/5)"
-                      : feedbackRating === 3
-                      ? "Bình thường (3/5)"
-                      : feedbackRating === 2
-                      ? "Chưa hài lòng (2/5)"
-                      : "Cần cải thiện (1/5)"}
+                        ? "Hài lòng (4/5)"
+                        : feedbackRating === 3
+                          ? "Bình thường (3/5)"
+                          : feedbackRating === 2
+                            ? "Chưa hài lòng (2/5)"
+                            : "Cần cải thiện (1/5)"}
                   </span>
                 </div>
               </div>
@@ -2305,7 +2501,8 @@ export default function ParentPortal() {
                   <div>
                     <span className="font-bold">Bot Zalo trung tâm:</span> {zaloBotInfo.name}
                     <p className="text-[11px] text-emerald-700 dark:text-emerald-400 mt-0.5">
-                      Phụ huynh mở ứng dụng Zalo, tìm bot <strong>{zaloBotInfo.name}</strong> và gửi tin nhắn để kích hoạt nhận lịch học, báo nghỉ và nhắc học phí tự động.
+                      Phụ huynh mở ứng dụng Zalo, tìm bot <strong>{zaloBotInfo.name}</strong> và gửi
+                      tin nhắn để kích hoạt nhận lịch học, báo nghỉ và nhắc học phí tự động.
                     </p>
                   </div>
                 </div>
@@ -2319,7 +2516,10 @@ export default function ParentPortal() {
                 <ol className="list-decimal list-inside space-y-1 text-slate-600 dark:text-slate-400 text-[11px]">
                   <li>Mở Zalo và tìm kiếm Bot trung tâm (hoặc số Zalo trung tâm).</li>
                   <li>Gửi tin nhắn chào Bot để nhận mã cuộc trò chuyện (Chat ID).</li>
-                  <li>Nhập mã <strong>Chat ID</strong> hoặc số điện thoại Zalo của phụ huynh vào ô dưới.</li>
+                  <li>
+                    Nhập mã <strong>Chat ID</strong> hoặc số điện thoại Zalo của phụ huynh vào ô
+                    dưới.
+                  </li>
                 </ol>
               </div>
 

@@ -11,9 +11,22 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     const { id } = await params;
     const body = await req.json();
 
-    const { name, phone, email, specialty, color, max_students, assigned_slot_ids, working_shifts_json, is_active } = body;
+    const {
+      name,
+      phone,
+      email,
+      specialty,
+      color,
+      max_students,
+      assigned_slot_ids,
+      working_shifts_json,
+      is_active,
+    } = body;
     const slotJson = JSON.stringify(Array.isArray(assigned_slot_ids) ? assigned_slot_ids : []);
-    const shiftJson = typeof working_shifts_json === "string" ? working_shifts_json : JSON.stringify(working_shifts_json || []);
+    const shiftJson =
+      typeof working_shifts_json === "string"
+        ? working_shifts_json
+        : JSON.stringify(working_shifts_json || []);
 
     try {
       await db.execute({

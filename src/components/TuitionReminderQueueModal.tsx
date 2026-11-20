@@ -6,27 +6,15 @@ import { formatVND, formatMonthDisplay } from "@/lib/tuition";
 import {
   X,
   MessageSquare,
-  Send,
   CheckCircle2,
   Clock,
   AlertTriangle,
-  AlertCircle,
-  Copy,
-  ExternalLink,
   Search,
   RefreshCw,
-  Filter,
-  User,
   Phone,
-  DollarSign,
   Bot,
-  Sparkles,
-  Check,
   Eye,
-  Calendar,
   QrCode,
-  ArrowRight,
-  ShieldAlert,
 } from "lucide-react";
 import { useToast } from "@/components/Toast";
 import { MonthPicker } from "./MonthPicker";
@@ -70,7 +58,6 @@ export const TuitionReminderQueueModal: React.FC<TuitionReminderQueueModalProps>
   sepayAccountNumber = "",
   sepayPrefix = "HP",
   currentAdminName = "Lễ tân",
-  onRefreshData,
 }) => {
   const { showToast } = useToast();
 
@@ -83,8 +70,10 @@ export const TuitionReminderQueueModal: React.FC<TuitionReminderQueueModalProps>
   const [remindersMap, setRemindersMap] = useState<Record<string, StudentReminderData>>({});
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>("");
-  const [activeFilter, setActiveFilter] = useState<"all" | "pending_today" | "reminded_today" | "overdue">("all");
-  
+  const [activeFilter, setActiveFilter] = useState<
+    "all" | "pending_today" | "reminded_today" | "overdue"
+  >("all");
+
   // Custom message preview state
   const [previewStudent, setPreviewStudent] = useState<Student | null>(null);
   const [customMessage, setCustomMessage] = useState<string>("");
@@ -94,6 +83,7 @@ export const TuitionReminderQueueModal: React.FC<TuitionReminderQueueModalProps>
   // Sync initial month
   useEffect(() => {
     if (initialMonth) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Đồng bộ state khi mở modal hoặc nạp dữ liệu; sẽ chuyển sang pattern key-remount ở Giai đoạn 2.
       setSelectedMonth(initialMonth);
     }
   }, [initialMonth]);
@@ -102,14 +92,17 @@ export const TuitionReminderQueueModal: React.FC<TuitionReminderQueueModalProps>
   const fetchReminders = async (monthToFetch: string) => {
     try {
       setIsLoading(true);
-      const res = await fetch(`/api/admin/tuition-reminders?month=${monthToFetch}&school_id=${schoolId}`, {
-        headers: getAuthHeaders(),
-      });
+      const res = await fetch(
+        `/api/admin/tuition-reminders?month=${monthToFetch}&school_id=${schoolId}`,
+        {
+          headers: getAuthHeaders(),
+        }
+      );
       const json = await res.json();
       if (json.success && json.reminders_map) {
         setRemindersMap(json.reminders_map);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       log.error("Fetch reminders error:", { error: err });
     } finally {
       setIsLoading(false);
@@ -118,8 +111,10 @@ export const TuitionReminderQueueModal: React.FC<TuitionReminderQueueModalProps>
 
   useEffect(() => {
     if (isOpen) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Đồng bộ state khi mở modal hoặc nạp dữ liệu; sẽ chuyển sang pattern key-remount ở Giai đoạn 2.
       fetchReminders(selectedMonth);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Loader là hàm khai báo trong component, chỉ gọi khi mở modal/mount; thêm vào deps sẽ gây gọi lại vô hạn. Sẽ chuyển sang useCallback ở Giai đoạn 2.
   }, [isOpen, selectedMonth]);
 
   // Lọc danh sách học sinh cần đóng học phí (chưa đóng hoặc nợ dồn)
@@ -128,7 +123,9 @@ export const TuitionReminderQueueModal: React.FC<TuitionReminderQueueModalProps>
       // Chỉ tính học sinh đang học (hoặc có nợ)
       const isStudying = (s.status || "studying") === "studying";
       const isUnpaid = s.payment_status === "unpaid";
-      const hasDebt = (s.total_tuition_due && s.total_tuition_due > 0) || (s.previous_debt_amount && s.previous_debt_amount > 0);
+      const hasDebt =
+        (s.total_tuition_due && s.total_tuition_due > 0) ||
+        (s.previous_debt_amount && s.previous_debt_amount > 0);
       return (isStudying && isUnpaid) || hasDebt;
     });
   }, [students]);
@@ -141,7 +138,8 @@ export const TuitionReminderQueueModal: React.FC<TuitionReminderQueueModalProps>
     let botAvailableCount = 0;
 
     for (const st of unpaidStudents) {
-      const due = st.is_overdue && st.total_tuition_due ? st.total_tuition_due : st.current_tuition || 0;
+      const due =
+        st.is_overdue && st.total_tuition_due ? st.total_tuition_due : st.current_tuition || 0;
       totalDebt += due;
 
       if (st.is_overdue) {
@@ -203,14 +201,18 @@ export const TuitionReminderQueueModal: React.FC<TuitionReminderQueueModalProps>
   // Hàm tạo mẫu tin nhắn chuẩn
   const generateMessage = (student: Student) => {
     const monthDisplay = formatMonthDisplay(selectedMonth, monthFormat);
-    const amount = student.is_overdue && student.total_tuition_due ? student.total_tuition_due : student.current_tuition || 0;
+    const amount =
+      student.is_overdue && student.total_tuition_due
+        ? student.total_tuition_due
+        : student.current_tuition || 0;
     const amountStr = formatVND(amount);
     const codeOrPhone = student.student_code || student.phone || "";
     const vietQrLink = getVietQrUrl(amount, codeOrPhone);
 
-    const overdueLine = student.is_overdue && student.unpaid_months_count && student.unpaid_months_count > 1
-      ? `  (Đã bao gồm nợ cũ ${student.unpaid_months_count - 1} tháng: ${formatVND(student.previous_debt_amount)})\n`
-      : "";
+    const overdueLine =
+      student.is_overdue && student.unpaid_months_count && student.unpaid_months_count > 1
+        ? `  (Đã bao gồm nợ cũ ${student.unpaid_months_count - 1} tháng: ${formatVND(student.previous_debt_amount)})\n`
+        : "";
 
     let bankBlock = "";
     if (sepayBankName && sepayAccountNumber) {
@@ -237,7 +239,10 @@ ${schoolName} xin trân trọng cảm ơn!`;
   // Xử lý gửi Zalo thủ công (Nút bấm chính 2 giây)
   const handleSendZaloManual = async (student: Student, overrideText?: string) => {
     const message = overrideText || generateMessage(student);
-    const amount = student.is_overdue && student.total_tuition_due ? student.total_tuition_due : student.current_tuition || 0;
+    const amount =
+      student.is_overdue && student.total_tuition_due
+        ? student.total_tuition_due
+        : student.current_tuition || 0;
     const rawPhone = student.phone ? student.phone.replace(/\D/g, "") : "";
 
     // 1. Sao chép nội dung vào clipboard
@@ -304,7 +309,10 @@ ${schoolName} xin trân trọng cảm ơn!`;
     }
 
     const message = overrideText || generateMessage(student);
-    const amount = student.is_overdue && student.total_tuition_due ? student.total_tuition_due : student.current_tuition || 0;
+    const amount =
+      student.is_overdue && student.total_tuition_due
+        ? student.total_tuition_due
+        : student.current_tuition || 0;
 
     try {
       setIsSendingBotSingle(student.id);
@@ -367,7 +375,8 @@ ${schoolName} xin trân trọng cảm ơn!`;
     try {
       setIsSendingBotBatch(true);
       const items = candidates.map((st) => {
-        const amount = st.is_overdue && st.total_tuition_due ? st.total_tuition_due : st.current_tuition || 0;
+        const amount =
+          st.is_overdue && st.total_tuition_due ? st.total_tuition_due : st.current_tuition || 0;
         return {
           student_id: st.id,
           chat_id: st.zalo_chat_id,
@@ -421,7 +430,6 @@ ${schoolName} xin trân trọng cảm ơn!`;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-200">
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl w-full max-w-6xl max-h-[92vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
-        
         {/* HEADER */}
         <div className="p-4 sm:p-5 border-b border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-950/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
@@ -438,7 +446,8 @@ ${schoolName} xin trân trọng cảm ơn!`;
                 </span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Tập trung danh sách học sinh chưa đóng & nợ cũ, gửi tin nhắn Zalo kèm mã VietQR tự động chỉ trong 2 giây
+                Tập trung danh sách học sinh chưa đóng & nợ cũ, gửi tin nhắn Zalo kèm mã VietQR tự
+                động chỉ trong 2 giây
               </p>
             </div>
           </div>
@@ -603,7 +612,9 @@ ${schoolName} xin trân trọng cảm ơn!`;
                 title="Gửi tin nhắn qua Zalo Bot cho tất cả các em có Chat ID"
               >
                 <Bot className="w-3.5 h-3.5 text-blue-600" />
-                <span>{isSendingBotBatch ? "Đang gửi..." : `Gửi Bot (${stats.botAvailableCount} em)`}</span>
+                <span>
+                  {isSendingBotBatch ? "Đang gửi..." : `Gửi Bot (${stats.botAvailableCount} em)`}
+                </span>
               </button>
             )}
           </div>
@@ -622,7 +633,9 @@ ${schoolName} xin trân trọng cảm ơn!`;
                   : "Không tìm thấy học sinh nào phù hợp với bộ lọc."}
               </h4>
               <p className="text-xs text-slate-500 mt-1">
-                {activeFilter !== "all" ? "Thử chuyển sang tab 'Tất cả' hoặc tìm từ khóa khác." : "Toàn bộ học sinh đã hoàn tất học phí kỳ này."}
+                {activeFilter !== "all"
+                  ? "Thử chuyển sang tab 'Tất cả' hoặc tìm từ khóa khác."
+                  : "Toàn bộ học sinh đã hoàn tất học phí kỳ này."}
               </p>
             </div>
           ) : (
@@ -630,7 +643,10 @@ ${schoolName} xin trân trọng cảm ơn!`;
               {filteredStudents.map((st, idx) => {
                 const reminder = remindersMap[st.id];
                 const isRemindedToday = !!reminder?.is_reminded_today;
-                const dueAmount = st.is_overdue && st.total_tuition_due ? st.total_tuition_due : st.current_tuition || 0;
+                const dueAmount =
+                  st.is_overdue && st.total_tuition_due
+                    ? st.total_tuition_due
+                    : st.current_tuition || 0;
                 const isOverdue = !!st.is_overdue;
 
                 return (
@@ -677,9 +693,7 @@ ${schoolName} xin trân trọng cảm ơn!`;
                             <span>{st.phone || "Chưa có SĐT"}</span>
                           </span>
                           {st.tuition_package_name && (
-                            <span className="text-slate-400">
-                              • {st.tuition_package_name}
-                            </span>
+                            <span className="text-slate-400">• {st.tuition_package_name}</span>
                           )}
                         </div>
                       </div>
@@ -694,7 +708,10 @@ ${schoolName} xin trân trọng cảm ơn!`;
                         {isOverdue && st.previous_debt_amount ? (
                           <span className="text-[10px] font-bold text-rose-600 dark:text-rose-400 flex items-center gap-1">
                             <AlertTriangle className="w-3 h-3 shrink-0" />
-                            <span>Nợ {st.unpaid_months_count} tháng ({formatVND(st.previous_debt_amount)})</span>
+                            <span>
+                              Nợ {st.unpaid_months_count} tháng (
+                              {formatVND(st.previous_debt_amount)})
+                            </span>
                           </span>
                         ) : (
                           <span className="text-[10px] text-slate-400 font-semibold">
@@ -712,7 +729,8 @@ ${schoolName} xin trân trọng cảm ơn!`;
                               <span>Đã nhắc hôm nay</span>
                             </span>
                             <span className="text-[10px] text-slate-400 mt-0.5">
-                              {formatTimeAgo(reminder.last_reminded_at)} ({reminder.remind_count} lần)
+                              {formatTimeAgo(reminder.last_reminded_at)} ({reminder.remind_count}{" "}
+                              lần)
                             </span>
                           </div>
                         ) : (
@@ -756,7 +774,9 @@ ${schoolName} xin trân trọng cảm ơn!`;
                             className="p-1.5 rounded-xl bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900 border border-blue-200 dark:border-blue-800 transition"
                             title="Bắn tin nhắn tự động qua Zalo Bot"
                           >
-                            <Bot className={`w-4 h-4 ${isSendingBotSingle === st.id ? "animate-spin" : ""}`} />
+                            <Bot
+                              className={`w-4 h-4 ${isSendingBotSingle === st.id ? "animate-spin" : ""}`}
+                            />
                           </button>
                         )}
 
@@ -785,7 +805,10 @@ ${schoolName} xin trân trọng cảm ơn!`;
         <div className="p-3 sm:px-5 border-t border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-950/40 flex items-center justify-between text-xs text-slate-500">
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-emerald-500" />
-            <span>Mẹo: Bấm <strong>&quot;Gửi Zalo&quot;</strong> hệ thống tự động copy tin nhắn và mở app Zalo tới phụ huynh. Lễ tân chỉ cần dán (Ctrl+V) là xong!</span>
+            <span>
+              Mẹo: Bấm <strong>&quot;Gửi Zalo&quot;</strong> hệ thống tự động copy tin nhắn và mở
+              app Zalo tới phụ huynh. Lễ tân chỉ cần dán (Ctrl+V) là xong!
+            </span>
           </div>
           <button
             onClick={onClose}
@@ -794,7 +817,6 @@ ${schoolName} xin trân trọng cảm ơn!`;
             Đóng cửa sổ
           </button>
         </div>
-
       </div>
 
       {/* POPUP XEM TRƯỚC & TÙY CHỈNH NỘI DUNG TIN NHẮN */}
@@ -833,7 +855,10 @@ ${schoolName} xin trân trọng cảm ơn!`;
               {sepayBankName && sepayAccountNumber && (
                 <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900 text-xs text-blue-900 dark:text-blue-300 flex items-center gap-2">
                   <QrCode className="w-4 h-4 text-blue-600 shrink-0" />
-                  <span>Đã tích hợp sẵn link VietQR thanh toán đúng cú pháp của ngân hàng <strong>{sepayBankName}</strong>.</span>
+                  <span>
+                    Đã tích hợp sẵn link VietQR thanh toán đúng cú pháp của ngân hàng{" "}
+                    <strong>{sepayBankName}</strong>.
+                  </span>
                 </div>
               )}
             </div>

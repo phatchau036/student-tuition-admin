@@ -26,8 +26,12 @@ export default function Error({
           Đã xảy ra sự cố khi tải dữ liệu Cổng Giáo Viên
         </h2>
         <div className="p-3 rounded-2xl bg-slate-100 dark:bg-slate-900 text-left font-mono text-xs overflow-auto max-h-40 text-rose-600 dark:text-rose-400 border border-slate-200 dark:border-slate-800">
-          <p className="font-bold">{error?.name}: {error?.message}</p>
-          {error?.stack && <pre className="text-[10px] mt-1 whitespace-pre-wrap opacity-80">{error.stack}</pre>}
+          <p className="font-bold">
+            {error?.name}: {error?.message}
+          </p>
+          {error?.stack && (
+            <pre className="text-[10px] mt-1 whitespace-pre-wrap opacity-80">{error.stack}</pre>
+          )}
         </div>
         <div className="flex gap-2 pt-2">
           <button

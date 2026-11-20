@@ -2,23 +2,12 @@
 
 import React, { useState, useRef } from "react";
 import * as XLSX from "xlsx";
-import { Subject, LevelSurcharge, Teacher } from "@/lib/types";
+import { Subject, LevelSurcharge, Teacher, DbRow } from "@/lib/types";
 import { useToast } from "@/components/Toast";
-import {
-  FileSpreadsheet,
-  Upload,
-  ArrowRight,
-  CheckCircle2,
-  AlertCircle,
-  X,
-  Sparkles,
-  HelpCircle,
-  Layers,
-  BookOpen,
-  Eye,
-  RefreshCw,
-  GraduationCap,
-} from "lucide-react";
+import { FileSpreadsheet, Upload, CheckCircle2, X, Sparkles, Eye, RefreshCw } from "lucide-react";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("ui/SmartExcelImportModal");
 
 interface SmartExcelImportModalProps {
   isOpen: boolean;
@@ -59,7 +48,7 @@ export const SmartExcelImportModal: React.FC<SmartExcelImportModalProps> = ({
   const [sheetNames, setSheetNames] = useState<string[]>([]);
   const [selectedSheet, setSelectedSheet] = useState<string>("");
   const [columns, setColumns] = useState<string[]>([]);
-  const [rawRows, setRawRows] = useState<any[]>([]);
+  const [rawRows, setRawRows] = useState<DbRow[][]>([]);
 
   // Mapping state
   const [mapping, setMapping] = useState<ColumnMapping>({
@@ -96,7 +85,8 @@ export const SmartExcelImportModal: React.FC<SmartExcelImportModalProps> = ({
         const firstSheet = wb.SheetNames[0] || "";
         setSelectedSheet(firstSheet);
         parseSheet(wb, firstSheet);
-      } catch (err) {
+      } catch {
+        log.warn("Không thể đọc file Excel người dùng tải lên");
         showToast("Không thể đọc file Excel! Vui lòng kiểm tra định dạng .xlsx hoặc .xls", "error");
       }
     };
@@ -109,7 +99,7 @@ export const SmartExcelImportModal: React.FC<SmartExcelImportModalProps> = ({
     if (!ws) return;
 
     // Convert sheet to json with headers
-    const data: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+    const data: DbRow[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
     if (data.length === 0) {
       showToast("Sheet này không có dữ liệu!", "error");
       return;
@@ -149,31 +139,83 @@ export const SmartExcelImportModal: React.FC<SmartExcelImportModalProps> = ({
 
     headerCols.forEach((col) => {
       const lower = col.toLowerCase();
-      if (!newMap.studentCode && (lower.includes("mã học") || lower.includes("mã hv") || lower.includes("mã hs") || lower === "mã" || lower.includes("code") || lower.includes("student_code") || lower.includes("student code"))) {
+      if (
+        !newMap.studentCode &&
+        (lower.includes("mã học") ||
+          lower.includes("mã hv") ||
+          lower.includes("mã hs") ||
+          lower === "mã" ||
+          lower.includes("code") ||
+          lower.includes("student_code") ||
+          lower.includes("student code"))
+      ) {
         newMap.studentCode = col;
       }
-      if (!newMap.name && (lower.includes("họ và tên") || lower.includes("họ tên") || lower.includes("tên học") || lower === "tên")) {
+      if (
+        !newMap.name &&
+        (lower.includes("họ và tên") ||
+          lower.includes("họ tên") ||
+          lower.includes("tên học") ||
+          lower === "tên")
+      ) {
         newMap.name = col;
       }
-      if (!newMap.phone && (lower.includes("sđt") || lower.includes("điện thoại") || lower.includes("phone") || lower.includes("số đt"))) {
+      if (
+        !newMap.phone &&
+        (lower.includes("sđt") ||
+          lower.includes("điện thoại") ||
+          lower.includes("phone") ||
+          lower.includes("số đt"))
+      ) {
         newMap.phone = col;
       }
-      if (!newMap.level && (lower.includes("lớp") || lower.includes("level") || lower.includes("trình độ") || lower.includes("grade"))) {
+      if (
+        !newMap.level &&
+        (lower.includes("lớp") ||
+          lower.includes("level") ||
+          lower.includes("trình độ") ||
+          lower.includes("grade"))
+      ) {
         newMap.level = col;
       }
-      if (!newMap.subject && (lower.includes("môn") || lower.includes("nhạc cụ") || lower.includes("khóa học"))) {
+      if (
+        !newMap.subject &&
+        (lower.includes("môn") || lower.includes("nhạc cụ") || lower.includes("khóa học"))
+      ) {
         newMap.subject = col;
       }
-      if (!newMap.teacher && (lower.includes("giáo viên") || lower.includes("thầy") || lower.includes("cô") || lower.includes("teacher") || lower.includes("gv"))) {
+      if (
+        !newMap.teacher &&
+        (lower.includes("giáo viên") ||
+          lower.includes("thầy") ||
+          lower.includes("cô") ||
+          lower.includes("teacher") ||
+          lower.includes("gv"))
+      ) {
         newMap.teacher = col;
       }
-      if (!newMap.startDate && (lower.includes("ngày bắt đầu") || lower.includes("bắt đầu") || lower.includes("ngày vào") || lower.includes("ngày học"))) {
+      if (
+        !newMap.startDate &&
+        (lower.includes("ngày bắt đầu") ||
+          lower.includes("bắt đầu") ||
+          lower.includes("ngày vào") ||
+          lower.includes("ngày học"))
+      ) {
         newMap.startDate = col;
       }
-      if (!newMap.studyTime && (lower.includes("giờ vào") || lower.includes("thời gian") || lower.includes("ca học") || lower.includes("giờ học"))) {
+      if (
+        !newMap.studyTime &&
+        (lower.includes("giờ vào") ||
+          lower.includes("thời gian") ||
+          lower.includes("ca học") ||
+          lower.includes("giờ học"))
+      ) {
         newMap.studyTime = col;
       }
-      if (!newMap.note && (lower.includes("ghi chú") || lower.includes("chú thích") || lower.includes("note"))) {
+      if (
+        !newMap.note &&
+        (lower.includes("ghi chú") || lower.includes("chú thích") || lower.includes("note"))
+      ) {
         newMap.note = col;
       }
     });
@@ -220,24 +262,26 @@ export const SmartExcelImportModal: React.FC<SmartExcelImportModalProps> = ({
     try {
       setIsImporting(true);
 
-      const allMappedStudents = rawRows.map((row) => {
-        const getVal = (colName: string) => {
-          const idx = columns.indexOf(colName);
-          return idx >= 0 ? String(row[idx] || "").trim() : "";
-        };
+      const allMappedStudents = rawRows
+        .map((row) => {
+          const getVal = (colName: string) => {
+            const idx = columns.indexOf(colName);
+            return idx >= 0 ? String(row[idx] || "").trim() : "";
+          };
 
-        return {
-          student_code: getVal(mapping.studentCode),
-          name: getVal(mapping.name),
-          phone: getVal(mapping.phone),
-          level_name: getVal(mapping.level),
-          subject_name: getVal(mapping.subject),
-          teacher_name: getVal(mapping.teacher),
-          start_date: getVal(mapping.startDate),
-          study_time_detail: getVal(mapping.studyTime),
-          note: getVal(mapping.note),
-        };
-      }).filter((s) => s.name.trim() !== "");
+          return {
+            student_code: getVal(mapping.studentCode),
+            name: getVal(mapping.name),
+            phone: getVal(mapping.phone),
+            level_name: getVal(mapping.level),
+            subject_name: getVal(mapping.subject),
+            teacher_name: getVal(mapping.teacher),
+            start_date: getVal(mapping.startDate),
+            study_time_detail: getVal(mapping.studyTime),
+            note: getVal(mapping.note),
+          };
+        })
+        .filter((s) => s.name.trim() !== "");
 
       const token = typeof window !== "undefined" ? localStorage.getItem("admin_token") : null;
       const headers: Record<string, string> = { "Content-Type": "application/json" };
@@ -320,10 +364,12 @@ export const SmartExcelImportModal: React.FC<SmartExcelImportModalProps> = ({
                   <Upload className="w-8 h-8" />
                 </div>
                 <h3 className="text-base font-bold text-slate-800 dark:text-slate-200">
-                  Kéo thả file Excel vào đây, hoặc <span className="text-emerald-600 underline">bấm để chọn file</span>
+                  Kéo thả file Excel vào đây, hoặc{" "}
+                  <span className="text-emerald-600 underline">bấm để chọn file</span>
                 </h3>
                 <p className="text-xs text-slate-400 mt-1.5 max-w-sm mx-auto">
-                  Hỗ trợ định dạng .xlsx, .xls hoặc .csv của bất kỳ trung tâm nào (kể cả file có nhiều sheet như Piano, Guitar, Organ...)
+                  Hỗ trợ định dạng .xlsx, .xls hoặc .csv của bất kỳ trung tâm nào (kể cả file có
+                  nhiều sheet như Piano, Guitar, Organ...)
                 </p>
               </div>
 
@@ -333,7 +379,8 @@ export const SmartExcelImportModal: React.FC<SmartExcelImportModalProps> = ({
                   Bạn không cần chỉnh sửa lại file Excel cũ của trung tâm:
                 </p>
                 <p className="text-[11px] text-indigo-700 dark:text-indigo-400">
-                  Cứ để nguyên file hiện tại tải lên. Bước tiếp theo hệ thống sẽ cho bạn chọn cột tương ứng chỉ với vài cú nhấp chuột.
+                  Cứ để nguyên file hiện tại tải lên. Bước tiếp theo hệ thống sẽ cho bạn chọn cột
+                  tương ứng chỉ với vài cú nhấp chuột.
                 </p>
               </div>
             </div>
@@ -349,7 +396,9 @@ export const SmartExcelImportModal: React.FC<SmartExcelImportModalProps> = ({
                     <span className="text-xs font-bold text-slate-800 dark:text-slate-200 block">
                       File có nhiều Sheet. Chọn Sheet muốn nhập:
                     </span>
-                    <span className="text-[11px] text-slate-400">Tìm thấy {sheetNames.length} sheet trong file</span>
+                    <span className="text-[11px] text-slate-400">
+                      Tìm thấy {sheetNames.length} sheet trong file
+                    </span>
                   </div>
                   <select
                     value={selectedSheet}
@@ -371,7 +420,8 @@ export const SmartExcelImportModal: React.FC<SmartExcelImportModalProps> = ({
                     Ghép Cột Excel Vào Hệ Thống
                   </h3>
                   <p className="text-[11px] text-slate-400">
-                    Hệ thống đã tự động đoán các cột khớp nhất. Bạn có thể kiểm tra và đổi lại nếu muốn:
+                    Hệ thống đã tự động đoán các cột khớp nhất. Bạn có thể kiểm tra và đổi lại nếu
+                    muốn:
                   </p>
                 </div>
                 <span className="text-xs font-bold px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
@@ -405,7 +455,9 @@ export const SmartExcelImportModal: React.FC<SmartExcelImportModalProps> = ({
                     ))}
                   </select>
                   <p className="text-[10.5px] text-indigo-700/80 dark:text-indigo-300/80 mt-1">
-                    💡 <strong>Cơ chế chuẩn:</strong> Dòng nào có Mã học viên sẽ được hệ thống <strong>cập nhật (UPDATE)</strong> thông tin. Dòng nào chưa có Mã học viên sẽ được <strong>tạo mới hoàn toàn</strong> và tự cấp mã tự động.
+                    💡 <strong>Cơ chế chuẩn:</strong> Dòng nào có Mã học viên sẽ được hệ thống{" "}
+                    <strong>cập nhật (UPDATE)</strong> thông tin. Dòng nào chưa có Mã học viên sẽ
+                    được <strong>tạo mới hoàn toàn</strong> và tự cấp mã tự động.
                   </p>
                 </div>
 
@@ -606,24 +658,41 @@ export const SmartExcelImportModal: React.FC<SmartExcelImportModalProps> = ({
                   <span>Hướng Dẫn Định Dạng Cột &quot;Giờ Vào Lớp&quot; Để Tự Động Xếp Lịch:</span>
                 </div>
                 <p className="text-[11.5px] leading-relaxed text-amber-900/90 dark:text-amber-300/90">
-                  Hệ thống hỗ trợ tự động bóc tách ngày thứ, giờ học, thời lượng và giáo viên khi bạn ghi theo các mẫu sau trong file Excel:
+                  Hệ thống hỗ trợ tự động bóc tách ngày thứ, giờ học, thời lượng và giáo viên khi
+                  bạn ghi theo các mẫu sau trong file Excel:
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 font-mono text-[11px] pt-1">
                   <div className="p-2 rounded-xl bg-white/80 dark:bg-slate-900/80 border border-amber-200/60">
-                    <span className="font-bold text-indigo-600 dark:text-indigo-400">T2, T4 (18h-19h30)</span>
-                    <span className="block text-[10px] text-slate-500 font-sans mt-0.5">➔ Tự động xếp T2, T4 ca 18:00 - 19:30</span>
+                    <span className="font-bold text-indigo-600 dark:text-indigo-400">
+                      T2, T4 (18h-19h30)
+                    </span>
+                    <span className="block text-[10px] text-slate-500 font-sans mt-0.5">
+                      ➔ Tự động xếp T2, T4 ca 18:00 - 19:30
+                    </span>
                   </div>
                   <div className="p-2 rounded-xl bg-white/80 dark:bg-slate-900/80 border border-amber-200/60">
-                    <span className="font-bold text-indigo-600 dark:text-indigo-400">T3, T5, T7 (19h-20h)</span>
-                    <span className="block text-[10px] text-slate-500 font-sans mt-0.5">➔ Tự động xếp T3, T5, T7 ca 19:00 - 20:00</span>
+                    <span className="font-bold text-indigo-600 dark:text-indigo-400">
+                      T3, T5, T7 (19h-20h)
+                    </span>
+                    <span className="block text-[10px] text-slate-500 font-sans mt-0.5">
+                      ➔ Tự động xếp T3, T5, T7 ca 19:00 - 20:00
+                    </span>
                   </div>
                   <div className="p-2 rounded-xl bg-white/80 dark:bg-slate-900/80 border border-amber-200/60">
-                    <span className="font-bold text-indigo-600 dark:text-indigo-400">T7 (9h30-11h), CN (9h30-11h)</span>
-                    <span className="block text-[10px] text-slate-500 font-sans mt-0.5">➔ Tự động xếp ca sáng cuối tuần 9:30</span>
+                    <span className="font-bold text-indigo-600 dark:text-indigo-400">
+                      T7 (9h30-11h), CN (9h30-11h)
+                    </span>
+                    <span className="block text-[10px] text-slate-500 font-sans mt-0.5">
+                      ➔ Tự động xếp ca sáng cuối tuần 9:30
+                    </span>
                   </div>
                   <div className="p-2 rounded-xl bg-white/80 dark:bg-slate-900/80 border border-amber-200/60">
-                    <span className="font-bold text-indigo-600 dark:text-indigo-400">T2, T4 (18h-19h30) Cô Điệp</span>
-                    <span className="block text-[10px] text-slate-500 font-sans mt-0.5">➔ Tự động gán Cô Điệp phụ trách</span>
+                    <span className="font-bold text-indigo-600 dark:text-indigo-400">
+                      T2, T4 (18h-19h30) Cô Điệp
+                    </span>
+                    <span className="block text-[10px] text-slate-500 font-sans mt-0.5">
+                      ➔ Tự động gán Cô Điệp phụ trách
+                    </span>
                   </div>
                 </div>
               </div>
@@ -632,9 +701,15 @@ export const SmartExcelImportModal: React.FC<SmartExcelImportModalProps> = ({
               <div className="p-3.5 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 text-xs text-emerald-800 dark:text-emerald-300 flex items-start gap-2.5">
                 <Sparkles className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
                 <div className="space-y-0.5 leading-relaxed">
-                  <span className="font-bold block">Tự động cấu hình danh mục mới vào Cài đặt:</span>
+                  <span className="font-bold block">
+                    Tự động cấu hình danh mục mới vào Cài đặt:
+                  </span>
                   <p className="text-[11px] text-emerald-700 dark:text-emerald-400">
-                    Bất kỳ <strong>Level / Lớp học</strong> nào (ví dụ: <em>Vỡ lòng, Grade 3, Grade 4...</em>) hoặc <strong>Bộ môn</strong> có trong file Excel mà hệ thống chưa có, sẽ được <strong>tự động tạo mới vào Cài đặt (Settings)</strong> ngay khi nhập. Bạn không cần phải tạo trước bằng tay!
+                    Bất kỳ <strong>Level / Lớp học</strong> nào (ví dụ:{" "}
+                    <em>Vỡ lòng, Grade 3, Grade 4...</em>) hoặc <strong>Bộ môn</strong> có trong
+                    file Excel mà hệ thống chưa có, sẽ được{" "}
+                    <strong>tự động tạo mới vào Cài đặt (Settings)</strong> ngay khi nhập. Bạn không
+                    cần phải tạo trước bằng tay!
                   </p>
                 </div>
               </div>
@@ -659,10 +734,18 @@ export const SmartExcelImportModal: React.FC<SmartExcelImportModalProps> = ({
                       {mappedPreviewStudents.map((st, i) => (
                         <tr key={i}>
                           <td className="p-2.5 font-mono font-bold text-indigo-600 dark:text-indigo-400">
-                            {st.student_code || <span className="text-slate-400 font-normal italic">(Tự sinh mã)</span>}
+                            {st.student_code || (
+                              <span className="text-slate-400 font-normal italic">
+                                (Tự sinh mã)
+                              </span>
+                            )}
                           </td>
-                          <td className="p-2.5 font-bold text-slate-900 dark:text-white">{st.name || "(Trống)"}</td>
-                          <td className="p-2.5 font-mono text-slate-600 dark:text-slate-400">{st.phone || "(Trống)"}</td>
+                          <td className="p-2.5 font-bold text-slate-900 dark:text-white">
+                            {st.name || "(Trống)"}
+                          </td>
+                          <td className="p-2.5 font-mono text-slate-600 dark:text-slate-400">
+                            {st.phone || "(Trống)"}
+                          </td>
                           <td className="p-2.5">{st.level_name || "(Mặc định)"}</td>
                           <td className="p-2.5 text-slate-500">{st.study_time_detail || "-"}</td>
                         </tr>

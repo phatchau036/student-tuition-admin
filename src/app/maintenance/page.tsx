@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Sparkles, RefreshCw, Server, AlertTriangle } from "lucide-react";
+import { RefreshCw, Server, AlertTriangle } from "lucide-react";
 
 export default function MaintenancePage() {
   const [dots, setDots] = useState("");
@@ -20,6 +20,7 @@ export default function MaintenancePage() {
         const res = await fetch("/api/system/upgrade/status");
         const json = await res.json();
         if (json.maintenance === false) {
+          // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- Cần full reload sau khi nâng cấp để nạp bundle mới.
           window.location.href = "/";
         }
       } catch {
@@ -56,7 +57,8 @@ export default function MaintenancePage() {
           </h1>
 
           <p className="text-xs sm:text-sm text-slate-400 leading-relaxed max-w-md mx-auto">
-            Hệ thống đang tự động tải và cài đặt phiên bản mới nhất từ kho mã nguồn GitHub để bổ sung tính năng và tối ưu hiệu năng.
+            Hệ thống đang tự động tải và cài đặt phiên bản mới nhất từ kho mã nguồn GitHub để bổ
+            sung tính năng và tối ưu hiệu năng.
           </p>
         </div>
 
@@ -70,7 +72,8 @@ export default function MaintenancePage() {
             <div className="bg-gradient-to-r from-purple-500 to-indigo-500 h-2 rounded-full w-2/3 animate-pulse" />
           </div>
           <p className="text-[11px] text-slate-400 italic text-center">
-            Trang web sẽ tự động kết nối lại ngay khi quá trình hoàn tất. Quý vị vui lòng không tắt trình duyệt!
+            Trang web sẽ tự động kết nối lại ngay khi quá trình hoàn tất. Quý vị vui lòng không tắt
+            trình duyệt!
           </p>
         </div>
 

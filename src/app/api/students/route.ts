@@ -1,7 +1,15 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
-import { calculateStudentTuition, getPreviousMonthStr, resolveStudentTeachers } from "@/lib/tuition";
-import { getSchoolIdFromRequest, getAdminFromRequest, requireAdminPermission } from "@/lib/authHelper";
+import {
+  calculateStudentTuition,
+  getPreviousMonthStr,
+  resolveStudentTeachers,
+} from "@/lib/tuition";
+import {
+  getSchoolIdFromRequest,
+  getAdminFromRequest,
+  requireAdminPermission,
+} from "@/lib/authHelper";
 import { syncPendingMakeupsToWallet } from "@/lib/wallet";
 import { createLogger } from "@/lib/logger";
 
@@ -23,7 +31,10 @@ export async function GET(req: Request) {
     const admin = await getAdminFromRequest(req);
     if (!admin) {
       return NextResponse.json(
-        { success: false, message: "Phiên đăng nhập không hợp lệ hoặc đã hết hạn! Vui lòng đăng nhập lại." },
+        {
+          success: false,
+          message: "Phiên đăng nhập không hợp lệ hoặc đã hết hạn! Vui lòng đăng nhập lại.",
+        },
         { status: 401 }
       );
     }
@@ -83,7 +94,9 @@ export async function GET(req: Request) {
     });
     let baseTuition = baseTuitionRes.rows.length > 0 ? Number(baseTuitionRes.rows[0].value) : 0;
     if (baseTuition <= 0) {
-      const defaultPkgRes = await db.execute("SELECT amount FROM tuition_packages WHERE cycle_unit = 'month' AND cycle_value = 1 LIMIT 1");
+      const defaultPkgRes = await db.execute(
+        "SELECT amount FROM tuition_packages WHERE cycle_unit = 'month' AND cycle_value = 1 LIMIT 1"
+      );
       baseTuition = defaultPkgRes.rows.length > 0 ? Number(defaultPkgRes.rows[0].amount) : 1000000;
     }
 
@@ -123,7 +136,10 @@ export async function GET(req: Request) {
     });
 
     // Fetch overrides for month if provided
-    let overridesMap: Record<string, { id: string; amount: number; note: string; items_json: string; month: string }> = {};
+    const overridesMap: Record<
+      string,
+      { id: string; amount: number; note: string; items_json: string; month: string }
+    > = {};
     if (month) {
       const overridesRes = await db.execute({
         sql: "SELECT * FROM student_monthly_tuitions WHERE month = ?",
@@ -142,7 +158,10 @@ export async function GET(req: Request) {
 
     // Fetch payments covering this month for reconciliation check
     // Logic: Nếu có bản ghi payment mà month nằm trong [start_period, end_period] và status = 'paid' => ĐÃ ĐÓNG
-    const paymentsMap: Record<string, { id: string; package_name: string; start_period: string; end_period: string; amount: number }> = {};
+    const paymentsMap: Record<
+      string,
+      { id: string; package_name: string; start_period: string; end_period: string; amount: number }
+    > = {};
     if (month) {
       const paymentsRes = await db.execute({
         sql: `SELECT * FROM student_payments 
@@ -161,7 +180,9 @@ export async function GET(req: Request) {
     }
 
     // Fetch all student payments to calculate historical debt and overdue status
-    const allPaidRecordsRes = await db.execute("SELECT student_id, start_period, end_period, status FROM student_payments WHERE status = 'paid'");
+    const allPaidRecordsRes = await db.execute(
+      "SELECT student_id, start_period, end_period, status FROM student_payments WHERE status = 'paid'"
+    );
     const allPaidRecords = allPaidRecordsRes.rows;
 
     // Helper: kiểm tra xem học sinh đã đóng học phí tháng targetMonth chưa
@@ -175,7 +196,9 @@ export async function GET(req: Request) {
     };
 
     // Fetch overrides for all months if needed
-    const allOverridesRes = await db.execute("SELECT student_id, month, amount FROM student_monthly_tuitions");
+    const allOverridesRes = await db.execute(
+      "SELECT student_id, month, amount FROM student_monthly_tuitions"
+    );
     const allOverridesMap: Record<string, number> = {};
     for (const row of allOverridesRes.rows) {
       allOverridesMap[`${row.student_id}_${row.month}`] = Number(row.amount);
@@ -209,7 +232,10 @@ export async function GET(req: Request) {
 
     // Lấy toàn bộ danh sách giáo viên để đối chiếu tên khi suy luận từ lớp
     const teachersListRes = await db.execute("SELECT id, name FROM teachers WHERE is_active = 1");
-    const teachersList = teachersListRes.rows.map((t) => ({ id: String(t.id), name: String(t.name) }));
+    const teachersList = teachersListRes.rows.map((t) => ({
+      id: String(t.id),
+      name: String(t.name),
+    }));
 
     const students = studentsRes.rows.map((row) => {
       // Tự động giải quyết giáo viên đứng lớp tương ứng theo ca (hỗ trợ hiển thị cả 2 giáo viên nếu cùng ca)
@@ -218,7 +244,9 @@ export async function GET(req: Request) {
           teacher_id: row.teacher_id ? String(row.teacher_id) : undefined,
           teacher_name: row.teacher_name ? String(row.teacher_name) : undefined,
           class_id: row.class_id ? String(row.class_id) : undefined,
-          class_teacher_assignments_json: row.class_teacher_assignments_json ? String(row.class_teacher_assignments_json) : undefined,
+          class_teacher_assignments_json: row.class_teacher_assignments_json
+            ? String(row.class_teacher_assignments_json)
+            : undefined,
           study_time_detail: String(row.study_time_detail || ""),
           schedule_details_json: String(row.schedule_details_json || "[]"),
           registered_days: String(row.registered_days || ""),
@@ -295,7 +323,9 @@ export async function GET(req: Request) {
 
       return {
         id: String(row.id),
-        student_code: row.student_code ? String(row.student_code) : `HS${String(row.id).slice(-4).toUpperCase()}`,
+        student_code: row.student_code
+          ? String(row.student_code)
+          : `HS${String(row.id).slice(-4).toUpperCase()}`,
         name: String(row.name),
         phone: String(row.phone),
         zalo_link: String(row.zalo_link || ""),
@@ -310,26 +340,35 @@ export async function GET(req: Request) {
         time_slot_id: String(row.time_slot_id || ""),
         time_slot_name: row.time_slot_name ? String(row.time_slot_name) : "Khung giờ linh hoạt",
         time_slot_desc: row.time_slot_desc ? String(row.time_slot_desc) : "",
-        teacher_id: teacherResolved.primaryTeacherId || (row.teacher_id ? String(row.teacher_id) : undefined),
-        teacher_name: teacherResolved.teacherDisplay || (row.teacher_name ? String(row.teacher_name) : "Chưa gán GV"),
+        teacher_id:
+          teacherResolved.primaryTeacherId || (row.teacher_id ? String(row.teacher_id) : undefined),
+        teacher_name:
+          teacherResolved.teacherDisplay ||
+          (row.teacher_name ? String(row.teacher_name) : "Chưa gán GV"),
         teacher_color: row.teacher_color ? String(row.teacher_color) : "indigo",
 
         // Lớp học
         class_id: row.class_id ? String(row.class_id) : undefined,
         class_name: row.class_name ? String(row.class_name) : undefined,
         class_room: row.class_room ? String(row.class_room) : undefined,
-        class_teacher_assignments_json: row.class_teacher_assignments_json ? String(row.class_teacher_assignments_json) : undefined,
-        
+        class_teacher_assignments_json: row.class_teacher_assignments_json
+          ? String(row.class_teacher_assignments_json)
+          : undefined,
+
         // Trạng thái học sinh: đang học, bảo lưu, nghỉ học
         status: (row.status as "studying" | "reserved" | "dropped") || "studying",
         status_date: row.status_date ? String(row.status_date) : undefined,
-        expected_return_date: row.expected_return_date ? String(row.expected_return_date) : undefined,
+        expected_return_date: row.expected_return_date
+          ? String(row.expected_return_date)
+          : undefined,
         status_note: String(row.status_note || ""),
         start_date: row.start_date ? String(row.start_date) : undefined,
 
         // Gói học phí
         tuition_package_id: row.tuition_package_id ? String(row.tuition_package_id) : undefined,
-        tuition_package_name: row.tuition_package_name ? String(row.tuition_package_name) : undefined,
+        tuition_package_name: row.tuition_package_name
+          ? String(row.tuition_package_name)
+          : undefined,
 
         // Công nợ đối soát tháng này & nợ lũy kế (ẩn hoàn toàn nếu không có quyền học phí)
         payment_status: canViewTuition ? paymentStatus : undefined,
@@ -349,7 +388,8 @@ export async function GET(req: Request) {
         schedule_preset_name: String(row.schedule_preset_name || ""),
         pending_makeups_count: Math.max(0, Math.ceil((walletMap[String(row.id)] || 0) / 90)), // Backward compat: quy đổi phút sang "buổi tương đương"
         balance_minutes: walletMap[String(row.id)] || 0,
-        available_minutes: (walletMap[String(row.id)] || 0) - (scheduledMakeupMap[String(row.id)] || 0),
+        available_minutes:
+          (walletMap[String(row.id)] || 0) - (scheduledMakeupMap[String(row.id)] || 0),
         is_discount_enabled: canViewTuition ? Number(row.is_discount_enabled || 0) : 0,
         discount_percent: canViewTuition ? Number(row.discount_percent || 0) : 0,
         discount_reason: canViewTuition ? String(row.discount_reason || "") : "",
@@ -437,7 +477,9 @@ export async function POST(req: Request) {
       let maxNum = 0;
       for (const row of allCodesRes.rows) {
         if (!row.student_code) continue;
-        const m = String(row.student_code).trim().match(/^HS[-_]?0*(\d+)$/i);
+        const m = String(row.student_code)
+          .trim()
+          .match(/^HS[-_]?0*(\d+)$/i);
         if (m) {
           const num = parseInt(m[1], 10);
           if (num > maxNum) maxNum = num;
@@ -452,8 +494,12 @@ export async function POST(req: Request) {
       zalo_link && zalo_link.trim() !== ""
         ? zalo_link.startsWith("http")
           ? zalo_link
-          : (phone ? `https://zalo.me/${phone.replace(/\D/g, "")}` : "")
-        : (phone ? `https://zalo.me/${phone.replace(/\D/g, "")}` : "");
+          : phone
+            ? `https://zalo.me/${phone.replace(/\D/g, "")}`
+            : ""
+        : phone
+          ? `https://zalo.me/${phone.replace(/\D/g, "")}`
+          : "";
 
     await db.execute({
       sql: `INSERT INTO students (

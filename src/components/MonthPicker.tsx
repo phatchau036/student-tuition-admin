@@ -24,13 +24,16 @@ export const MonthPicker: React.FC<MonthPickerProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Parse current year & month from value (e.g. "2026-10")
-  const currentYear = value && value.includes("-") ? parseInt(value.split("-")[0], 10) : new Date().getFullYear();
-  const currentMonth = value && value.includes("-") ? parseInt(value.split("-")[1], 10) : new Date().getMonth() + 1;
+  const currentYear =
+    value && value.includes("-") ? parseInt(value.split("-")[0], 10) : new Date().getFullYear();
+  const currentMonth =
+    value && value.includes("-") ? parseInt(value.split("-")[1], 10) : new Date().getMonth() + 1;
 
   const [displayYear, setDisplayYear] = useState<number>(currentYear);
 
   useEffect(() => {
     if (value && value.includes("-")) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Đồng bộ state khi mở modal hoặc nạp dữ liệu; sẽ chuyển sang pattern key-remount ở Giai đoạn 2.
       setDisplayYear(parseInt(value.split("-")[0], 10));
     }
   }, [value]);
@@ -61,7 +64,20 @@ export const MonthPicker: React.FC<MonthPickerProps> = ({
       return `Tháng ${m}`;
     }
     if (monthFormat === "english") {
-      const shortEng = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+      const shortEng = [
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+        "May",
+        "Jun",
+        "Jul",
+        "Aug",
+        "Sep",
+        "Oct",
+        "Nov",
+        "Dec",
+      ];
       return shortEng[m - 1];
     }
     if (monthFormat === "chinese" || monthFormat === "japanese") {
@@ -71,7 +87,10 @@ export const MonthPicker: React.FC<MonthPickerProps> = ({
   };
 
   return (
-    <div className={`relative ${className.includes("w-full") ? "w-full" : "inline-block"} ${className}`} ref={containerRef}>
+    <div
+      className={`relative ${className.includes("w-full") ? "w-full" : "inline-block"} ${className}`}
+      ref={containerRef}
+    >
       {/* Display Trigger Button */}
       <button
         type="button"
@@ -86,7 +105,9 @@ export const MonthPicker: React.FC<MonthPickerProps> = ({
             {formatMonthDisplay(value, monthFormat)}
           </span>
         </span>
-        <span className="text-[10px] text-slate-400 font-semibold">{t.month_picker_change || "Thay đổi"}</span>
+        <span className="text-[10px] text-slate-400 font-semibold">
+          {t.month_picker_change || "Thay đổi"}
+        </span>
       </button>
 
       {/* Dropdown Calendar Popup */}
@@ -102,9 +123,7 @@ export const MonthPicker: React.FC<MonthPickerProps> = ({
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
-            <span className="font-black text-sm text-slate-900 dark:text-white">
-              {displayYear}
-            </span>
+            <span className="font-black text-sm text-slate-900 dark:text-white">{displayYear}</span>
             <button
               type="button"
               onClick={() => setDisplayYear((prev) => prev + 1)}
