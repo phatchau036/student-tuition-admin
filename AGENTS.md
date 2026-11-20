@@ -104,6 +104,13 @@ Toàn bộ tài liệu kỹ thuật chi tiết của hệ thống đã được 
 5. **QUY TẮC QUẢN LÝ TIẾN TRÌNH LOCAL (LOCAL SERVER PROCESS RULE):**
    - **TUYỆT ĐỐI KHÔNG TỰ Ý CHẠY `npm start` HOẶC `npm run dev` TRONG NỀN**: Người dùng sẽ tự chạy `npm start` / `npm run dev` trên terminal của họ.
    - Mỗi lần code xong, AI Agent chỉ chạy `npm run build` để kiểm tra typecheck và biên dịch mã nguồn, sau đó dừng lại và báo cáo, không được tự ý spawn tiến trình web server.
+6. **QUY TẮC KHÔNG ĐỂ LẠI RÁC (ZERO-RESIDUE RULE) — BẮT BUỘC:**
+   - **Cấm tuyệt đối `console.log/warn/info/debug/error` trong `src/`** — chỉ dùng `logger` tại `src/lib/logger.ts`. Ngoại lệ duy nhất: chính file `logger.ts`.
+   - **Cấm `debugger`, `alert()`, code bị comment-out, `TODO`/`FIXME` không kèm owner.**
+   - **Cấm hardcode ngày test, ID giả, tên/SĐT mẫu** — dùng `src/lib/constants.ts` hoặc helper thời gian.
+   - **Cấm đặt file test trong `src/`** — test nằm tại `tests/unit/` hoặc `tests/integration/`, chạy bằng `npm test`.
+   - **Mọi script debug tạm phải đặt tại `scripts/dev/`, có header `⚠️ TẠM THỜI — XÓA SAU KHI KIỂM TRA`, và phải xóa ngay trong cùng commit trước khi báo hoàn thành.**
+   - Chi tiết đầy đủ tại [docs/CODE_STANDARDS.md](./docs/CODE_STANDARDS.md).
 
 ---
 
@@ -143,7 +150,9 @@ Toàn bộ tài liệu kỹ thuật chi tiết của hệ thống đã được 
 
 Một yêu cầu chỉ được coi là hoàn thành ("Xong") khi đáp ứng đủ checklist:
 - [ ] Đã qua đối chiếu của `completeness-auditor` xác nhận không sót việc.
-- [ ] Chạy `npm run lint` và `npm run build` không có lỗi.
+- [ ] Chạy `npm run format`, `npm run lint` (**0 errors, 0 warnings**), `npm run typecheck` và `npm run build` không có lỗi.
+- [ ] Chạy `npm test` pass toàn bộ unit test.
+- [ ] **Zero-Residue:** `grep -rn "console\." src/` rỗng; không còn `debugger`, file test tạm, script debug tạm trong `src/` hay `scripts/`.
 - [ ] `git status` xác nhận không có file `data/*.db` nào bị staged. Mọi cột mới có migration trong `src/lib/db.ts`.
 - [ ] Đã hiển thị chuẩn trên cả Dark/Light mode và màn hình di động.
 - [ ] **Đã cập nhật dòng ghi chú trạng thái mới vào bảng log ở cuối tài liệu tương ứng trong `docs/`**.

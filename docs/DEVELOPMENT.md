@@ -38,11 +38,18 @@ Tuân thủ tuyệt đối quy định trong [GIT_WORKFLOW_RULES.md](./GIT_WORKF
 ---
 
 ## 3. CHECKLIST TRƯỚC KHI BÁO HOÀN THÀNH (PR CHECKLIST)
-- [ ] Đã chạy kiểm tra linting và không phát sinh lỗi (`npm run lint`).
-- [ ] Đã kiểm tra tính toàn vẹn biên dịch (`npm run build`).
+- [ ] Đã chạy `npm run format` (Prettier chuẩn hóa toàn bộ).
+- [ ] Chạy `npm run lint` → **0 errors, 0 warnings**.
+- [ ] Chạy `npm run typecheck` → không lỗi TypeScript.
+- [ ] Chạy `npm test` → unit test pass.
+- [ ] Chạy `npm run build` → build thành công.
+- [ ] **Zero-Residue:** không còn `console.*`, `debugger`, file test tạm hoặc script debug tạm trong `src/`/`scripts/`.
 - [ ] Đã bổ sung migration an toàn trong `src/lib/db.ts` nếu có thêm cột/bảng mới.
 - [ ] Giao diện hiển thị đúng trên cả Dark mode và Light mode.
 - [ ] Giao diện co giãn tốt trên màn hình điện thoại di động (Responsive).
+- [ ] `git status` sạch: không có `data/*.db`, `.env`, file tạm.
+
+> Chi tiết đầy đủ về chuẩn code: [CODE_STANDARDS.md](./CODE_STANDARDS.md).
 
 ---
 
@@ -52,3 +59,4 @@ Tuân thủ tuyệt đối quy định trong [GIT_WORKFLOW_RULES.md](./GIT_WORKF
 |---|---|---|---|
 | 2026-10-29 | Thiết lập chuẩn hóa quy trình phát triển và kiểm soát chất lượng | `code-reviewer` / Main | Đã ban hành |
 | 2026-11-08 | Dọn dẹp dead code: xóa `/api/wallet`, xóa import unused ReceiptModal, loại bỏ duplicate helper `computeEndMonth`, `timeToMinutes`, `DAYS_OF_WEEK` | Main Agent | Hoàn thành |
+| 2026-11-20 | Chuẩn hóa Giai đoạn 1: Prettier + EditorConfig + Husky + lint-staged + GitHub Actions CI; logger có cấp độ thay toàn bộ console; lint 0/0; xóa dead code & hardcode; ban hành CODE_STANDARDS.md | Main Agent | Hoàn thành |

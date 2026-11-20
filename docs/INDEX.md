@@ -23,6 +23,7 @@
 | 12 | Kiểm toán bảo mật, Localhost Guard, IP Whitelist | `security-auditor` | [docs/AUTH_SECURITY.md](./AUTH_SECURITY.md), [docs/ENV_CONFIG.md](./ENV_CONFIG.md) | [docs/AUTH_SECURITY.md](./AUTH_SECURITY.md) |
 | 13 | Kiểm thử toàn diện build/lint trước khi xong | `qa-walkthrough` | [docs/TESTING.md](./TESTING.md), [docs/DEPLOYMENT.md](./DEPLOYMENT.md) | [docs/TESTING.md](./TESTING.md) |
 | 14 | Đối chiếu yêu cầu gốc vs git diff (Không sót việc) | `completeness-auditor`| [docs/CHANGELOG.md](./CHANGELOG.md), [AGENTS.md](../AGENTS.md) | [docs/CHANGELOG.md](./CHANGELOG.md) |
+| 15 | Kiểm tra chuẩn chất lượng code (log, test, kích thước file, type) | `code-reviewer` | [docs/CODE_STANDARDS.md](./CODE_STANDARDS.md) | [docs/CODE_STANDARDS.md](./CODE_STANDARDS.md) |
 
 ---
 
@@ -58,6 +59,7 @@
 | 20 | [CHANGELOG.md](./CHANGELOG.md) | Đã hoàn thiện | Lịch sử phiên bản từ v2.3 đến v2.6 và Roadmap tính năng tương lai cho `completeness-auditor` |
 | 21 | [GIT_WORKFLOW_RULES.md](./GIT_WORKFLOW_RULES.md) | Đã hoàn thiện | Quy tắc đồng bộ Git và an toàn cơ sở dữ liệu đa máy (A & B) |
 | 22 | [DOCUMENTATION.md](./DOCUMENTATION.md) | Đã hoàn thiện | Tài liệu đặc tả kỹ thuật chi tiết toàn diện của hệ thống |
+| 23 | [CODE_STANDARDS.md](./CODE_STANDARDS.md) | Đã hoàn thiện | **Chuẩn chất lượng mã nguồn bắt buộc**: Zero-Residue Rule, Logging Policy, Error Handling, File Size Budget, Type Safety, Workflow trước commit cho toàn bộ Agent & lập trình viên |
 
 ---
 
@@ -115,3 +117,5 @@ Mỗi khi Main Agent hoặc Subagent nhận được yêu cầu từ người d�
 | 2026-11-16 | Khắc phục triệt để lỗi trang /admin bị load hoài và giật giật liên tục | `bug-investigator` / Main Agent | Hoàn thành: Triệt tiêu vòng lặp vô hạn (Infinite Loop) trong Dashboard.tsx do setCurrentSchool object reference trong loadSettings; tinh gọn dependency useEffect sang currentSchool?.id và loại bỏ các lời gọi fetch trùng lặp khi init. Build sạch 100%. |
 | 2026-11-16 | ⭐ Nâng cấp triệt để cơ chế Đổi Mật Khẩu & Hủy Phiên Đa Thiết Bị Tức Thì (Instant Session Invalidation) | `security-auditor` / Main Agent | Hoàn thành: (1) Gắn pwdHash vào token school_admin và getAdminFromRequest đá văng toàn bộ phiên cũ khi đổi pass; (2) Loại bỏ fallback token cũ trong /api/system/auth; (3) Thêm auth polling định kỳ cho /he-thong; (4) Thêm tính năng đổi mật khẩu Admin cơ sở trực tiếp từ /he-thong. Build sạch 100%. |
 | 2026-11-19 | ⭐ Cô lập dữ liệu & cấu hình đa cơ sở (Multi-Tenant Isolation) & Sửa lỗi Zalo Bot Webhook | Main Agent | Hoàn thành: (1) Bổ sung secret_token cho API setWebhook của Zalo Bot Platform; (2) Chuyển cấu hình SePay, học phí, lịch học, Zalo Bot thành cột riêng trong bảng schools; (3) Loại bỏ triệt để fallback query không có school_id trong /api/settings, /api/packages, /api/subjects; (4) Tự động migrate và seed data riêng biệt cho cơ sở mới; (5) Build sạch 100%. |
+| 2026-11-20 | Rà soát toàn diện workspace (Full Workspace Audit) | `codebase-explorer` / `bug-investigator` / Main Agent | Hoàn thành: Đọc 75 file source (~49.560 dòng), 40 API route, 27 component, 14 lib module, 22 tài liệu `docs/`. Lập bản đồ kiến trúc, luồng dữ liệu, ma trận multi-tenancy và danh mục nợ kỹ thuật (auth thiếu ở 24 route, token base64 không ký, 2 nguồn cấu hình settings/schools song song, Localhost Guard chưa hiện thực ở server). Không sửa code. |
+| 2026-11-20 | ⭐ Chuẩn hóa codebase (Giai đoạn 1): hạ tầng chất lượng, logger, zero-residue, dọn code chết | Main Agent | Hoàn thành: (1) Prettier + EditorConfig + Husky + lint-staged + GitHub Actions CI; (2) `src/lib/logger.ts` thay toàn bộ 100 `console.*`, 191 `catch {}` được xử lý có chủ đích; (3) ESLint 0 errors / 0 warnings (từ 433 problems), loại 113 `any` về `DbRow`; (4) Xóa 5 SVG rác, `TeacherManagementModal` chết, sửa hardcode ngày/version; (5) Tách `tests/unit` + `scripts/migrations`; (6) Ban hành `docs/CODE_STANDARDS.md` + cập nhật AGENTS.md/DoD. Build & 10/10 unit test PASS. |

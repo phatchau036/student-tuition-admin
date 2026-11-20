@@ -6,6 +6,34 @@
 
 ## 1. LỊCH SỬ PHIÊN BẢN (CHANGELOG)
 
+### [v2.10.0] - 2026-11-20
+- **⭐ CHUẨN HÓA CODEBASE — GIAI ĐOẠN 1 (CODE QUALITY INFRASTRUCTURE):**
+  - **Hạ tầng chất lượng tự động:**
+    - Thêm `.prettierrc.json` + `.prettierignore` + `.editorconfig` chuẩn hóa format toàn dự án.
+    - Thêm `Husky` + `lint-staged` (pre-commit tự động ESLint --fix + Prettier trên file staged).
+    - Thêm GitHub Actions CI (`.github/workflows/ci.yml`): Prettier check → Typecheck → Lint → Unit test → Build trên mỗi push/PR vào `main`.
+    - Chuẩn hóa `package.json`: đổi tên `student-tuition-admin`, version `2.10.0`, thêm `typecheck`, `lint:fix`, `format`, `format:check`, `test`, `migrate:wallet`.
+  - **Logger có cấp độ (`src/lib/logger.ts`):**
+    - Thay thế toàn bộ **100 lệnh `console.*`** trong `src/` bằng `createLogger(scope)`.
+    - `debug`/`info` chỉ ghi ở development; `warn`/`error` luôn ghi ở production.
+    - Tự động redact các khóa nhạy cảm (`password`, `token`, `secret`, `api_key`, `authorization`, `cookie`).
+  - **Xử lý 191 khối `catch {}`:** migration idempotent dùng helper `safeMigration()`; đường dẫn nghiệp vụ ghi `log.warn` có ngữ cảnh; đường dẫn tùy chọn dùng `log.debug`.
+  - **Dọn lint & type safety:**
+    - ESLint từ **433 problems (182 errors, 251 warnings)** → **0 errors, 0 warnings**.
+    - Loại bỏ **113 chỗ dùng `any`**; bổ sung type `DbRow` tại biên giới SQLite/JSON, `StudentMakeupItem`, `getErrorMessage()`.
+    - Xóa toàn bộ unused imports/variables; sửa các lỗi React Hooks (`set-state-in-effect`, khai báo hàm trước khi dùng, impure call trong render).
+  - **Dọn code chết & hardcode:**
+    - Xóa 5 file SVG mặc định của Next.js trong `public/` (không dùng).
+    - Xóa `TeacherManagementModal.tsx` (1.196 dòng) — modal không còn lối mở sau khi hợp nhất vào `StaffManagementModal`.
+    - Xóa state chết `isTeacherModalOpen`, `isServerRestarting`, `_isReceiptOpen`...
+    - Loại bỏ hardcode `"2026-10"`, `"2026-11-08"`, `planned_minutes: 90`, `v2.8.3`; thay bằng `getCurrentMonthStr()`, `getTodayDateStr()`, `DEFAULT_MINUTES_PER_SESSION`, `APP_VERSION`.
+    - Sửa `duration_mode` bị hardcode `"by_sessions"` khi lưu cài đặt và lỗi không truyền `initialZaloOaSecretKey/AccessToken/TemplateId/initialAppLanguage` khiến cấu hình Zalo OA bị xóa trắng.
+  - **Tổ chức lại test & script:**
+    - `scripts/test-hour-wallet.js` → `tests/unit/hour-wallet.test.js` (Node built-in test runner, `npm test`).
+    - `scripts/migrate-hour-wallet.js` → `scripts/migrations/migrate-hour-wallet.js` (`npm run migrate:wallet`).
+  - **Ban hành chuẩn mới:** `docs/CODE_STANDARDS.md` — Zero-Residue Rule, Logging Policy, Error Handling, File Size Budget, Type Safety, Workflow bắt buộc; cập nhật `AGENTS.md` (nguyên tắc #6 + Definition of Done), `CONVENTIONS.md`, `DEVELOPMENT.md`.
+  - **Kiểm tra:** `npm run lint` 0/0 · `npm run typecheck` pass · `npm test` 10/10 PASS · `npm run build` thành công 47 route.
+
 ### [v2.9.7] - 2026-11-19
 - **⭐ CÔ LẬP CƠ SỞ TOÀN DIỆN & SỬA LỖI ĐĂNG KÝ ZALO BOT WEBHOOK:**
   - **Sửa lỗi setWebhook Zalo Bot:** Bổ sung `secret_token` (được băm MD5 an toàn từ bot token) vào payload đăng ký `setWebhook` của Zalo Bot Platform theo chuẩn mới, khắc phục dứt điểm lỗi `Bad request: The secret_token must not be empty`.
@@ -204,7 +232,7 @@
   - API mới `/api/wallet` (9 actions): cấp giờ, điểm danh, báo nghỉ, xếp bù kiểm soát số dư khả dụng, hủy bù, điều chỉnh tay, xem sổ cái phân trang.
   - Hook tự động cấp giờ tại cả 2 điểm đóng tiền: Dashboard đối soát + SePay Webhook.
   - Dashboard: badge "Nợ X buổi bù" → **"Còn 7h30"** (xanh lá ≥ 3h, vàng < 3h, đỏ nhấp nháy khi âm).
-  - Migration an toàn: `node scripts/migrate-hour-wallet.js --dry-run` — chuyển suất bù cũ thành ADJUST, lịch bù cũ thành lessons, cấp bù GRANT cho tháng đã đóng.
+  - Migration an toàn: `node scripts/migrations/migrate-hour-wallet.js --dry-run` — chuyển suất bù cũ thành ADJUST, lịch bù cũ thành lessons, cấp bù GRANT cho tháng đã đóng.
 
 ### [v2.6.0] - 2026-10-29
 - **Tối ưu hóa ma trận xếp lịch:** Hoàn thiện `ClassroomScheduleMatrix.tsx` hỗ trợ lưới ca học động và phát hiện xung đột giờ học của học sinh.
