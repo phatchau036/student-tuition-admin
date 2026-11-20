@@ -6,6 +6,19 @@
 
 ## 1. LỊCH SỬ PHIÊN BẢN (CHANGELOG)
 
+### [v2.11.0] - 2026-11-20
+- **⭐ CHUẨN HÓA CODEBASE — GIAI ĐOẠN 2 (DOMAIN-DRIVEN RESTRUCTURE):**
+  - **Tái cấu trúc kiểu dữ liệu (`src/types/`):** Tách `src/lib/types.ts` (685 dòng) thành 9 module domain — `common`, `school`, `catalog`, `student`, `teacher`, `class`, `finance`, `feedback`, `lesson`. `lib/types.ts` còn 15 dòng barrel tương thích.
+  - **Tái cấu trúc học phí (`src/lib/tuition/`):** Tách `tuition.ts` (1.233 dòng) thành 8 module chuyên trách — `constants`, `format`, `dates`, `cycle`, `calculation`, `slots`, `schedule`, `upcoming`. Barrel `index.ts` giữ nguyên API công khai.
+  - **Tái cấu trúc tầng dữ liệu (`src/server/db/`):** Tách `db.ts` (995 dòng) thành `client.ts` (kết nối + `safeMigration`), `schema-core.ts` (bảng lõi + seed nền), `schema-domain.ts` (bảng nghiệp vụ), `schema-migrations.ts` (backfill), `seed.ts` (cấu hình mặc định), `index.ts` (orchestrator `initDb()`).
+  - **Tổ chức component theo feature domain:** Chuyển toàn bộ 25 component vào `src/features/<domain>/components/` — `dashboard`, `students`, `tuition`, `schedule`, `classes`, `staff`, `settings`, `ai`, `parent`, `system`. UI primitives (`Toast`, `MonthPicker`, `MaintenanceGuard`) về `src/components/ui/`.
+  - **Tách màn hình lớn:**
+    - Dashboard: tách `AdminLoginScreen`, `IpBlockedScreen`, `DashboardLoadingScreen`, `DashboardKpiCards` (−400 dòng).
+    - `/he-thong`: tách `SystemLoginScreen`, `SystemLoadingScreen`, `AiConfigTab`, `SystemAccountTab`, `SystemMaintenanceTab` (−446 dòng).
+    - `SettingsModal`: tách 5 tab độc lập — `SubjectsTab`, `SlotsTab`, `LevelsTab`, `DiscountsTab`, `PasswordTab` (−517 dòng).
+  - **Helper phản hồi API chuẩn (`src/server/http/response.ts`):** Thêm `ok()`, `fail()`, `HTTP_STATUS`; áp dụng cho `/api/packages` và `/api/subjects`.
+  - **Kiểm tra:** ESLint 0 errors/0 warnings · `tsc --noEmit` pass · `npm test` 10/10 PASS · `npm run build` thành công 47 route · Prettier check pass.
+
 ### [v2.10.0] - 2026-11-20
 - **⭐ CHUẨN HÓA CODEBASE — GIAI ĐOẠN 1 (CODE QUALITY INFRASTRUCTURE):**
   - **Hạ tầng chất lượng tự động:**

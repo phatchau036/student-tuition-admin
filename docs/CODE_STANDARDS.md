@@ -151,34 +151,62 @@ git status            # không có data/*.db, .env, file tạm
 ## 9. QUY TẮC GIT & DATABASE (nhắc lại)
 
 - **Tuyệt đối không commit** `data/*.db`, `data/*.db-wal`, `data/*.db-journal`, `.env`, log, `*.bak`, `*.tmp`.
-- Migration schema chỉ viết trong `initDb()` (`src/lib/db.ts`) bằng `CREATE TABLE IF NOT EXISTS` hoặc `safeMigration()`.
+- Migration schema chỉ viết trong `src/server/db/` (barrel tương thích: `src/lib/db.ts`) bằng `CREATE TABLE IF NOT EXISTS` hoặc `safeMigration()`.
 - Commit message theo Conventional Commits: `feat:`, `fix:`, `refactor:`, `docs:`, `chore:`, `test:`.
 
 ---
 
-## 10. LỘ TRÌNH GIAI ĐOẠN 2 (định hướng, chưa thực thi)
-
-Khi tái cấu trúc sâu, đi theo cấu trúc đích sau để đồng bộ với chuẩn dự án lớn:
+## 10. CẤU TRÚC THƯ MỤC CHUẨN (ĐÃ HOÀN THÀNH GIAI ĐOẠN 2)
 
 ```text
 src/
-├── app/                 # chỉ routing (page.tsx, route.ts mỏng)
-├── features/            # theo domain: students, tuition, schedule, teachers, settings, zalo, ai, feedbacks
-│   └── <domain>/{components,hooks,services,types.ts}
-├── server/              # backend dùng chung
-│   ├── db/              # client, schema, migrations
-│   ├── auth/            # session, permissions
-│   └── services/        # nghiệp vụ tách khỏi route handler
-├── components/ui/       # primitives dùng chung (Button, Modal, Input…)
-├── lib/                 # tiện ích thuần (format, date, constants, logger, errors)
-└── types/               # domain types
+├── app/                    # Chỉ routing: page.tsx mỏng + api/**/route.ts
+├── features/               # Theo domain nghiệp vụ
+│   ├── dashboard/components/   # Dashboard, KPI cards, login, IP blocked, AppInfo, CreateBranch
+│   ├── students/components/    # Form, Detail, Status, StatusLog, Excel import
+│   ├── tuition/components/     # Monthly tuition/summary, QuickAudit, Reminder queue, Zalo, Receipt
+│   ├── schedule/components/    # Classroom matrix, MakeUp, Attendance, Availability
+│   ├── classes/components/     # ClassManagement
+│   ├── staff/components/       # StaffManagement
+│   ├── settings/components/    # SettingsModal + tabs/ (subjects, slots, levels, discounts, password)
+│   ├── ai/components/          # Admin AI assistant
+│   ├── parent/components/      # ParentPortal
+│   └── system/components/      # Super Admin: login, AI config, account, maintenance
+├── server/
+│   ├── db/                 # client, schema-core, schema-domain, schema-migrations, seed, index
+│   └── http/response.ts    # Helper phản hồi API chuẩn `ok()` / `fail()`
+├── components/ui/          # Primitives dùng chung: Toast, MonthPicker, MaintenanceGuard
+├── lib/
+│   ├── tuition/            # 8 module: constants, format, dates, cycle, calculation, slots, schedule, upcoming
+│   ├── logger.ts, errors.ts, constants.ts, authHelper.ts, wallet.ts, …
+│   └── types.ts            # Barrel tương thích → @/types
+└── types/                  # 9 domain: common, school, catalog, student, teacher, class, finance, feedback, lesson
 ```
 
-Mục tiêu Giai đoạn 2:
-1. Tách 6 file > 2.000 dòng thành module theo domain.
-2. Đưa toàn bộ truy vấn SQL vào `server/services` (route handler chỉ còn validate + gọi service).
-3. Chuyển modal prop-sync sang `key` remount.
-4. Thống nhất một nguồn cấu hình duy nhất (bỏ song song `settings` global và cột `schools`).
+### Quy tắc import theo cấu trúc mới
+
+| Cần dùng | Import từ |
+|---|---|
+| Kiểu dữ liệu domain | `@/types/<domain>` (hoặc `@/lib/types` cho code cũ) |
+| Tiện ích học phí/lịch | `@/lib/tuition` (barrel) hoặc `@/lib/tuition/<module>` |
+| Truy cập DB | `@/server/db` (hoặc `@/lib/db` cho code cũ) |
+| Phản hồi API | `@/server/http/response` → `ok()`, `fail()`, `HTTP_STATUS` |
+| Component theo domain | `@/features/<domain>/components/<Name>` |
+| UI primitives | `@/components/ui/<Name>` |
+
+### Mục tiêu Giai đoạn 2 — TRẠNG THÁI
+
+| # | Mục tiêu | Trạng thái |
+|---|---|---|
+| 1 | Tách `types.ts` (685 dòng) | ✅ 9 file trong `src/types/` |
+| 2 | Tách `tuition.ts` (1.233 dòng) | ✅ 8 module trong `src/lib/tuition/` |
+| 3 | Tách `db.ts` (995 dòng) | ✅ 6 file trong `src/server/db/` |
+| 4 | Tổ chức components theo feature domain | ✅ 10 domain + `components/ui` |
+| 5 | Tách màn hình/modal lớn | ✅ Dashboard (-400 dòng), he-thong (-446 dòng), SettingsModal (-517 dòng) |
+| 6 | Helper phản hồi API chuẩn | ✅ `src/server/http/response.ts` |
+| 7 | Đưa truy vấn SQL vào `server/services` | ⏳ Còn lại (route vẫn truy vấn trực tiếp) |
+| 8 | Chuyển modal prop-sync sang `key` remount | ⏳ Còn lại (đã có eslint-disable kèm lý do) |
+| 9 | Thống nhất nguồn cấu hình `settings` vs `schools` | ⏳ Còn lại |
 
 ---
 
@@ -187,3 +215,4 @@ Mục tiêu Giai đoạn 2:
 | Ngày | Nội dung | Người ban hành |
 |---|---|---|
 | 2026-11-20 | Ban hành chuẩn chất lượng v1.0: Zero-Residue Rule, Logging Policy, Error Handling, File Size Budget, Type Safety, Workflow bắt buộc, lộ trình Giai đoạn 2 | Main Agent |
+| 2026-11-20 | Cập nhật cấu trúc thư mục chuẩn sau Giai đoạn 2: `src/types/`, `src/lib/tuition/`, `src/server/db/`, `src/features/**`, `src/components/ui/`, `src/server/http/` | Main Agent |

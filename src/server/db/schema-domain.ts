@@ -4,7 +4,6 @@
 import type { Client } from "@libsql/client";
 import { safeMigration } from "./client";
 
-
 export async function ensureDomainSchema(db: Client): Promise<void> {
   // 2. Teachers Table
   await db.execute(`

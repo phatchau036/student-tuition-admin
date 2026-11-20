@@ -60,3 +60,4 @@ Tuân thủ tuyệt đối quy định trong [GIT_WORKFLOW_RULES.md](./GIT_WORKF
 | 2026-10-29 | Thiết lập chuẩn hóa quy trình phát triển và kiểm soát chất lượng | `code-reviewer` / Main | Đã ban hành |
 | 2026-11-08 | Dọn dẹp dead code: xóa `/api/wallet`, xóa import unused ReceiptModal, loại bỏ duplicate helper `computeEndMonth`, `timeToMinutes`, `DAYS_OF_WEEK` | Main Agent | Hoàn thành |
 | 2026-11-20 | Chuẩn hóa Giai đoạn 1: Prettier + EditorConfig + Husky + lint-staged + GitHub Actions CI; logger có cấp độ thay toàn bộ console; lint 0/0; xóa dead code & hardcode; ban hành CODE_STANDARDS.md | Main Agent | Hoàn thành |
+| 2026-11-20 | Giai đoạn 2: tái cấu trúc domain-driven — `src/types/`, `src/lib/tuition/`, `src/server/db/`, `src/features/**`, `src/components/ui/`, `src/server/http/response.ts`; tách Dashboard/he-thong/SettingsModal thành component nhỏ | Main Agent | Hoàn thành |
