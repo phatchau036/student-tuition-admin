@@ -14,8 +14,6 @@ import {
   Copy,
   Lock,
   LogOut,
-  User,
-  ArrowRight,
   Globe,
   Edit2,
   Eye,
@@ -33,6 +31,10 @@ import {
 import Link from "next/link";
 import { SystemFeedback, SystemTeamMember } from "@/lib/types";
 import { createLogger } from "@/lib/logger";
+import {
+  SystemLoginScreen,
+  SystemLoadingScreen,
+} from "@/features/system/components/SystemLoginScreen";
 
 const log = createLogger("page/he-thong");
 import { generateAdminUsernameFromSchool, generateRandomPassword } from "@/lib/credentialGen";
@@ -1165,97 +1167,23 @@ export default function SystemAdminPage() {
     }));
   };
 
-  // CASE 1: Loading screen while checking auth
+  // CASE 1: Màn hình chờ xác thực phiên Super Admin
   if (isAuthenticated === null) {
-    return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-400">
-        <div className="flex items-center gap-2">
-          <div className="w-5 h-5 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
-          <span className="text-sm font-semibold">Đang kiểm tra quyền truy cập hệ thống...</span>
-        </div>
-      </div>
-    );
+    return <SystemLoadingScreen />;
   }
 
-  // CASE 3: Unauthenticated: Super Admin Login Screen (Localhost only)
+  // CASE 2: Chưa đăng nhập — màn hình đăng nhập Super Admin (chỉ localhost)
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-center items-center p-4 font-sans relative">
-        {toastMessage && (
-          <div className="fixed top-5 right-5 z-50 flex items-center gap-2 px-4 py-3 rounded-xl bg-white text-slate-900 shadow-2xl border border-slate-200 animate-in fade-in slide-in-from-top-4">
-            {toastMessage.type === "success" ? (
-              <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-            ) : toastMessage.type === "error" ? (
-              <AlertCircle className="w-5 h-5 text-rose-600" />
-            ) : (
-              <Sparkles className="w-5 h-5 text-indigo-600" />
-            )}
-            <span className="text-sm font-semibold">{toastMessage.text}</span>
-          </div>
-        )}
-
-        <div className="w-full max-w-md p-8 rounded-3xl bg-slate-900/90 border border-slate-800 shadow-2xl space-y-6 backdrop-blur-md">
-          <div className="text-center space-y-2">
-            <div className="w-16 h-16 rounded-2xl bg-purple-600/20 border border-purple-500/30 text-purple-400 mx-auto flex items-center justify-center shadow-lg shadow-purple-600/10">
-              <ShieldCheck className="w-8 h-8" />
-            </div>
-            <h1 className="text-xl font-extrabold text-white">Cổng Quản Trị Hệ Thống</h1>
-            <p className="text-xs text-slate-400">
-              Khu vực đăng nhập dành riêng cho Chủ Hệ Thống quản lý toàn diện các cơ sở.
-            </p>
-          </div>
-
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                Tài khoản Chủ Hệ Thống (.env):
-              </label>
-              <div className="relative">
-                <User className="w-4 h-4 absolute left-3.5 top-3 text-slate-500" />
-                <input
-                  type="text"
-                  required
-                  placeholder="Tên đăng nhập hệ thống"
-                  value={authUsername}
-                  onChange={(e) => setAuthUsername(e.target.value)}
-                  className="w-full pl-10 pr-3 py-2.5 text-sm rounded-xl bg-slate-800/80 border border-slate-700 text-white placeholder:text-slate-500 focus:outline-hidden focus:ring-2 focus:ring-purple-500"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">Mật khẩu:</label>
-              <div className="relative">
-                <Lock className="w-4 h-4 absolute left-3.5 top-3 text-slate-500" />
-                <input
-                  type="password"
-                  required
-                  placeholder="Mật khẩu bảo mật"
-                  value={authPassword}
-                  onChange={(e) => setAuthPassword(e.target.value)}
-                  className="w-full pl-10 pr-3 py-2.5 text-sm rounded-xl bg-slate-800/80 border border-slate-700 text-white placeholder:text-slate-500 focus:outline-hidden focus:ring-2 focus:ring-purple-500"
-                />
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={isSubmittingAuth}
-              className="w-full py-3 px-4 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-sm shadow-lg shadow-purple-600/30 transition flex items-center justify-center gap-2 disabled:opacity-50"
-            >
-              {isSubmittingAuth ? "Đang xác thực..." : "Đăng Nhập Hệ Thống"}
-              <ArrowRight className="w-4 h-4" />
-            </button>
-          </form>
-
-          <div className="pt-2 border-t border-slate-800/80 text-center">
-            <p className="text-[11px] text-slate-500">
-              Thông tin đăng nhập được lưu trữ an toàn trong biến môi trường file{" "}
-              <code className="text-purple-400 font-mono">.env</code> của máy chủ.
-            </p>
-          </div>
-        </div>
-      </div>
+      <SystemLoginScreen
+        username={authUsername}
+        password={authPassword}
+        isSubmitting={isSubmittingAuth}
+        toastMessage={toastMessage}
+        onUsernameChange={setAuthUsername}
+        onPasswordChange={setAuthPassword}
+        onSubmit={handleLogin}
+      />
     );
   }
 
