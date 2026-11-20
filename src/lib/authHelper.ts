@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "./db";
 import crypto from "crypto";
+import { decodeSchoolAdminToken } from "@/lib/sessionToken";
 
 export function getPwdHash(pwd: string): string {
   return crypto.createHash("sha256").update(pwd).digest("hex").slice(0, 16);
@@ -92,10 +93,9 @@ export function getSchoolIdFromRequest(req: Request): string {
     }
 
     if (token) {
-      const decoded = Buffer.from(token, "base64").toString("utf-8");
-      const parts = decoded.split(":");
-      if (parts.length >= 3 && parts[0] === "school_admin" && parts[2]) {
-        return parts[2];
+      const decoded = decodeSchoolAdminToken(token);
+      if (decoded && decoded.segments[2]) {
+        return decoded.segments[2];
       }
     }
 
@@ -131,11 +131,9 @@ export async function getAdminFromRequest(req: Request): Promise<RequestAdminCon
 
     if (!token) return null;
 
-    const decoded = Buffer.from(token, "base64").toString("utf-8");
-    const parts = decoded.split(":");
-    if (parts.length < 4 || parts[0] !== "school_admin") {
-      return null;
-    }
+    const decoded = decodeSchoolAdminToken(token);
+    if (!decoded) return null;
+    const parts = decoded.segments;
 
     const adminId = parts[1];
     const adminRes = await db.execute({

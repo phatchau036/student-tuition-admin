@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
 import { resolveSchoolIdByHost, getPwdHash } from "@/lib/authHelper";
 import { createLogger } from "@/lib/logger";
+import { createSchoolAdminToken, decodeSchoolAdminToken } from "@/lib/sessionToken";
 
 const log = createLogger("api/admin/auth");
 
@@ -110,9 +111,11 @@ export async function POST(req: Request) {
     }
 
     const pwdHash = getPwdHash(String(admin.password || ""));
-    const token = Buffer.from(
-      `school_admin:${admin.id}:${admin.school_id}:${pwdHash}:${Date.now()}`
-    ).toString("base64");
+    const token = createSchoolAdminToken({
+      adminId: String(admin.id),
+      schoolId: String(admin.school_id),
+      pwdHash,
+    });
 
     const response = NextResponse.json({
       success: true,
@@ -178,11 +181,11 @@ export async function GET(req: Request) {
       return NextResponse.json({ success: false, authenticated: false }, { status: 401 });
     }
 
-    const decoded = Buffer.from(token, "base64").toString("utf-8");
-    const parts = decoded.split(":");
-    if (parts.length < 4 || parts[0] !== "school_admin") {
+    const decoded = decodeSchoolAdminToken(token);
+    if (!decoded) {
       return NextResponse.json({ success: false, authenticated: false }, { status: 401 });
     }
+    const parts = decoded.segments;
 
     const adminId = parts[1];
     const adminRes = await db.execute({

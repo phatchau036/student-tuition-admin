@@ -82,5 +82,11 @@ export function proxy(request: NextRequest) {
 export const config = {
   // Không match `/api/system/upgrade/status` vì MaintenanceGuard của mọi phân hệ
   // cần đọc trạng thái bảo trì. Route đó tự kiểm tra localhost khi có `check_git=1`.
-  matcher: ["/he-thong/:path*", "/api/system", "/api/system/auth", "/api/system/team", "/api/system/upgrade"],
+  matcher: [
+    "/he-thong/:path*",
+    "/api/system",
+    "/api/system/auth",
+    "/api/system/team",
+    "/api/system/upgrade",
+  ],
 };

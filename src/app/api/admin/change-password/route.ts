@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
 import { getPwdHash } from "@/lib/authHelper";
 import { createLogger } from "@/lib/logger";
+import { createSchoolAdminToken } from "@/lib/sessionToken";
 
 const log = createLogger("api/admin/change-password");
 
@@ -99,9 +100,11 @@ export async function POST(req: Request) {
     // trong khi tất cả các máy / trình duyệt khác dùng token cũ sẽ lập tức bị đá văng (401)
     const schoolId = String(adminCheck.rows[0].school_id || "school-default");
     const newPwdHash = getPwdHash(new_password);
-    const newToken = Buffer.from(
-      `school_admin:${targetAdminId}:${schoolId}:${newPwdHash}:${Date.now()}`
-    ).toString("base64");
+    const newToken = createSchoolAdminToken({
+      adminId: String(targetAdminId),
+      schoolId,
+      pwdHash: newPwdHash,
+    });
 
     const response = NextResponse.json({
       success: true,
