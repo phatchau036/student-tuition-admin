@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
 import { resolveSchoolIdByHost, getPwdHash } from "@/lib/authHelper";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("api/admin/auth");
 
 // API Đăng nhập cho Quản trị viên của từng trường học
 export async function POST(req: Request) {
@@ -134,7 +137,7 @@ export async function POST(req: Request) {
 
     return response;
   } catch (error: unknown) {
-    console.error("Admin Auth Error:", error);
+    log.error("Admin Auth Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Internal Server Error" },
       { status: 500 }

@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
 import { getSchoolIdFromRequest, requireAdminPermission } from "@/lib/authHelper";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("api/packages");
 
 // GET /api/packages - Lấy danh sách gói học phí
 export async function GET(req: Request) {
@@ -33,7 +36,7 @@ export async function GET(req: Request) {
 
     return NextResponse.json({ success: true, data: packages });
   } catch (error: unknown) {
-    console.error("Packages GET Error:", error);
+    log.error("Packages GET Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Internal Server Error" },
       { status: 500 }
@@ -136,7 +139,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: false, message: "Hành động không hợp lệ!" }, { status: 400 });
   } catch (error: unknown) {
-    console.error("Packages POST Error:", error);
+    log.error("Packages POST Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Internal Server Error" },
       { status: 500 }

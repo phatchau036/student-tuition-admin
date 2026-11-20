@@ -39,6 +39,9 @@ import { MonthFormat, AppLanguage } from "@/lib/types";
 import { useLanguage } from "@/lib/i18n";
 import { useTheme } from "@/lib/ThemeContext";
 import { detectShiftTeachers, isTimeOverlap } from "@/lib/shiftDetection";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("ui/ParentPortal");
 
 interface MakeupItem {
   id: string;
@@ -498,7 +501,7 @@ export default function ParentPortal() {
           }
         }
       } catch {
-        console.error("Failed to load occupancy");
+        log.error("Failed to load occupancy");
       } finally {
         setIsLoadingOccupancy(false);
       }

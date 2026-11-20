@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
 import { getSchoolIdFromRequest } from "@/lib/authHelper";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("api/admin/teacher-leaves");
 
 // GET /api/admin/teacher-leaves - Lấy danh sách đơn xin nghỉ của giáo viên toàn trường
 export async function GET(req: Request) {
@@ -59,7 +62,7 @@ export async function GET(req: Request) {
       },
     });
   } catch (error: unknown) {
-    console.error("Admin Teacher Leaves GET Error:", error);
+    log.error("Admin Teacher Leaves GET Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Internal Server Error" },
       { status: 500 }
@@ -133,7 +136,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: false, message: "Hành động không hợp lệ!" }, { status: 400 });
   } catch (error: unknown) {
-    console.error("Admin Teacher Leaves POST Error:", error);
+    log.error("Admin Teacher Leaves POST Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Internal Server Error" },
       { status: 500 }

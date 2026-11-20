@@ -3,6 +3,9 @@ import { getDb, initDb } from "@/lib/db";
 import { calculateStudentTuition, getPreviousMonthStr } from "@/lib/tuition";
 import { syncPendingMakeupsToWallet } from "@/lib/wallet";
 import { resolveSchoolIdByHost } from "@/lib/authHelper";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("api/parent");
 
 export async function POST(req: Request) {
   try {
@@ -435,7 +438,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: false, message: "Hành động không hợp lệ!" }, { status: 400 });
   } catch (error: unknown) {
-    console.error("Parent API Error:", error);
+    log.error("Parent API Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Internal Server Error" },
       { status: 500 }

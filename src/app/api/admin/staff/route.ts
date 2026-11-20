@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
 import { getSchoolIdFromRequest, requireAdminPermission } from "@/lib/authHelper";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("api/admin/staff");
 
 // GET /api/admin/staff - Danh sách tài khoản nhân viên của cơ sở
 export async function GET(req: Request) {
@@ -56,7 +59,7 @@ export async function GET(req: Request) {
 
     return NextResponse.json({ success: true, data: staffList });
   } catch (error: unknown) {
-    console.error("Staff GET Error:", error);
+    log.error("Staff GET Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Internal Server Error" },
       { status: 500 }
@@ -177,7 +180,7 @@ export async function POST(req: Request) {
       id: newId,
     });
   } catch (error: unknown) {
-    console.error("Staff POST Error:", error);
+    log.error("Staff POST Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Internal Server Error" },
       { status: 500 }
@@ -228,7 +231,7 @@ export async function DELETE(req: Request) {
       message: "Đã xóa tài khoản nhân viên thành công!",
     });
   } catch (error: unknown) {
-    console.error("Staff DELETE Error:", error);
+    log.error("Staff DELETE Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Internal Server Error" },
       { status: 500 }

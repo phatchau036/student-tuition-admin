@@ -34,6 +34,9 @@ import {
 } from "lucide-react";
 import { ParentFeedback, SystemFeedback } from "@/lib/types";
 import { useToast } from "@/components/Toast";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("ui/AppInfoModal");
 
 interface AppInfoModalProps {
   isOpen: boolean;
@@ -91,7 +94,7 @@ export const AppInfoModal: React.FC<AppInfoModalProps> = ({
         setSystemFeedbacks(json.data || []);
       }
     } catch {
-      console.error("Lỗi tải góp ý hệ thống");
+      log.error("Lỗi tải góp ý hệ thống");
     } finally {
       setIsLoadingSystemFb(false);
     }
@@ -106,7 +109,7 @@ export const AppInfoModal: React.FC<AppInfoModalProps> = ({
         setParentFeedbacks(json.data || []);
       }
     } catch {
-      console.error("Lỗi tải góp ý phụ huynh");
+      log.error("Lỗi tải góp ý phụ huynh");
     } finally {
       setIsLoadingParentFb(false);
     }

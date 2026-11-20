@@ -15,6 +15,9 @@ import {
   Search,
 } from "lucide-react";
 import { MonthPicker } from "./MonthPicker";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("ui/MonthlySummaryModal");
 
 interface MonthlySummaryModalProps {
   isOpen: boolean;
@@ -84,7 +87,7 @@ export const MonthlySummaryModal: React.FC<MonthlySummaryModalProps> = ({
         setData(json.data);
       }
     } catch (err) {
-      console.error("Failed to load summary:", err);
+      log.error("Failed to load summary:", { error: err });
     } finally {
       setIsLoading(false);
     }

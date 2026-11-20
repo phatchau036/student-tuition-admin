@@ -3,6 +3,9 @@ import { getDb, initDb } from "@/lib/db";
 import fs from "fs";
 import path from "path";
 import crypto from "crypto";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("api/system/auth");
 
 function getPwdHash(pwd: string): string {
   return crypto.createHash("sha256").update(pwd).digest("hex").slice(0, 16);
@@ -47,7 +50,7 @@ function syncEnvFile(newUsername: string, newPassword: string) {
       fs.writeFileSync(envPath, content, "utf-8");
     }
   } catch (err) {
-    console.error("Could not sync .env file:", err);
+    log.error("Could not sync .env file:", { error: err });
   }
 }
 

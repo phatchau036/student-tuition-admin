@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
 import { getSchoolIdFromRequest, getAdminFromRequest } from "@/lib/authHelper";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("api/admin/tuition-reminders");
 
 const ZALO_BOT_BASE_URL = "https://bot-api.zapps.me";
 
@@ -136,7 +139,7 @@ export async function GET(req: Request) {
       },
     });
   } catch (error: any) {
-    console.error("GET /api/admin/tuition-reminders error:", error);
+    log.error("GET /api/admin/tuition-reminders error:", { error: error });
     return NextResponse.json(
       { success: false, message: error.message || "Lỗi truy vấn lịch sử nhắc học phí" },
       { status: 500 }
@@ -387,7 +390,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: false, message: "Hành động không hợp lệ!" }, { status: 400 });
   } catch (error: any) {
-    console.error("POST /api/admin/tuition-reminders error:", error);
+    log.error("POST /api/admin/tuition-reminders error:", { error: error });
     return NextResponse.json(
       { success: false, message: error.message || "Lỗi xử lý nhắc học phí" },
       { status: 500 }

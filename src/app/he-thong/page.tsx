@@ -42,6 +42,9 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { SystemFeedback, SystemTeamMember } from "@/lib/types";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("page/he-thong");
 import {
   generateAdminUsernameFromSchool,
   generateRandomPassword,
@@ -436,7 +439,7 @@ export default function SystemAdminPage() {
         setTeamMembers(json.data || []);
       }
     } catch {
-      console.error("Lỗi khi tải thành viên team");
+      log.error("Lỗi khi tải thành viên team");
     } finally {
       setIsLoadingTeam(false);
     }
@@ -689,7 +692,7 @@ export default function SystemAdminPage() {
         setSystemFeedbacks(json.data || []);
       }
     } catch {
-      console.error("Lỗi khi tải danh sách góp ý");
+      log.error("Lỗi khi tải danh sách góp ý");
     } finally {
       setIsLoadingFeedbacks(false);
     }

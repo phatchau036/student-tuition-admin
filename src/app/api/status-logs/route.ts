@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
 import { getSchoolIdFromRequest } from "@/lib/authHelper";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("api/status-logs");
 
 // GET /api/status-logs - Lấy lịch sử log tổng bảo lưu, nghỉ học và trở lại học
 export async function GET(req: Request) {
@@ -153,7 +156,7 @@ export async function GET(req: Request) {
       },
     });
   } catch (error: unknown) {
-    console.error("Status Logs Error:", error);
+    log.error("Status Logs Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Internal Server Error" },
       { status: 500 }

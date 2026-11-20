@@ -95,6 +95,9 @@ import { exportStudentsToExcel } from "@/lib/exportExcel";
 import { useLanguage } from "@/lib/i18n";
 import { useTheme } from "@/lib/ThemeContext";
 import { AppLanguage, ClassRoom, SchoolAdmin } from "@/lib/types";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("ui/Dashboard");
 
 // Hiển thị ngày ISO (YYYY-MM-DD) theo định dạng Việt Nam (DD/MM/YYYY)
 function formatIsoDateVN(iso?: string): string {
@@ -650,7 +653,7 @@ export default function Dashboard() {
         }
       }
     } catch (err) {
-      console.error("Failed to load settings:", err);
+      log.error("Failed to load settings:", { error: err });
     }
   };
 
@@ -667,7 +670,7 @@ export default function Dashboard() {
         setTeachers(json.data);
       }
     } catch (err) {
-      console.error("Failed to load teachers:", err);
+      log.error("Failed to load teachers:", { error: err });
     }
   };
 
@@ -684,7 +687,7 @@ export default function Dashboard() {
         setClasses(json.data);
       }
     } catch (err) {
-      console.error("Failed to load classes:", err);
+      log.error("Failed to load classes:", { error: err });
     }
   };
 

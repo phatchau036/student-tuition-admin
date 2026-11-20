@@ -4,6 +4,9 @@ import React, { useState, useEffect, useMemo } from "react";
 import { Student, MakeUpClass, TimeSlot } from "@/lib/types";
 import { useToast } from "@/components/Toast";
 import { detectShiftTeachers, ShiftDetectionResult } from "@/lib/shiftDetection";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("ui/MakeUpClassesModal");
 import {
   Calendar,
   Clock,
@@ -176,7 +179,7 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
         setMakeups(json.data || []);
       }
     } catch (err) {
-      console.error("Failed to load makeups:", err);
+      log.error("Failed to load makeups:", { error: err });
     } finally {
       setIsLoadingList(false);
     }
@@ -198,7 +201,7 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
         }
       }
     } catch (err) {
-      console.error("Failed to load history:", err);
+      log.error("Failed to load history:", { error: err });
     } finally {
       setIsLoadingHistory(false);
     }
@@ -330,7 +333,7 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
           }
         }
       } catch (err) {
-        console.error("Failed to load occupancy:", err);
+        log.error("Failed to load occupancy:", { error: err });
       } finally {
         setIsLoadingOccupancy(false);
       }

@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
 import { StudentStatus } from "@/lib/types";
 import { requireAdminPermission } from "@/lib/authHelper";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("api/students/status");
 
 // POST /api/students/status - Thay đổi trạng thái học sinh (bảo lưu, nghỉ, học tiếp)
 export async function POST(req: Request) {
@@ -101,7 +104,7 @@ export async function POST(req: Request) {
       },
     });
   } catch (error: unknown) {
-    console.error("Student Status Update Error:", error);
+    log.error("Student Status Update Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Internal Server Error" },
       { status: 500 }

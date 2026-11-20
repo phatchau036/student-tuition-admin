@@ -30,6 +30,9 @@ import {
 } from "lucide-react";
 import { useToast } from "@/components/Toast";
 import { MonthPicker } from "./MonthPicker";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("ui/TuitionReminderQueueModal");
 
 interface TuitionReminderQueueModalProps {
   isOpen: boolean;
@@ -107,7 +110,7 @@ export const TuitionReminderQueueModal: React.FC<TuitionReminderQueueModalProps>
         setRemindersMap(json.reminders_map);
       }
     } catch (err: any) {
-      console.error("Fetch reminders error:", err);
+      log.error("Fetch reminders error:", { error: err });
     } finally {
       setIsLoading(false);
     }
@@ -284,7 +287,7 @@ ${schoolName} xin trân trọng cảm ơn!`;
         }),
       });
     } catch (err) {
-      console.error("Log reminder error:", err);
+      log.error("Log reminder error:", { error: err });
     }
 
     showToast(`Đã sao chép tin nhắn & mở Zalo phụ huynh ${student.name}!`, "success");

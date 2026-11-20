@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
 import { clearDomainCache, getSystemAdminFromRequest } from "@/lib/authHelper";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("api/system");
 
 // API quản trị hệ thống: Quản lý các trường & Tài khoản Admin của từng trường
 export async function GET(req: Request) {
@@ -58,7 +61,7 @@ export async function GET(req: Request) {
       },
     });
   } catch (error: unknown) {
-    console.error("System GET Error:", error);
+    log.error("System GET Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Internal Server Error" },
       { status: 500 }
@@ -493,7 +496,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: false, message: "Hành động không hợp lệ!" }, { status: 400 });
   } catch (error: unknown) {
-    console.error("System POST Error:", error);
+    log.error("System POST Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Internal Server Error" },
       { status: 500 }

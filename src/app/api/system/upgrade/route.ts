@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { spawn } from "child_process";
 import { writeFileSync, unlinkSync, existsSync } from "fs";
 import { join } from "path";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("api/system/upgrade");
 
 // API Kích hoạt nâng cấp tự động từ GitHub
 export async function POST(req: Request) {
@@ -29,7 +32,7 @@ export async function POST(req: Request) {
       message: "Hệ thống đã nhận lệnh và bắt đầu tự động nâng cấp: Kéo code -> Cài thư viện -> Build -> Khởi động lại. Bạn chỉ cần ngồi chờ khoảng 1-2 phút là xong!",
     });
   } catch (error: unknown) {
-    console.error("System Upgrade Error:", error);
+    log.error("System Upgrade Error:", { error: error });
     try {
       const flagPath = join(process.cwd(), ".maintenance");
       if (existsSync(flagPath)) unlinkSync(flagPath);

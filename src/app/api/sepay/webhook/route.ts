@@ -3,6 +3,9 @@ import { getDb, initDb } from "@/lib/db";
 import { grantHoursForPeriodUtil } from "@/lib/wallet";
 import { computeEndMonth } from "@/lib/tuition";
 import { notifyAdminViaZaloBot } from "@/lib/zaloBot";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("api/sepay/webhook");
 
 // Xử lý POST Webhook từ SePay Platform
 export async function POST(req: Request) {
@@ -245,7 +248,7 @@ export async function POST(req: Request) {
       tx_id: txIdStr,
     });
   } catch (error: unknown) {
-    console.error("SePay Webhook Error:", error);
+    log.error("SePay Webhook Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Internal Server Error" },
       { status: 500 }

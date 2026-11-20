@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
 import { calculateStudentTuition } from "@/lib/tuition";
 import { getSchoolIdFromRequest, requireAdminPermission } from "@/lib/authHelper";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("api/reconciliation/summary");
 
 export async function GET(req: Request) {
   try {
@@ -182,7 +185,7 @@ export async function GET(req: Request) {
     if ((error as { digest?: string })?.digest === "NEXT_PRERENDER_INTERRUPTED") {
       throw error;
     }
-    console.error("Reconciliation Summary API Error:", error);
+    log.error("Reconciliation Summary API Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Internal Server Error" },
       { status: 500 }

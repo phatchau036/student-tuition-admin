@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
 import { getSchoolIdFromRequest, getAdminFromRequest } from "@/lib/authHelper";
 import { SchedulePreset } from "@/lib/types";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("api/settings");
 
 export async function GET(req: Request) {
   try {
@@ -233,7 +236,7 @@ export async function GET(req: Request) {
       },
     });
   } catch (error: unknown) {
-    console.error("Settings GET Error:", error);
+    log.error("Settings GET Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Internal Server Error" },
       { status: 500 }
@@ -381,7 +384,7 @@ export async function POST(req: Request) {
           ],
         });
       } catch (scErr) {
-        console.error("Failed to update school-specific settings:", scErr);
+        log.error("Failed to update school-specific settings:", { error: scErr });
       }
     }
 
@@ -478,7 +481,7 @@ export async function POST(req: Request) {
       message: "Cài đặt hệ thống đã được cập nhật thành công!",
     });
   } catch (error: unknown) {
-    console.error("Settings POST Error:", error);
+    log.error("Settings POST Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Internal Server Error" },
       { status: 500 }

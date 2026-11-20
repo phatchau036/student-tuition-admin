@@ -3,6 +3,9 @@ import { getDb, initDb } from "@/lib/db";
 import { isDayInSlot, parseStudentScheduleSlots, getDayNameVi } from "@/lib/tuition";
 import { getSchoolIdFromRequest } from "@/lib/authHelper";
 import { isTimeOverlap } from "@/lib/shiftDetection";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("api/classes/occupancy");
 
 // Trích xuất giờ bắt đầu và kết thúc học trong ngày của học sinh
 function getStudentStudyTimeForDay(st: any, dayName: string): { start_time: string; end_time: string } {
@@ -429,7 +432,7 @@ export async function GET(req: Request) {
       },
     });
   } catch (error: unknown) {
-    console.error("Occupancy GET Error:", error);
+    log.error("Occupancy GET Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Internal Server Error" },
       { status: 500 }

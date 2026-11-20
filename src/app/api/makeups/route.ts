@@ -5,6 +5,9 @@ import { appendLedger, getWalletBalance, getStudentSessionMinutes } from "@/lib/
 import { formatMinutes, getDayNameVi } from "@/lib/tuition";
 import { isTimeOverlap } from "@/lib/shiftDetection";
 import { notifyAdminViaZaloBot } from "@/lib/zaloBot";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("api/makeups");
 
 export async function GET(req: Request) {
   try {
@@ -137,7 +140,7 @@ export async function GET(req: Request) {
 
     return NextResponse.json({ success: true, data: makeups });
   } catch (error: unknown) {
-    console.error("Makeups GET Error:", error);
+    log.error("Makeups GET Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Internal Server Error" },
       { status: 500 }
@@ -750,7 +753,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: false, message: "Hành động không hợp lệ!" }, { status: 400 });
   } catch (error: unknown) {
-    console.error("Makeups POST Error:", error);
+    log.error("Makeups POST Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Internal Server Error" },
       { status: 500 }

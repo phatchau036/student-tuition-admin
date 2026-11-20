@@ -1,6 +1,9 @@
 "use client";
 
 import React, { useEffect } from "react";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("page/giao-vien/error");
 
 export default function Error({
   error,
@@ -10,7 +13,7 @@ export default function Error({
   reset: () => void;
 }) {
   useEffect(() => {
-    console.error("Giao Vien Error:", error);
+    log.error("Giao Vien Error:", { error: error });
   }, [error]);
 
   return (

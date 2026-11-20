@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
 import { getSchoolIdFromRequest } from "@/lib/authHelper";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("api/teachers");
 
 export async function GET(req: Request) {
   try {
@@ -51,7 +54,7 @@ export async function GET(req: Request) {
 
     return NextResponse.json({ success: true, data: teachers });
   } catch (error: unknown) {
-    console.error("Teachers GET Error:", error);
+    log.error("Teachers GET Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Internal Server Error" },
       { status: 500 }
@@ -100,7 +103,7 @@ export async function POST(req: Request) {
         ],
       });
     } catch (insertErr) {
-      console.warn("Retrying insert with base columns due to schema difference:", insertErr);
+      log.warn("Retrying insert with base columns due to schema difference:", { error: insertErr });
       // Fallback an toàn nếu schema cũ chưa kịp migrate cột mới
       await db.execute({
         sql: `INSERT INTO teachers (id, school_id, name, phone, email, specialty, color, is_active)
@@ -123,7 +126,7 @@ export async function POST(req: Request) {
       teacher_id: id,
     });
   } catch (error: unknown) {
-    console.error("Teacher POST Error:", error);
+    log.error("Teacher POST Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Lỗi lưu dữ liệu giáo viên vào database" },
       { status: 500 }

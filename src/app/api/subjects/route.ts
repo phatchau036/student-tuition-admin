@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
 import { getSchoolIdFromRequest } from "@/lib/authHelper";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("api/subjects");
 
 // GET /api/subjects - Lấy danh sách Bộ Môn
 export async function GET(req: Request) {
@@ -26,7 +29,7 @@ export async function GET(req: Request) {
 
     return NextResponse.json({ success: true, data: subjects });
   } catch (error: unknown) {
-    console.error("Subjects GET Error:", error);
+    log.error("Subjects GET Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Internal Server Error" },
       { status: 500 }
@@ -109,7 +112,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: false, message: "Hành động không hợp lệ!" }, { status: 400 });
   } catch (error: unknown) {
-    console.error("Subjects POST Error:", error);
+    log.error("Subjects POST Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Internal Server Error" },
       { status: 500 }

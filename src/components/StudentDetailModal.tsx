@@ -3,6 +3,9 @@
 import React, { useState, useEffect } from "react";
 import { Student, StudentStatusLog, StudentPayment, LessonRecord } from "@/lib/types";
 import { formatVND, formatMonthDisplay, getDayNameVi } from "@/lib/tuition";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("ui/StudentDetailModal");
 import {
   User,
   Phone,
@@ -81,7 +84,7 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
         setStatusLogs(json.data || []);
       }
     } catch (err) {
-      console.error("Failed to load status logs:", err);
+      log.error("Failed to load status logs:", { error: err });
     } finally {
       setIsLoadingLogs(false);
     }
@@ -96,7 +99,7 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
         setStudentLessons(json.data || []);
       }
     } catch (err) {
-      console.error("Failed to load student lessons:", err);
+      log.error("Failed to load student lessons:", { error: err });
     } finally {
       setIsLoadingLessons(false);
     }

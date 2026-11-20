@@ -6,6 +6,9 @@ import { appendLedger } from "@/lib/wallet";
 import { formatMinutes } from "@/lib/tuition";
 import { notifyAdminViaZaloBot } from "@/lib/zaloBot";
 import { resolveSchoolIdByHost } from "@/lib/authHelper";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("api/teacher");
 
 function studentMatchesShift(
   st: { schedule_details_json?: string; registered_days?: string; study_time_detail?: string },
@@ -411,7 +414,7 @@ export async function GET(req: Request) {
       },
     });
   } catch (error: unknown) {
-    console.error("Teacher API Error:", error);
+    log.error("Teacher API Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Internal Server Error" },
       { status: 500 }
@@ -805,7 +808,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: false, message: "Hành động không hợp lệ!" }, { status: 400 });
   } catch (error: unknown) {
-    console.error("Teacher POST Error:", error);
+    log.error("Teacher POST Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Internal Server Error" },
       { status: 500 }

@@ -3,6 +3,9 @@ import { getDb, initDb } from "@/lib/db";
 import { getSchoolIdFromRequest } from "@/lib/authHelper";
 import { appendLedger } from "@/lib/wallet";
 import { formatMinutes } from "@/lib/tuition";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("api/admin/attendance");
 
 // GET /api/admin/attendance?date=YYYY-MM-DD - Lấy danh sách điểm danh toàn trường trong ngày
 export async function GET(req: Request) {
@@ -59,7 +62,7 @@ export async function GET(req: Request) {
       },
     });
   } catch (error: unknown) {
-    console.error("Admin Attendance GET Error:", error);
+    log.error("Admin Attendance GET Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Internal Server Error" },
       { status: 500 }
@@ -190,7 +193,7 @@ export async function POST(req: Request) {
       message: `Đã lưu điểm danh và nhận xét thành công cho ${records.length} học viên!`,
     });
   } catch (error: unknown) {
-    console.error("Admin Attendance POST Error:", error);
+    log.error("Admin Attendance POST Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Internal Server Error" },
       { status: 500 }

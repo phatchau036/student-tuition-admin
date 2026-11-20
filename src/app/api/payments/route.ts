@@ -3,6 +3,9 @@ import { getDb, initDb } from "@/lib/db";
 import { getPreviousMonthStr, getNextMonthStr, calculateStudentTuition, computeEndMonth } from "@/lib/tuition";
 import { grantCycleForPayment } from "@/lib/wallet";
 import { requireAdminPermission } from "@/lib/authHelper";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("api/payments");
 
 // Helper: cấp giờ vào Ví Giờ Học cho toàn bộ chu kỳ tháng đã đóng (idempotent, lỗi không chặn thanh toán)
 async function grantHoursForPeriod(studentId: string, startPeriod: string, endPeriod: string) {
@@ -23,7 +26,7 @@ async function grantHoursForPeriod(studentId: string, startPeriod: string, endPe
     }
     return results;
   } catch (err) {
-    console.error("grantHoursForPeriod Error (không chặn thanh toán):", err);
+    log.error("grantHoursForPeriod Error (không chặn thanh toán):", { error: err });
     return [];
   }
 }
@@ -65,7 +68,7 @@ export async function GET(req: Request) {
 
     return NextResponse.json({ success: true, data: payments });
   } catch (error: unknown) {
-    console.error("Payments GET Error:", error);
+    log.error("Payments GET Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Internal Server Error" },
       { status: 500 }
@@ -365,7 +368,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: false, message: "Hành động không hợp lệ!" }, { status: 400 });
   } catch (error: unknown) {
-    console.error("Payments API Error:", error);
+    log.error("Payments API Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Internal Server Error" },
       { status: 500 }

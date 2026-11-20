@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("api/teachers/id");
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -52,7 +55,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       message: "Cập nhật thông tin giáo viên thành công!",
     });
   } catch (error: unknown) {
-    console.error("Teacher PUT Error:", error);
+    log.error("Teacher PUT Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Internal Server Error" },
       { status: 500 }
@@ -83,7 +86,7 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
       message: "Đã xóa giáo viên khỏi hệ thống!",
     });
   } catch (error: unknown) {
-    console.error("Teacher DELETE Error:", error);
+    log.error("Teacher DELETE Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Internal Server Error" },
       { status: 500 }

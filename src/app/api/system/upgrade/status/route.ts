@@ -3,6 +3,9 @@ import { existsSync, readFileSync } from "fs";
 import { join } from "path";
 import { exec } from "child_process";
 import { promisify } from "util";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("api/system/upgrade/status");
 
 const execAsync = promisify(exec);
 
@@ -78,7 +81,7 @@ export async function GET(req: Request) {
       remote_log: remoteLog.trim(),
     });
   } catch (error: unknown) {
-    console.error("Check git error:", error);
+    log.error("Check git error:", { error: error });
     return NextResponse.json({
       success: true,
       maintenance: isMaintenance,

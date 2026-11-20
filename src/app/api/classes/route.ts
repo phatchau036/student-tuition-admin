@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
 import { getSchoolIdFromRequest } from "@/lib/authHelper";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("api/classes");
 
 export async function GET(req: Request) {
   try {
@@ -76,7 +79,7 @@ export async function GET(req: Request) {
 
     return NextResponse.json({ success: true, data: classes });
   } catch (error: unknown) {
-    console.error("Classes GET Error:", error);
+    log.error("Classes GET Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Internal Server Error" },
       { status: 500 }
@@ -209,7 +212,7 @@ export async function POST(req: Request) {
       id: newId,
     });
   } catch (error: unknown) {
-    console.error("Classes POST Error:", error);
+    log.error("Classes POST Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Internal Server Error" },
       { status: 500 }
@@ -245,7 +248,7 @@ export async function DELETE(req: Request) {
       message: "Đã xóa lớp học thành công!",
     });
   } catch (error: unknown) {
-    console.error("Classes DELETE Error:", error);
+    log.error("Classes DELETE Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Internal Server Error" },
       { status: 500 }

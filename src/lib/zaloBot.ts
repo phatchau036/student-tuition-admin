@@ -1,4 +1,7 @@
 import { getDb, initDb } from "@/lib/db";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("lib/zaloBot");
 
 const ZALO_BOT_BASE_URL = "https://bot-api.zapps.me";
 
@@ -94,7 +97,7 @@ export async function notifyAdminViaZaloBot(
     const data = await res.json();
     return Boolean(data.ok);
   } catch (err) {
-    console.error("notifyAdminViaZaloBot caught error (safe bypass):", err);
+    log.error("notifyAdminViaZaloBot caught error (safe bypass):", { error: err });
     return false;
   }
 }

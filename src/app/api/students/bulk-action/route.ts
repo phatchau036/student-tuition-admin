@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
 import { getSchoolIdFromRequest, getAdminFromRequest } from "@/lib/authHelper";
 import { StudentStatus } from "@/lib/types";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("api/students/bulk-action");
 
 // POST /api/students/bulk-action - Thao tác hàng loạt trên nhiều học sinh (Xóa, Bảo lưu, Nghỉ học, Học tiếp)
 export async function POST(req: Request) {
@@ -120,7 +123,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: false, message: "Hành động không hợp lệ!" }, { status: 400 });
   } catch (error: unknown) {
-    console.error("Bulk Action API Error:", error);
+    log.error("Bulk Action API Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Internal Server Error" },
       { status: 500 }

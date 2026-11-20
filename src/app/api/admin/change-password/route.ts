@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
 import { getPwdHash } from "@/lib/authHelper";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("api/admin/change-password");
 
 export async function POST(req: Request) {
   try {
@@ -114,7 +117,7 @@ export async function POST(req: Request) {
 
     return response;
   } catch (error: unknown) {
-    console.error("Change Password Error:", error);
+    log.error("Change Password Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Internal Server Error" },
       { status: 500 }

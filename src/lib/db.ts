@@ -1,8 +1,23 @@
 import { createClient, Client } from "@libsql/client";
 import path from "path";
 import fs from "fs";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("lib/db");
 
 let dbInstance: Client | null = null;
+
+/**
+ * Thực thi một câu lệnh migration (ALTER TABLE / CREATE INDEX) và bỏ qua lỗi
+ * "đã tồn tại" — đây là hành vi idempotent có chủ đích của cơ chế in-code migration.
+ */
+async function safeMigration(db: Client, sql: string): Promise<void> {
+  try {
+    await db.execute(sql);
+  } catch {
+    // Bỏ qua có chủ đích: cột/index đã tồn tại (migration idempotent).
+  }
+}
 
 export function getDb(): Client {
   if (!dbInstance) {
@@ -11,7 +26,7 @@ export function getDb(): Client {
       try {
         fs.mkdirSync(dataDir, { recursive: true });
       } catch (err) {
-        console.error("Error creating data directory:", err);
+        log.error("Error creating data directory:", { error: err });
       }
     }
     const dbPath = path.join(dataDir, "admin.db");
@@ -55,54 +70,22 @@ export async function initDb() {
   `);
 
   // Migrate columns if needed
-  try {
-    await db.execute("ALTER TABLE schools ADD COLUMN school_type TEXT DEFAULT 'TT'");
-  } catch {}
-  try {
-    await db.execute("ALTER TABLE schools ADD COLUMN street TEXT DEFAULT ''");
-  } catch {}
-  try {
-    await db.execute("ALTER TABLE schools ADD COLUMN city TEXT DEFAULT 'TPHCM'");
-  } catch {}
-  try {
-    await db.execute("ALTER TABLE schools ADD COLUMN branch_num TEXT DEFAULT '1'");
-  } catch {}
-  try {
-    await db.execute("ALTER TABLE schools ADD COLUMN domain TEXT DEFAULT ''");
-  } catch {}
-  try {
-    await db.execute("ALTER TABLE schools ADD COLUMN subdomain TEXT DEFAULT ''");
-  } catch {}
-  try {
-    await db.execute("ALTER TABLE schools ADD COLUMN zalo_bot_token TEXT DEFAULT ''");
-  } catch {}
-  try {
-    await db.execute("ALTER TABLE schools ADD COLUMN zalo_bot_name TEXT DEFAULT ''");
-  } catch {}
-  try {
-    await db.execute("ALTER TABLE schools ADD COLUMN zalo_admin_chat_id TEXT DEFAULT ''");
-  } catch {}
-  try {
-    await db.execute("ALTER TABLE schools ADD COLUMN parent_school_id TEXT DEFAULT NULL");
-  } catch {}
-  try {
-    await db.execute("ALTER TABLE schools ADD COLUMN sepay_bank_name TEXT DEFAULT ''");
-  } catch {}
-  try {
-    await db.execute("ALTER TABLE schools ADD COLUMN sepay_account_number TEXT DEFAULT ''");
-  } catch {}
-  try {
-    await db.execute("ALTER TABLE schools ADD COLUMN sepay_api_key TEXT DEFAULT ''");
-  } catch {}
-  try {
-    await db.execute("ALTER TABLE schools ADD COLUMN sepay_prefix TEXT DEFAULT 'HP'");
-  } catch {}
-  try {
-    await db.execute("ALTER TABLE schools ADD COLUMN base_tuition INTEGER DEFAULT 1000000");
-  } catch {}
-  try {
-    await db.execute("ALTER TABLE schools ADD COLUMN schedule_presets TEXT DEFAULT ''");
-  } catch {}
+  await safeMigration(db, "ALTER TABLE schools ADD COLUMN school_type TEXT DEFAULT 'TT'");
+  await safeMigration(db, "ALTER TABLE schools ADD COLUMN street TEXT DEFAULT ''");
+  await safeMigration(db, "ALTER TABLE schools ADD COLUMN city TEXT DEFAULT 'TPHCM'");
+  await safeMigration(db, "ALTER TABLE schools ADD COLUMN branch_num TEXT DEFAULT '1'");
+  await safeMigration(db, "ALTER TABLE schools ADD COLUMN domain TEXT DEFAULT ''");
+  await safeMigration(db, "ALTER TABLE schools ADD COLUMN subdomain TEXT DEFAULT ''");
+  await safeMigration(db, "ALTER TABLE schools ADD COLUMN zalo_bot_token TEXT DEFAULT ''");
+  await safeMigration(db, "ALTER TABLE schools ADD COLUMN zalo_bot_name TEXT DEFAULT ''");
+  await safeMigration(db, "ALTER TABLE schools ADD COLUMN zalo_admin_chat_id TEXT DEFAULT ''");
+  await safeMigration(db, "ALTER TABLE schools ADD COLUMN parent_school_id TEXT DEFAULT NULL");
+  await safeMigration(db, "ALTER TABLE schools ADD COLUMN sepay_bank_name TEXT DEFAULT ''");
+  await safeMigration(db, "ALTER TABLE schools ADD COLUMN sepay_account_number TEXT DEFAULT ''");
+  await safeMigration(db, "ALTER TABLE schools ADD COLUMN sepay_api_key TEXT DEFAULT ''");
+  await safeMigration(db, "ALTER TABLE schools ADD COLUMN sepay_prefix TEXT DEFAULT 'HP'");
+  await safeMigration(db, "ALTER TABLE schools ADD COLUMN base_tuition INTEGER DEFAULT 1000000");
+  await safeMigration(db, "ALTER TABLE schools ADD COLUMN schedule_presets TEXT DEFAULT ''");
 
   // Migrate dữ liệu cài đặt cũ từ bảng settings sang cơ sở mặc định (school-default) nếu cột còn rỗng
   try {
@@ -138,7 +121,9 @@ export async function initDb() {
         ],
       });
     }
-  } catch {}
+  } catch (err) {
+    log.warn("Backfill cấu hình từ settings sang schools thất bại", { error: err });
+  }
 
   // Tự động kiểm tra và khởi tạo dữ liệu mẫu (Time Slots, Level, Giảm giá, Gói học phí, Bộ môn, Vai trò) cho các cơ sở mới
   try {
@@ -245,7 +230,7 @@ export async function initDb() {
       }
     }
   } catch (err) {
-    console.error("Auto Seed Multi-Tenant Data Error:", err);
+    log.error("Auto Seed Multi-Tenant Data Error:", { error: err });
   }
 
   // 0.1 School Admins Table (Tài khoản admin cho từng trường)
@@ -265,18 +250,10 @@ export async function initDb() {
   `);
 
   // Migration cột mới cho school_admins nếu bảng đã tồn tại
-  try {
-    await db.execute("ALTER TABLE school_admins ADD COLUMN role_id TEXT;");
-  } catch {}
-  try {
-    await db.execute("ALTER TABLE school_admins ADD COLUMN phone TEXT;");
-  } catch {}
-  try {
-    await db.execute("ALTER TABLE school_admins ADD COLUMN is_active INTEGER DEFAULT 1;");
-  } catch {}
-  try {
-    await db.execute("ALTER TABLE school_admins ADD COLUMN is_owner INTEGER DEFAULT 0;");
-  } catch {}
+  await safeMigration(db, "ALTER TABLE school_admins ADD COLUMN role_id TEXT;");
+  await safeMigration(db, "ALTER TABLE school_admins ADD COLUMN phone TEXT;");
+  await safeMigration(db, "ALTER TABLE school_admins ADD COLUMN is_active INTEGER DEFAULT 1;");
+  await safeMigration(db, "ALTER TABLE school_admins ADD COLUMN is_owner INTEGER DEFAULT 0;");
 
   // 0.2 Admin Roles Table (Nhóm quyền / Vai trò của cơ sở)
   await db.execute(`
@@ -295,7 +272,9 @@ export async function initDb() {
   // tự động thiết lập admin đầu tiên của cơ sở đó làm Chủ Cơ Sở (is_owner = 1) để tránh bị gán thành Nhân viên
   try {
     await db.execute("UPDATE school_admins SET is_owner = 1 WHERE (is_owner IS NULL OR is_owner = 0) AND (username = 'admin' OR id = 'admin-1' OR role_id IS NULL OR role_id = '')");
-  } catch {}
+  } catch (err) {
+    log.warn("Không thể chuẩn hóa cờ is_owner cho tài khoản admin khởi tạo", { error: err });
+  }
 
   // Đảm bảo mỗi trường luôn có ít nhất 1 Chủ cơ sở
   try {
@@ -314,7 +293,9 @@ export async function initDb() {
         });
       }
     }
-  } catch {}
+  } catch (err) {
+    log.warn("Không thể đảm bảo mỗi cơ sở có Chủ cơ sở", { error: err });
+  }
 
   // Khởi tạo các vai trò mẫu cho cơ sở nếu chưa có vai trò nào
   try {
@@ -378,7 +359,7 @@ export async function initDb() {
       }
     }
   } catch (err) {
-    console.error("Init Default Roles Error:", err);
+    log.error("Init Default Roles Error:", { error: err });
   }
 
   // 1. Settings Table
@@ -456,9 +437,7 @@ export async function initDb() {
     );
   `);
 
-  try {
-    await db.execute("ALTER TABLE level_surcharges ADD COLUMN surcharge_type TEXT DEFAULT 'fixed'");
-  } catch {}
+  await safeMigration(db, "ALTER TABLE level_surcharges ADD COLUMN surcharge_type TEXT DEFAULT 'fixed'");
 
   // 4.1 Subjects Table (Danh mục Bộ Môn / Chương Trình Học động)
   await db.execute(`
@@ -794,59 +773,59 @@ export async function initDb() {
       note TEXT
     );
   `);
-  try { await db.execute(`CREATE INDEX IF NOT EXISTS idx_tuition_reminders ON tuition_reminders(school_id, month, student_id);`); } catch {}
-  try { await db.execute(`CREATE INDEX IF NOT EXISTS idx_tuition_reminders_date ON tuition_reminders(reminded_at);`); } catch {}
+  await safeMigration(db, `CREATE INDEX IF NOT EXISTS idx_tuition_reminders ON tuition_reminders(school_id, month, student_id);`);
+  await safeMigration(db, `CREATE INDEX IF NOT EXISTS idx_tuition_reminders_date ON tuition_reminders(reminded_at);`);
 
   // Migrations for school_id & ip restriction
-  try { await db.execute("ALTER TABLE schools ADD COLUMN ip_restriction_enabled INTEGER DEFAULT 0"); } catch {}
-  try { await db.execute("ALTER TABLE schools ADD COLUMN allowed_ips TEXT DEFAULT ''"); } catch {}
-  try { await db.execute("ALTER TABLE teachers ADD COLUMN school_id TEXT DEFAULT 'school-default'"); } catch {}
-  try { await db.execute("ALTER TABLE teachers ADD COLUMN assigned_slot_ids TEXT DEFAULT '[]'"); } catch {}
-  try { await db.execute("ALTER TABLE teachers ADD COLUMN max_students INTEGER DEFAULT 10"); } catch {}
-  try { await db.execute("ALTER TABLE teachers ADD COLUMN working_shifts_json TEXT DEFAULT '[]'"); } catch {}
-  try { await db.execute("ALTER TABLE time_slots ADD COLUMN school_id TEXT DEFAULT 'school-default'"); } catch {}
-  try { await db.execute("ALTER TABLE level_surcharges ADD COLUMN school_id TEXT DEFAULT 'school-default'"); } catch {}
-  try { await db.execute("ALTER TABLE discount_presets ADD COLUMN school_id TEXT DEFAULT 'school-default'"); } catch {}
-  try { await db.execute("ALTER TABLE students ADD COLUMN school_id TEXT DEFAULT 'school-default'"); } catch {}
-  try { await db.execute("ALTER TABLE students ADD COLUMN student_code TEXT DEFAULT NULL"); } catch {}
-  try { await db.execute("ALTER TABLE students ADD COLUMN tuition_package_id TEXT DEFAULT NULL"); } catch {}
-  try { await db.execute("ALTER TABLE students ADD COLUMN status TEXT DEFAULT 'studying'"); } catch {}
-  try { await db.execute("ALTER TABLE students ADD COLUMN status_date TEXT DEFAULT NULL"); } catch {}
-  try { await db.execute("ALTER TABLE students ADD COLUMN expected_return_date TEXT DEFAULT NULL"); } catch {}
-  try { await db.execute("ALTER TABLE students ADD COLUMN status_note TEXT DEFAULT ''"); } catch {}
-  try { await db.execute("ALTER TABLE students ADD COLUMN zalo_chat_id TEXT DEFAULT NULL"); } catch {}
-  try { await db.execute("ALTER TABLE students ADD COLUMN start_date TEXT DEFAULT NULL"); } catch {}
-  try { await db.execute("ALTER TABLE students ADD COLUMN discount_reason TEXT DEFAULT ''"); } catch {}
-  try { await db.execute("ALTER TABLE students ADD COLUMN subject_id TEXT DEFAULT NULL"); } catch {}
-  try { await db.execute("ALTER TABLE students ADD COLUMN level_id TEXT DEFAULT NULL"); } catch {}
+  await safeMigration(db, "ALTER TABLE schools ADD COLUMN ip_restriction_enabled INTEGER DEFAULT 0");
+  await safeMigration(db, "ALTER TABLE schools ADD COLUMN allowed_ips TEXT DEFAULT ''");
+  await safeMigration(db, "ALTER TABLE teachers ADD COLUMN school_id TEXT DEFAULT 'school-default'");
+  await safeMigration(db, "ALTER TABLE teachers ADD COLUMN assigned_slot_ids TEXT DEFAULT '[]'");
+  await safeMigration(db, "ALTER TABLE teachers ADD COLUMN max_students INTEGER DEFAULT 10");
+  await safeMigration(db, "ALTER TABLE teachers ADD COLUMN working_shifts_json TEXT DEFAULT '[]'");
+  await safeMigration(db, "ALTER TABLE time_slots ADD COLUMN school_id TEXT DEFAULT 'school-default'");
+  await safeMigration(db, "ALTER TABLE level_surcharges ADD COLUMN school_id TEXT DEFAULT 'school-default'");
+  await safeMigration(db, "ALTER TABLE discount_presets ADD COLUMN school_id TEXT DEFAULT 'school-default'");
+  await safeMigration(db, "ALTER TABLE students ADD COLUMN school_id TEXT DEFAULT 'school-default'");
+  await safeMigration(db, "ALTER TABLE students ADD COLUMN student_code TEXT DEFAULT NULL");
+  await safeMigration(db, "ALTER TABLE students ADD COLUMN tuition_package_id TEXT DEFAULT NULL");
+  await safeMigration(db, "ALTER TABLE students ADD COLUMN status TEXT DEFAULT 'studying'");
+  await safeMigration(db, "ALTER TABLE students ADD COLUMN status_date TEXT DEFAULT NULL");
+  await safeMigration(db, "ALTER TABLE students ADD COLUMN expected_return_date TEXT DEFAULT NULL");
+  await safeMigration(db, "ALTER TABLE students ADD COLUMN status_note TEXT DEFAULT ''");
+  await safeMigration(db, "ALTER TABLE students ADD COLUMN zalo_chat_id TEXT DEFAULT NULL");
+  await safeMigration(db, "ALTER TABLE students ADD COLUMN start_date TEXT DEFAULT NULL");
+  await safeMigration(db, "ALTER TABLE students ADD COLUMN discount_reason TEXT DEFAULT ''");
+  await safeMigration(db, "ALTER TABLE students ADD COLUMN subject_id TEXT DEFAULT NULL");
+  await safeMigration(db, "ALTER TABLE students ADD COLUMN level_id TEXT DEFAULT NULL");
   // self-heal cho DB tạo trước khi mở rộng schema bảng students
-  try { await db.execute("ALTER TABLE students ADD COLUMN phone TEXT NOT NULL DEFAULT ''"); } catch {}
-  try { await db.execute("ALTER TABLE students ADD COLUMN zalo_link TEXT DEFAULT NULL"); } catch {}
-  try { await db.execute("ALTER TABLE students ADD COLUMN teacher_id TEXT DEFAULT NULL"); } catch {}
-  try { await db.execute("ALTER TABLE students ADD COLUMN duration_mode TEXT DEFAULT 'by_hours'"); } catch {}
-  try { await db.execute("ALTER TABLE students ADD COLUMN sessions_per_week INTEGER DEFAULT 3"); } catch {}
-  try { await db.execute("ALTER TABLE students ADD COLUMN hours_per_week REAL DEFAULT 3"); } catch {}
-  try { await db.execute("ALTER TABLE students ADD COLUMN study_time_detail TEXT DEFAULT '18:00 - 19:00'"); } catch {}
-  try { await db.execute("ALTER TABLE students ADD COLUMN schedule_details_json TEXT DEFAULT '[]'"); } catch {}
-  try { await db.execute("ALTER TABLE students ADD COLUMN schedule_preset_name TEXT DEFAULT ''"); } catch {}
-  try { await db.execute("ALTER TABLE students ADD COLUMN is_discount_enabled INTEGER NOT NULL DEFAULT 0"); } catch {}
-  try { await db.execute("ALTER TABLE students ADD COLUMN discount_percent REAL NOT NULL DEFAULT 0"); } catch {}
-  try { await db.execute("ALTER TABLE students ADD COLUMN created_at TEXT DEFAULT NULL"); } catch {}
-  try { await db.execute("ALTER TABLE teachers ADD COLUMN zalo_chat_id TEXT DEFAULT NULL"); } catch {}
-  try { await db.execute("ALTER TABLE teachers ADD COLUMN zalo_link TEXT DEFAULT NULL"); } catch {}
-  try { await db.execute("ALTER TABLE teachers ADD COLUMN password TEXT DEFAULT '123456'"); } catch {}
-  try { await db.execute("ALTER TABLE student_monthly_tuitions ADD COLUMN items_json TEXT DEFAULT '[]'"); } catch {}
-  try { await db.execute("ALTER TABLE makeup_classes ADD COLUMN makeup_teacher_id TEXT DEFAULT NULL"); } catch {}
-  try { await db.execute("ALTER TABLE makeup_classes ADD COLUMN absence_start_time TEXT DEFAULT '18:00'"); } catch {}
-  try { await db.execute("ALTER TABLE makeup_classes ADD COLUMN absence_end_time TEXT DEFAULT '19:30'"); } catch {}
-  try { await db.execute("ALTER TABLE makeup_classes ADD COLUMN absence_minutes INTEGER DEFAULT 90"); } catch {}
-  try { await db.execute("ALTER TABLE makeup_classes ADD COLUMN makeup_start_time TEXT DEFAULT NULL"); } catch {}
-  try { await db.execute("ALTER TABLE makeup_classes ADD COLUMN makeup_end_time TEXT DEFAULT NULL"); } catch {}
-  try { await db.execute("ALTER TABLE makeup_classes ADD COLUMN makeup_minutes INTEGER DEFAULT 60"); } catch {}
-  try { await db.execute("ALTER TABLE makeup_classes ADD COLUMN lesson_id TEXT DEFAULT NULL"); } catch {}
-  try { await db.execute("ALTER TABLE makeup_classes ADD COLUMN student_name TEXT DEFAULT ''"); } catch {}
-  try { await db.execute("ALTER TABLE makeup_classes ADD COLUMN student_phone TEXT DEFAULT ''"); } catch {}
-  try { await db.execute("ALTER TABLE makeup_classes ADD COLUMN class_id TEXT DEFAULT NULL"); } catch {}
+  await safeMigration(db, "ALTER TABLE students ADD COLUMN phone TEXT NOT NULL DEFAULT ''");
+  await safeMigration(db, "ALTER TABLE students ADD COLUMN zalo_link TEXT DEFAULT NULL");
+  await safeMigration(db, "ALTER TABLE students ADD COLUMN teacher_id TEXT DEFAULT NULL");
+  await safeMigration(db, "ALTER TABLE students ADD COLUMN duration_mode TEXT DEFAULT 'by_hours'");
+  await safeMigration(db, "ALTER TABLE students ADD COLUMN sessions_per_week INTEGER DEFAULT 3");
+  await safeMigration(db, "ALTER TABLE students ADD COLUMN hours_per_week REAL DEFAULT 3");
+  await safeMigration(db, "ALTER TABLE students ADD COLUMN study_time_detail TEXT DEFAULT '18:00 - 19:00'");
+  await safeMigration(db, "ALTER TABLE students ADD COLUMN schedule_details_json TEXT DEFAULT '[]'");
+  await safeMigration(db, "ALTER TABLE students ADD COLUMN schedule_preset_name TEXT DEFAULT ''");
+  await safeMigration(db, "ALTER TABLE students ADD COLUMN is_discount_enabled INTEGER NOT NULL DEFAULT 0");
+  await safeMigration(db, "ALTER TABLE students ADD COLUMN discount_percent REAL NOT NULL DEFAULT 0");
+  await safeMigration(db, "ALTER TABLE students ADD COLUMN created_at TEXT DEFAULT NULL");
+  await safeMigration(db, "ALTER TABLE teachers ADD COLUMN zalo_chat_id TEXT DEFAULT NULL");
+  await safeMigration(db, "ALTER TABLE teachers ADD COLUMN zalo_link TEXT DEFAULT NULL");
+  await safeMigration(db, "ALTER TABLE teachers ADD COLUMN password TEXT DEFAULT '123456'");
+  await safeMigration(db, "ALTER TABLE student_monthly_tuitions ADD COLUMN items_json TEXT DEFAULT '[]'");
+  await safeMigration(db, "ALTER TABLE makeup_classes ADD COLUMN makeup_teacher_id TEXT DEFAULT NULL");
+  await safeMigration(db, "ALTER TABLE makeup_classes ADD COLUMN absence_start_time TEXT DEFAULT '18:00'");
+  await safeMigration(db, "ALTER TABLE makeup_classes ADD COLUMN absence_end_time TEXT DEFAULT '19:30'");
+  await safeMigration(db, "ALTER TABLE makeup_classes ADD COLUMN absence_minutes INTEGER DEFAULT 90");
+  await safeMigration(db, "ALTER TABLE makeup_classes ADD COLUMN makeup_start_time TEXT DEFAULT NULL");
+  await safeMigration(db, "ALTER TABLE makeup_classes ADD COLUMN makeup_end_time TEXT DEFAULT NULL");
+  await safeMigration(db, "ALTER TABLE makeup_classes ADD COLUMN makeup_minutes INTEGER DEFAULT 60");
+  await safeMigration(db, "ALTER TABLE makeup_classes ADD COLUMN lesson_id TEXT DEFAULT NULL");
+  await safeMigration(db, "ALTER TABLE makeup_classes ADD COLUMN student_name TEXT DEFAULT ''");
+  await safeMigration(db, "ALTER TABLE makeup_classes ADD COLUMN student_phone TEXT DEFAULT ''");
+  await safeMigration(db, "ALTER TABLE makeup_classes ADD COLUMN class_id TEXT DEFAULT NULL");
   // Backfill student_name and student_phone for legacy rows in makeup_classes
   try {
     await db.execute(`
@@ -856,7 +835,9 @@ export async function initDb() {
       WHERE (student_name IS NULL OR student_name = '')
         AND student_id IN (SELECT id FROM students)
     `);
-  } catch {}
+  } catch (err) {
+    log.warn("Backfill student_name/student_phone cho makeup_classes thất bại", { error: err });
+  }
 
   // Dọn dẹp các bản ghi hour_ledger bị cộng dư/trùng lặp do khác ref_type ('makeup_absence' vs 'absence')
   try {
@@ -874,27 +855,29 @@ export async function initDb() {
       SET ref_type = 'absence' 
       WHERE ref_type = 'makeup_absence'
     `);
-  } catch {}
-  try { await db.execute("ALTER TABLE student_monthly_tuitions ADD COLUMN receipt_number TEXT DEFAULT NULL"); } catch {}
-  try { await db.execute("ALTER TABLE student_payments ADD COLUMN receipt_number TEXT DEFAULT NULL"); } catch {}
-  try { await db.execute("ALTER TABLE students ADD COLUMN class_id TEXT DEFAULT NULL"); } catch {}
-  try { await db.execute("ALTER TABLE lessons ADD COLUMN class_id TEXT DEFAULT NULL"); } catch {}
-  try { await db.execute("ALTER TABLE lessons ADD COLUMN teacher_id TEXT DEFAULT NULL"); } catch {}
-  try { await db.execute("ALTER TABLE lessons ADD COLUMN teacher_notes TEXT DEFAULT ''"); } catch {}
-  try { await db.execute("ALTER TABLE lessons ADD COLUMN homework TEXT DEFAULT ''"); } catch {}
-  try { await db.execute("ALTER TABLE lessons ADD COLUMN rating INTEGER DEFAULT 5"); } catch {}
-  try { await db.execute("ALTER TABLE classes ADD COLUMN teacher_assignments_json TEXT DEFAULT '[]'"); } catch {}
-  try { await db.execute("ALTER TABLE tuition_packages ADD COLUMN original_amount INTEGER DEFAULT 1000000"); } catch {}
-  try { await db.execute("ALTER TABLE tuition_packages ADD COLUMN discount_type TEXT DEFAULT 'none'"); } catch {}
-  try { await db.execute("ALTER TABLE tuition_packages ADD COLUMN discount_value INTEGER DEFAULT 0"); } catch {}
-  try { await db.execute("ALTER TABLE tuition_packages ADD COLUMN benefits TEXT DEFAULT ''"); } catch {}
-  try { await db.execute("ALTER TABLE system_feedbacks ADD COLUMN images_json TEXT DEFAULT '[]'"); } catch {}
-  try { await db.execute("ALTER TABLE system_feedbacks ADD COLUMN assignee_id TEXT DEFAULT NULL"); } catch {}
-  try { await db.execute("ALTER TABLE system_feedbacks ADD COLUMN assignee_name TEXT DEFAULT NULL"); } catch {}
-  try { await db.execute("ALTER TABLE system_feedbacks ADD COLUMN assigned_at DATETIME DEFAULT NULL"); } catch {}
-  try { await db.execute("ALTER TABLE system_feedbacks ADD COLUMN completed_at DATETIME DEFAULT NULL"); } catch {}
-  try { await db.execute("ALTER TABLE system_feedbacks ADD COLUMN completed_by TEXT DEFAULT NULL"); } catch {}
-  try { await db.execute("ALTER TABLE sepay_transactions ADD COLUMN school_id TEXT DEFAULT NULL"); } catch {}
+  } catch (err) {
+    log.warn("Chuẩn hóa ref_type hour_ledger thất bại", { error: err });
+  }
+  await safeMigration(db, "ALTER TABLE student_monthly_tuitions ADD COLUMN receipt_number TEXT DEFAULT NULL");
+  await safeMigration(db, "ALTER TABLE student_payments ADD COLUMN receipt_number TEXT DEFAULT NULL");
+  await safeMigration(db, "ALTER TABLE students ADD COLUMN class_id TEXT DEFAULT NULL");
+  await safeMigration(db, "ALTER TABLE lessons ADD COLUMN class_id TEXT DEFAULT NULL");
+  await safeMigration(db, "ALTER TABLE lessons ADD COLUMN teacher_id TEXT DEFAULT NULL");
+  await safeMigration(db, "ALTER TABLE lessons ADD COLUMN teacher_notes TEXT DEFAULT ''");
+  await safeMigration(db, "ALTER TABLE lessons ADD COLUMN homework TEXT DEFAULT ''");
+  await safeMigration(db, "ALTER TABLE lessons ADD COLUMN rating INTEGER DEFAULT 5");
+  await safeMigration(db, "ALTER TABLE classes ADD COLUMN teacher_assignments_json TEXT DEFAULT '[]'");
+  await safeMigration(db, "ALTER TABLE tuition_packages ADD COLUMN original_amount INTEGER DEFAULT 1000000");
+  await safeMigration(db, "ALTER TABLE tuition_packages ADD COLUMN discount_type TEXT DEFAULT 'none'");
+  await safeMigration(db, "ALTER TABLE tuition_packages ADD COLUMN discount_value INTEGER DEFAULT 0");
+  await safeMigration(db, "ALTER TABLE tuition_packages ADD COLUMN benefits TEXT DEFAULT ''");
+  await safeMigration(db, "ALTER TABLE system_feedbacks ADD COLUMN images_json TEXT DEFAULT '[]'");
+  await safeMigration(db, "ALTER TABLE system_feedbacks ADD COLUMN assignee_id TEXT DEFAULT NULL");
+  await safeMigration(db, "ALTER TABLE system_feedbacks ADD COLUMN assignee_name TEXT DEFAULT NULL");
+  await safeMigration(db, "ALTER TABLE system_feedbacks ADD COLUMN assigned_at DATETIME DEFAULT NULL");
+  await safeMigration(db, "ALTER TABLE system_feedbacks ADD COLUMN completed_at DATETIME DEFAULT NULL");
+  await safeMigration(db, "ALTER TABLE system_feedbacks ADD COLUMN completed_by TEXT DEFAULT NULL");
+  await safeMigration(db, "ALTER TABLE sepay_transactions ADD COLUMN school_id TEXT DEFAULT NULL");
   try {
     await db.execute(`
       UPDATE sepay_transactions
@@ -902,7 +885,9 @@ export async function initDb() {
       WHERE (school_id IS NULL OR school_id = '')
         AND student_id IN (SELECT id FROM students)
     `);
-  } catch {}
+  } catch (err) {
+    log.warn("Backfill school_id cho sepay_transactions thất bại", { error: err });
+  }
 
   // 17. Zalo Inbound Messages Table (Lưu tin nhắn người dùng gửi tới Bot để lấy Chat ID tức thì theo từng cơ sở)
   await db.execute(`
@@ -968,7 +953,9 @@ export async function initDb() {
         args: [defaultPkgId],
       });
     }
-  } catch {}
+  } catch (err) {
+    log.warn("Tự gán gói học phí mặc định cho học sinh thất bại", { error: err });
+  }
   // Tự động seed một số thành viên mặc định cho TpTeam nếu chưa có
   try {
     const teamCheck = await db.execute("SELECT COUNT(*) as c FROM system_team_members");
@@ -979,7 +966,9 @@ export async function initDb() {
               ('mem-2', 'Admin Kỹ Thuật', 'manager', 'emerald')`,
       });
     }
-  } catch {}
+  } catch (err) {
+    log.warn("Seed thành viên TpTeam mặc định thất bại", { error: err });
+  }
 }
 
 export async function clearAllData() {

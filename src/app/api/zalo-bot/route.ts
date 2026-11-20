@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
 import { getSchoolIdFromRequest } from "@/lib/authHelper";
 import crypto from "crypto";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("api/zalo-bot");
 
 const ZALO_BOT_BASE_URL = "https://bot-api.zapps.me";
 
@@ -380,7 +383,7 @@ Từ bây giờ, bạn sẽ nhận được thông báo tức thì trên Zalo m�
 
     return NextResponse.json({ success: false, message: "Hành động không hợp lệ!" }, { status: 400 });
   } catch (error: unknown) {
-    console.error("Zalo Bot API Error:", error);
+    log.error("Zalo Bot API Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Internal Server Error" },
       { status: 500 }

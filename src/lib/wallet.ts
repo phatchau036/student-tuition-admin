@@ -1,5 +1,8 @@
 import { getDb } from "./db";
 import { calcCycleGrant, parseRegisteredDaysToWeekdays } from "./tuition";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("lib/wallet");
 
 /* =========================================================================
  * VÍ GIỜ HỌC (HOUR WALLET) — Module trung tâm
@@ -369,7 +372,7 @@ export async function grantHoursForPeriodUtil(
     }
     return results;
   } catch (err) {
-    console.error("grantHoursForPeriodUtil Error (không chặn thanh toán):", err);
+    log.error("grantHoursForPeriodUtil Error (không chặn thanh toán):", { error: err });
     return [];
   }
 }
@@ -490,7 +493,7 @@ export async function syncPendingMakeupsToWallet(studentIds?: string[]): Promise
       synced++;
     }
   } catch (err) {
-    console.error("syncPendingMakeupsToWallet error:", err);
+    log.error("syncPendingMakeupsToWallet error:", { error: err });
   }
   return synced;
 }

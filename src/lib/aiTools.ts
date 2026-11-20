@@ -2,6 +2,9 @@ import { getDb, initDb } from "@/lib/db";
 import { appendLedger } from "@/lib/wallet";
 import { formatMinutes } from "@/lib/tuition";
 import { StudentStatus } from "@/lib/types";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("lib/aiTools");
 
 const ZALO_BOT_BASE_URL = "https://bot-api.zapps.me";
 
@@ -539,7 +542,7 @@ export async function executeAiAdminTool(
 
     return { success: false, message: `Hành động không xác định: ${toolName}` };
   } catch (error: any) {
-    console.error("executeAiAdminTool Error:", error);
+    log.error("executeAiAdminTool Error:", { error: error });
     return { success: false, message: `Lỗi khi thực thi lệnh: ${error.message}` };
   }
 }

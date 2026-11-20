@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
 import { getSchoolIdFromRequest, requireAdminPermission } from "@/lib/authHelper";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("api/admin/roles");
 
 // GET /api/admin/roles - Lấy danh sách các nhóm quyền của cơ sở
 export async function GET(req: Request) {
@@ -75,7 +78,7 @@ export async function GET(req: Request) {
 
     return NextResponse.json({ success: true, data: finalRoles });
   } catch (error: unknown) {
-    console.error("Roles GET Error:", error);
+    log.error("Roles GET Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Internal Server Error" },
       { status: 500 }
@@ -146,7 +149,7 @@ export async function POST(req: Request) {
       id: newId,
     });
   } catch (error: unknown) {
-    console.error("Roles POST Error:", error);
+    log.error("Roles POST Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Internal Server Error" },
       { status: 500 }
@@ -204,7 +207,7 @@ export async function DELETE(req: Request) {
       message: "Đã xóa nhóm quyền thành công!",
     });
   } catch (error: unknown) {
-    console.error("Roles DELETE Error:", error);
+    log.error("Roles DELETE Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Internal Server Error" },
       { status: 500 }

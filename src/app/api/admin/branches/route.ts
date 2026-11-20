@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
 import { getAdminFromRequest, requireAdminPermission } from "@/lib/authHelper";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("api/admin/branches");
 
 // GET /api/admin/branches - Danh sách các chi nhánh cơ sở
 export async function GET(req: Request) {
@@ -54,7 +57,7 @@ export async function GET(req: Request) {
 
     return NextResponse.json({ success: true, data: branches });
   } catch (error: unknown) {
-    console.error("Branches GET Error:", error);
+    log.error("Branches GET Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Internal Server Error" },
       { status: 500 }
@@ -217,7 +220,7 @@ export async function POST(req: Request) {
       branch: newBranch,
     });
   } catch (error: unknown) {
-    console.error("Branches POST Error:", error);
+    log.error("Branches POST Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Internal Server Error" },
       { status: 500 }

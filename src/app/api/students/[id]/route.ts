@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
 import { requireAdminPermission } from "@/lib/authHelper";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("api/students/id");
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -81,7 +84,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       message: "Cập nhật thông tin học sinh thành công!",
     });
   } catch (error: unknown) {
-    console.error("Student PUT Error:", error);
+    log.error("Student PUT Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Internal Server Error" },
       { status: 500 }
@@ -325,7 +328,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       },
     });
   } catch (error: unknown) {
-    console.error("Student PATCH Error:", error);
+    log.error("Student PATCH Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Internal Server Error" },
       { status: 500 }
@@ -366,7 +369,7 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
       message: "Đã xóa học sinh khỏi danh sách!",
     });
   } catch (error: unknown) {
-    console.error("Student DELETE Error:", error);
+    log.error("Student DELETE Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Internal Server Error" },
       { status: 500 }

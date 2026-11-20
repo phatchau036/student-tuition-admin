@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("api/feedbacks/system");
 
 export async function GET(req: Request) {
   try {
@@ -51,7 +54,7 @@ export async function GET(req: Request) {
       })),
     });
   } catch (error: unknown) {
-    console.error("System Feedback GET Error:", error);
+    log.error("System Feedback GET Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Lỗi máy chủ" },
       { status: 500 }
@@ -118,7 +121,7 @@ export async function POST(req: Request) {
       data: { id },
     });
   } catch (error: unknown) {
-    console.error("System Feedback POST Error:", error);
+    log.error("System Feedback POST Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Lỗi máy chủ" },
       { status: 500 }
@@ -234,7 +237,7 @@ export async function PATCH(req: Request) {
       message: "Cập nhật trạng thái góp ý cho cơ sở thành công!",
     });
   } catch (error: unknown) {
-    console.error("System Feedback PATCH Error:", error);
+    log.error("System Feedback PATCH Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Lỗi máy chủ" },
       { status: 500 }

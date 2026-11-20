@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
 import { askAiAssistant } from "@/lib/aiBrain";
 import { resolveSchoolIdByHost } from "@/lib/authHelper";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("api/zalo-bot/webhook");
 
 const ZALO_BOT_BASE_URL = "https://bot-api.zapps.me";
 
@@ -150,7 +153,7 @@ Chat ID của bạn là: ${chatId}
 
     return NextResponse.json({ success: true, handled: "guest_welcome", school_id: targetSchoolId });
   } catch (error: any) {
-    console.error("Zalo Bot Webhook error:", error);
+    log.error("Zalo Bot Webhook error:", { error: error });
     return NextResponse.json(
       { success: false, message: error.message || "Webhook processing error" },
       { status: 500 }

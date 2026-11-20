@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
 import { notifyAdminViaZaloBot } from "@/lib/zaloBot";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("api/feedbacks/parent");
 
 export async function GET(req: Request) {
   try {
@@ -36,7 +39,7 @@ export async function GET(req: Request) {
       })),
     });
   } catch (error: unknown) {
-    console.error("Parent Feedback GET Error:", error);
+    log.error("Parent Feedback GET Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Lỗi máy chủ" },
       { status: 500 }
@@ -101,7 +104,7 @@ export async function POST(req: Request) {
       data: { id },
     });
   } catch (error: unknown) {
-    console.error("Parent Feedback POST Error:", error);
+    log.error("Parent Feedback POST Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Lỗi máy chủ" },
       { status: 500 }
@@ -136,7 +139,7 @@ export async function PATCH(req: Request) {
       message: "Cập nhật trạng thái góp ý thành công!",
     });
   } catch (error: unknown) {
-    console.error("Parent Feedback PATCH Error:", error);
+    log.error("Parent Feedback PATCH Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Lỗi máy chủ" },
       { status: 500 }

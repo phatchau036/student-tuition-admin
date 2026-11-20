@@ -1,6 +1,9 @@
 import { getDb, initDb } from "@/lib/db";
 import { formatVND, formatMonthDisplay } from "@/lib/tuition";
 import { AI_ADMIN_TOOLS, executeAiAdminTool } from "@/lib/aiTools";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("lib/aiBrain");
 
 export interface AiConfig {
   baseUrl: string;
@@ -233,7 +236,7 @@ DỮ LIỆU VẬN HÀNH THỜI GIAN THỰC CỦA CƠ SỞ (KỲ ${currentMonth})
 ${financeSection}
 `;
   } catch (err) {
-    console.error("getSchoolOperationalContext error:", err);
+    log.error("getSchoolOperationalContext error:", { error: err });
     return "Không thể tải dữ liệu thời gian thực của cơ sở.";
   }
 }
@@ -345,7 +348,10 @@ QUY TẮC PHẢN HỒI QUAN TRỌNG:
 
     if (!response.ok) {
       const errText = await response.text();
-      console.error("AI API Error response:", response.status, errText);
+      log.error("AI API returned an error response", {
+        status: response.status,
+        body: errText,
+      });
       return "Tính năng này hiện chưa được hỗ trợ.";
     }
 
@@ -363,7 +369,7 @@ QUY TẮC PHẢN HỒI QUAN TRỌNG:
           fnArgs = JSON.parse(tCall.function?.arguments || "{}");
         } catch {}
 
-        console.log(`[AI Agent] Executing action tool: ${fnName}`, fnArgs);
+        log.debug(`[AI Agent] Executing action tool: ${fnName}`, fnArgs);
         const result = await executeAiAdminTool(fnName, fnArgs, schoolId);
 
         toolResultsMessages.push({
@@ -406,7 +412,7 @@ QUY TẮC PHẢN HỒI QUAN TRỌNG:
     const answer = choiceMessage?.content || "Tính năng này hiện chưa được hỗ trợ.";
     return answer.trim();
   } catch (error: any) {
-    console.error("askAiAssistant error:", error);
+    log.error("askAiAssistant error:", { error: error });
     return "Tính năng này hiện chưa được hỗ trợ.";
   }
 }
@@ -493,7 +499,7 @@ Chỉ trả về JSON hợp lệ, không kèm văn bản giải thích.
       homework: parsed.homework || "Về nhà ôn lại bài học 15 phút mỗi ngày.",
     };
   } catch (error: any) {
-    console.error("generateLessonReview error:", error);
+    log.error("generateLessonReview error:", { error: error });
     return {
       success: false,
       teacher_notes: "",

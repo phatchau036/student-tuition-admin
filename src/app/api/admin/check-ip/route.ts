@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
 import { getClientIp, isIpAllowed } from "@/lib/ipHelper";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("api/admin/check-ip");
 
 export async function GET(req: Request) {
   try {
@@ -60,7 +63,7 @@ export async function GET(req: Request) {
     if ((error as { digest?: string })?.digest === "NEXT_PRERENDER_INTERRUPTED") {
       throw error;
     }
-    console.error("Check IP Error:", error);
+    log.error("Check IP Error:", { error: error });
     return NextResponse.json(
       { allowed: false, message: (error as Error).message || "Internal Server Error" },
       { status: 500 }

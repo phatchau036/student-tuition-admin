@@ -3,6 +3,9 @@ import { getDb, initDb } from "@/lib/db";
 import { calculateStudentTuition, getPreviousMonthStr, resolveStudentTeachers } from "@/lib/tuition";
 import { getSchoolIdFromRequest, getAdminFromRequest, requireAdminPermission } from "@/lib/authHelper";
 import { syncPendingMakeupsToWallet } from "@/lib/wallet";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("api/students");
 
 export async function GET(req: Request) {
   try {
@@ -369,7 +372,7 @@ export async function GET(req: Request) {
       },
     });
   } catch (error: unknown) {
-    console.error("Students GET Error:", error);
+    log.error("Students GET Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Internal Server Error" },
       { status: 500 }
@@ -493,7 +496,7 @@ export async function POST(req: Request) {
       student_id: id,
     });
   } catch (error: unknown) {
-    console.error("Students POST Error:", error);
+    log.error("Students POST Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Internal Server Error" },
       { status: 500 }

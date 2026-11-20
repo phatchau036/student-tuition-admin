@@ -4,6 +4,9 @@ import React, { useState, useEffect } from "react";
 import { StudentStatusLog, MonthFormat } from "@/lib/types";
 import { formatMonthDisplay } from "@/lib/tuition";
 import { useToast } from "@/components/Toast";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("ui/StatusLogModal");
 import {
   History,
   Calendar,
@@ -92,7 +95,7 @@ export const StatusLogModal: React.FC<StatusLogModalProps> = ({
         }
       }
     } catch (error) {
-      console.error("Failed to load status logs:", error);
+      log.error("Failed to load status logs:", { error: error });
     } finally {
       setIsLoading(false);
     }

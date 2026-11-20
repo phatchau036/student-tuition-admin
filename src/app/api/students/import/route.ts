@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
 import { getSchoolIdFromRequest, requireAdminPermission } from "@/lib/authHelper";
 import { parseStudyTimeToSchedule } from "@/lib/tuition";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("api/students/import");
 
 export async function POST(req: Request) {
   try {
@@ -325,7 +328,7 @@ export async function POST(req: Request) {
       new_subjects_added: newSubjectsAdded,
     });
   } catch (error: unknown) {
-    console.error("Import API Error:", error);
+    log.error("Import API Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Internal Server Error" },
       { status: 500 }
