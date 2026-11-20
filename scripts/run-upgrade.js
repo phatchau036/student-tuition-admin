@@ -74,6 +74,10 @@ try {
 
 // Tự động bỏ qua thay đổi file tạm để không bị xung đột git pull
 runCmd("git checkout package-lock.json", true);
+// Đưa .env về trạng thái trong Git trước khi pull để tránh lỗi
+// "local changes would be overwritten" khi commit mới xóa .env khỏi index.
+// Bản sao lưu thật đã được tạo ở bước 2a và sẽ được phục hồi ngay sau pull.
+runCmd("git checkout -- .env", true);
 runCmd("git pull origin main");
 
 // Phục hồi .env ngay sau pull (nếu pull đã xóa hoặc ghi đè)
