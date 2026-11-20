@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
-import { getSchoolIdFromRequest, requireAdminPermission } from "@/lib/authHelper";
+import {
+  getSchoolIdFromRequest,
+  requireAdminPermission,
+  requireAnyAdminPermission,
+} from "@/lib/authHelper";
 import { createLogger } from "@/lib/logger";
 
 const log = createLogger("api/classes");
@@ -8,7 +12,13 @@ const log = createLogger("api/classes");
 export async function GET(req: Request) {
   try {
     await initDb();
-    const auth = await requireAdminPermission(req, "schedule.matrix");
+    const auth = await requireAnyAdminPermission(req, [
+      "students.view",
+      "schedule.matrix",
+      "schedule.consult",
+      "classes.manage",
+      "attendance.manage",
+    ]);
     if (!auth.authorized) return auth.errorResponse!;
     const db = getDb();
     const { searchParams } = new URL(req.url);

@@ -52,6 +52,15 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
   const canRemindTuition = !hasPerm || hasPerm("tuition.remind") || hasPerm("tuition.view");
   const canChangeStatus = !hasPerm || hasPerm("students.status");
 
+  /** Headers xác thực cho các API nội bộ (status-logs yêu cầu students.view). */
+  const getAuthHeaders = (): Record<string, string> => {
+    const token = typeof window !== "undefined" ? localStorage.getItem("admin_token") : null;
+    const headers: Record<string, string> = {};
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+    if (student?.school_id) headers["x-school-id"] = student.school_id;
+    return headers;
+  };
+
   const [statusLogs, setStatusLogs] = useState<StudentStatusLog[]>([]);
   const [studentLessons, setStudentLessons] = useState<LessonRecord[]>([]);
   const [isLoadingLogs, setIsLoadingLogs] = useState(false);
@@ -67,12 +76,15 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
       // eslint-disable-next-line react-hooks/immutability -- Hàm khai báo bằng function (được hoisting) gọi trong effect mount là an toàn; rule báo nhầm thứ tự khai báo.
       loadStudentLessons(student.id);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Loader là hàm khai báo trong component, chỉ gọi khi mở modal; thêm vào deps sẽ gây gọi lại vô hạn.
   }, [isOpen, student]);
 
   async function loadStudentStatusLogs(studentId: string) {
     try {
       setIsLoadingLogs(true);
-      const res = await fetch(`/api/status-logs?student_id=${studentId}`);
+      const res = await fetch(`/api/status-logs?student_id=${studentId}`, {
+        headers: getAuthHeaders(),
+      });
       const json = await res.json();
       if (json.success) {
         setStatusLogs(json.data || []);
@@ -87,7 +99,9 @@ export const StudentDetailModal: React.FC<StudentDetailModalProps> = ({
   async function loadStudentLessons(studentId: string) {
     try {
       setIsLoadingLessons(true);
-      const res = await fetch(`/api/status-logs?type=lessons&student_id=${studentId}`);
+      const res = await fetch(`/api/status-logs?type=lessons&student_id=${studentId}`, {
+        headers: getAuthHeaders(),
+      });
       const json = await res.json();
       if (json.success) {
         setStudentLessons(json.data || []);

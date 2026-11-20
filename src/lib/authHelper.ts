@@ -324,6 +324,49 @@ export async function getSystemAdminFromRequest(
   }
 }
 
+/**
+ * Biến thể của `requireAdminPermission`: cho phép khi tài khoản có **ít nhất một**
+ * trong các quyền được liệt kê. Dùng cho endpoint đọc dữ liệu phục vụ nhiều màn hình.
+ */
+export async function requireAnyAdminPermission(
+  req: Request,
+  permKeys: string[]
+): Promise<{ authorized: boolean; admin?: RequestAdminContext; errorResponse?: NextResponse }> {
+  const admin = await getAdminFromRequest(req);
+  if (!admin) {
+    return {
+      authorized: false,
+      errorResponse: NextResponse.json(
+        {
+          success: false,
+          message: "Phiên đăng nhập không hợp lệ hoặc đã hết hạn! Vui lòng đăng nhập lại.",
+        },
+        { status: 401 }
+      ),
+    };
+  }
+
+  if (admin.is_owner === 1 || admin.permissions.includes("*")) {
+    return { authorized: true, admin };
+  }
+
+  if (permKeys.some((key) => admin.permissions.includes(key))) {
+    return { authorized: true, admin };
+  }
+
+  return {
+    authorized: false,
+    admin,
+    errorResponse: NextResponse.json(
+      {
+        success: false,
+        message: `Tài khoản "${admin.full_name}" không có quyền thực hiện thao tác này (cần một trong: ${permKeys.join(", ")})!`,
+      },
+      { status: 403 }
+    ),
+  };
+}
+
 export async function requireAdminPermission(
   req: Request,
   permKey: string

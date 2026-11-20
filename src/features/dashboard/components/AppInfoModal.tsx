@@ -45,6 +45,15 @@ export const AppInfoModal: React.FC<AppInfoModalProps> = ({
   schoolName = "Trung tâm đào tạo",
   schoolCode = "TT",
 }) => {
+  /** Headers xác thực cho các API nội bộ (feedbacks yêu cầu quyền quản trị). */
+  const getAuthHeaders = (): Record<string, string> => {
+    const token = typeof window !== "undefined" ? localStorage.getItem("admin_token") : null;
+    const headers: Record<string, string> = {};
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+    if (schoolId) headers["x-school-id"] = schoolId;
+    return headers;
+  };
+
   const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState<
     "about" | "changelog" | "tpteam_feedback" | "parent_feedbacks"
@@ -85,7 +94,9 @@ export const AppInfoModal: React.FC<AppInfoModalProps> = ({
   async function loadSystemFeedbacks() {
     try {
       setIsLoadingSystemFb(true);
-      const res = await fetch(`/api/feedbacks/system?school_id=${schoolId}`);
+      const res = await fetch(`/api/feedbacks/system?school_id=${schoolId}`, {
+        headers: getAuthHeaders(),
+      });
       const json = await res.json();
       if (json.success) {
         setSystemFeedbacks(json.data || []);
@@ -100,7 +111,9 @@ export const AppInfoModal: React.FC<AppInfoModalProps> = ({
   async function loadParentFeedbacks() {
     try {
       setIsLoadingParentFb(true);
-      const res = await fetch(`/api/feedbacks/parent?school_id=${schoolId}`);
+      const res = await fetch(`/api/feedbacks/parent?school_id=${schoolId}`, {
+        headers: getAuthHeaders(),
+      });
       const json = await res.json();
       if (json.success) {
         setParentFeedbacks(json.data || []);
@@ -209,7 +222,7 @@ export const AppInfoModal: React.FC<AppInfoModalProps> = ({
       setIsSubmittingTpTeam(true);
       const res = await fetch("/api/feedbacks/system", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({
           school_id: schoolId,
           school_name: schoolName,
@@ -244,7 +257,7 @@ export const AppInfoModal: React.FC<AppInfoModalProps> = ({
     try {
       const res = await fetch("/api/feedbacks/parent", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({ id, status, response_note: replyNote }),
       });
       const data = await res.json();

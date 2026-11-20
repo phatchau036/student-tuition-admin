@@ -518,7 +518,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       setIsTestingBot(true);
       const res = await fetch("/api/zalo-bot", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getRequestHeaders(),
         body: JSON.stringify({
           action: "test_connection",
           bot_token: zaloBotToken.trim(),
@@ -941,7 +941,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       setIsAddingSubject(true);
       const res = await fetch("/api/subjects", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getRequestHeaders(),
         body: JSON.stringify({
           action: "create",
           name: newSubjectName.trim(),
@@ -978,7 +978,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     try {
       const res = await fetch("/api/subjects", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getRequestHeaders(),
         body: JSON.stringify({ action: "delete", id }),
       });
       const data = await res.json();

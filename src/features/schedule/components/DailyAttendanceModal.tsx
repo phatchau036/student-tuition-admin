@@ -40,6 +40,14 @@ export const DailyAttendanceModal: React.FC<DailyAttendanceModalProps> = ({
   onRefresh,
 }) => {
   const { showToast } = useToast();
+  /** Headers xác thực cho API nội bộ (admin/attendance yêu cầu attendance.manage). */
+  const getAuthHeaders = (): Record<string, string> => {
+    const token = typeof window !== "undefined" ? localStorage.getItem("admin_token") : null;
+    const headers: Record<string, string> = {};
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+    if (schoolId) headers["x-school-id"] = schoolId;
+    return headers;
+  };
 
   const [selectedDate, setSelectedDate] = useState<string>("");
   const [todayDateStr, setTodayDateStr] = useState<string>("");
@@ -79,7 +87,9 @@ export const DailyAttendanceModal: React.FC<DailyAttendanceModalProps> = ({
     if (!dateStr) return;
     try {
       const q = schoolId ? `&school_id=${encodeURIComponent(schoolId)}` : "";
-      const res = await fetch(`/api/admin/attendance?date=${dateStr}${q}`);
+      const res = await fetch(`/api/admin/attendance?date=${dateStr}${q}`, {
+        headers: getAuthHeaders(),
+      });
       const json = await res.json();
       if (json.success && json.data?.lessons_map) {
         const nextMap: DbRow = {};
@@ -328,7 +338,7 @@ export const DailyAttendanceModal: React.FC<DailyAttendanceModalProps> = ({
 
       const res = await fetch("/api/admin/attendance", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({
           date: dateToUse,
           records: recordsToSave,
