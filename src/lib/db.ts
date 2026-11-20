@@ -124,7 +124,7 @@ export async function initDb() {
       });
     }
   } catch (err) {
-    log.warn("Backfill cấu hình từ settings sang schools thất bại", { error: err });
+    log.debug("Backfill cấu hình từ settings sang schools thất bại", { error: err });
   }
 
   // Tự động kiểm tra và khởi tạo dữ liệu mẫu (Time Slots, Level, Giảm giá, Gói học phí, Bộ môn, Vai trò) cho các cơ sở mới
