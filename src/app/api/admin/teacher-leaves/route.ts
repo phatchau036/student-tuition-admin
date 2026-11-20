@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
 import { getSchoolIdFromRequest } from "@/lib/authHelper";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("api/admin/teacher-leaves");
 
 // GET /api/admin/teacher-leaves - Lấy danh sách đơn xin nghỉ của giáo viên toàn trường
 export async function GET(req: Request) {
@@ -42,8 +45,12 @@ export async function GET(req: Request) {
       class_id: row.class_id ? String(row.class_id) : undefined,
       class_name: row.class_name ? String(row.class_name) : undefined,
       reason: String(row.reason || ""),
-      substitute_teacher_id: row.substitute_teacher_id ? String(row.substitute_teacher_id) : undefined,
-      substitute_teacher_name: row.substitute_teacher_name ? String(row.substitute_teacher_name) : undefined,
+      substitute_teacher_id: row.substitute_teacher_id
+        ? String(row.substitute_teacher_id)
+        : undefined,
+      substitute_teacher_name: row.substitute_teacher_name
+        ? String(row.substitute_teacher_name)
+        : undefined,
       status: String(row.status || "pending") as "pending" | "approved" | "rejected",
       admin_note: String(row.admin_note || ""),
       created_at: String(row.created_at || ""),
@@ -59,7 +66,7 @@ export async function GET(req: Request) {
       },
     });
   } catch (error: unknown) {
-    console.error("Admin Teacher Leaves GET Error:", error);
+    log.error("Admin Teacher Leaves GET Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Internal Server Error" },
       { status: 500 }
@@ -76,7 +83,10 @@ export async function POST(req: Request) {
     const { action, leave_id, substitute_teacher_id, admin_note } = body;
 
     if (!leave_id) {
-      return NextResponse.json({ success: false, message: "Thiếu mã đơn xin nghỉ!" }, { status: 400 });
+      return NextResponse.json(
+        { success: false, message: "Thiếu mã đơn xin nghỉ!" },
+        { status: 400 }
+      );
     }
 
     // 1. Phê duyệt đơn xin nghỉ
@@ -90,7 +100,11 @@ export async function POST(req: Request) {
               updated_at = CURRENT_TIMESTAMP
           WHERE id = ?
         `,
-        args: [substitute_teacher_id || null, admin_note ? String(admin_note).trim() : "Đã duyệt nghỉ", leave_id],
+        args: [
+          substitute_teacher_id || null,
+          admin_note ? String(admin_note).trim() : "Đã duyệt nghỉ",
+          leave_id,
+        ],
       });
 
       return NextResponse.json({
@@ -131,9 +145,12 @@ export async function POST(req: Request) {
       });
     }
 
-    return NextResponse.json({ success: false, message: "Hành động không hợp lệ!" }, { status: 400 });
+    return NextResponse.json(
+      { success: false, message: "Hành động không hợp lệ!" },
+      { status: 400 }
+    );
   } catch (error: unknown) {
-    console.error("Admin Teacher Leaves POST Error:", error);
+    log.error("Admin Teacher Leaves POST Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Internal Server Error" },
       { status: 500 }

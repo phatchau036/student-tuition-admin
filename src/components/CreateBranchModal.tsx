@@ -2,16 +2,7 @@
 
 import React, { useState } from "react";
 import { useToast } from "@/components/Toast";
-import {
-  Building2,
-  X,
-  Save,
-  Phone,
-  MapPin,
-  Tag,
-  Sparkles,
-  AlertCircle,
-} from "lucide-react";
+import { Building2, X, Save, Phone, MapPin, Tag, Sparkles } from "lucide-react";
 
 interface CreateBranchModalProps {
   isOpen: boolean;
@@ -102,7 +93,6 @@ export const CreateBranchModal: React.FC<CreateBranchModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-200">
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200">
-        
         {/* Header */}
         <div className="px-6 py-5 border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between bg-gradient-to-r from-indigo-50/70 to-purple-50/70 dark:from-indigo-950/40 dark:to-purple-950/40">
           <div className="flex items-center gap-3">
@@ -131,14 +121,14 @@ export const CreateBranchModal: React.FC<CreateBranchModalProps> = ({
 
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          
           {/* Thông báo tính năng dùng chung tài khoản */}
           <div className="p-3.5 rounded-2xl bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-200/80 dark:border-indigo-900/40 flex items-start gap-2.5 text-xs text-indigo-900 dark:text-indigo-200">
             <Sparkles className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
             <div className="space-y-0.5">
               <span className="font-bold block">Tài khoản Admin dùng chung tiện lợi:</span>
               <p className="text-indigo-800/80 dark:text-indigo-300/80 text-[11px] leading-relaxed">
-                Tài khoản Admin hiện tại của bạn sẽ tự động có toàn quyền trên chi nhánh mới này. Bạn có thể chuyển qua lại giữa các chi nhánh ngay trên thanh Menu bất kỳ lúc nào.
+                Tài khoản Admin hiện tại của bạn sẽ tự động có toàn quyền trên chi nhánh mới này.
+                Bạn có thể chuyển qua lại giữa các chi nhánh ngay trên thanh Menu bất kỳ lúc nào.
               </p>
             </div>
           </div>
@@ -167,9 +157,7 @@ export const CreateBranchModal: React.FC<CreateBranchModalProps> = ({
               <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
                 Mã định danh chi nhánh (Code)
               </label>
-              <span className="text-[10px] text-slate-400">
-                Tự động tạo hoặc tùy chỉnh
-              </span>
+              <span className="text-[10px] text-slate-400">Tự động tạo hoặc tùy chỉnh</span>
             </div>
             <div className="relative">
               <Tag className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
@@ -232,11 +220,12 @@ export const CreateBranchModal: React.FC<CreateBranchModalProps> = ({
               className="flex items-center gap-2 px-5 py-2.5 text-xs font-black uppercase tracking-wider text-white bg-indigo-600 hover:bg-indigo-700 active:scale-95 rounded-xl shadow-md shadow-indigo-600/30 transition disabled:opacity-50 cursor-pointer"
             >
               <Save className="w-4 h-4 stroke-[2.5]" />
-              <span>{isSubmitting ? "Đang tạo chi nhánh..." : "Tạo & Chuyển Sang Chi Nhánh Này"}</span>
+              <span>
+                {isSubmitting ? "Đang tạo chi nhánh..." : "Tạo & Chuyển Sang Chi Nhánh Này"}
+              </span>
             </button>
           </div>
         </form>
-
       </div>
     </div>
   );

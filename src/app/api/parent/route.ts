@@ -3,6 +3,9 @@ import { getDb, initDb } from "@/lib/db";
 import { calculateStudentTuition, getPreviousMonthStr } from "@/lib/tuition";
 import { syncPendingMakeupsToWallet } from "@/lib/wallet";
 import { resolveSchoolIdByHost } from "@/lib/authHelper";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("api/parent");
 
 export async function POST(req: Request) {
   try {
@@ -29,7 +32,7 @@ export async function POST(req: Request) {
       const domainSchoolId = await resolveSchoolIdByHost(rawHost);
 
       let sql = "";
-      let args: any[] = [];
+      let args: (string | number | null)[] = [];
 
       if (isStudentCodeCandidate && cleanPhone.length < 8) {
         // Tìm chính xác theo Mã Học Viên (student_code)
@@ -50,7 +53,7 @@ export async function POST(req: Request) {
             ${domainSchoolId ? "AND (s.school_id = ? OR s.school_id = 'school-default')" : ""}
           ORDER BY s.created_at DESC
         `;
-        args = domainSchoolId 
+        args = domainSchoolId
           ? [inputIdentifier, inputIdentifier, domainSchoolId]
           : [inputIdentifier, inputIdentifier];
       } else {
@@ -88,20 +91,22 @@ export async function POST(req: Request) {
         return NextResponse.json(
           {
             success: false,
-            message: "Không tìm thấy học sinh nào với số điện thoại hoặc mã học viên này! Vui lòng kiểm tra lại.",
+            message:
+              "Không tìm thấy học sinh nào với số điện thoại hoặc mã học viên này! Vui lòng kiểm tra lại.",
           },
           { status: 404 }
         );
       }
 
       // Get base tuition, month format & bank settings for VietQR (SePay tự động đối soát)
-      const settingsRes = await db.execute("SELECT key, value FROM settings WHERE key IN ('base_tuition', 'month_format', 'sepay_bank_name', 'sepay_account_number', 'sepay_prefix', 'sepay_api_key', 'reconciliation_mode', 'zalo_bot_name', 'zalo_bot_token')");
+      const settingsRes = await db.execute(
+        "SELECT key, value FROM settings WHERE key IN ('base_tuition', 'month_format', 'sepay_bank_name', 'sepay_account_number', 'sepay_prefix', 'sepay_api_key', 'reconciliation_mode', 'zalo_bot_name', 'zalo_bot_token')"
+      );
       let baseTuition = 1000000;
       let monthFormat = "vietnamese";
       let sepayBankName = "";
       let sepayAccountNumber = "";
       let sepayPrefix = "HP";
-      let sepayApiKey = "";
       let reconciliationMode = "manual";
       let zaloBotName = "";
       let isBotConfigured = false;
@@ -111,7 +116,6 @@ export async function POST(req: Request) {
         if (row.key === "sepay_bank_name") sepayBankName = String(row.value || "").trim();
         if (row.key === "sepay_account_number") sepayAccountNumber = String(row.value || "").trim();
         if (row.key === "sepay_prefix") sepayPrefix = String(row.value || "HP").trim();
-        if (row.key === "sepay_api_key") sepayApiKey = String(row.value || "").trim();
         if (row.key === "reconciliation_mode") reconciliationMode = String(row.value || "manual");
         if (row.key === "zalo_bot_name") zaloBotName = String(row.value || "");
         if (row.key === "zalo_bot_token" && row.value) isBotConfigured = true;
@@ -128,7 +132,10 @@ export async function POST(req: Request) {
       const allStudentIds = studentsRes.rows.map((r) => String(r.id));
       const walletMap: Record<string, number> = {};
       const scheduledMakeupMap: Record<string, number> = {};
-      const walletLedgerMap: Record<string, Array<{ type: string; minutes: number; note: string; created_at: string }>> = {};
+      const walletLedgerMap: Record<
+        string,
+        Array<{ type: string; minutes: number; note: string; created_at: string }>
+      > = {};
       if (allStudentIds.length > 0) {
         // Tự động đồng bộ các buổi báo nghỉ chưa được ghi nhận vào sổ cái ví giờ
         await syncPendingMakeupsToWallet(allStudentIds);
@@ -260,7 +267,9 @@ export async function POST(req: Request) {
         studentsData.push({
           id: studentId,
           school_id: String(st.school_id || ""),
-          student_code: st.student_code ? String(st.student_code) : `HS${studentId.slice(-4).toUpperCase()}`,
+          student_code: st.student_code
+            ? String(st.student_code)
+            : `HS${studentId.slice(-4).toUpperCase()}`,
           name: String(st.name),
           phone: String(st.phone),
           zalo_link: String(st.zalo_link || ""),
@@ -282,7 +291,9 @@ export async function POST(req: Request) {
           study_time_detail: String(st.study_time_detail || ""),
           schedule_details_json: String(st.schedule_details_json || "[]"),
           schedule_preset_name: String(st.schedule_preset_name || ""),
-          tuition_package_name: st.tuition_package_name ? String(st.tuition_package_name) : undefined,
+          tuition_package_name: st.tuition_package_name
+            ? String(st.tuition_package_name)
+            : undefined,
           is_discount_enabled: Number(st.is_discount_enabled || 0),
           discount_percent: Number(st.discount_percent || 0),
           discount_reason: String(st.discount_reason || ""),
@@ -360,7 +371,10 @@ export async function POST(req: Request) {
     if (action === "update_student_zalo_chat_id") {
       const { student_id, zalo_chat_id } = body;
       if (!student_id) {
-        return NextResponse.json({ success: false, message: "Thiếu mã học sinh!" }, { status: 400 });
+        return NextResponse.json(
+          { success: false, message: "Thiếu mã học sinh!" },
+          { status: 400 }
+        );
       }
       const val = zalo_chat_id ? String(zalo_chat_id).trim() : null;
       await db.execute({
@@ -378,7 +392,10 @@ export async function POST(req: Request) {
     if (action === "confirm_payment") {
       const { student_id, month, amount, note } = body;
       if (!student_id || !month) {
-        return NextResponse.json({ success: false, message: "Thiếu thông tin thanh toán!" }, { status: 400 });
+        return NextResponse.json(
+          { success: false, message: "Thiếu thông tin thanh toán!" },
+          { status: 400 }
+        );
       }
 
       // Lấy thông tin học sinh & gói học phí
@@ -391,7 +408,10 @@ export async function POST(req: Request) {
       });
 
       if (stRes.rows.length === 0) {
-        return NextResponse.json({ success: false, message: "Không tìm thấy học sinh!" }, { status: 404 });
+        return NextResponse.json(
+          { success: false, message: "Không tìm thấy học sinh!" },
+          { status: 404 }
+        );
       }
 
       const st = stRes.rows[0];
@@ -433,9 +453,12 @@ export async function POST(req: Request) {
       });
     }
 
-    return NextResponse.json({ success: false, message: "Hành động không hợp lệ!" }, { status: 400 });
+    return NextResponse.json(
+      { success: false, message: "Hành động không hợp lệ!" },
+      { status: 400 }
+    );
   } catch (error: unknown) {
-    console.error("Parent API Error:", error);
+    log.error("Parent API Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Internal Server Error" },
       { status: 500 }

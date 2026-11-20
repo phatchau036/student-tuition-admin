@@ -19,7 +19,11 @@ function log(msg) {
 
 // Xóa file log cũ khi bắt đầu lượt nâng cấp mới
 try {
-  fs.writeFileSync(logPath, `=== BẮT ĐẦU NÂNG CẤP HỆ THỐNG [${new Date().toISOString()}] ===\n`, "utf-8");
+  fs.writeFileSync(
+    logPath,
+    `=== BẮT ĐẦU NÂNG CẤP HỆ THỐNG [${new Date().toISOString()}] ===\n`,
+    "utf-8"
+  );
 } catch {}
 
 function runCmd(cmd, ignoreError = false) {
@@ -31,7 +35,10 @@ function runCmd(cmd, ignoreError = false) {
     }
     return true;
   } catch (err) {
-    const errOutput = (err.stdout ? err.stdout.toString() : "") + (err.stderr ? err.stderr.toString() : "") + (err.message || "");
+    const errOutput =
+      (err.stdout ? err.stdout.toString() : "") +
+      (err.stderr ? err.stderr.toString() : "") +
+      (err.message || "");
     log(`[LỖI] Lệnh thất bại: ${cmd}\n${errOutput.trim()}`);
     if (!ignoreError) {
       if (fs.existsSync(flagPath)) fs.unlinkSync(flagPath);
@@ -75,7 +82,9 @@ try {
       netstatOutput = execSync("netstat -ano", { cwd, encoding: "utf-8" });
     } catch {}
 
-    const lines = netstatOutput.split(/[\r\n]+/).filter((l) => l.includes(":3000") && l.includes("LISTENING"));
+    const lines = netstatOutput
+      .split(/[\r\n]+/)
+      .filter((l) => l.includes(":3000") && l.includes("LISTENING"));
     const pids = [...new Set(lines.map((l) => l.trim().split(/\s+/).pop()).filter(Boolean))];
 
     for (const pid of pids) {

@@ -1,0 +1,28 @@
+# Build output
+.next/
+out/
+build/
+dist/
+
+# Dependencies
+node_modules/
+
+# Database & dữ liệu thật
+data/
+
+# Lockfile do npm sinh tự động
+package-lock.json
+
+# TypeScript incremental
+tsconfig.tsbuildinfo
+next-env.d.ts
+
+# Tài liệu Markdown giữ nguyên định dạng thủ công
+*.md
+
+# Assets tĩnh
+public/
+
+# Logs & môi trường
+*.log
+.env

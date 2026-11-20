@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
 import { calculateStudentTuition } from "@/lib/tuition";
 import { getSchoolIdFromRequest, requireAdminPermission } from "@/lib/authHelper";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("api/reconciliation/summary");
 
 export async function GET(req: Request) {
   try {
@@ -15,7 +18,8 @@ export async function GET(req: Request) {
     const month = url.searchParams.get("month") || new Date().toISOString().slice(0, 7);
 
     const db = getDb();
-    const schoolId = url.searchParams.get("school_id") || getSchoolIdFromRequest(req) || "school-default";
+    const schoolId =
+      url.searchParams.get("school_id") || getSchoolIdFromRequest(req) || "school-default";
 
     // 1. Get Base Tuition (Nếu <= 0 thì tự động lấy từ gói tháng 1m hoặc 1.000.000đ)
     const baseTuitionRes = await db.execute({
@@ -24,7 +28,9 @@ export async function GET(req: Request) {
     });
     let baseTuition = baseTuitionRes.rows.length > 0 ? Number(baseTuitionRes.rows[0].value) : 0;
     if (baseTuition <= 0) {
-      const defaultPkgRes = await db.execute("SELECT amount FROM tuition_packages WHERE cycle_unit = 'month' AND cycle_value = 1 LIMIT 1");
+      const defaultPkgRes = await db.execute(
+        "SELECT amount FROM tuition_packages WHERE cycle_unit = 'month' AND cycle_value = 1 LIMIT 1"
+      );
       baseTuition = defaultPkgRes.rows.length > 0 ? Number(defaultPkgRes.rows[0].amount) : 1000000;
     }
 
@@ -105,7 +111,8 @@ export async function GET(req: Request) {
         discountPercent: Number(row.discount_percent || 0),
       });
       const stdTuition = breakdown.finalTuition;
-      const studentFee = overridesMap[studentId] !== undefined ? overridesMap[studentId] : stdTuition;
+      const studentFee =
+        overridesMap[studentId] !== undefined ? overridesMap[studentId] : stdTuition;
 
       // Học sinh nghỉ học hoặc bảo lưu có thể không tính dự thu nếu muốn, nhưng ở đây tính cho các học sinh đang học
       if (status === "studying") {
@@ -182,7 +189,7 @@ export async function GET(req: Request) {
     if ((error as { digest?: string })?.digest === "NEXT_PRERENDER_INTERRUPTED") {
       throw error;
     }
-    console.error("Reconciliation Summary API Error:", error);
+    log.error("Reconciliation Summary API Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Internal Server Error" },
       { status: 500 }

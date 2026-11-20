@@ -4,7 +4,17 @@ import React, { useState, useEffect } from "react";
 import { Student, MonthFormat, TuitionAdjustmentItem } from "@/lib/types";
 import { formatVND, formatMonthDisplay } from "@/lib/tuition";
 import { useToast } from "@/components/Toast";
-import { Calendar, DollarSign, FileText, RotateCcw, Save, X, Sparkles, CheckCircle2, Plus, Trash2, ArrowUpRight, ArrowDownRight } from "lucide-react";
+import {
+  DollarSign,
+  FileText,
+  RotateCcw,
+  Save,
+  X,
+  Sparkles,
+  CheckCircle2,
+  Plus,
+  Trash2,
+} from "lucide-react";
 import { MonthPicker } from "@/components/MonthPicker";
 
 interface MonthlyTuitionModalProps {
@@ -44,6 +54,7 @@ export const MonthlyTuitionModal: React.FC<MonthlyTuitionModalProps> = ({
 
   useEffect(() => {
     if (student) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Đồng bộ state khi mở modal hoặc nạp dữ liệu; sẽ chuyển sang pattern key-remount ở Giai đoạn 2.
       setMonth(selectedMonth);
       if (student.monthly_override && student.monthly_override.month === selectedMonth) {
         setAmount(student.monthly_override.amount);
@@ -78,7 +89,7 @@ export const MonthlyTuitionModal: React.FC<MonthlyTuitionModalProps> = ({
 
     const nextItems = [...adjustmentItems, newItem];
     setAdjustmentItems(nextItems);
-    
+
     // Auto calculate final tuition based on standard tuition + adjustments
     const netAdjustment = nextItems.reduce(
       (acc, it) => acc + (it.type === "add" ? it.amount : -it.amount),
@@ -87,7 +98,9 @@ export const MonthlyTuitionModal: React.FC<MonthlyTuitionModalProps> = ({
     setAmount(Math.max(0, baseStandard + netAdjustment));
 
     // Auto-update note summary
-    const summary = nextItems.map(i => `${i.type === "add" ? "+" : "-"}${formatVND(i.amount)} (${i.name})`).join(", ");
+    const summary = nextItems
+      .map((i) => `${i.type === "add" ? "+" : "-"}${formatVND(i.amount)} (${i.name})`)
+      .join(", ");
     setNote(summary);
 
     setNewItemName("");
@@ -103,13 +116,17 @@ export const MonthlyTuitionModal: React.FC<MonthlyTuitionModalProps> = ({
       0
     );
     setAmount(Math.max(0, baseStandard + netAdjustment));
-    const summary = nextItems.map(i => `${i.type === "add" ? "+" : "-"}${formatVND(i.amount)} (${i.name})`).join(", ");
+    const summary = nextItems
+      .map((i) => `${i.type === "add" ? "+" : "-"}${formatVND(i.amount)} (${i.name})`)
+      .join(", ");
     setNote(summary);
   };
 
   if (!isOpen || !student) return null;
 
-  const hasCurrentOverride = Boolean(student.monthly_override && student.monthly_override.month === selectedMonth);
+  const hasCurrentOverride = Boolean(
+    student.monthly_override && student.monthly_override.month === selectedMonth
+  );
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -184,7 +201,9 @@ export const MonthlyTuitionModal: React.FC<MonthlyTuitionModalProps> = ({
                 Chỉnh Sửa Học Phí Riêng Tháng
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Học sinh: <span className="font-bold text-slate-800 dark:text-slate-200">{student.name}</span> ({student.phone})
+                Học sinh:{" "}
+                <span className="font-bold text-slate-800 dark:text-slate-200">{student.name}</span>{" "}
+                ({student.phone})
               </p>
             </div>
           </div>
@@ -215,13 +234,17 @@ export const MonthlyTuitionModal: React.FC<MonthlyTuitionModalProps> = ({
           {/* Reference Info Card */}
           <div className="p-4 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200/80 dark:border-slate-800 flex items-center justify-between text-xs">
             <div>
-              <span className="text-slate-400 font-bold uppercase text-[10px] block">Học phí chuẩn mặc định</span>
+              <span className="text-slate-400 font-bold uppercase text-[10px] block">
+                Học phí chuẩn mặc định
+              </span>
               <span className="font-black text-slate-800 dark:text-slate-100 text-sm mt-0.5 block">
                 {formatVND(student.standard_tuition)}
               </span>
             </div>
             <div className="text-right">
-              <span className="text-slate-400 font-bold uppercase text-[10px] block">Trạng thái tháng này</span>
+              <span className="text-slate-400 font-bold uppercase text-[10px] block">
+                Trạng thái tháng này
+              </span>
               {hasCurrentOverride ? (
                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300 mt-0.5">
                   <Sparkles className="w-3 h-3" /> Đã tùy chỉnh riêng
@@ -241,7 +264,9 @@ export const MonthlyTuitionModal: React.FC<MonthlyTuitionModalProps> = ({
                 <Sparkles className="w-3.5 h-3.5 text-amber-500" />
                 <span>Bóc Tách Khoản Thu / Giảm Trừ Phát Sinh</span>
               </span>
-              <span className="text-[10px] text-slate-400 font-medium">Tự động cộng dồn vào tổng học phí</span>
+              <span className="text-[10px] text-slate-400 font-medium">
+                Tự động cộng dồn vào tổng học phí
+              </span>
             </div>
 
             {/* Form thêm khoản phụ thu/giảm trừ */}
@@ -319,7 +344,8 @@ export const MonthlyTuitionModal: React.FC<MonthlyTuitionModalProps> = ({
 
                     <div className="flex items-center gap-2">
                       <span className="font-mono font-black">
-                        {it.type === "add" ? "+" : "-"}{formatVND(it.amount)}
+                        {it.type === "add" ? "+" : "-"}
+                        {formatVND(it.amount)}
                       </span>
                       <button
                         type="button"
@@ -358,7 +384,9 @@ export const MonthlyTuitionModal: React.FC<MonthlyTuitionModalProps> = ({
             </div>
             <div className="mt-1 text-xs text-slate-500 flex items-center gap-1 font-medium">
               <span>Định dạng hiển thị:</span>
-              <span className="font-bold text-slate-800 dark:text-slate-200">{formatVND(amount)}</span>
+              <span className="font-bold text-slate-800 dark:text-slate-200">
+                {formatVND(amount)}
+              </span>
             </div>
           </div>
 
@@ -380,7 +408,9 @@ export const MonthlyTuitionModal: React.FC<MonthlyTuitionModalProps> = ({
           </div>
 
           <p className="text-[11px] text-slate-400 italic">
-            * Lưu ý: Mức điều chỉnh này chỉ áp dụng riêng cho {formatMonthDisplay(month, monthFormat)}. Các tháng khác vẫn tính theo học phí chuẩn mặc định.
+            * Lưu ý: Mức điều chỉnh này chỉ áp dụng riêng cho{" "}
+            {formatMonthDisplay(month, monthFormat)}. Các tháng khác vẫn tính theo học phí chuẩn mặc
+            định.
           </p>
 
           {/* Actions */}

@@ -3,6 +3,9 @@ import { existsSync, readFileSync } from "fs";
 import { join } from "path";
 import { exec } from "child_process";
 import { promisify } from "util";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("api/system/upgrade/status");
 
 const execAsync = promisify(exec);
 
@@ -19,7 +22,9 @@ export async function GET(req: Request) {
     try {
       const content = readFileSync(flagPath, "utf-8");
       maintenanceInfo = JSON.parse(content);
-    } catch {}
+    } catch (err) {
+      log.debug("Bỏ qua lỗi không ảnh hưởng luồng chính (route)", { error: err });
+    }
   }
 
   // Đọc nội dung log tiến trình nâng cấp (nếu có)
@@ -28,7 +33,9 @@ export async function GET(req: Request) {
     try {
       const logContent = readFileSync(logPath, "utf-8");
       upgradeLogs = logContent.split("\n").filter((l) => l.trim().length > 0);
-    } catch {}
+    } catch (err) {
+      log.debug("Bỏ qua lỗi không ảnh hưởng luồng chính (route)", { error: err });
+    }
   }
 
   // Nếu chỉ kiểm tra trạng thái bảo trì thông thường (cho MaintenanceGuard hoặc trang quản trị gọi định kỳ)
@@ -55,16 +62,26 @@ export async function GET(req: Request) {
     const hasUpdate = localCommit !== remoteCommit;
 
     // Lấy message của commit mới nhất trên origin/main
-    const { stdout: remoteLog } = await execAsync('git log -1 --pretty=format:"%h - %s (%cd)" --date=short origin/main', { cwd });
+    const { stdout: remoteLog } = await execAsync(
+      'git log -1 --pretty=format:"%h - %s (%cd)" --date=short origin/main',
+      { cwd }
+    );
     // Lấy message commit hiện tại của local
-    const { stdout: localLog } = await execAsync('git log -1 --pretty=format:"%h - %s (%cd)" --date=short HEAD', { cwd });
+    const { stdout: localLog } = await execAsync(
+      'git log -1 --pretty=format:"%h - %s (%cd)" --date=short HEAD',
+      { cwd }
+    );
 
     let commitsBehind = 0;
     if (hasUpdate) {
       try {
-        const { stdout: behindCount } = await execAsync("git rev-list --count HEAD..origin/main", { cwd });
+        const { stdout: behindCount } = await execAsync("git rev-list --count HEAD..origin/main", {
+          cwd,
+        });
         commitsBehind = parseInt(behindCount.trim(), 10) || 1;
-      } catch {}
+      } catch (err) {
+        log.debug("Bỏ qua lỗi không ảnh hưởng luồng chính (route)", { error: err });
+      }
     }
 
     return NextResponse.json({
@@ -78,7 +95,7 @@ export async function GET(req: Request) {
       remote_log: remoteLog.trim(),
     });
   } catch (error: unknown) {
-    console.error("Check git error:", error);
+    log.error("Check git error:", { error: error });
     return NextResponse.json({
       success: true,
       maintenance: isMaintenance,

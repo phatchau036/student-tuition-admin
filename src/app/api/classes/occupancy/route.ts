@@ -3,26 +3,37 @@ import { getDb, initDb } from "@/lib/db";
 import { isDayInSlot, parseStudentScheduleSlots, getDayNameVi } from "@/lib/tuition";
 import { getSchoolIdFromRequest } from "@/lib/authHelper";
 import { isTimeOverlap } from "@/lib/shiftDetection";
+import { createLogger } from "@/lib/logger";
+import type { DbRow } from "@/lib/types";
+
+const log = createLogger("api/classes/occupancy");
 
 // Trích xuất giờ bắt đầu và kết thúc học trong ngày của học sinh
-function getStudentStudyTimeForDay(st: any, dayName: string): { start_time: string; end_time: string } {
+function getStudentStudyTimeForDay(
+  st: DbRow,
+  dayName: string
+): { start_time: string; end_time: string } {
   let sStart = "";
   let sEnd = "";
   if (st.schedule_details_json) {
     try {
       const items = JSON.parse(String(st.schedule_details_json));
       if (Array.isArray(items)) {
-        const item = items.find((it: any) => it.day === dayName);
+        const item = items.find((it: DbRow) => it.day === dayName);
         if (item && item.start_time) {
           sStart = String(item.start_time).trim();
           sEnd = String(item.end_time || "").trim();
         }
       }
-    } catch {}
+    } catch (err) {
+      log.debug("Bỏ qua lỗi không ảnh hưởng luồng chính (route)", { error: err });
+    }
   }
   if (!sStart && st.study_time_detail) {
     const raw = String(st.study_time_detail).trim();
-    const m = raw.match(/(\d{1,2})(?::(\d{2})|h(\d{2})?)\s*[-–to~]\s*(\d{1,2})(?::(\d{2})|h(\d{2})?)/i);
+    const m = raw.match(
+      /(\d{1,2})(?::(\d{2})|h(\d{2})?)\s*[-–to~]\s*(\d{1,2})(?::(\d{2})|h(\d{2})?)/i
+    );
     if (m) {
       const sh = m[1].padStart(2, "0");
       const sm = (m[2] || m[3] || "00").padStart(2, "0");
@@ -67,19 +78,19 @@ export async function GET(req: Request) {
     const schoolId = getSchoolIdFromRequest(req);
 
     // 2. Get active time slots for this school
-    let slotsRes = await db.execute({
+    const slotsRes = await db.execute({
       sql: "SELECT * FROM time_slots WHERE is_active = 1 AND (school_id = ? OR (? = 'school-default' AND (school_id IS NULL OR school_id = '' OR school_id = 'school-default'))) ORDER BY start_time ASC",
       args: [schoolId, schoolId],
     });
 
     // 3. Get all teachers with their assigned slots and working shifts for this school
-    let teachersRes = await db.execute({
+    const teachersRes = await db.execute({
       sql: "SELECT * FROM teachers WHERE is_active = 1 AND (school_id = ? OR (? = 'school-default' AND (school_id IS NULL OR school_id = '' OR school_id = 'school-default')))",
       args: [schoolId, schoolId],
     });
 
     // 4. Get all active students with their registered days, slot, class & teacher for this school
-    let studentsRes = await db.execute({
+    const studentsRes = await db.execute({
       sql: "SELECT id, name, class_id, time_slot_id, teacher_id, registered_days, study_time_detail, schedule_details_json, status FROM students WHERE (school_id = ? OR (? = 'school-default' AND (school_id IS NULL OR school_id = '' OR school_id = 'school-default'))) AND status != 'dropped'",
       args: [schoolId, schoolId],
     });
@@ -111,22 +122,29 @@ export async function GET(req: Request) {
     }
 
     // Process classes operating on this day (dayName)
-    const classesOccupancy: any[] = [];
+    const classesOccupancy: DbRow[] = [];
     for (const cRow of classesRes.rows) {
       const cId = String(cRow.id);
-      let schedList: any[] = [];
+      let schedList: DbRow[] = [];
       try {
         if (cRow.schedule_json) schedList = JSON.parse(String(cRow.schedule_json));
-      } catch {}
+      } catch (err) {
+        log.debug("Bỏ qua lỗi không ảnh hưởng luồng chính (route)", { error: err });
+      }
 
       // Lớp có mở cửa vào Thứ này không?
-      const openOnDay = schedList.some((sc) => !sc.day || sc.day === "Tất cả các ngày" || sc.day === dayName);
+      const openOnDay = schedList.some(
+        (sc) => !sc.day || sc.day === "Tất cả các ngày" || sc.day === dayName
+      );
       if (!openOnDay && schedList.length > 0) continue;
 
-      let assignList: any[] = [];
+      let assignList: DbRow[] = [];
       try {
-        if (cRow.teacher_assignments_json) assignList = JSON.parse(String(cRow.teacher_assignments_json));
-      } catch {}
+        if (cRow.teacher_assignments_json)
+          assignList = JSON.parse(String(cRow.teacher_assignments_json));
+      } catch (err) {
+        log.debug("Bỏ qua lỗi không ảnh hưởng luồng chính (route)", { error: err });
+      }
 
       // Lọc các ca phân công của giáo viên trong ngày này (hỗ trợ "Thứ 2, Thứ 4, Thứ 6" hoặc "Tất cả các ngày")
       const shiftsOnDay = assignList.filter((a) => {
@@ -135,8 +153,10 @@ export async function GET(req: Request) {
       });
 
       // Đếm học sinh chính khóa của lớp học vào ngày này
-      const classStudents = studentsRes.rows.filter((st: any) => String(st.class_id || "") === cId);
-      const classStudentsOnDay = classStudents.filter((st: any) => {
+      const classStudents = studentsRes.rows.filter(
+        (st: DbRow) => String(st.class_id || "") === cId
+      );
+      const classStudentsOnDay = classStudents.filter((st: DbRow) => {
         const regDays = String(st.registered_days || "");
         if (regDays.includes(dayName)) return true;
         const parsed = parseStudentScheduleSlots({
@@ -148,7 +168,9 @@ export async function GET(req: Request) {
       });
 
       // Đếm học sinh học bù được xếp vào lớp này vào ngày này
-      const classMakeupsOnDay = makeupsRes.rows.filter((mk: any) => String(mk.class_id || "") === cId);
+      const classMakeupsOnDay = makeupsRes.rows.filter(
+        (mk: DbRow) => String(mk.class_id || "") === cId
+      );
       const totalClassOccupied = classStudentsOnDay.length + classMakeupsOnDay.length;
 
       const maxCap = Number(cRow.max_students || 15);
@@ -160,22 +182,28 @@ export async function GET(req: Request) {
         const shEnd = sh.end_time || "20:00";
 
         // Học sinh chính khóa có giờ học giao thoa với ca này
-        const regInShift = classStudentsOnDay.filter((st: any) => {
+        const regInShift = classStudentsOnDay.filter((st: DbRow) => {
           const { start_time: stStart, end_time: stEnd } = getStudentStudyTimeForDay(st, dayName);
           if (!stStart || !stEnd) return true;
           return isTimeOverlap(shStart, shEnd, stStart, stEnd);
         });
 
         // Học sinh bù có giờ bù giao thoa với ca này
-        const makeupsInShift = classMakeupsOnDay.filter((mk: any) => {
-          const mkStart = String(mk.makeup_start_time || (mk.makeup_time ? mk.makeup_time.split("-")[0]?.trim() : "") || "");
-          const mkEnd = String(mk.makeup_end_time || (mk.makeup_time ? mk.makeup_time.split("-")[1]?.trim() : "") || "");
+        const makeupsInShift = classMakeupsOnDay.filter((mk: DbRow) => {
+          const mkStart = String(
+            mk.makeup_start_time ||
+              (mk.makeup_time ? mk.makeup_time.split("-")[0]?.trim() : "") ||
+              ""
+          );
+          const mkEnd = String(
+            mk.makeup_end_time || (mk.makeup_time ? mk.makeup_time.split("-")[1]?.trim() : "") || ""
+          );
           if (!mkStart || !mkEnd) return true;
           return isTimeOverlap(shStart, shEnd, mkStart, mkEnd);
         });
 
         const shiftOccupied = regInShift.length + makeupsInShift.length;
-        const tc = teachersRes.rows.find((t: any) => String(t.id) === String(sh.teacher_id));
+        const tc = teachersRes.rows.find((t: DbRow) => String(t.id) === String(sh.teacher_id));
         const shiftMax = tc ? Number(tc.max_students || maxCap) : maxCap;
         const shiftRemaining = Math.max(0, shiftMax - shiftOccupied);
 
@@ -200,7 +228,7 @@ export async function GET(req: Request) {
         end_time: string;
         kind: "regular" | "makeup";
       }> = [
-        ...classStudentsOnDay.map((st: any) => {
+        ...classStudentsOnDay.map((st: DbRow) => {
           const { start_time, end_time } = getStudentStudyTimeForDay(st, dayName);
           return {
             id: String(st.id),
@@ -210,9 +238,17 @@ export async function GET(req: Request) {
             kind: "regular" as const,
           };
         }),
-        ...classMakeupsOnDay.map((mk: any) => {
-          const mkStart = String(mk.makeup_start_time || (mk.makeup_time ? String(mk.makeup_time).split("-")[0]?.trim() : "") || "18:00");
-          const mkEnd = String(mk.makeup_end_time || (mk.makeup_time ? String(mk.makeup_time).split("-")[1]?.trim() : "") || "19:00");
+        ...classMakeupsOnDay.map((mk: DbRow) => {
+          const mkStart = String(
+            mk.makeup_start_time ||
+              (mk.makeup_time ? String(mk.makeup_time).split("-")[0]?.trim() : "") ||
+              "18:00"
+          );
+          const mkEnd = String(
+            mk.makeup_end_time ||
+              (mk.makeup_time ? String(mk.makeup_time).split("-")[1]?.trim() : "") ||
+              "19:00"
+          );
           return {
             id: String(mk.student_id),
             name: String(mk.student_name || "Học sinh bù"),
@@ -254,11 +290,15 @@ export async function GET(req: Request) {
 
       // 1. Tính tổng sức chứa của các Lớp học mở cửa trong khung giờ này
       const classesInThisSlot = classesRes.rows.filter((cRow) => {
-        let schedList: any[] = [];
+        let schedList: DbRow[] = [];
         try {
           if (cRow.schedule_json) schedList = JSON.parse(String(cRow.schedule_json));
-        } catch {}
-        const dayMatch = schedList.some((sc) => !sc.day || sc.day === "Tất cả các ngày" || sc.day === dayName);
+        } catch (err) {
+          log.debug("Bỏ qua lỗi không ảnh hưởng luồng chính (route)", { error: err });
+        }
+        const dayMatch = schedList.some(
+          (sc) => !sc.day || sc.day === "Tất cả các ngày" || sc.day === dayName
+        );
         if (!dayMatch && schedList.length > 0) return false;
         if (schedList.length === 0) return true;
         return schedList.some((sc) => {
@@ -282,10 +322,13 @@ export async function GET(req: Request) {
 
         // Thêm các giáo viên được phân công ca trong các Lớp học mở vào khung giờ này
         for (const cRow of classesInThisSlot) {
-          let assignList: any[] = [];
+          let assignList: DbRow[] = [];
           try {
-            if (cRow.teacher_assignments_json) assignList = JSON.parse(String(cRow.teacher_assignments_json));
-          } catch {}
+            if (cRow.teacher_assignments_json)
+              assignList = JSON.parse(String(cRow.teacher_assignments_json));
+          } catch (err) {
+            log.debug("Bỏ qua lỗi không ảnh hưởng luồng chính (route)", { error: err });
+          }
           for (const a of assignList) {
             if (!a.day || a.day === "Tất cả các ngày" || a.day.includes(dayName)) {
               const aStart = a.start_time || "17:00";
@@ -313,20 +356,24 @@ export async function GET(req: Request) {
               const parsed = JSON.parse(String(tc.assigned_slot_ids));
               if (Array.isArray(parsed)) assignedSlots = parsed;
             }
-          } catch {}
+          } catch (err) {
+            log.debug("Bỏ qua lỗi không ảnh hưởng luồng chính (route)", { error: err });
+          }
 
-          let shifts: any[] = [];
+          let shifts: DbRow[] = [];
           try {
             if (tc.working_shifts_json) {
               const parsed = JSON.parse(String(tc.working_shifts_json));
               if (Array.isArray(parsed)) shifts = parsed;
             }
-          } catch {}
+          } catch (err) {
+            log.debug("Bỏ qua lỗi không ảnh hưởng luồng chính (route)", { error: err });
+          }
 
           const worksOnThisDayAndSlot =
             (assignedSlots.includes(slotId) && isDaySupported) ||
             shifts.some(
-              (s: any) =>
+              (s: DbRow) =>
                 s.day === dayName &&
                 ((s.start_time >= slotStartTime && s.start_time < slotEndTime) ||
                   (s.end_time > slotStartTime && s.end_time <= slotEndTime))
@@ -429,7 +476,7 @@ export async function GET(req: Request) {
       },
     });
   } catch (error: unknown) {
-    console.error("Occupancy GET Error:", error);
+    log.error("Occupancy GET Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Internal Server Error" },
       { status: 500 }

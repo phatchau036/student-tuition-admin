@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("api/system/team");
 
 // GET /api/system/team - Lấy danh sách thành viên đội ngũ TpTeam
 export async function GET() {
@@ -20,7 +23,7 @@ export async function GET() {
       })),
     });
   } catch (error: unknown) {
-    console.error("System Team GET Error:", error);
+    log.error("System Team GET Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Lỗi máy chủ" },
       { status: 500 }
@@ -60,7 +63,10 @@ export async function POST(req: Request) {
     // 2. Xóa thành viên
     if (action === "delete") {
       if (!id) {
-        return NextResponse.json({ success: false, message: "Thiếu ID thành viên" }, { status: 400 });
+        return NextResponse.json(
+          { success: false, message: "Thiếu ID thành viên" },
+          { status: 400 }
+        );
       }
       await db.execute({
         sql: "DELETE FROM system_team_members WHERE id = ?",
@@ -75,7 +81,10 @@ export async function POST(req: Request) {
     // 3. Cập nhật thành viên
     if (action === "update") {
       if (!id) {
-        return NextResponse.json({ success: false, message: "Thiếu ID thành viên" }, { status: 400 });
+        return NextResponse.json(
+          { success: false, message: "Thiếu ID thành viên" },
+          { status: 400 }
+        );
       }
       await db.execute({
         sql: `UPDATE system_team_members 
@@ -84,7 +93,13 @@ export async function POST(req: Request) {
                   phone = COALESCE(?, phone),
                   avatar_color = COALESCE(?, avatar_color)
               WHERE id = ?`,
-        args: [name ? name.trim() : null, role || null, phone !== undefined ? phone.trim() : null, avatar_color || null, id],
+        args: [
+          name ? name.trim() : null,
+          role || null,
+          phone !== undefined ? phone.trim() : null,
+          avatar_color || null,
+          id,
+        ],
       });
       return NextResponse.json({
         success: true,
@@ -92,9 +107,12 @@ export async function POST(req: Request) {
       });
     }
 
-    return NextResponse.json({ success: false, message: "Hành động không hợp lệ" }, { status: 400 });
+    return NextResponse.json(
+      { success: false, message: "Hành động không hợp lệ" },
+      { status: 400 }
+    );
   } catch (error: unknown) {
-    console.error("System Team POST Error:", error);
+    log.error("System Team POST Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Lỗi máy chủ" },
       { status: 500 }

@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
 import { StudentStatus } from "@/lib/types";
 import { requireAdminPermission } from "@/lib/authHelper";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("api/students/status");
 
 // POST /api/students/status - Thay đổi trạng thái học sinh (bảo lưu, nghỉ, học tiếp)
 export async function POST(req: Request) {
@@ -23,7 +26,10 @@ export async function POST(req: Request) {
     } = body;
 
     if (!student_id || !action_type) {
-      return NextResponse.json({ success: false, message: "Thiếu thông tin chuyển trạng thái!" }, { status: 400 });
+      return NextResponse.json(
+        { success: false, message: "Thiếu thông tin chuyển trạng thái!" },
+        { status: 400 }
+      );
     }
 
     // 1. Lấy thông tin học sinh hiện tại
@@ -33,11 +39,14 @@ export async function POST(req: Request) {
     });
 
     if (stRes.rows.length === 0) {
-      return NextResponse.json({ success: false, message: "Học sinh không tồn tại!" }, { status: 404 });
+      return NextResponse.json(
+        { success: false, message: "Học sinh không tồn tại!" },
+        { status: 404 }
+      );
     }
 
     const currentStudent = stRes.rows[0];
-    const fromStatus: StudentStatus = (String(currentStudent.status || "studying") as StudentStatus);
+    const fromStatus: StudentStatus = String(currentStudent.status || "studying") as StudentStatus;
     let toStatus: StudentStatus = "studying";
 
     if (action_type === "reserve") toStatus = "reserved";
@@ -86,8 +95,10 @@ export async function POST(req: Request) {
     });
 
     let msg = "Cập nhật trạng thái thành công!";
-    if (action_type === "reserve") msg = `Đã chuyển học sinh ${currentStudent.name} sang trạng thái BẢO LƯU!`;
-    else if (action_type === "drop") msg = `Đã chuyển học sinh ${currentStudent.name} sang trạng thái NGHỈ HỌC!`;
+    if (action_type === "reserve")
+      msg = `Đã chuyển học sinh ${currentStudent.name} sang trạng thái BẢO LƯU!`;
+    else if (action_type === "drop")
+      msg = `Đã chuyển học sinh ${currentStudent.name} sang trạng thái NGHỈ HỌC!`;
     else if (action_type === "resume") msg = `Học sinh ${currentStudent.name} đã TRỞ LẠI HỌC TIẾP!`;
 
     return NextResponse.json({
@@ -101,7 +112,7 @@ export async function POST(req: Request) {
       },
     });
   } catch (error: unknown) {
-    console.error("Student Status Update Error:", error);
+    log.error("Student Status Update Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Internal Server Error" },
       { status: 500 }

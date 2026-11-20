@@ -2,22 +2,11 @@
 
 import React, { useState, useEffect } from "react";
 import { StudentStatusLog, MonthFormat } from "@/lib/types";
-import { formatMonthDisplay } from "@/lib/tuition";
 import { useToast } from "@/components/Toast";
-import {
-  History,
-  Calendar,
-  Clock,
-  Filter,
-  X,
-  ArrowRight,
-  UserCheck,
-  PauseCircle,
-  UserX,
-  AlertCircle,
-  RotateCcw,
-  Sparkles,
-} from "lucide-react";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("ui/StatusLogModal");
+import { History, Clock, Filter, X, UserCheck, PauseCircle, UserX } from "lucide-react";
 
 interface StatusLogModalProps {
   isOpen: boolean;
@@ -32,7 +21,6 @@ export const StatusLogModal: React.FC<StatusLogModalProps> = ({
   isOpen,
   onClose,
   selectedMonth,
-  monthFormat = "vietnamese",
   schoolId,
   onRefreshData,
 }) => {
@@ -68,7 +56,9 @@ export const StatusLogModal: React.FC<StatusLogModalProps> = ({
     active_dropped: [],
   });
 
-  const [activeTab, setActiveTab] = useState<"logs" | "current_reserved" | "current_dropped">("logs");
+  const [activeTab, setActiveTab] = useState<"logs" | "current_reserved" | "current_dropped">(
+    "logs"
+  );
 
   const loadLogs = async (m: string) => {
     try {
@@ -92,7 +82,7 @@ export const StatusLogModal: React.FC<StatusLogModalProps> = ({
         }
       }
     } catch (error) {
-      console.error("Failed to load status logs:", error);
+      log.error("Failed to load status logs:", { error: error });
     } finally {
       setIsLoading(false);
     }
@@ -100,9 +90,11 @@ export const StatusLogModal: React.FC<StatusLogModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Đồng bộ state khi mở modal hoặc nạp dữ liệu; sẽ chuyển sang pattern key-remount ở Giai đoạn 2.
       setFilterMonth(selectedMonth);
       loadLogs(selectedMonth);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Loader là hàm khai báo trong component, chỉ gọi khi mở modal/mount; thêm vào deps sẽ gây gọi lại vô hạn. Sẽ chuyển sang useCallback ở Giai đoạn 2.
   }, [isOpen, selectedMonth, schoolId]);
 
   // Cho học sinh học lại ngay từ modal
@@ -300,7 +292,9 @@ export const StatusLogModal: React.FC<StatusLogModalProps> = ({
                   <button
                     onClick={() => setFilterAction("all")}
                     className={`px-2.5 py-1 rounded-lg transition ${
-                      filterAction === "all" ? "bg-white dark:bg-slate-700 text-indigo-600 shadow-2xs" : "text-slate-600 dark:text-slate-400"
+                      filterAction === "all"
+                        ? "bg-white dark:bg-slate-700 text-indigo-600 shadow-2xs"
+                        : "text-slate-600 dark:text-slate-400"
                     }`}
                   >
                     Tất cả ({logs.length})
@@ -308,7 +302,9 @@ export const StatusLogModal: React.FC<StatusLogModalProps> = ({
                   <button
                     onClick={() => setFilterAction("reserve")}
                     className={`px-2.5 py-1 rounded-lg transition ${
-                      filterAction === "reserve" ? "bg-amber-500 text-white shadow-2xs" : "text-slate-600 dark:text-slate-400"
+                      filterAction === "reserve"
+                        ? "bg-amber-500 text-white shadow-2xs"
+                        : "text-slate-600 dark:text-slate-400"
                     }`}
                   >
                     Bảo lưu
@@ -316,7 +312,9 @@ export const StatusLogModal: React.FC<StatusLogModalProps> = ({
                   <button
                     onClick={() => setFilterAction("drop")}
                     className={`px-2.5 py-1 rounded-lg transition ${
-                      filterAction === "drop" ? "bg-rose-500 text-white shadow-2xs" : "text-slate-600 dark:text-slate-400"
+                      filterAction === "drop"
+                        ? "bg-rose-500 text-white shadow-2xs"
+                        : "text-slate-600 dark:text-slate-400"
                     }`}
                   >
                     Nghỉ học
@@ -324,7 +322,9 @@ export const StatusLogModal: React.FC<StatusLogModalProps> = ({
                   <button
                     onClick={() => setFilterAction("resume")}
                     className={`px-2.5 py-1 rounded-lg transition ${
-                      filterAction === "resume" ? "bg-emerald-600 text-white shadow-2xs" : "text-slate-600 dark:text-slate-400"
+                      filterAction === "resume"
+                        ? "bg-emerald-600 text-white shadow-2xs"
+                        : "text-slate-600 dark:text-slate-400"
                     }`}
                   >
                     Học tiếp
@@ -365,8 +365,9 @@ export const StatusLogModal: React.FC<StatusLogModalProps> = ({
             </div>
           )}
 
-          {!isLoading && activeTab === "current_reserved" && (
-            summaryData.active_reserved.length === 0 ? (
+          {!isLoading &&
+            activeTab === "current_reserved" &&
+            (summaryData.active_reserved.length === 0 ? (
               <div className="py-16 text-center text-slate-400 text-xs">
                 Hiện tại cơ sở không có học sinh nào đang ở trạng thái Bảo Lưu.
               </div>
@@ -390,7 +391,10 @@ export const StatusLogModal: React.FC<StatusLogModalProps> = ({
                       <div className="flex items-center gap-3 text-xs text-slate-500 mt-1 flex-wrap">
                         {st.status_date && (
                           <span>
-                            Bắt đầu từ: <strong className="text-slate-700 dark:text-slate-300">{st.status_date}</strong>
+                            Bắt đầu từ:{" "}
+                            <strong className="text-slate-700 dark:text-slate-300">
+                              {st.status_date}
+                            </strong>
                           </span>
                         )}
                         {st.expected_return_date && (
@@ -399,7 +403,9 @@ export const StatusLogModal: React.FC<StatusLogModalProps> = ({
                           </span>
                         )}
                         {st.status_note && (
-                          <span className="italic text-slate-500">&ldquo;{st.status_note}&rdquo;</span>
+                          <span className="italic text-slate-500">
+                            &ldquo;{st.status_note}&rdquo;
+                          </span>
                         )}
                       </div>
                     </div>
@@ -415,11 +421,11 @@ export const StatusLogModal: React.FC<StatusLogModalProps> = ({
                   </div>
                 ))}
               </div>
-            )
-          )}
+            ))}
 
-          {!isLoading && activeTab === "current_dropped" && (
-            summaryData.active_dropped.length === 0 ? (
+          {!isLoading &&
+            activeTab === "current_dropped" &&
+            (summaryData.active_dropped.length === 0 ? (
               <div className="py-16 text-center text-slate-400 text-xs">
                 Hiện tại cơ sở không có học sinh nào ở trạng thái Nghỉ Học.
               </div>
@@ -443,11 +449,16 @@ export const StatusLogModal: React.FC<StatusLogModalProps> = ({
                       <div className="flex items-center gap-3 text-xs text-slate-500 mt-1 flex-wrap">
                         {st.status_date && (
                           <span>
-                            Nghỉ từ ngày: <strong className="text-slate-700 dark:text-slate-300">{st.status_date}</strong>
+                            Nghỉ từ ngày:{" "}
+                            <strong className="text-slate-700 dark:text-slate-300">
+                              {st.status_date}
+                            </strong>
                           </span>
                         )}
                         {st.status_note && (
-                          <span className="italic text-slate-500">&ldquo;{st.status_note}&rdquo;</span>
+                          <span className="italic text-slate-500">
+                            &ldquo;{st.status_note}&rdquo;
+                          </span>
                         )}
                       </div>
                     </div>
@@ -463,24 +474,27 @@ export const StatusLogModal: React.FC<StatusLogModalProps> = ({
                   </div>
                 ))}
               </div>
-            )
-          )}
+            ))}
 
-          {!isLoading && activeTab === "logs" && (
-            filteredLogs.length === 0 ? (
+          {!isLoading &&
+            activeTab === "logs" &&
+            (filteredLogs.length === 0 ? (
               <div className="py-16 text-center text-slate-400 text-xs">
                 Chưa có lịch sử bảo lưu, nghỉ học hay trở lại học nào trong thời gian này.
               </div>
             ) : (
               <div className="space-y-3">
                 {filteredLogs.map((log) => {
-                  let badgeBg = "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border-amber-200";
+                  let badgeBg =
+                    "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border-amber-200";
                   let actionLabel = "Bảo Lưu";
                   if (log.action_type === "drop") {
-                    badgeBg = "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border-rose-200";
+                    badgeBg =
+                      "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border-rose-200";
                     actionLabel = "Nghỉ Học";
                   } else if (log.action_type === "resume") {
-                    badgeBg = "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border-emerald-200";
+                    badgeBg =
+                      "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border-emerald-200";
                     actionLabel = "Trở Lại Học Tiếp";
                   }
 
@@ -490,7 +504,9 @@ export const StatusLogModal: React.FC<StatusLogModalProps> = ({
                       className="p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:border-slate-300 transition"
                     >
                       <div className="flex items-start gap-3">
-                        <span className={`px-2.5 py-1 text-[11px] font-black uppercase rounded-xl border shrink-0 ${badgeBg}`}>
+                        <span
+                          className={`px-2.5 py-1 text-[11px] font-black uppercase rounded-xl border shrink-0 ${badgeBg}`}
+                        >
                           {actionLabel}
                         </span>
                         <div>
@@ -498,12 +514,17 @@ export const StatusLogModal: React.FC<StatusLogModalProps> = ({
                             <span className="font-extrabold text-sm text-slate-900 dark:text-white">
                               {log.student_name}
                             </span>
-                            <span className="font-mono text-xs text-slate-500">({log.student_phone})</span>
+                            <span className="font-mono text-xs text-slate-500">
+                              ({log.student_phone})
+                            </span>
                           </div>
 
                           <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400 mt-1 flex-wrap">
                             <span>
-                              Ngày áp dụng: <strong className="text-slate-700 dark:text-slate-200">{log.effective_date}</strong>
+                              Ngày áp dụng:{" "}
+                              <strong className="text-slate-700 dark:text-slate-200">
+                                {log.effective_date}
+                              </strong>
                             </span>
                             {log.return_date && (
                               <span className="text-amber-700 dark:text-amber-400 font-bold">
@@ -524,14 +545,15 @@ export const StatusLogModal: React.FC<StatusLogModalProps> = ({
                           <Clock className="w-3.5 h-3.5 text-slate-400" />
                           <span>{log.logged_at}</span>
                         </div>
-                        <span className="text-[10px] text-slate-400 block mt-0.5">Kỳ tháng {log.month}</span>
+                        <span className="text-[10px] text-slate-400 block mt-0.5">
+                          Kỳ tháng {log.month}
+                        </span>
                       </div>
                     </div>
                   );
                 })}
               </div>
-            )
-          )}
+            ))}
         </div>
 
         {/* Footer */}

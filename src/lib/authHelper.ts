@@ -19,7 +19,7 @@ export interface RequestAdminContext {
 }
 
 // In-memory cache map domain/subdomain -> school_id để xử lý siêu tốc mọi request
-let domainCache: Map<string, { school_id: string; expires_at: number }> = new Map();
+const domainCache: Map<string, { school_id: string; expires_at: number }> = new Map();
 
 export async function resolveSchoolIdByHost(host: string | null): Promise<string | null> {
   if (!host) return null;
@@ -62,7 +62,9 @@ export async function resolveSchoolIdByHost(host: string | null): Promise<string
         return sId;
       }
     }
-  } catch {}
+  } catch {
+    /* Bỏ qua có chủ đích: lỗi không ảnh hưởng luồng chính. */
+  }
 
   return null;
 }
@@ -102,7 +104,9 @@ export function getSchoolIdFromRequest(req: Request): string {
     if (querySchoolId && querySchoolId.trim()) {
       return querySchoolId.trim();
     }
-  } catch {}
+  } catch {
+    /* Bỏ qua có chủ đích: lỗi không ảnh hưởng luồng chính. */
+  }
 
   return "school-default";
 }
@@ -149,7 +153,11 @@ export async function getAdminFromRequest(req: Request): Promise<RequestAdminCon
     const admin = adminRes.rows[0];
 
     // Chặn nếu tài khoản bị khóa
-    if (admin.is_active !== undefined && admin.is_active !== null && Number(admin.is_active) === 0) {
+    if (
+      admin.is_active !== undefined &&
+      admin.is_active !== null &&
+      Number(admin.is_active) === 0
+    ) {
       return null;
     }
 
@@ -172,7 +180,9 @@ export async function getAdminFromRequest(req: Request): Promise<RequestAdminCon
           const parsed = JSON.parse(String(admin.permissions_json));
           if (Array.isArray(parsed)) permissions = parsed;
         }
-      } catch {}
+      } catch {
+        /* Bỏ qua có chủ đích: lỗi không ảnh hưởng luồng chính. */
+      }
     } else {
       // Nhân viên không có vai trò -> không có quyền
       permissions = [];
@@ -186,7 +196,12 @@ export async function getAdminFromRequest(req: Request): Promise<RequestAdminCon
       phone: admin.phone ? String(admin.phone) : "",
       is_owner: Number(admin.is_owner ?? 0),
       role_id: admin.role_id ? String(admin.role_id) : null,
-      role_name: admin.is_owner === 1 ? "Chủ Cơ Sở (Toàn quyền)" : admin.role_name ? String(admin.role_name) : "Nhân viên",
+      role_name:
+        admin.is_owner === 1
+          ? "Chủ Cơ Sở (Toàn quyền)"
+          : admin.role_name
+            ? String(admin.role_name)
+            : "Nhân viên",
       permissions,
     };
   } catch {
@@ -198,7 +213,9 @@ export async function getAdminFromRequest(req: Request): Promise<RequestAdminCon
  * Kiểm tra quyền hạn của Admin trước khi thực hiện các API nhạy cảm.
  * Chủ cơ sở (is_owner === 1 hoặc permissions bao gồm "*") luôn được phép.
  */
-export async function getSystemAdminFromRequest(req: Request): Promise<{ username: string; role: string } | null> {
+export async function getSystemAdminFromRequest(
+  req: Request
+): Promise<{ username: string; role: string } | null> {
   try {
     await initDb();
     const db = getDb();
@@ -236,7 +253,11 @@ export async function getSystemAdminFromRequest(req: Request): Promise<{ usernam
     const secretKey = process.env.SYSTEM_ADMIN_SECRET || "sec_super_admin_system_key_2026";
     const currentPwdHash = getPwdHash(password);
 
-    if (tokenSecret === secretKey && tokenUsername === username && tokenPwdHash === currentPwdHash) {
+    if (
+      tokenSecret === secretKey &&
+      tokenUsername === username &&
+      tokenPwdHash === currentPwdHash
+    ) {
       return { username, role: "SUPER_ADMIN" };
     }
 
@@ -255,7 +276,10 @@ export async function requireAdminPermission(
     return {
       authorized: false,
       errorResponse: NextResponse.json(
-        { success: false, message: "Phiên đăng nhập không hợp lệ hoặc đã hết hạn! Vui lòng đăng nhập lại." },
+        {
+          success: false,
+          message: "Phiên đăng nhập không hợp lệ hoặc đã hết hạn! Vui lòng đăng nhập lại.",
+        },
         { status: 401 }
       ),
     };

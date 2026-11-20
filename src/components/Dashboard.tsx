@@ -2,13 +2,29 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
-import { Student, TimeSlot, LevelSurcharge, DiscountOption, Teacher, MonthFormat, TuitionPackage, Subject, StudentStatus, SchedulePreset } from "@/lib/types";
-import { formatVND, formatMonthDisplay, getCurrentMonthStr, formatTimeSlotLabel, detectStudentPresetName } from "@/lib/tuition";
+import {
+  Student,
+  TimeSlot,
+  LevelSurcharge,
+  DiscountOption,
+  Teacher,
+  MonthFormat,
+  TuitionPackage,
+  Subject,
+  SchedulePreset,
+  DbRow,
+} from "@/lib/types";
+import {
+  formatVND,
+  formatMonthDisplay,
+  getCurrentMonthStr,
+  formatTimeSlotLabel,
+  detectStudentPresetName,
+} from "@/lib/tuition";
 import { useToast } from "@/components/Toast";
 import { SettingsModal } from "@/components/SettingsModal";
 import { StudentFormModal } from "@/components/StudentFormModal";
 import { MonthlyTuitionModal } from "@/components/MonthlyTuitionModal";
-import { TeacherManagementModal } from "@/components/TeacherManagementModal";
 import { MakeUpClassesModal } from "@/components/MakeUpClassesModal";
 import { MonthPicker } from "@/components/MonthPicker";
 import { ZaloReminderModal } from "@/components/ZaloReminderModal";
@@ -29,7 +45,6 @@ import {
   Sparkles,
   Layers,
   Clock,
-  Percent,
   CheckCircle2,
   BookOpen,
   GraduationCap,
@@ -48,31 +63,23 @@ import {
   TrendingUp,
   AlertCircle,
   AlertTriangle,
-  HelpCircle,
   RefreshCw,
   Phone,
-  Tag,
   Package,
   History,
   MessageSquare,
   PauseCircle,
   UserX,
-  CreditCard,
   BarChart3,
-  QrCode,
   Info,
   Globe,
   Sun,
   Moon,
-  MoreVertical,
   MoreHorizontal,
   SlidersHorizontal,
   X,
-  FileSpreadsheet,
   Download,
   Upload,
-  CheckSquare,
-  Square,
   UserCheck,
   ArrowUpDown,
   ArrowUp,
@@ -94,7 +101,16 @@ import { CreateBranchModal } from "./CreateBranchModal";
 import { exportStudentsToExcel } from "@/lib/exportExcel";
 import { useLanguage } from "@/lib/i18n";
 import { useTheme } from "@/lib/ThemeContext";
-import { AppLanguage, ClassRoom, SchoolAdmin } from "@/lib/types";
+import {
+  AppLanguage,
+  ClassRoom,
+  SchoolAdmin,
+  ReconciliationMode,
+  ZaloReminderMode,
+} from "@/lib/types";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("ui/Dashboard");
 
 // Hiển thị ngày ISO (YYYY-MM-DD) theo định dạng Việt Nam (DD/MM/YYYY)
 function formatIsoDateVN(iso?: string): string {
@@ -121,7 +137,7 @@ export default function Dashboard() {
   const { theme, toggleTheme } = useTheme();
 
   // Selected Month State (tháng neo để tính học phí/đối soát)
-  const [selectedMonth, setSelectedMonth] = useState<string>("2026-10");
+  const [selectedMonth, setSelectedMonth] = useState<string>("");
 
   // Kỳ học phí tùy chỉnh: Từ ngày - Đến ngày (ví dụ 15/11 - 15/12)
   const [isRangeMode, setIsRangeMode] = useState<boolean>(false);
@@ -135,6 +151,7 @@ export default function Dashboard() {
   } | null>(null);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Đồng bộ state khi mở modal hoặc nạp dữ liệu; sẽ chuyển sang pattern key-remount ở Giai đoạn 2.
     setSelectedMonth(getCurrentMonthStr());
   }, []);
 
@@ -168,12 +185,15 @@ export default function Dashboard() {
   // Modals state
   const [isDailyAttendanceModalOpen, setIsDailyAttendanceModalOpen] = useState(false);
   const [isStaffModalOpen, setIsStaffModalOpen] = useState(false);
-  const [staffModalInitialTab, setStaffModalInitialTab] = useState<"teachers" | "staff" | "roles">("teachers");
+  const [staffModalInitialTab, setStaffModalInitialTab] = useState<"teachers" | "staff" | "roles">(
+    "teachers"
+  );
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isTeacherModalOpen, setIsTeacherModalOpen] = useState(false);
   const [isClassModalOpen, setIsClassModalOpen] = useState(false);
   const [isMakeupModalOpen, setIsMakeupModalOpen] = useState(false);
-  const [selectedStudentForMakeup, setSelectedStudentForMakeup] = useState<string | undefined>(undefined);
+  const [selectedStudentForMakeup, setSelectedStudentForMakeup] = useState<string | undefined>(
+    undefined
+  );
 
   const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
   const [studentToEdit, setStudentToEdit] = useState<Student | null>(null);
@@ -229,15 +249,17 @@ export default function Dashboard() {
     phone?: string;
     active_student_count?: number;
   } | null>(null);
-  const [availableSchools, setAvailableSchools] = useState<Array<{
-    id: string;
-    name: string;
-    code: string;
-    address?: string;
-    phone?: string;
-    active_student_count?: number;
-    teacher_count?: number;
-  }>>([]);
+  const [availableSchools, setAvailableSchools] = useState<
+    Array<{
+      id: string;
+      name: string;
+      code: string;
+      address?: string;
+      phone?: string;
+      active_student_count?: number;
+      teacher_count?: number;
+    }>
+  >([]);
   const [isBranchDropdownOpen, setIsBranchDropdownOpen] = useState(false);
   const [isCreateBranchModalOpen, setIsCreateBranchModalOpen] = useState(false);
 
@@ -252,9 +274,12 @@ export default function Dashboard() {
   const [maxStudents, setMaxStudents] = useState<number>(10);
   const [crowdedThreshold, setCrowdedThreshold] = useState<number>(80);
   const [capacityMode, setCapacityMode] = useState<"by_slot" | "by_teacher">("by_slot");
-  const [reconciliationMode, setReconciliationMode] = useState<string>("manual");
-  const [zaloReminderMode, setZaloReminderMode] = useState<string>("manual");
+  const [reconciliationMode, setReconciliationMode] = useState<ReconciliationMode>("manual");
+  const [zaloReminderMode, setZaloReminderMode] = useState<ZaloReminderMode>("manual");
   const [zaloBotToken, setZaloBotToken] = useState<string>("");
+  const [zaloOaSecretKey, setZaloOaSecretKey] = useState<string>("");
+  const [zaloAccessToken, setZaloAccessToken] = useState<string>("");
+  const [zaloTemplateId, setZaloTemplateId] = useState<string>("");
   const [zaloBotName, setZaloBotName] = useState<string>("");
   const [zaloAdminChatId, setZaloAdminChatId] = useState<string>("");
   const [zaloNotifyPayment, setZaloNotifyPayment] = useState<number>(1);
@@ -275,11 +300,17 @@ export default function Dashboard() {
   const [selectedLevelFilter, setSelectedLevelFilter] = useState("all");
   const [selectedSlotFilter, setSelectedSlotFilter] = useState("all");
   const [selectedTeacherFilter, setSelectedTeacherFilter] = useState("all");
-  const [selectedStatusFilter, setSelectedStatusFilter] = useState<"all" | "studying" | "reserved" | "dropped">("all");
-  const [selectedPaymentFilter, setSelectedPaymentFilter] = useState<"all" | "paid" | "unpaid">("all");
+  const [selectedStatusFilter, setSelectedStatusFilter] = useState<
+    "all" | "studying" | "reserved" | "dropped"
+  >("all");
+  const [selectedPaymentFilter, setSelectedPaymentFilter] = useState<"all" | "paid" | "unpaid">(
+    "all"
+  );
 
   // Sorting state (Giống Google Sheets: Hỗ trợ Sort theo Level, Tên, Trạng thái, Học phí, GV)
-  const [sortField, setSortField] = useState<"default" | "name" | "level" | "status" | "teacher" | "tuition">("level");
+  const [sortField, setSortField] = useState<
+    "default" | "name" | "level" | "status" | "teacher" | "tuition"
+  >("level");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
 
   const handleHeaderSort = (field: "name" | "level" | "status" | "teacher" | "tuition") => {
@@ -362,7 +393,7 @@ export default function Dashboard() {
         }
 
         const headers: Record<string, string> = {
-          "Authorization": `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         };
 
         const res = await fetch("/api/admin/auth", { headers });
@@ -385,7 +416,7 @@ export default function Dashboard() {
               // Chỉ sử dụng lastSchoolId nếu nó nằm trong danh sách chi nhánh được cấp phép của chính tài khoản này
               const lastSchoolId = localStorage.getItem("admin_last_school_id");
               if (lastSchoolId) {
-                const matched = bJson.data.find((s: any) => s.id === lastSchoolId);
+                const matched = bJson.data.find((s: DbRow) => s.id === lastSchoolId);
                 if (matched) {
                   initialSchool = {
                     id: matched.id,
@@ -394,7 +425,7 @@ export default function Dashboard() {
                   };
                 }
               } else {
-                const matchedCurrent = bJson.data.find((s: any) => s.id === json.admin.school_id);
+                const matchedCurrent = bJson.data.find((s: DbRow) => s.id === json.admin.school_id);
                 if (matchedCurrent) {
                   initialSchool = {
                     id: matchedCurrent.id,
@@ -404,7 +435,9 @@ export default function Dashboard() {
                 }
               }
             }
-          } catch {}
+          } catch (err) {
+            log.debug("Bỏ qua lỗi không ảnh hưởng luồng chính (Dashboard)", { error: err });
+          }
 
           setCurrentSchool(initialSchool);
         } else {
@@ -437,7 +470,9 @@ export default function Dashboard() {
 
         if (json.authenticated && json.admin) {
           setAdminUser(json.admin);
-          const perms: string[] = Array.isArray(json.admin.permissions) ? json.admin.permissions : [];
+          const perms: string[] = Array.isArray(json.admin.permissions)
+            ? json.admin.permissions
+            : [];
           const isOwnerOrWildcard = json.admin.is_owner === 1 || perms.includes("*");
           if (!isOwnerOrWildcard && !perms.includes("tuition.view")) {
             setSelectedPaymentFilter("all");
@@ -448,7 +483,9 @@ export default function Dashboard() {
           setIsAuthenticated(false);
           setAdminUser(null);
         }
-      } catch {}
+      } catch (err) {
+        log.debug("Bỏ qua lỗi không ảnh hưởng luồng chính (Dashboard)", { error: err });
+      }
     };
 
     const interval = setInterval(refreshAdminPermissions, 30000);
@@ -493,7 +530,7 @@ export default function Dashboard() {
         }
         setIsAuthenticated(true);
         setAdminUser(data.admin);
-        
+
         let schoolObj = {
           id: data.admin.school_id,
           name: data.admin.school_name,
@@ -501,7 +538,7 @@ export default function Dashboard() {
         };
 
         const loginHeaders = {
-          "Authorization": `Bearer ${data.token}`,
+          Authorization: `Bearer ${data.token}`,
         };
 
         // Khi vừa đăng nhập thành công một tài khoản mới:
@@ -515,7 +552,7 @@ export default function Dashboard() {
           const bJson = await bRes.json();
           if (bJson.success && Array.isArray(bJson.data) && bJson.data.length > 0) {
             setAvailableSchools(bJson.data);
-            const matchedCurrent = bJson.data.find((s: any) => s.id === data.admin.school_id);
+            const matchedCurrent = bJson.data.find((s: DbRow) => s.id === data.admin.school_id);
             if (matchedCurrent) {
               schoolObj = {
                 id: matchedCurrent.id,
@@ -524,7 +561,9 @@ export default function Dashboard() {
               };
             }
           }
-        } catch {}
+        } catch (err) {
+          log.debug("Bỏ qua lỗi không ảnh hưởng luồng chính (Dashboard)", { error: err });
+        }
 
         setCurrentSchool(schoolObj);
       } else {
@@ -547,7 +586,13 @@ export default function Dashboard() {
     showToast(`Đã chuyển sang chi nhánh "${school.name}" (${school.code})`, "success");
   };
 
-  const handleBranchCreated = (newBranch: { id: string; name: string; code: string; address?: string; phone?: string }) => {
+  const handleBranchCreated = (newBranch: {
+    id: string;
+    name: string;
+    code: string;
+    address?: string;
+    phone?: string;
+  }) => {
     setAvailableSchools((prev) => {
       const exists = prev.some((s) => s.id === newBranch.id);
       if (exists) return prev;
@@ -563,12 +608,15 @@ export default function Dashboard() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "logout" }),
       });
-    } catch {}
+    } catch (err) {
+      log.debug("Bỏ qua lỗi không ảnh hưởng luồng chính (Dashboard)", { error: err });
+    }
 
     localStorage.removeItem("admin_token");
     localStorage.removeItem("admin_last_school_id");
     if (typeof document !== "undefined") {
-      document.cookie = "admin_session_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; max-age=0";
+      document.cookie =
+        "admin_session_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; max-age=0";
     }
     setIsAuthenticated(false);
     setAdminUser(null);
@@ -581,7 +629,13 @@ export default function Dashboard() {
   const handleLanguageChange = (newL: AppLanguage) => {
     setLanguage(newL);
     const newMonthFmt =
-      newL === "vi" ? "vietnamese" : newL === "zh" ? "chinese" : newL === "ja" ? "japanese" : "english";
+      newL === "vi"
+        ? "vietnamese"
+        : newL === "zh"
+          ? "chinese"
+          : newL === "ja"
+            ? "japanese"
+            : "english";
     setMonthFormat(newMonthFmt);
     fetch("/api/settings", {
       method: "POST",
@@ -635,22 +689,42 @@ export default function Dashboard() {
         setReconciliationMode(json.data.reconciliation_mode || "manual");
         setZaloReminderMode(json.data.zalo_reminder_mode || "manual");
         setZaloBotToken(json.data.zalo_bot_token || "");
+        setZaloOaSecretKey(json.data.zalo_oa_secret_key || "");
+        setZaloAccessToken(json.data.zalo_access_token || "");
+        setZaloTemplateId(json.data.zalo_template_id || "");
         setZaloBotName(json.data.zalo_bot_name || "");
         setZaloAdminChatId(json.data.zalo_admin_chat_id || "");
-        setZaloNotifyPayment(json.data.zalo_notify_payment !== undefined ? json.data.zalo_notify_payment : 1);
-        setZaloNotifyStudentAbsence(json.data.zalo_notify_student_absence !== undefined ? json.data.zalo_notify_student_absence : 1);
-        setZaloNotifyTeacherLeave(json.data.zalo_notify_teacher_leave !== undefined ? json.data.zalo_notify_teacher_leave : 1);
-        setZaloNotifyParentFeedback(json.data.zalo_notify_parent_feedback !== undefined ? json.data.zalo_notify_parent_feedback : 1);
+        setZaloNotifyPayment(
+          json.data.zalo_notify_payment !== undefined ? json.data.zalo_notify_payment : 1
+        );
+        setZaloNotifyStudentAbsence(
+          json.data.zalo_notify_student_absence !== undefined
+            ? json.data.zalo_notify_student_absence
+            : 1
+        );
+        setZaloNotifyTeacherLeave(
+          json.data.zalo_notify_teacher_leave !== undefined
+            ? json.data.zalo_notify_teacher_leave
+            : 1
+        );
+        setZaloNotifyParentFeedback(
+          json.data.zalo_notify_parent_feedback !== undefined
+            ? json.data.zalo_notify_parent_feedback
+            : 1
+        );
         setSepayApiKey(json.data.sepay_api_key || "");
         setSepayAccountNumber(json.data.sepay_account_number || "");
         setSepayBankName(json.data.sepay_bank_name || "");
         setSepayPrefix(json.data.sepay_prefix || "HP");
-        if (json.data.current_school && (!currentSchool || currentSchool.id !== json.data.current_school.id)) {
+        if (
+          json.data.current_school &&
+          (!currentSchool || currentSchool.id !== json.data.current_school.id)
+        ) {
           setCurrentSchool(json.data.current_school);
         }
       }
     } catch (err) {
-      console.error("Failed to load settings:", err);
+      log.error("Failed to load settings:", { error: err });
     }
   };
 
@@ -667,7 +741,7 @@ export default function Dashboard() {
         setTeachers(json.data);
       }
     } catch (err) {
-      console.error("Failed to load teachers:", err);
+      log.error("Failed to load teachers:", { error: err });
     }
   };
 
@@ -684,7 +758,7 @@ export default function Dashboard() {
         setClasses(json.data);
       }
     } catch (err) {
-      console.error("Failed to load classes:", err);
+      log.error("Failed to load classes:", { error: err });
     }
   };
 
@@ -694,7 +768,8 @@ export default function Dashboard() {
       if (!silent) setIsLoading(true);
       const targetSchoolId = schoolId || currentSchool?.id || "";
       const schoolParam = targetSchoolId ? `&school_id=${targetSchoolId}` : "";
-      const rangeActive = isRangeMode && Boolean(periodFrom) && Boolean(periodTo) && periodFrom <= periodTo;
+      const rangeActive =
+        isRangeMode && Boolean(periodFrom) && Boolean(periodTo) && periodFrom <= periodTo;
       const rangeParam = rangeActive
         ? `&period_from=${encodeURIComponent(periodFrom)}&period_to=${encodeURIComponent(periodTo)}`
         : "";
@@ -721,12 +796,13 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (!isAuthenticated || !currentSchool?.id) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Đồng bộ state khi mở modal hoặc nạp dữ liệu; sẽ chuyển sang pattern key-remount ở Giai đoạn 2.
       setStudents([]);
       setClasses([]);
       setTeachers([]);
       return;
     }
-    
+
     loadSettings(currentSchool.id);
     loadTeachers(currentSchool.id);
     loadClasses(currentSchool.id);
@@ -736,6 +812,7 @@ export default function Dashboard() {
       return;
     }
     loadStudents(selectedMonth, currentSchool.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Loader là hàm khai báo trong component, chỉ gọi khi mở modal/mount; thêm vào deps sẽ gây gọi lại vô hạn. Sẽ chuyển sang useCallback ở Giai đoạn 2.
   }, [isAuthenticated, currentSchool?.id, selectedMonth, isRangeMode, periodFrom, periodTo]);
 
   // Refresh all
@@ -801,13 +878,14 @@ export default function Dashboard() {
   const filteredStudents = useMemo(() => {
     const list = students.filter((s) => {
       const matchSearch =
-        s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        s.phone.includes(searchQuery);
-      const matchSubject = selectedSubjectFilter === "all" || s.subject_id === selectedSubjectFilter;
+        s.name.toLowerCase().includes(searchQuery.toLowerCase()) || s.phone.includes(searchQuery);
+      const matchSubject =
+        selectedSubjectFilter === "all" || s.subject_id === selectedSubjectFilter;
       const matchClass = selectedClassFilter === "all" || s.class_id === selectedClassFilter;
       const matchLevel = selectedLevelFilter === "all" || s.level_id === selectedLevelFilter;
       const matchSlot = selectedSlotFilter === "all" || s.time_slot_id === selectedSlotFilter;
-      const matchTeacher = selectedTeacherFilter === "all" || s.teacher_id === selectedTeacherFilter;
+      const matchTeacher =
+        selectedTeacherFilter === "all" || s.teacher_id === selectedTeacherFilter;
       const matchStatus =
         selectedStatusFilter === "all" || (s.status || "studying") === selectedStatusFilter;
       const matchPayment =
@@ -815,7 +893,16 @@ export default function Dashboard() {
         selectedPaymentFilter === "all" ||
         (s.payment_status || "unpaid") === selectedPaymentFilter;
 
-      return matchSearch && matchSubject && matchClass && matchLevel && matchSlot && matchTeacher && matchStatus && matchPayment;
+      return (
+        matchSearch &&
+        matchSubject &&
+        matchClass &&
+        matchLevel &&
+        matchSlot &&
+        matchTeacher &&
+        matchStatus &&
+        matchPayment
+      );
     });
 
     if (sortField === "default") {
@@ -833,7 +920,10 @@ export default function Dashboard() {
           cmp = orderA - orderB;
         } else {
           // Dự phòng so sánh tên level dạng text
-          cmp = (a.level_name || "").localeCompare(b.level_name || "", "vi", { sensitivity: "base", numeric: true });
+          cmp = (a.level_name || "").localeCompare(b.level_name || "", "vi", {
+            sensitivity: "base",
+            numeric: true,
+          });
         }
       } else if (sortField === "name") {
         cmp = (a.name || "").localeCompare(b.name || "", "vi", { sensitivity: "base" });
@@ -850,6 +940,7 @@ export default function Dashboard() {
     students,
     searchQuery,
     selectedSubjectFilter,
+    selectedClassFilter,
     selectedLevelFilter,
     selectedSlotFilter,
     selectedTeacherFilter,
@@ -961,10 +1052,16 @@ export default function Dashboard() {
 
           <div className="p-3.5 rounded-2xl bg-slate-800/80 border border-slate-700 text-xs text-slate-300 space-y-1.5 text-left font-mono">
             <p>
-              • IP của bạn: <span className="text-rose-400 font-bold">{ipStatus.client_ip || "Không xác định"}</span>
+              • IP của bạn:{" "}
+              <span className="text-rose-400 font-bold">
+                {ipStatus.client_ip || "Không xác định"}
+              </span>
             </p>
             <p>
-              • Trường quản lý: <span className="text-white font-semibold">{ipStatus.school_name || "Trung tâm"}</span>
+              • Trường quản lý:{" "}
+              <span className="text-white font-semibold">
+                {ipStatus.school_name || "Trung tâm"}
+              </span>
             </p>
             <p className="text-[11px] text-slate-400 pt-1 border-t border-slate-700/60 font-sans">
               Địa chỉ IP này chưa được cấp phép trong danh sách IP Whitelist của trường.
@@ -972,7 +1069,8 @@ export default function Dashboard() {
           </div>
 
           <p className="text-xs text-slate-400">
-            Vui lòng liên hệ <strong>Chủ Hệ Thống</strong> để thêm IP của bạn vào danh sách cho phép truy cập.
+            Vui lòng liên hệ <strong>Chủ Hệ Thống</strong> để thêm IP của bạn vào danh sách cho phép
+            truy cập.
           </p>
 
           <div className="pt-2">
@@ -994,7 +1092,9 @@ export default function Dashboard() {
       <div className="min-h-screen bg-slate-900/5 dark:bg-slate-950 flex items-center justify-center text-slate-500">
         <div className="flex items-center gap-2.5 bg-white dark:bg-slate-900 px-5 py-3 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-800">
           <div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
-          <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">Đang kiểm tra quyền quản trị cơ sở...</span>
+          <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+            Đang kiểm tra quyền quản trị cơ sở...
+          </span>
         </div>
       </div>
     );
@@ -1013,9 +1113,12 @@ export default function Dashboard() {
             <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-indigo-600 to-indigo-500 text-white mx-auto flex items-center justify-center shadow-lg shadow-indigo-600/30">
               <BookOpen className="w-8 h-8" />
             </div>
-            <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Đăng Nhập Quản Trị Cơ Sở</h1>
+            <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+              Đăng Nhập Quản Trị Cơ Sở
+            </h1>
             <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xs mx-auto leading-relaxed">
-              Nhập tài khoản quản trị viên và mật khẩu do Chủ Hệ Thống cấp để quản lý học sinh và giáo viên cơ sở.
+              Nhập tài khoản quản trị viên và mật khẩu do Chủ Hệ Thống cấp để quản lý học sinh và
+              giáo viên cơ sở.
             </p>
           </div>
 
@@ -1072,7 +1175,8 @@ export default function Dashboard() {
 
           <div className="pt-2 border-t border-slate-100 dark:border-slate-800 text-center">
             <p className="text-[11px] text-slate-400">
-              Nếu bạn chưa có tài khoản, vui lòng liên hệ Chủ Hệ Thống để được cấp quyền quản lý cơ sở.
+              Nếu bạn chưa có tài khoản, vui lòng liên hệ Chủ Hệ Thống để được cấp quyền quản lý cơ
+              sở.
             </p>
           </div>
         </div>
@@ -1108,11 +1212,15 @@ export default function Dashboard() {
                       title="Bấm để chuyển đổi chi nhánh hoặc tạo thêm chi nhánh mới"
                     >
                       <Building2 className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
-                      <span className="max-w-[90px] sm:max-w-[170px] truncate">{currentSchool.name}</span>
+                      <span className="max-w-[90px] sm:max-w-[170px] truncate">
+                        {currentSchool.name}
+                      </span>
                       <span className="hidden sm:inline font-mono text-[10px] bg-indigo-200/60 dark:bg-indigo-900 px-1.5 py-0.2 rounded-md font-bold shrink-0">
                         {currentSchool.code}
                       </span>
-                      <ChevronDown className={`w-3 h-3 text-indigo-400 group-hover:text-indigo-600 transition-transform shrink-0 ${isBranchDropdownOpen ? "rotate-180" : ""}`} />
+                      <ChevronDown
+                        className={`w-3 h-3 text-indigo-400 group-hover:text-indigo-600 transition-transform shrink-0 ${isBranchDropdownOpen ? "rotate-180" : ""}`}
+                      />
                     </button>
 
                     {/* Branch Switcher Dropdown Menu */}
@@ -1133,7 +1241,12 @@ export default function Dashboard() {
 
                         {/* List of branches */}
                         <div className="max-h-60 overflow-y-auto space-y-1 pr-0.5">
-                          {(availableSchools.length > 0 ? availableSchools : (currentSchool ? [currentSchool] : [])).map((school) => {
+                          {(availableSchools.length > 0
+                            ? availableSchools
+                            : currentSchool
+                              ? [currentSchool]
+                              : []
+                          ).map((school) => {
                             const isCurrent = currentSchool.id === school.id;
                             return (
                               <button
@@ -1224,7 +1337,9 @@ export default function Dashboard() {
                     {totalPendingMakeups}
                   </span>
                 )}
-                <ChevronRight className={`w-3.5 h-3.5 text-slate-400 transition-transform ${isManagementMenuOpen ? "rotate-90" : ""}`} />
+                <ChevronRight
+                  className={`w-3.5 h-3.5 text-slate-400 transition-transform ${isManagementMenuOpen ? "rotate-90" : ""}`}
+                />
               </button>
 
               {isManagementMenuOpen && (
@@ -1396,7 +1511,11 @@ export default function Dashboard() {
                       <button
                         onClick={() => {
                           setIsManagementMenuOpen(false);
-                          exportStudentsToExcel(filteredStudents, selectedMonth, currentSchool?.name || "TrungTam");
+                          exportStudentsToExcel(
+                            filteredStudents,
+                            selectedMonth,
+                            currentSchool?.name || "TrungTam"
+                          );
                           showToast("Đã xuất file Excel học viên thành công!", "success");
                         }}
                         className="w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-xl text-indigo-700 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition text-left cursor-pointer"
@@ -1486,11 +1605,16 @@ export default function Dashboard() {
                 }}
                 className="flex items-center gap-1.5 sm:gap-2 pl-1.5 pr-1.5 sm:pr-2.5 py-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 transition shadow-2xs shrink-0 cursor-pointer"
                 title={`Tài khoản & tùy chọn • ${
-                  adminUser ? `${adminUser.full_name || adminUser.username} (${adminUser.username})` : "Quản trị viên"
+                  adminUser
+                    ? `${adminUser.full_name || adminUser.username} (${adminUser.username})`
+                    : "Quản trị viên"
                 }`}
               >
                 <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-indigo-600 to-indigo-500 text-white flex items-center justify-center font-black text-[11px] shadow-2xs shrink-0">
-                  {(adminUser?.full_name || adminUser?.username || "Q").trim().charAt(0).toUpperCase()}
+                  {(adminUser?.full_name || adminUser?.username || "Q")
+                    .trim()
+                    .charAt(0)
+                    .toUpperCase()}
                 </div>
                 <div className="hidden sm:flex flex-col text-left leading-tight max-w-[120px]">
                   <span className="font-extrabold text-slate-800 dark:text-slate-100 text-[11px] truncate">
@@ -1503,7 +1627,9 @@ export default function Dashboard() {
                         : "text-indigo-600 dark:text-indigo-400"
                     }`}
                   >
-                    {adminUser?.is_owner === 1 ? "👑 Chủ Cơ Sở" : adminUser?.role_name || "Nhân viên"}
+                    {adminUser?.is_owner === 1
+                      ? "👑 Chủ Cơ Sở"
+                      : adminUser?.role_name || "Nhân viên"}
                   </span>
                 </div>
                 <ChevronDown
@@ -1522,7 +1648,10 @@ export default function Dashboard() {
                   <div className="px-3 py-3 bg-slate-50/80 dark:bg-slate-950/40 border-b border-slate-100 dark:border-slate-800">
                     <div className="flex items-center gap-2.5">
                       <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-indigo-500 text-white flex items-center justify-center font-black text-sm shadow-sm shrink-0">
-                        {(adminUser?.full_name || adminUser?.username || "Q").trim().charAt(0).toUpperCase()}
+                        {(adminUser?.full_name || adminUser?.username || "Q")
+                          .trim()
+                          .charAt(0)
+                          .toUpperCase()}
                       </div>
                       <div className="min-w-0">
                         <div className="font-black text-xs text-slate-900 dark:text-white truncate">
@@ -1537,7 +1666,9 @@ export default function Dashboard() {
                                 : "text-indigo-600 dark:text-indigo-400 font-bold"
                             }
                           >
-                            {adminUser?.is_owner === 1 ? "Chủ Cơ Sở (Toàn quyền)" : adminUser?.role_name || "Nhân viên"}
+                            {adminUser?.is_owner === 1
+                              ? "Chủ Cơ Sở (Toàn quyền)"
+                              : adminUser?.role_name || "Nhân viên"}
                           </span>
                         </div>
                       </div>
@@ -1766,7 +1897,9 @@ export default function Dashboard() {
               <span className="text-xs font-bold uppercase tracking-wider text-indigo-200 flex items-center gap-1.5">
                 <TrendingUp className="w-4 h-4 text-indigo-300" />
                 {t.expected_revenue}{" "}
-                {isRangeValid ? `KỲ ${periodShortLabel}` : formatMonthDisplay(selectedMonth, monthFormat)}
+                {isRangeValid
+                  ? `KỲ ${periodShortLabel}`
+                  : formatMonthDisplay(selectedMonth, monthFormat)}
               </span>
               <div className="w-9 h-9 rounded-xl bg-white/20 backdrop-blur-xs flex items-center justify-center">
                 <DollarSign className="w-5 h-5 text-white" />
@@ -1777,7 +1910,10 @@ export default function Dashboard() {
                 {canViewRevenue ? (
                   formatVND(totalRevenueThisMonth)
                 ) : (
-                  <span className="text-2xl font-bold tracking-widest text-indigo-200 select-none" title="Tài khoản không có quyền xem tổng doanh thu cơ sở">
+                  <span
+                    className="text-2xl font-bold tracking-widest text-indigo-200 select-none"
+                    title="Tài khoản không có quyền xem tổng doanh thu cơ sở"
+                  >
                     •••••••• đ
                   </span>
                 )}
@@ -1813,7 +1949,8 @@ export default function Dashboard() {
             </div>
             <div className="mt-2">
               <div className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-                {tuitionPackages.length} <span className="text-sm font-semibold text-slate-400">{t.packages_applied}</span>
+                {tuitionPackages.length}{" "}
+                <span className="text-sm font-semibold text-slate-400">{t.packages_applied}</span>
               </div>
               {canViewTuition ? (
                 <span className="text-xs text-amber-600 dark:text-amber-400 font-bold mt-1 inline-flex items-center gap-1">
@@ -1893,131 +2030,146 @@ export default function Dashboard() {
 
           {mainViewMode === "table" && (
             <div className="flex flex-col lg:flex-row items-center justify-between gap-3">
-            {/* Quick Status Filter Pills */}
-            <div className="flex items-center gap-1.5 overflow-x-auto w-full lg:w-auto pb-1 lg:pb-0 text-xs font-bold scrollbar-none">
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedStatusFilter("all");
-                  setSelectedPaymentFilter("all");
-                }}
-                className={`px-3 py-1.5 rounded-xl transition whitespace-nowrap ${
-                  selectedStatusFilter === "all" && selectedPaymentFilter === "all"
-                    ? "bg-indigo-600 text-white shadow-xs"
-                    : "bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300"
-                }`}
-              >
-                {t.all_tab} ({students.length})
-              </button>
+              {/* Quick Status Filter Pills */}
+              <div className="flex items-center gap-1.5 overflow-x-auto w-full lg:w-auto pb-1 lg:pb-0 text-xs font-bold scrollbar-none">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedStatusFilter("all");
+                    setSelectedPaymentFilter("all");
+                  }}
+                  className={`px-3 py-1.5 rounded-xl transition whitespace-nowrap ${
+                    selectedStatusFilter === "all" && selectedPaymentFilter === "all"
+                      ? "bg-indigo-600 text-white shadow-xs"
+                      : "bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300"
+                  }`}
+                >
+                  {t.all_tab} ({students.length})
+                </button>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedStatusFilter("studying");
-                  setSelectedPaymentFilter("all");
-                }}
-                className={`px-3 py-1.5 rounded-xl transition whitespace-nowrap flex items-center gap-1.5 ${
-                  selectedStatusFilter === "studying" && selectedPaymentFilter === "all"
-                    ? "bg-emerald-600 text-white shadow-xs"
-                    : "bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300"
-                }`}
-              >
-                <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                <span>{t.enrolled_tab} ({students.filter((s) => (s.status || "studying") === "studying").length})</span>
-              </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedStatusFilter("studying");
+                    setSelectedPaymentFilter("all");
+                  }}
+                  className={`px-3 py-1.5 rounded-xl transition whitespace-nowrap flex items-center gap-1.5 ${
+                    selectedStatusFilter === "studying" && selectedPaymentFilter === "all"
+                      ? "bg-emerald-600 text-white shadow-xs"
+                      : "bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300"
+                  }`}
+                >
+                  <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                  <span>
+                    {t.enrolled_tab} (
+                    {students.filter((s) => (s.status || "studying") === "studying").length})
+                  </span>
+                </button>
 
-              {canViewTuition && (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedPaymentFilter("unpaid");
-                      setSelectedStatusFilter("all");
-                    }}
-                    className={`px-3 py-1.5 rounded-xl transition whitespace-nowrap flex items-center gap-1.5 ${
-                      selectedPaymentFilter === "unpaid"
-                        ? "bg-rose-600 text-white shadow-xs"
-                        : "bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300"
-                    }`}
-                  >
-                    <AlertCircle className="w-3.5 h-3.5 text-rose-500" />
-                    <span>{t.unpaid_tab} ({students.filter((s) => s.payment_status === "unpaid").length})</span>
-                  </button>
+                {canViewTuition && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedPaymentFilter("unpaid");
+                        setSelectedStatusFilter("all");
+                      }}
+                      className={`px-3 py-1.5 rounded-xl transition whitespace-nowrap flex items-center gap-1.5 ${
+                        selectedPaymentFilter === "unpaid"
+                          ? "bg-rose-600 text-white shadow-xs"
+                          : "bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300"
+                      }`}
+                    >
+                      <AlertCircle className="w-3.5 h-3.5 text-rose-500" />
+                      <span>
+                        {t.unpaid_tab} (
+                        {students.filter((s) => s.payment_status === "unpaid").length})
+                      </span>
+                    </button>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedPaymentFilter("paid");
-                      setSelectedStatusFilter("all");
-                    }}
-                    className={`px-3 py-1.5 rounded-xl transition whitespace-nowrap flex items-center gap-1.5 ${
-                      selectedPaymentFilter === "paid"
-                        ? "bg-indigo-600 text-white shadow-xs"
-                        : "bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300"
-                    }`}
-                  >
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-                    <span>{t.paid_tab} ({students.filter((s) => s.payment_status === "paid").length})</span>
-                  </button>
-                </>
-              )}
-
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedStatusFilter("reserved");
-                  setSelectedPaymentFilter("all");
-                }}
-                className={`px-3 py-1.5 rounded-xl transition whitespace-nowrap flex items-center gap-1.5 ${
-                  selectedStatusFilter === "reserved"
-                    ? "bg-amber-600 text-white shadow-xs"
-                    : "bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300"
-                }`}
-              >
-                <PauseCircle className="w-3.5 h-3.5 text-amber-500" />
-                <span>{t.reserved_tab} ({students.filter((s) => s.status === "reserved").length})</span>
-              </button>
-            </div>
-
-            {/* Right Side: Search & Advanced Filters Toggle */}
-            <div className="flex items-center gap-2 w-full lg:w-auto">
-              <div className="relative flex-1 lg:w-72">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-2.5" />
-                <input
-                  type="text"
-                  placeholder={t.search_input_placeholder}
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-8 py-2 text-xs font-semibold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition"
-                />
-                {searchQuery && (
-                  <button
-                    type="button"
-                    onClick={() => setSearchQuery("")}
-                    className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedPaymentFilter("paid");
+                        setSelectedStatusFilter("all");
+                      }}
+                      className={`px-3 py-1.5 rounded-xl transition whitespace-nowrap flex items-center gap-1.5 ${
+                        selectedPaymentFilter === "paid"
+                          ? "bg-indigo-600 text-white shadow-xs"
+                          : "bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300"
+                      }`}
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                      <span>
+                        {t.paid_tab} ({students.filter((s) => s.payment_status === "paid").length})
+                      </span>
+                    </button>
+                  </>
                 )}
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedStatusFilter("reserved");
+                    setSelectedPaymentFilter("all");
+                  }}
+                  className={`px-3 py-1.5 rounded-xl transition whitespace-nowrap flex items-center gap-1.5 ${
+                    selectedStatusFilter === "reserved"
+                      ? "bg-amber-600 text-white shadow-xs"
+                      : "bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300"
+                  }`}
+                >
+                  <PauseCircle className="w-3.5 h-3.5 text-amber-500" />
+                  <span>
+                    {t.reserved_tab} ({students.filter((s) => s.status === "reserved").length})
+                  </span>
+                </button>
               </div>
 
-              <button
-                type="button"
-                onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-                className={`px-3 py-2 text-xs font-bold rounded-xl border transition flex items-center gap-1.5 shrink-0 ${
-                  showAdvancedFilters || selectedTeacherFilter !== "all" || selectedLevelFilter !== "all" || selectedSlotFilter !== "all"
-                    ? "bg-indigo-50 border-indigo-200 text-indigo-700 dark:bg-indigo-950/60 dark:border-indigo-800 dark:text-indigo-300"
-                    : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50"
-                }`}
-              >
-                <Filter className="w-3.5 h-3.5" />
-                <span>{t.advanced_filter}</span>
-                {(selectedTeacherFilter !== "all" || selectedLevelFilter !== "all" || selectedSlotFilter !== "all") && (
-                  <span className="w-2 h-2 rounded-full bg-indigo-600" />
-                )}
-              </button>
+              {/* Right Side: Search & Advanced Filters Toggle */}
+              <div className="flex items-center gap-2 w-full lg:w-auto">
+                <div className="relative flex-1 lg:w-72">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-2.5" />
+                  <input
+                    type="text"
+                    placeholder={t.search_input_placeholder}
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-9 pr-8 py-2 text-xs font-semibold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition"
+                  />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery("")}
+                      className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                  className={`px-3 py-2 text-xs font-bold rounded-xl border transition flex items-center gap-1.5 shrink-0 ${
+                    showAdvancedFilters ||
+                    selectedTeacherFilter !== "all" ||
+                    selectedLevelFilter !== "all" ||
+                    selectedSlotFilter !== "all"
+                      ? "bg-indigo-50 border-indigo-200 text-indigo-700 dark:bg-indigo-950/60 dark:border-indigo-800 dark:text-indigo-300"
+                      : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50"
+                  }`}
+                >
+                  <Filter className="w-3.5 h-3.5" />
+                  <span>{t.advanced_filter}</span>
+                  {(selectedTeacherFilter !== "all" ||
+                    selectedLevelFilter !== "all" ||
+                    selectedSlotFilter !== "all") && (
+                    <span className="w-2 h-2 rounded-full bg-indigo-600" />
+                  )}
+                </button>
+              </div>
             </div>
-          </div>
           )}
 
           {/* Advanced Filters Expandable Drawer */}
@@ -2123,600 +2275,701 @@ export default function Dashboard() {
 
         {/* Student Table Listing */}
         {mainViewMode === "table" && (
-          <div key="table_view" className="animate-in fade-in duration-200 ease-out bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm relative">
-          <div className="overflow-x-auto overflow-y-visible pb-6">
-            <table className="w-full min-w-[1240px] text-left border-collapse">
-              <thead>
-                <tr className="bg-slate-50/80 dark:bg-slate-800/60 border-b border-slate-200/80 dark:border-slate-800 text-[11px] font-black uppercase tracking-wider text-slate-400">
-                  {/* Select All Checkbox Column */}
-                  <th className="py-3 px-3 sm:px-4 w-12 text-center">
-                    <input
-                      type="checkbox"
-                      checked={isAllFilteredSelected}
-                      onChange={handleToggleSelectAll}
-                      className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
-                      title={isAllFilteredSelected ? "Bỏ chọn tất cả" : "Chọn tất cả học sinh đang hiển thị"}
-                    />
-                  </th>
-                  <th className="py-3 px-3 min-w-[240px]">
-                    <button
-                      type="button"
-                      onClick={() => handleHeaderSort("name")}
-                      className="inline-flex items-center gap-1.5 hover:text-indigo-600 dark:hover:text-indigo-400 cursor-pointer font-black transition"
-                      title="Sắp xếp theo Tên học sinh"
-                    >
-                      <span>{t.col_student}</span>
-                      {sortField === "name" ? (
-                        sortOrder === "asc" ? <ArrowUp className="w-3 h-3 text-indigo-600" /> : <ArrowDown className="w-3 h-3 text-indigo-600" />
-                      ) : (
-                        <ArrowUpDown className="w-2.5 h-2.5 opacity-40 hover:opacity-100" />
-                      )}
-                    </button>
-                  </th>
-
-                  <th className="py-3 px-3 min-w-[110px] whitespace-nowrap">
-                    <button
-                      type="button"
-                      onClick={() => handleHeaderSort("status")}
-                      className="inline-flex items-center gap-1.5 hover:text-indigo-600 dark:hover:text-indigo-400 cursor-pointer font-black transition"
-                      title="Sắp xếp theo Trạng thái học sinh"
-                    >
-                      <span>{t.col_status}</span>
-                      {sortField === "status" ? (
-                        sortOrder === "asc" ? <ArrowUp className="w-3 h-3 text-indigo-600" /> : <ArrowDown className="w-3 h-3 text-indigo-600" />
-                      ) : (
-                        <ArrowUpDown className="w-2.5 h-2.5 opacity-40 hover:opacity-100" />
-                      )}
-                    </button>
-                  </th>
-
-                  {/* Class Column */}
-                  <th className="py-3 px-3 hidden lg:table-cell min-w-[180px]">
-                    <button
-                      type="button"
-                      onClick={() => handleHeaderSort("teacher")}
-                      className="inline-flex items-center gap-1.5 hover:text-indigo-600 dark:hover:text-indigo-400 cursor-pointer font-black transition"
-                      title="Sắp xếp theo Lớp học & Giáo viên phụ trách"
-                    >
-                      <span>Lớp học</span>
-                      {sortField === "teacher" ? (
-                        sortOrder === "asc" ? <ArrowUp className="w-3 h-3 text-indigo-600" /> : <ArrowDown className="w-3 h-3 text-indigo-600" />
-                      ) : (
-                        <ArrowUpDown className="w-2.5 h-2.5 opacity-40 hover:opacity-100" />
-                      )}
-                    </button>
-                  </th>
-
-                  <th className="py-3 px-3 hidden xl:table-cell min-w-[120px] whitespace-nowrap">
-                    <button
-                      type="button"
-                      onClick={() => handleHeaderSort("level")}
-                      className="inline-flex items-center gap-1.5 hover:text-indigo-600 dark:hover:text-indigo-400 cursor-pointer font-black transition group"
-                      title="Sắp xếp theo Thứ Tự Cài Đặt Level (Grade 1 trước Grade 7...)"
-                    >
-                      <span className={sortField === "level" ? "text-indigo-600 dark:text-indigo-400 font-extrabold" : ""}>
-                        {t.col_level_surcharge}
-                      </span>
-                      {sortField === "level" ? (
-                        sortOrder === "asc" ? (
-                          <ArrowUp className="w-3 h-3 text-indigo-600" />
-                        ) : (
-                          <ArrowDown className="w-3 h-3 text-indigo-600" />
-                        )
-                      ) : (
-                        <ArrowUpDown className="w-2.5 h-2.5 opacity-40 group-hover:opacity-100" />
-                      )}
-                    </button>
-                  </th>
-
-                  <th className="py-3 px-3 min-w-[210px]">{t.col_package_schedule}</th>
-                  <th className="py-3 px-3 text-center hidden xl:table-cell min-w-[130px] whitespace-nowrap">{t.col_discount}</th>
-
-                  <th className="py-3 px-3 min-w-[175px]">
-                    <button
-                      type="button"
-                      onClick={() => handleHeaderSort("tuition")}
-                      className="inline-flex items-center gap-1.5 hover:text-indigo-600 dark:hover:text-indigo-400 cursor-pointer font-black transition"
-                      title="Sắp xếp theo Mức học phí"
-                    >
-                      <span title={isRangeValid ? periodDisplayLabel : undefined}>
-                        {t.col_tuition} {isRangeValid ? `KỲ ${periodShortLabel}` : formatMonthDisplay(selectedMonth, monthFormat)}
-                      </span>
-                      {sortField === "tuition" ? (
-                        sortOrder === "asc" ? <ArrowUp className="w-3 h-3 text-indigo-600" /> : <ArrowDown className="w-3 h-3 text-indigo-600" />
-                      ) : (
-                        <ArrowUpDown className="w-2.5 h-2.5 opacity-40 hover:opacity-100" />
-                      )}
-                    </button>
-                  </th>
-
-                  <th className="py-3 px-3 text-center hidden md:table-cell min-w-[145px] whitespace-nowrap">{t.col_reconciliation}</th>
-                  <th className="py-3 px-3 text-center w-16 whitespace-nowrap">{t.col_actions}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 text-sm">
-                {isLoading ? (
-                  <tr>
-                    <td colSpan={10} className="text-center py-14 text-slate-400">
-                      <div className="flex flex-col items-center justify-center gap-2">
-                        <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
-                        <span className="font-semibold text-xs">{t.loading_students}</span>
-                      </div>
-                    </td>
-                  </tr>
-                ) : filteredStudents.length === 0 ? (
-                  <tr>
-                    <td colSpan={10} className="text-center py-14 text-slate-400">
-                      <div className="flex flex-col items-center justify-center gap-2 max-w-sm mx-auto">
-                        <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 mb-1">
-                          <Users className="w-6 h-6" />
-                        </div>
-                        <span className="font-bold text-sm text-slate-700 dark:text-slate-300">{t.no_students_found}</span>
-                        <p className="text-xs text-slate-400 leading-relaxed">
-                          {t.no_students_hint}
-                        </p>
-                      </div>
-                    </td>
-                  </tr>
-                ) : (
-                  filteredStudents.map((student) => {
-                    const isCustom = Boolean(student.monthly_override);
-                    const isByHours = student.duration_mode === "by_hours";
-                    const presetLabel = detectStudentPresetName(student, schedulePresets);
-                    const initialChar = student.name ? student.name.trim().charAt(0).toUpperCase() : "H";
-                    const isSelected = selectedStudentIds.includes(student.id);
-
-                    return (
-                      <tr
-                        key={student.id}
-                        onClick={(e) => {
-                          // Bấm vào hàng để mở hồ sơ chi tiết; bỏ qua khi bấm vào nút/link/checkbox có tác vụ riêng
-                          if ((e.target as HTMLElement).closest("button, a, input")) return;
-                          setStudentForDetail(student);
-                          setIsDetailModalOpen(true);
-                        }}
-                        className={`transition cursor-pointer group ${
-                          isSelected
-                            ? "bg-indigo-50/60 dark:bg-indigo-950/40"
-                            : "hover:bg-slate-50/70 dark:hover:bg-slate-800/40"
-                        }`}
+          <div
+            key="table_view"
+            className="animate-in fade-in duration-200 ease-out bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-sm relative"
+          >
+            <div className="overflow-x-auto overflow-y-visible pb-6">
+              <table className="w-full min-w-[1240px] text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50/80 dark:bg-slate-800/60 border-b border-slate-200/80 dark:border-slate-800 text-[11px] font-black uppercase tracking-wider text-slate-400">
+                    {/* Select All Checkbox Column */}
+                    <th className="py-3 px-3 sm:px-4 w-12 text-center">
+                      <input
+                        type="checkbox"
+                        checked={isAllFilteredSelected}
+                        onChange={handleToggleSelectAll}
+                        className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                        title={
+                          isAllFilteredSelected
+                            ? "Bỏ chọn tất cả"
+                            : "Chọn tất cả học sinh đang hiển thị"
+                        }
+                      />
+                    </th>
+                    <th className="py-3 px-3 min-w-[240px]">
+                      <button
+                        type="button"
+                        onClick={() => handleHeaderSort("name")}
+                        className="inline-flex items-center gap-1.5 hover:text-indigo-600 dark:hover:text-indigo-400 cursor-pointer font-black transition"
+                        title="Sắp xếp theo Tên học sinh"
                       >
-                        {/* Checkbox Column */}
-                        <td className="py-2 px-3 sm:px-4 text-center">
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={() => handleToggleSelectStudent(student.id)}
-                            className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
-                          />
-                        </td>
+                        <span>{t.col_student}</span>
+                        {sortField === "name" ? (
+                          sortOrder === "asc" ? (
+                            <ArrowUp className="w-3 h-3 text-indigo-600" />
+                          ) : (
+                            <ArrowDown className="w-3 h-3 text-indigo-600" />
+                          )
+                        ) : (
+                          <ArrowUpDown className="w-2.5 h-2.5 opacity-40 hover:opacity-100" />
+                        )}
+                      </button>
+                    </th>
 
-                        {/* Student Name, Avatar & Phone */}
-                        <td className="py-2 px-2 sm:px-3 overflow-hidden">
-                          <div className="flex items-center gap-2.5">
-                            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-500 to-indigo-600 text-white font-black text-xs flex items-center justify-center shrink-0 shadow-xs">
-                              {initialChar}
+                    <th className="py-3 px-3 min-w-[110px] whitespace-nowrap">
+                      <button
+                        type="button"
+                        onClick={() => handleHeaderSort("status")}
+                        className="inline-flex items-center gap-1.5 hover:text-indigo-600 dark:hover:text-indigo-400 cursor-pointer font-black transition"
+                        title="Sắp xếp theo Trạng thái học sinh"
+                      >
+                        <span>{t.col_status}</span>
+                        {sortField === "status" ? (
+                          sortOrder === "asc" ? (
+                            <ArrowUp className="w-3 h-3 text-indigo-600" />
+                          ) : (
+                            <ArrowDown className="w-3 h-3 text-indigo-600" />
+                          )
+                        ) : (
+                          <ArrowUpDown className="w-2.5 h-2.5 opacity-40 hover:opacity-100" />
+                        )}
+                      </button>
+                    </th>
+
+                    {/* Class Column */}
+                    <th className="py-3 px-3 hidden lg:table-cell min-w-[180px]">
+                      <button
+                        type="button"
+                        onClick={() => handleHeaderSort("teacher")}
+                        className="inline-flex items-center gap-1.5 hover:text-indigo-600 dark:hover:text-indigo-400 cursor-pointer font-black transition"
+                        title="Sắp xếp theo Lớp học & Giáo viên phụ trách"
+                      >
+                        <span>Lớp học</span>
+                        {sortField === "teacher" ? (
+                          sortOrder === "asc" ? (
+                            <ArrowUp className="w-3 h-3 text-indigo-600" />
+                          ) : (
+                            <ArrowDown className="w-3 h-3 text-indigo-600" />
+                          )
+                        ) : (
+                          <ArrowUpDown className="w-2.5 h-2.5 opacity-40 hover:opacity-100" />
+                        )}
+                      </button>
+                    </th>
+
+                    <th className="py-3 px-3 hidden xl:table-cell min-w-[120px] whitespace-nowrap">
+                      <button
+                        type="button"
+                        onClick={() => handleHeaderSort("level")}
+                        className="inline-flex items-center gap-1.5 hover:text-indigo-600 dark:hover:text-indigo-400 cursor-pointer font-black transition group"
+                        title="Sắp xếp theo Thứ Tự Cài Đặt Level (Grade 1 trước Grade 7...)"
+                      >
+                        <span
+                          className={
+                            sortField === "level"
+                              ? "text-indigo-600 dark:text-indigo-400 font-extrabold"
+                              : ""
+                          }
+                        >
+                          {t.col_level_surcharge}
+                        </span>
+                        {sortField === "level" ? (
+                          sortOrder === "asc" ? (
+                            <ArrowUp className="w-3 h-3 text-indigo-600" />
+                          ) : (
+                            <ArrowDown className="w-3 h-3 text-indigo-600" />
+                          )
+                        ) : (
+                          <ArrowUpDown className="w-2.5 h-2.5 opacity-40 group-hover:opacity-100" />
+                        )}
+                      </button>
+                    </th>
+
+                    <th className="py-3 px-3 min-w-[210px]">{t.col_package_schedule}</th>
+                    <th className="py-3 px-3 text-center hidden xl:table-cell min-w-[130px] whitespace-nowrap">
+                      {t.col_discount}
+                    </th>
+
+                    <th className="py-3 px-3 min-w-[175px]">
+                      <button
+                        type="button"
+                        onClick={() => handleHeaderSort("tuition")}
+                        className="inline-flex items-center gap-1.5 hover:text-indigo-600 dark:hover:text-indigo-400 cursor-pointer font-black transition"
+                        title="Sắp xếp theo Mức học phí"
+                      >
+                        <span title={isRangeValid ? periodDisplayLabel : undefined}>
+                          {t.col_tuition}{" "}
+                          {isRangeValid
+                            ? `KỲ ${periodShortLabel}`
+                            : formatMonthDisplay(selectedMonth, monthFormat)}
+                        </span>
+                        {sortField === "tuition" ? (
+                          sortOrder === "asc" ? (
+                            <ArrowUp className="w-3 h-3 text-indigo-600" />
+                          ) : (
+                            <ArrowDown className="w-3 h-3 text-indigo-600" />
+                          )
+                        ) : (
+                          <ArrowUpDown className="w-2.5 h-2.5 opacity-40 hover:opacity-100" />
+                        )}
+                      </button>
+                    </th>
+
+                    <th className="py-3 px-3 text-center hidden md:table-cell min-w-[145px] whitespace-nowrap">
+                      {t.col_reconciliation}
+                    </th>
+                    <th className="py-3 px-3 text-center w-16 whitespace-nowrap">
+                      {t.col_actions}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 text-sm">
+                  {isLoading ? (
+                    <tr>
+                      <td colSpan={10} className="text-center py-14 text-slate-400">
+                        <div className="flex flex-col items-center justify-center gap-2">
+                          <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+                          <span className="font-semibold text-xs">{t.loading_students}</span>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : filteredStudents.length === 0 ? (
+                    <tr>
+                      <td colSpan={10} className="text-center py-14 text-slate-400">
+                        <div className="flex flex-col items-center justify-center gap-2 max-w-sm mx-auto">
+                          <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 mb-1">
+                            <Users className="w-6 h-6" />
+                          </div>
+                          <span className="font-bold text-sm text-slate-700 dark:text-slate-300">
+                            {t.no_students_found}
+                          </span>
+                          <p className="text-xs text-slate-400 leading-relaxed">
+                            {t.no_students_hint}
+                          </p>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredStudents.map((student) => {
+                      const isCustom = Boolean(student.monthly_override);
+                      const _isByHours = student.duration_mode === "by_hours";
+                      const presetLabel = detectStudentPresetName(student, schedulePresets);
+                      const initialChar = student.name
+                        ? student.name.trim().charAt(0).toUpperCase()
+                        : "H";
+                      const isSelected = selectedStudentIds.includes(student.id);
+
+                      return (
+                        <tr
+                          key={student.id}
+                          onClick={(e) => {
+                            // Bấm vào hàng để mở hồ sơ chi tiết; bỏ qua khi bấm vào nút/link/checkbox có tác vụ riêng
+                            if ((e.target as HTMLElement).closest("button, a, input")) return;
+                            setStudentForDetail(student);
+                            setIsDetailModalOpen(true);
+                          }}
+                          className={`transition cursor-pointer group ${
+                            isSelected
+                              ? "bg-indigo-50/60 dark:bg-indigo-950/40"
+                              : "hover:bg-slate-50/70 dark:hover:bg-slate-800/40"
+                          }`}
+                        >
+                          {/* Checkbox Column */}
+                          <td className="py-2 px-3 sm:px-4 text-center">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => handleToggleSelectStudent(student.id)}
+                              className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                            />
+                          </td>
+
+                          {/* Student Name, Avatar & Phone */}
+                          <td className="py-2 px-2 sm:px-3 overflow-hidden">
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-500 to-indigo-600 text-white font-black text-xs flex items-center justify-center shrink-0 shadow-xs">
+                                {initialChar}
+                              </div>
+                              <div className="min-w-0">
+                                <div className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5 flex-wrap">
+                                  <span
+                                    className="shrink-0 font-mono text-[10px] px-1.5 py-0.2 rounded font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700"
+                                    title="Mã học sinh đối soát SePay"
+                                  >
+                                    {student.student_code ||
+                                      `HS${student.id.slice(-4).toUpperCase()}`}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setStudentForDetail(student);
+                                      setIsDetailModalOpen(true);
+                                    }}
+                                    className="font-bold text-slate-800 dark:text-slate-100 hover:text-indigo-600 dark:hover:text-indigo-400 transition whitespace-nowrap text-left"
+                                    title="Bấm để xem hồ sơ chi tiết học sinh"
+                                  >
+                                    {student.name}
+                                  </button>
+                                  {(() => {
+                                    // Hiển thị Quỹ Giờ Học Bù dạng "Quỹ bù: 3.5h" hoặc "1h30"
+                                    const avail = Number(student.available_minutes ?? 0);
+                                    if (avail === 0) return null;
+                                    const isNegative = avail < 0;
+                                    const abs = Math.abs(avail);
+                                    const h = Math.floor(abs / 60);
+                                    const m = abs % 60;
+                                    const label =
+                                      h > 0
+                                        ? `${h}h${m > 0 ? String(m).padStart(2, "0") : ""}`
+                                        : `${m}p`;
+                                    return (
+                                      <button
+                                        onClick={() => {
+                                          setSelectedStudentForMakeup(student.id);
+                                          setIsMakeupModalOpen(true);
+                                        }}
+                                        className={`px-1.5 py-0.5 rounded-full text-[9px] font-black transition shadow-2xs whitespace-nowrap ${
+                                          isNegative
+                                            ? "bg-rose-600 text-white animate-pulse hover:bg-rose-700"
+                                            : avail >= 180
+                                              ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200 dark:bg-emerald-950 dark:text-emerald-300"
+                                              : "bg-amber-100 text-amber-800 hover:bg-amber-200 dark:bg-amber-950 dark:text-amber-300"
+                                        }`}
+                                        title={`Quỹ giờ học bù: ${label} (bấm để mở Quản lý Báo Nghỉ & Quỹ Giờ Bù)`}
+                                      >
+                                        ⏱️ {isNegative ? `Thiếu ${label}` : `Quỹ bù: ${label}`}
+                                      </button>
+                                    );
+                                  })()}
+                                </div>
+                                <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                                  {student.phone ? (
+                                    <span className="font-mono text-[11px] font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1 whitespace-nowrap">
+                                      <Phone className="w-3 h-3 text-slate-400" />
+                                      {student.phone}
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60">
+                                      ⚠️ Chưa có SĐT
+                                    </span>
+                                  )}
+                                  {student.start_date && (
+                                    <span
+                                      className="hidden xl:flex text-[10px] font-medium text-slate-400 dark:text-slate-500 whitespace-nowrap items-center gap-0.5"
+                                      title="Ngày bắt đầu nhập học"
+                                    >
+                                      • Bắt đầu: {student.start_date}
+                                    </span>
+                                  )}
+                                  {student.zalo_link && (
+                                    <a
+                                      href={student.zalo_link}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="inline-flex items-center gap-1 px-1.5 py-0.2 text-[9px] font-bold rounded bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-950/60 dark:text-blue-400 transition whitespace-nowrap"
+                                      title="Nhắn tin nhanh qua Zalo"
+                                    >
+                                      <Send className="w-2.5 h-2.5" /> Zalo
+                                    </a>
+                                  )}
+                                </div>
+                              </div>
                             </div>
-                            <div className="min-w-0">
-                              <div className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5 flex-wrap">
-                                <span className="shrink-0 font-mono text-[10px] px-1.5 py-0.2 rounded font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700" title="Mã học sinh đối soát SePay">
-                                  {student.student_code || `HS${student.id.slice(-4).toUpperCase()}`}
+                          </td>
+
+                          {/* Status (Đang học / Bảo lưu / Nghỉ học) */}
+                          <td className="py-2.5 px-3 whitespace-nowrap">
+                            {student.status === "reserved" ? (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setStudentForStatusChange(student);
+                                  setIsChangeStatusModalOpen(true);
+                                }}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-800 hover:bg-amber-200 dark:bg-amber-950 dark:text-amber-300 transition shadow-2xs cursor-pointer"
+                                title={`Bảo lưu từ: ${student.status_date || ""}. Bấm để đổi trạng thái`}
+                              >
+                                <PauseCircle className="w-3 h-3" />
+                                <span>{t.status_reserved}</span>
+                              </button>
+                            ) : student.status === "dropped" ? (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setStudentForStatusChange(student);
+                                  setIsChangeStatusModalOpen(true);
+                                }}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-rose-100 text-rose-800 hover:bg-rose-200 dark:bg-rose-950 dark:text-rose-300 transition shadow-2xs cursor-pointer"
+                                title={`Nghỉ học từ: ${student.status_date || ""}. Bấm để đổi trạng thái`}
+                              >
+                                <UserX className="w-3 h-3" />
+                                <span>{t.status_dropped}</span>
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setStudentForStatusChange(student);
+                                  setIsChangeStatusModalOpen(true);
+                                }}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 hover:bg-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 transition shadow-2xs cursor-pointer"
+                                title="Đang học. Bấm để bảo lưu hoặc nghỉ học"
+                              >
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                <span>{t.status_studying}</span>
+                              </button>
+                            )}
+                          </td>
+
+                          {/* Class & Assigned Teachers Note */}
+                          <td className="py-2.5 px-3 hidden lg:table-cell">
+                            <div className="flex flex-col items-start gap-1">
+                              {student.class_name ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-black uppercase rounded-lg bg-emerald-50 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 shadow-2xs whitespace-nowrap">
+                                  <Layers className="w-3 h-3 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                                  <span>
+                                    {student.class_name}{" "}
+                                    {student.class_room ? `(${student.class_room})` : ""}
+                                  </span>
                                 </span>
+                              ) : (
+                                <span className="text-xs text-slate-400 font-medium italic">
+                                  Chưa gán lớp
+                                </span>
+                              )}
+
+                              {/* Ghi chú giáo viên tương ứng đứng lớp */}
+                              {student.teacher_name && student.teacher_name !== "Chưa gán GV" && (
+                                <div className="flex items-center gap-1 flex-wrap">
+                                  {student.teacher_name.includes(" & ") ? (
+                                    student.teacher_name.split(" & ").map((tName, i) => (
+                                      <span
+                                        key={i}
+                                        className="inline-flex items-center gap-1 px-1.5 py-0.2 text-[10px] font-bold rounded-md bg-indigo-50/80 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-900/40 whitespace-nowrap"
+                                        title="Giáo viên phụ trách theo ca"
+                                      >
+                                        <GraduationCap className="w-2.5 h-2.5 text-indigo-500 shrink-0" />
+                                        <span>{tName.trim()}</span>
+                                      </span>
+                                    ))
+                                  ) : (
+                                    <span
+                                      className="inline-flex items-center gap-1 px-1.5 py-0.2 text-[10px] font-bold rounded-md bg-indigo-50/80 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-900/40 whitespace-nowrap"
+                                      title="Giáo viên phụ trách theo ca"
+                                    >
+                                      <GraduationCap className="w-2.5 h-2.5 text-indigo-500 shrink-0" />
+                                      <span>{student.teacher_name}</span>
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </td>
+
+                          {/* Level & Subject & Surcharge */}
+                          <td className="py-2.5 px-3 hidden xl:table-cell whitespace-nowrap">
+                            <div className="flex flex-col items-start gap-1">
+                              {student.subject_name && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-black uppercase rounded-md bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 whitespace-nowrap">
+                                  <BookOpen className="w-2.5 h-2.5 shrink-0" />
+                                  <span>{student.subject_name}</span>
+                                </span>
+                              )}
+                              <span className="inline-block px-2 py-0.5 text-xs font-bold rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                                {student.level_name}
+                              </span>
+                              {student.level_surcharge && student.level_surcharge > 0 ? (
+                                <span className="block text-[10px] text-emerald-600 dark:text-emerald-400 font-bold whitespace-nowrap">
+                                  +{formatVND(student.level_surcharge)}
+                                </span>
+                              ) : null}
+                            </div>
+                          </td>
+
+                          {/* Package & Weekly Schedule */}
+                          <td className="py-2.5 px-3">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              {/* Package badge */}
+                              {student.tuition_package_name ? (
+                                <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300 flex items-center gap-1 whitespace-nowrap border border-purple-200 dark:border-purple-800">
+                                  <Package className="w-2.5 h-2.5 text-purple-600" />
+                                  {student.tuition_package_name}
+                                </span>
+                              ) : (
+                                <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 whitespace-nowrap">
+                                  {t.monthly_package}
+                                </span>
+                              )}
+
+                              {/* Tên Kiểu Lịch Học (Thứ chẵn, Thứ lẻ, Cuối tuần...) */}
+                              {presetLabel && (
+                                <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-indigo-50 text-indigo-700 dark:bg-indigo-950/70 dark:text-indigo-300 flex items-center gap-1 whitespace-nowrap border border-indigo-200/80 dark:border-indigo-800/60 shadow-2xs">
+                                  <Calendar className="w-2.5 h-2.5 text-indigo-600 dark:text-indigo-400" />
+                                  {presetLabel}
+                                </span>
+                              )}
+
+                              {/* Số tiếng / tuần */}
+                              <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 flex items-center gap-1 whitespace-nowrap">
+                                <Hourglass className="w-2.5 h-2.5 text-slate-500" />
+                                {student.hours_per_week || 3}
+                                {t.hours_per_week_unit}
+                              </span>
+                            </div>
+
+                            <div className="text-[10px] text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-0.5 font-medium whitespace-nowrap">
+                              <Clock className="w-3 h-3 text-indigo-500 shrink-0" />
+                              <span className="font-mono" title={student.study_time_detail}>
+                                {student.study_time_detail || t.flexible_hours_slot}
+                              </span>
+                            </div>
+                          </td>
+
+                          {/* Discount */}
+                          <td className="py-2.5 px-3 text-center hidden xl:table-cell whitespace-nowrap">
+                            {!canViewTuition ? (
+                              <span className="text-xs font-medium text-slate-400">—</span>
+                            ) : student.is_discount_enabled && student.discount_percent > 0 ? (
+                              <div className="flex flex-col items-center">
+                                <span
+                                  className="inline-block px-2 py-0.5 text-[11px] font-black rounded bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60 whitespace-nowrap"
+                                  title={
+                                    student.discount_reason
+                                      ? `Lý do giảm: ${student.discount_reason}`
+                                      : undefined
+                                  }
+                                >
+                                  -{student.discount_percent}%
+                                </span>
+                                {student.discount_reason && (
+                                  <span
+                                    className="text-[10px] text-slate-500 dark:text-slate-400 font-medium whitespace-nowrap block mt-0.5"
+                                    title={student.discount_reason}
+                                  >
+                                    {student.discount_reason}
+                                  </span>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-xs font-medium text-slate-400">0%</span>
+                            )}
+                          </td>
+
+                          {/* Monthly Tuition */}
+                          <td className="py-2.5 px-3">
+                            {!hasPerm("tuition.view") ? (
+                              <span
+                                className="text-sm font-black text-slate-400 dark:text-slate-500 font-mono tracking-widest select-none"
+                                title="Bạn không có quyền xem thông tin học phí"
+                              >
+                                ••••••
+                              </span>
+                            ) : (
+                              <div className="flex flex-col min-w-0">
                                 <button
                                   type="button"
                                   onClick={() => {
                                     setStudentForDetail(student);
                                     setIsDetailModalOpen(true);
                                   }}
-                                  className="font-bold text-slate-800 dark:text-slate-100 hover:text-indigo-600 dark:hover:text-indigo-400 transition whitespace-nowrap text-left"
-                                  title="Bấm để xem hồ sơ chi tiết học sinh"
+                                  className={`text-sm font-black text-left hover:underline cursor-pointer flex items-center gap-1 whitespace-nowrap ${
+                                    student.is_overdue
+                                      ? "text-rose-600 dark:text-rose-400"
+                                      : isCustom
+                                        ? "text-amber-600 dark:text-amber-400"
+                                        : "text-slate-900 dark:text-slate-100"
+                                  }`}
+                                  title="Bấm để xem bảng kê chi tiết các khoản cộng/trừ ra số tiền này"
                                 >
-                                  {student.name}
+                                  <span>{formatVND(student.current_tuition)}</span>
                                 </button>
-                                {(() => {
-                                  // Hiển thị Quỹ Giờ Học Bù dạng "Quỹ bù: 3.5h" hoặc "1h30"
-                                  const avail = Number(student.available_minutes ?? 0);
-                                  if (avail === 0) return null;
-                                  const isNegative = avail < 0;
-                                  const abs = Math.abs(avail);
-                                  const h = Math.floor(abs / 60);
-                                  const m = abs % 60;
-                                  const label = h > 0 ? `${h}h${m > 0 ? String(m).padStart(2, "0") : ""}` : `${m}p`;
-                                  return (
-                                    <button
-                                      onClick={() => {
-                                        setSelectedStudentForMakeup(student.id);
-                                        setIsMakeupModalOpen(true);
-                                      }}
-                                      className={`px-1.5 py-0.5 rounded-full text-[9px] font-black transition shadow-2xs whitespace-nowrap ${
-                                        isNegative
-                                          ? "bg-rose-600 text-white animate-pulse hover:bg-rose-700"
-                                          : avail >= 180
-                                          ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200 dark:bg-emerald-950 dark:text-emerald-300"
-                                          : "bg-amber-100 text-amber-800 hover:bg-amber-200 dark:bg-amber-950 dark:text-amber-300"
-                                      }`}
-                                      title={`Quỹ giờ học bù: ${label} (bấm để mở Quản lý Báo Nghỉ & Quỹ Giờ Bù)`}
-                                    >
-                                      ⏱️ {isNegative ? `Thiếu ${label}` : `Quỹ bù: ${label}`}
-                                    </button>
-                                  );
-                                })()}
-                              </div>
-                              <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                                {student.phone ? (
-                                  <span className="font-mono text-[11px] font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1 whitespace-nowrap">
-                                    <Phone className="w-3 h-3 text-slate-400" />
-                                    {student.phone}
-                                  </span>
-                                ) : (
-                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60">
-                                    ⚠️ Chưa có SĐT
-                                  </span>
-                                )}
-                                {student.start_date && (
-                                  <span className="hidden xl:flex text-[10px] font-medium text-slate-400 dark:text-slate-500 whitespace-nowrap items-center gap-0.5" title="Ngày bắt đầu nhập học">
-                                    • Bắt đầu: {student.start_date}
-                                  </span>
-                                )}
-                                {student.zalo_link && (
-                                  <a
-                                    href={student.zalo_link}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-flex items-center gap-1 px-1.5 py-0.2 text-[9px] font-bold rounded bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-950/60 dark:text-blue-400 transition whitespace-nowrap"
-                                    title="Nhắn tin nhanh qua Zalo"
-                                  >
-                                    <Send className="w-2.5 h-2.5" /> Zalo
-                                  </a>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        </td>
 
-                        {/* Status (Đang học / Bảo lưu / Nghỉ học) */}
-                        <td className="py-2.5 px-3 whitespace-nowrap">
-                          {student.status === "reserved" ? (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setStudentForStatusChange(student);
-                                setIsChangeStatusModalOpen(true);
-                              }}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-800 hover:bg-amber-200 dark:bg-amber-950 dark:text-amber-300 transition shadow-2xs cursor-pointer"
-                              title={`Bảo lưu từ: ${student.status_date || ""}. Bấm để đổi trạng thái`}
-                            >
-                              <PauseCircle className="w-3 h-3" />
-                              <span>{t.status_reserved}</span>
-                            </button>
-                          ) : student.status === "dropped" ? (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setStudentForStatusChange(student);
-                                setIsChangeStatusModalOpen(true);
-                              }}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-rose-100 text-rose-800 hover:bg-rose-200 dark:bg-rose-950 dark:text-rose-300 transition shadow-2xs cursor-pointer"
-                              title={`Nghỉ học từ: ${student.status_date || ""}. Bấm để đổi trạng thái`}
-                            >
-                              <UserX className="w-3 h-3" />
-                              <span>{t.status_dropped}</span>
-                            </button>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setStudentForStatusChange(student);
-                                setIsChangeStatusModalOpen(true);
-                              }}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 hover:bg-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 transition shadow-2xs cursor-pointer"
-                              title="Đang học. Bấm để bảo lưu hoặc nghỉ học"
-                            >
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                              <span>{t.status_studying}</span>
-                            </button>
-                          )}
-                        </td>
-
-                        {/* Class & Assigned Teachers Note */}
-                        <td className="py-2.5 px-3 hidden lg:table-cell">
-                          <div className="flex flex-col items-start gap-1">
-                            {student.class_name ? (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-black uppercase rounded-lg bg-emerald-50 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 shadow-2xs whitespace-nowrap">
-                                <Layers className="w-3 h-3 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                                <span>{student.class_name} {student.class_room ? `(${student.class_room})` : ""}</span>
-                              </span>
-                            ) : (
-                              <span className="text-xs text-slate-400 font-medium italic">Chưa gán lớp</span>
-                            )}
-
-                            {/* Ghi chú giáo viên tương ứng đứng lớp */}
-                            {student.teacher_name && student.teacher_name !== "Chưa gán GV" && (
-                              <div className="flex items-center gap-1 flex-wrap">
-                                {student.teacher_name.includes(" & ") ? (
-                                  student.teacher_name.split(" & ").map((tName, i) => (
-                                    <span
-                                      key={i}
-                                      className="inline-flex items-center gap-1 px-1.5 py-0.2 text-[10px] font-bold rounded-md bg-indigo-50/80 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-900/40 whitespace-nowrap"
-                                      title="Giáo viên phụ trách theo ca"
-                                    >
-                                      <GraduationCap className="w-2.5 h-2.5 text-indigo-500 shrink-0" />
-                                      <span>{tName.trim()}</span>
-                                    </span>
-                                  ))
-                                ) : (
+                                {/* DÒNG DIỄN GIẢI CÔNG THỨC CỘNG TRỪ PHÍ TRỰC QUAN */}
+                                {student.tuition_formula_text ? (
                                   <span
-                                    className="inline-flex items-center gap-1 px-1.5 py-0.2 text-[10px] font-bold rounded-md bg-indigo-50/80 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-900/40 whitespace-nowrap"
-                                    title="Giáo viên phụ trách theo ca"
+                                    onClick={() => {
+                                      setStudentForDetail(student);
+                                      setIsDetailModalOpen(true);
+                                    }}
+                                    className="text-[10px] text-slate-500 dark:text-slate-400 font-mono whitespace-nowrap hover:text-indigo-600 dark:hover:text-indigo-400 cursor-pointer block mt-0.5"
+                                    title={`Công thức tính: ${student.tuition_formula_text}. Bấm để xem chi tiết`}
                                   >
-                                    <GraduationCap className="w-2.5 h-2.5 text-indigo-500 shrink-0" />
-                                    <span>{student.teacher_name}</span>
+                                    {student.level_surcharge && student.level_surcharge > 0 ? (
+                                      <span className="text-emerald-600 dark:text-emerald-400 font-bold">
+                                        + {formatVND(student.level_surcharge)} level
+                                      </span>
+                                    ) : isCustom ? (
+                                      <span className="text-amber-600 dark:text-amber-400 font-bold">
+                                        Tùy chỉnh tháng
+                                      </span>
+                                    ) : (
+                                      <span className="text-slate-400">{t.default_standard}</span>
+                                    )}
                                   </span>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        </td>
+                                ) : null}
 
-                        {/* Level & Subject & Surcharge */}
-                        <td className="py-2.5 px-3 hidden xl:table-cell whitespace-nowrap">
-                          <div className="flex flex-col items-start gap-1">
-                            {student.subject_name && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-black uppercase rounded-md bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 whitespace-nowrap">
-                                <BookOpen className="w-2.5 h-2.5 shrink-0" />
-                                <span>{student.subject_name}</span>
-                              </span>
-                            )}
-                            <span className="inline-block px-2 py-0.5 text-xs font-bold rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 whitespace-nowrap">
-                              {student.level_name}
-                            </span>
-                            {student.level_surcharge && student.level_surcharge > 0 ? (
-                              <span className="block text-[10px] text-emerald-600 dark:text-emerald-400 font-bold whitespace-nowrap">
-                                +{formatVND(student.level_surcharge)}
-                              </span>
-                            ) : null}
-                          </div>
-                        </td>
-
-                        {/* Package & Weekly Schedule */}
-                        <td className="py-2.5 px-3">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            {/* Package badge */}
-                            {student.tuition_package_name ? (
-                              <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300 flex items-center gap-1 whitespace-nowrap border border-purple-200 dark:border-purple-800">
-                                <Package className="w-2.5 h-2.5 text-purple-600" />
-                                {student.tuition_package_name}
-                              </span>
-                            ) : (
-                              <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 whitespace-nowrap">
-                                {t.monthly_package}
-                              </span>
-                            )}
-
-                            {/* Tên Kiểu Lịch Học (Thứ chẵn, Thứ lẻ, Cuối tuần...) */}
-                            {presetLabel && (
-                              <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-indigo-50 text-indigo-700 dark:bg-indigo-950/70 dark:text-indigo-300 flex items-center gap-1 whitespace-nowrap border border-indigo-200/80 dark:border-indigo-800/60 shadow-2xs">
-                                <Calendar className="w-2.5 h-2.5 text-indigo-600 dark:text-indigo-400" />
-                                {presetLabel}
-                              </span>
-                            )}
-
-                            {/* Số tiếng / tuần */}
-                            <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 flex items-center gap-1 whitespace-nowrap">
-                              <Hourglass className="w-2.5 h-2.5 text-slate-500" />
-                              {student.hours_per_week || 3}{t.hours_per_week_unit}
-                            </span>
-                          </div>
-
-                          <div className="text-[10px] text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-0.5 font-medium whitespace-nowrap">
-                            <Clock className="w-3 h-3 text-indigo-500 shrink-0" />
-                            <span className="font-mono" title={student.study_time_detail}>
-                              {student.study_time_detail || t.flexible_hours_slot}
-                            </span>
-                          </div>
-                        </td>
-
-                        {/* Discount */}
-                        <td className="py-2.5 px-3 text-center hidden xl:table-cell whitespace-nowrap">
-                          {!canViewTuition ? (
-                            <span className="text-xs font-medium text-slate-400">—</span>
-                          ) : student.is_discount_enabled && student.discount_percent > 0 ? (
-                            <div className="flex flex-col items-center">
-                              <span
-                                className="inline-block px-2 py-0.5 text-[11px] font-black rounded bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60 whitespace-nowrap"
-                                title={student.discount_reason ? `Lý do giảm: ${student.discount_reason}` : undefined}
-                              >
-                                -{student.discount_percent}%
-                              </span>
-                              {student.discount_reason && (
-                                <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium whitespace-nowrap block mt-0.5" title={student.discount_reason}>
-                                  {student.discount_reason}
-                                </span>
-                              )}
-                            </div>
-                          ) : (
-                            <span className="text-xs font-medium text-slate-400">0%</span>
-                          )}
-                        </td>
-
-                        {/* Monthly Tuition */}
-                        <td className="py-2.5 px-3">
-                          {!hasPerm("tuition.view") ? (
-                            <span className="text-sm font-black text-slate-400 dark:text-slate-500 font-mono tracking-widest select-none" title="Bạn không có quyền xem thông tin học phí">
-                              ••••••
-                            </span>
-                          ) : (
-                          <div className="flex flex-col min-w-0">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setStudentForDetail(student);
-                                setIsDetailModalOpen(true);
-                              }}
-                              className={`text-sm font-black text-left hover:underline cursor-pointer flex items-center gap-1 whitespace-nowrap ${
-                                student.is_overdue
-                                  ? "text-rose-600 dark:text-rose-400"
-                                  : isCustom
-                                  ? "text-amber-600 dark:text-amber-400"
-                                  : "text-slate-900 dark:text-slate-100"
-                              }`}
-                              title="Bấm để xem bảng kê chi tiết các khoản cộng/trừ ra số tiền này"
-                            >
-                              <span>{formatVND(student.current_tuition)}</span>
-                            </button>
-
-                            {/* DÒNG DIỄN GIẢI CÔNG THỨC CỘNG TRỪ PHÍ TRỰC QUAN */}
-                            {student.tuition_formula_text ? (
-                              <span
-                                onClick={() => {
-                                  setStudentForDetail(student);
-                                  setIsDetailModalOpen(true);
-                                }}
-                                className="text-[10px] text-slate-500 dark:text-slate-400 font-mono whitespace-nowrap hover:text-indigo-600 dark:hover:text-indigo-400 cursor-pointer block mt-0.5"
-                                title={`Công thức tính: ${student.tuition_formula_text}. Bấm để xem chi tiết`}
-                              >
-                                {student.level_surcharge && student.level_surcharge > 0 ? (
-                                  <span className="text-emerald-600 dark:text-emerald-400 font-bold">
-                                    + {formatVND(student.level_surcharge)} level
-                                  </span>
+                                {/* CỘNG DỒN NỢ CŨ VÀ ĐÁNH DẤU NỢ QUÁ 1 THÁNG */}
+                                {student.is_overdue && student.previous_debt_amount ? (
+                                  <div className="mt-1 flex flex-col items-start gap-0.5 min-w-0 whitespace-nowrap">
+                                    <span
+                                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-black bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border border-rose-300 dark:border-rose-800 animate-pulse"
+                                      title={t.past_debt_label
+                                        .replace("{months}", String(student.unpaid_months_count))
+                                        .replace(
+                                          "{amount}",
+                                          formatVND(student.previous_debt_amount)
+                                        )}
+                                    >
+                                      <AlertTriangle className="w-3 h-3 text-rose-600 shrink-0" />
+                                      <span>
+                                        {t.past_debt_label
+                                          .replace("{months}", String(student.unpaid_months_count))
+                                          .replace(
+                                            "{amount}",
+                                            formatVND(student.previous_debt_amount)
+                                          )}
+                                      </span>
+                                    </span>
+                                    <span
+                                      className="text-[10px] font-black text-rose-600 dark:text-rose-400"
+                                      title={`${t.total_due}: ${formatVND(student.total_tuition_due)}`}
+                                    >
+                                      {t.total_due}: {formatVND(student.total_tuition_due)}
+                                    </span>
+                                  </div>
                                 ) : isCustom ? (
-                                  <span className="text-amber-600 dark:text-amber-400 font-bold">
-                                    Tùy chỉnh tháng
-                                  </span>
-                                ) : (
-                                  <span className="text-slate-400">
+                                  <div className="mt-0.5 flex flex-col items-start gap-0.5 whitespace-nowrap">
+                                    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300">
+                                      <Sparkles className="w-2.5 h-2.5" />
+                                      {t.custom_override}
+                                    </span>
+                                    {student.monthly_override?.note && (
+                                      <span
+                                        className="text-[10px] text-slate-500 italic truncate max-w-[160px]"
+                                        title={student.monthly_override.note}
+                                      >
+                                        &ldquo;{student.monthly_override.note}&rdquo;
+                                      </span>
+                                    )}
+                                  </div>
+                                ) : !student.tuition_formula_text ? (
+                                  <span className="text-[10px] font-medium text-slate-400">
                                     {t.default_standard}
                                   </span>
-                                )}
-                              </span>
-                            ) : null}
-
-                            {/* CỘNG DỒN NỢ CŨ VÀ ĐÁNH DẤU NỢ QUÁ 1 THÁNG */}
-                            {student.is_overdue && student.previous_debt_amount ? (
-                              <div className="mt-1 flex flex-col items-start gap-0.5 min-w-0 whitespace-nowrap">
-                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-black bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border border-rose-300 dark:border-rose-800 animate-pulse" title={t.past_debt_label.replace("{months}", String(student.unpaid_months_count)).replace("{amount}", formatVND(student.previous_debt_amount))}>
-                                  <AlertTriangle className="w-3 h-3 text-rose-600 shrink-0" />
-                                  <span>{t.past_debt_label.replace("{months}", String(student.unpaid_months_count)).replace("{amount}", formatVND(student.previous_debt_amount))}</span>
-                                </span>
-                                <span className="text-[10px] font-black text-rose-600 dark:text-rose-400" title={`${t.total_due}: ${formatVND(student.total_tuition_due)}`}>
-                                  {t.total_due}: {formatVND(student.total_tuition_due)}
-                                </span>
+                                ) : null}
                               </div>
-                            ) : isCustom ? (
-                              <div className="mt-0.5 flex flex-col items-start gap-0.5 whitespace-nowrap">
-                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300">
-                                  <Sparkles className="w-2.5 h-2.5" />
-                                  {t.custom_override}
-                                </span>
-                                {student.monthly_override?.note && (
-                                  <span className="text-[10px] text-slate-500 italic truncate max-w-[160px]" title={student.monthly_override.note}>
-                                    &ldquo;{student.monthly_override.note}&rdquo;
-                                  </span>
-                                )}
-                              </div>
-                            ) : !student.tuition_formula_text ? (
-                              <span className="text-[10px] font-medium text-slate-400">{t.default_standard}</span>
-                            ) : null}
-                          </div>
-                          )}
-                        </td>
-
-                        {/* Đối Soát Phí: Bấm để mở bảng Đối soát nhanh (Chọn Đã đóng / Chưa đóng & Tick chọn từng tháng) */}
-                        <td className="py-2.5 px-3 text-center hidden md:table-cell whitespace-nowrap">
-                          {!canViewTuition ? (
-                            <span className="text-xs font-medium text-slate-400" title="Bạn không có quyền xem công nợ học phí">
-                              —
-                            </span>
-                          ) : (
-                          <div className="inline-flex flex-col items-center gap-1">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (!hasPerm("tuition.audit")) {
-                                  showToast("Bạn không có quyền thu học phí / đối soát công nợ!", "error");
-                                  return;
-                                }
-                                setStudentForQuickAudit(student);
-                                setIsQuickAuditModalOpen(true);
-                              }}
-                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-extrabold border transition shadow-2xs hover:scale-105 active:scale-95 cursor-pointer whitespace-nowrap ${
-                                student.payment_status === "paid"
-                                  ? "bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800"
-                                  : student.is_overdue
-                                  ? "bg-rose-600 text-white border-rose-700 hover:bg-rose-700 shadow-sm animate-pulse"
-                                  : "bg-rose-50 text-rose-700 border-rose-300 hover:bg-rose-100 dark:bg-rose-950/50 dark:text-rose-300 dark:border-rose-800"
-                              }`}
-                              title="Bấm để mở bảng đối soát học phí chi tiết (chọn Đã đóng/Chưa đóng hoặc tick từng tháng)"
-                            >
-                              {student.payment_status === "paid" ? (
-                                <>
-                                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                                  <span>{t.reconciliation_paid_badge}</span>
-                                </>
-                              ) : (
-                                <>
-                                  <AlertCircle className={`w-3.5 h-3.5 ${student.is_overdue ? "text-white" : "text-rose-600"}`} />
-                                  <span>
-                                    {student.is_overdue
-                                      ? `${t.overdue_badge} ${student.unpaid_months_count} ${language === "vi" ? "tháng" : "mos"}`
-                                      : t.reconciliation_unpaid_badge}
-                                  </span>
-                                </>
-                              )}
-                            </button>
-                            {student.payment_period_desc && (
-                              <span className="text-[9px] text-slate-400 font-mono whitespace-nowrap" title={student.payment_period_desc}>
-                                {student.payment_period_desc}
-                              </span>
                             )}
-                          </div>
-                          )}
-                        </td>
+                          </td>
 
-                        {/* Consolidated Modern Action Column */}
-                        <td className="py-2 px-3 text-center whitespace-nowrap">
-                          <div className="inline-flex items-center justify-center relative">
-                            {/* Dropdown Action Menu Trigger */}
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (openRowActionStudent?.id === student.id) {
-                                  setOpenRowActionStudent(null);
-                                  setActionMenuPosition(null);
-                                } else {
-                                  const rect = e.currentTarget.getBoundingClientRect();
-                                  const menuHeight = 240;
-                                  const spaceBelow = window.innerHeight - rect.bottom;
-                                  const openUpward = spaceBelow < menuHeight && rect.top > menuHeight;
-                                  
-                                  setActionMenuPosition({
-                                    top: openUpward ? rect.top - 6 : rect.bottom + 6,
-                                    right: window.innerWidth - rect.right,
-                                    openUpward,
-                                  });
-                                  setOpenRowActionStudent(student);
-                                }
-                              }}
-                              className={`p-1.5 rounded-xl border transition shadow-2xs ${
-                                openRowActionStudent?.id === student.id
-                                  ? "bg-indigo-600 text-white border-indigo-600"
-                                  : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
-                              }`}
-                              title={t.action_all}
-                            >
-                              <MoreHorizontal className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
+                          {/* Đối Soát Phí: Bấm để mở bảng Đối soát nhanh (Chọn Đã đóng / Chưa đóng & Tick chọn từng tháng) */}
+                          <td className="py-2.5 px-3 text-center hidden md:table-cell whitespace-nowrap">
+                            {!canViewTuition ? (
+                              <span
+                                className="text-xs font-medium text-slate-400"
+                                title="Bạn không có quyền xem công nợ học phí"
+                              >
+                                —
+                              </span>
+                            ) : (
+                              <div className="inline-flex flex-col items-center gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (!hasPerm("tuition.audit")) {
+                                      showToast(
+                                        "Bạn không có quyền thu học phí / đối soát công nợ!",
+                                        "error"
+                                      );
+                                      return;
+                                    }
+                                    setStudentForQuickAudit(student);
+                                    setIsQuickAuditModalOpen(true);
+                                  }}
+                                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-extrabold border transition shadow-2xs hover:scale-105 active:scale-95 cursor-pointer whitespace-nowrap ${
+                                    student.payment_status === "paid"
+                                      ? "bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800"
+                                      : student.is_overdue
+                                        ? "bg-rose-600 text-white border-rose-700 hover:bg-rose-700 shadow-sm animate-pulse"
+                                        : "bg-rose-50 text-rose-700 border-rose-300 hover:bg-rose-100 dark:bg-rose-950/50 dark:text-rose-300 dark:border-rose-800"
+                                  }`}
+                                  title="Bấm để mở bảng đối soát học phí chi tiết (chọn Đã đóng/Chưa đóng hoặc tick từng tháng)"
+                                >
+                                  {student.payment_status === "paid" ? (
+                                    <>
+                                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                      <span>{t.reconciliation_paid_badge}</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <AlertCircle
+                                        className={`w-3.5 h-3.5 ${student.is_overdue ? "text-white" : "text-rose-600"}`}
+                                      />
+                                      <span>
+                                        {student.is_overdue
+                                          ? `${t.overdue_badge} ${student.unpaid_months_count} ${language === "vi" ? "tháng" : "mos"}`
+                                          : t.reconciliation_unpaid_badge}
+                                      </span>
+                                    </>
+                                  )}
+                                </button>
+                                {student.payment_period_desc && (
+                                  <span
+                                    className="text-[9px] text-slate-400 font-mono whitespace-nowrap"
+                                    title={student.payment_period_desc}
+                                  >
+                                    {student.payment_period_desc}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </td>
+
+                          {/* Consolidated Modern Action Column */}
+                          <td className="py-2 px-3 text-center whitespace-nowrap">
+                            <div className="inline-flex items-center justify-center relative">
+                              {/* Dropdown Action Menu Trigger */}
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (openRowActionStudent?.id === student.id) {
+                                    setOpenRowActionStudent(null);
+                                    setActionMenuPosition(null);
+                                  } else {
+                                    const rect = e.currentTarget.getBoundingClientRect();
+                                    const menuHeight = 240;
+                                    const spaceBelow = window.innerHeight - rect.bottom;
+                                    const openUpward =
+                                      spaceBelow < menuHeight && rect.top > menuHeight;
+
+                                    setActionMenuPosition({
+                                      top: openUpward ? rect.top - 6 : rect.bottom + 6,
+                                      right: window.innerWidth - rect.right,
+                                      openUpward,
+                                    });
+                                    setOpenRowActionStudent(student);
+                                  }
+                                }}
+                                className={`p-1.5 rounded-xl border transition shadow-2xs ${
+                                  openRowActionStudent?.id === student.id
+                                    ? "bg-indigo-600 text-white border-indigo-600"
+                                    : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
+                                }`}
+                                title={t.action_all}
+                              >
+                                <MoreHorizontal className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
         )}
 
         {/* Global Action Menu Portal (Không bao giờ bị tràn hay che khuất bởi overflow-x-auto của table) */}
@@ -2736,7 +2989,9 @@ export default function Dashboard() {
                 style={{
                   position: "fixed",
                   top: actionMenuPosition.openUpward ? undefined : `${actionMenuPosition.top}px`,
-                  bottom: actionMenuPosition.openUpward ? `${window.innerHeight - actionMenuPosition.top}px` : undefined,
+                  bottom: actionMenuPosition.openUpward
+                    ? `${window.innerHeight - actionMenuPosition.top}px`
+                    : undefined,
                   right: `${actionMenuPosition.right}px`,
                 }}
                 className="w-52 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl z-50 p-1.5 space-y-0.5 text-left animate-in fade-in zoom-in-95 duration-100 font-sans"
@@ -2810,7 +3065,11 @@ export default function Dashboard() {
                     className="w-full flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
                   >
                     <PauseCircle className="w-3.5 h-3.5 text-amber-600" />
-                    <span>{openRowActionStudent.status === "reserved" ? t.action_resume : t.action_reserve}</span>
+                    <span>
+                      {openRowActionStudent.status === "reserved"
+                        ? t.action_resume
+                        : t.action_reserve}
+                    </span>
                   </button>
                 )}
 
@@ -3016,13 +3275,15 @@ export default function Dashboard() {
       {bulkConfirmModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4 animate-in fade-in zoom-in-95">
-            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mx-auto ${
-              bulkConfirmModal.action === "delete"
-                ? "bg-rose-100 text-rose-600 dark:bg-rose-950/60 dark:text-rose-400"
-                : bulkConfirmModal.action === "reserve"
-                ? "bg-amber-100 text-amber-600 dark:bg-amber-950/60 dark:text-amber-400"
-                : "bg-indigo-100 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400"
-            }`}>
+            <div
+              className={`w-12 h-12 rounded-2xl flex items-center justify-center mx-auto ${
+                bulkConfirmModal.action === "delete"
+                  ? "bg-rose-100 text-rose-600 dark:bg-rose-950/60 dark:text-rose-400"
+                  : bulkConfirmModal.action === "reserve"
+                    ? "bg-amber-100 text-amber-600 dark:bg-amber-950/60 dark:text-amber-400"
+                    : "bg-indigo-100 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400"
+              }`}
+            >
               {bulkConfirmModal.action === "delete" ? (
                 <Trash2 className="w-6 h-6" />
               ) : bulkConfirmModal.action === "reserve" ? (
@@ -3059,8 +3320,8 @@ export default function Dashboard() {
                   bulkConfirmModal.action === "delete"
                     ? "bg-rose-600 hover:bg-rose-700 shadow-rose-600/30"
                     : bulkConfirmModal.action === "reserve"
-                    ? "bg-amber-600 hover:bg-amber-700 shadow-amber-600/30"
-                    : "bg-indigo-600 hover:bg-indigo-700 shadow-indigo-600/30"
+                      ? "bg-amber-600 hover:bg-amber-700 shadow-amber-600/30"
+                      : "bg-indigo-600 hover:bg-indigo-700 shadow-indigo-600/30"
                 }`}
               >
                 {isBulkOperating ? (
@@ -3089,7 +3350,11 @@ export default function Dashboard() {
                 Xác nhận xóa học sinh?
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Bạn có chắc chắn muốn xóa học sinh <strong className="text-slate-800 dark:text-slate-200">{studentToDelete.name}</strong> ({studentToDelete.phone})? Hành động này không thể hoàn tác.
+                Bạn có chắc chắn muốn xóa học sinh{" "}
+                <strong className="text-slate-800 dark:text-slate-200">
+                  {studentToDelete.name}
+                </strong>{" "}
+                ({studentToDelete.phone})? Hành động này không thể hoàn tác.
               </p>
             </div>
             <div className="flex items-center gap-2 pt-2">
@@ -3127,14 +3392,18 @@ export default function Dashboard() {
         initialMaxStudents={maxStudents}
         initialCrowdedThreshold={crowdedThreshold}
         initialCapacityMode={capacityMode}
-        initialReconciliationMode={reconciliationMode as any}
+        initialReconciliationMode={reconciliationMode}
         initialSepayApiKey={sepayApiKey}
         initialSepayAccountNumber={sepayAccountNumber}
         initialSepayBankName={sepayBankName}
         initialSepayPrefix={sepayPrefix}
         initialDefaultMinutesPerSession={defaultMinutesPerSession}
-        initialZaloReminderMode={zaloReminderMode as any}
+        initialZaloReminderMode={zaloReminderMode}
         initialZaloBotToken={zaloBotToken}
+        initialZaloOaSecretKey={zaloOaSecretKey}
+        initialZaloAccessToken={zaloAccessToken}
+        initialZaloTemplateId={zaloTemplateId}
+        initialAppLanguage={language}
         initialZaloBotName={zaloBotName}
         initialZaloAdminChatId={zaloAdminChatId}
         initialZaloNotifyPayment={zaloNotifyPayment}
@@ -3148,16 +3417,6 @@ export default function Dashboard() {
         initialSubjects={subjects}
         initialSchedulePresets={schedulePresets}
         schoolId={currentSchool?.id}
-      />
-
-      {/* Teachers Management Modal */}
-      <TeacherManagementModal
-        isOpen={isTeacherModalOpen}
-        onClose={() => setIsTeacherModalOpen(false)}
-        teachers={teachers}
-        timeSlots={timeSlots}
-        schoolId={currentSchool?.id}
-        onRefresh={handleRefresh}
       />
 
       {/* Class Management Modal */}
@@ -3370,6 +3629,7 @@ export default function Dashboard() {
         teachers={teachers}
         students={students}
         schoolId={currentSchool?.id}
+        defaultMinutesPerSession={defaultMinutesPerSession}
         onRefresh={handleRefresh}
       />
 

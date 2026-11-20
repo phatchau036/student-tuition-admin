@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
 import { getSchoolIdFromRequest } from "@/lib/authHelper";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("api/classes");
 
 export async function GET(req: Request) {
   try {
@@ -26,7 +29,7 @@ export async function GET(req: Request) {
       LEFT JOIN students s ON s.class_id = c.id AND s.status != 'dropped'
       WHERE c.school_id = ? OR (? = 'school-default' AND (c.school_id IS NULL OR c.school_id = '' OR c.school_id = 'school-default'))
     `;
-    const args: any[] = [schoolId, schoolId];
+    const args: (string | number | null)[] = [schoolId, schoolId];
 
     if (teacherId) {
       sql += ` AND c.teacher_id = ?`;
@@ -60,7 +63,9 @@ export async function GET(req: Request) {
         max_students: Number(row.max_students || 8),
         room: row.room ? String(row.room) : "",
         schedule_json: row.schedule_json ? String(row.schedule_json) : "[]",
-        teacher_assignments_json: row.teacher_assignments_json ? String(row.teacher_assignments_json) : "[]",
+        teacher_assignments_json: row.teacher_assignments_json
+          ? String(row.teacher_assignments_json)
+          : "[]",
         color: row.color ? String(row.color) : "indigo",
         note: row.note ? String(row.note) : "",
         status: (row.status as "active" | "closed") || "active",
@@ -76,7 +81,7 @@ export async function GET(req: Request) {
 
     return NextResponse.json({ success: true, data: classes });
   } catch (error: unknown) {
-    console.error("Classes GET Error:", error);
+    log.error("Classes GET Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Internal Server Error" },
       { status: 500 }
@@ -117,8 +122,12 @@ export async function POST(req: Request) {
       );
     }
 
-    const scheduleStr = typeof schedule_json === "string" ? schedule_json : JSON.stringify(schedule_json || []);
-    const teacherAssignmentsStr = typeof teacher_assignments_json === "string" ? teacher_assignments_json : JSON.stringify(teacher_assignments_json || []);
+    const scheduleStr =
+      typeof schedule_json === "string" ? schedule_json : JSON.stringify(schedule_json || []);
+    const teacherAssignmentsStr =
+      typeof teacher_assignments_json === "string"
+        ? teacher_assignments_json
+        : JSON.stringify(teacher_assignments_json || []);
     const maxStudentsNum = Number(max_students) || 8;
 
     // Cập nhật lớp học cũ
@@ -169,7 +178,8 @@ export async function POST(req: Request) {
 
     // Tạo mới lớp học
     const newId = `cls-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
-    const classCode = code && code.trim() ? code.trim() : `L-${Math.floor(100 + Math.random() * 900)}`;
+    const classCode =
+      code && code.trim() ? code.trim() : `L-${Math.floor(100 + Math.random() * 900)}`;
 
     await db.execute({
       sql: `INSERT INTO classes (
@@ -209,7 +219,7 @@ export async function POST(req: Request) {
       id: newId,
     });
   } catch (error: unknown) {
-    console.error("Classes POST Error:", error);
+    log.error("Classes POST Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Internal Server Error" },
       { status: 500 }
@@ -225,7 +235,10 @@ export async function DELETE(req: Request) {
     const id = searchParams.get("id");
 
     if (!id) {
-      return NextResponse.json({ success: false, message: "Thiếu ID lớp học cần xóa!" }, { status: 400 });
+      return NextResponse.json(
+        { success: false, message: "Thiếu ID lớp học cần xóa!" },
+        { status: 400 }
+      );
     }
 
     // Gỡ class_id khỏi học sinh
@@ -245,7 +258,7 @@ export async function DELETE(req: Request) {
       message: "Đã xóa lớp học thành công!",
     });
   } catch (error: unknown) {
-    console.error("Classes DELETE Error:", error);
+    log.error("Classes DELETE Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Internal Server Error" },
       { status: 500 }

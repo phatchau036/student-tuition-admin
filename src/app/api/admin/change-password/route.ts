@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
 import { getPwdHash } from "@/lib/authHelper";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("api/admin/change-password");
 
 export async function POST(req: Request) {
   try {
@@ -31,7 +34,9 @@ export async function POST(req: Request) {
           if (parts[0] === "school_admin" && parts[1]) {
             targetAdminId = parts[1];
           }
-        } catch {}
+        } catch (err) {
+          log.debug("Bỏ qua lỗi không ảnh hưởng luồng chính (route)", { error: err });
+        }
       }
     }
 
@@ -100,7 +105,8 @@ export async function POST(req: Request) {
 
     const response = NextResponse.json({
       success: true,
-      message: "Đổi mật khẩu thành công! Tất cả các phiên đăng nhập cũ trên thiết bị khác đã được đăng xuất.",
+      message:
+        "Đổi mật khẩu thành công! Tất cả các phiên đăng nhập cũ trên thiết bị khác đã được đăng xuất.",
       token: newToken,
     });
 
@@ -114,7 +120,7 @@ export async function POST(req: Request) {
 
     return response;
   } catch (error: unknown) {
-    console.error("Change Password Error:", error);
+    log.error("Change Password Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Internal Server Error" },
       { status: 500 }

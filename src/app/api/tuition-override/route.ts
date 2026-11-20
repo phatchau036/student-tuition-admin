@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
 import { requireAdminPermission } from "@/lib/authHelper";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("api/tuition-override");
 
 // POST/PUT to set or delete an override
 export async function POST(req: Request) {
@@ -44,7 +47,8 @@ export async function POST(req: Request) {
 
     const id = `override-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
     const parsedAmount = Math.max(0, Math.round(Number(amount)));
-    const itemsJsonStr = typeof items_json === "string" ? items_json : JSON.stringify(items_json || []);
+    const itemsJsonStr =
+      typeof items_json === "string" ? items_json : JSON.stringify(items_json || []);
 
     // Upsert into student_monthly_tuitions
     await db.execute({
@@ -63,7 +67,7 @@ export async function POST(req: Request) {
       message: `Đã cập nhật học phí tùy chỉnh tháng ${month} thành công!`,
     });
   } catch (error: unknown) {
-    console.error("Monthly Tuition POST Error:", error);
+    log.error("Monthly Tuition POST Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Internal Server Error" },
       { status: 500 }

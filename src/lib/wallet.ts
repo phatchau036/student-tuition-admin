@@ -1,5 +1,8 @@
 import { getDb } from "./db";
 import { calcCycleGrant, parseRegisteredDaysToWeekdays } from "./tuition";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("lib/wallet");
 
 /* =========================================================================
  * VÍ GIỜ HỌC (HOUR WALLET) — Module trung tâm
@@ -16,9 +19,9 @@ export interface StudentWalletInfo {
 }
 
 export interface WalletBalance {
-  balance_minutes: number;      // Tổng số dư từ sổ cái (CÓ THỂ ÂM)
+  balance_minutes: number; // Tổng số dư từ sổ cái (CÓ THỂ ÂM)
   scheduled_makeup_minutes: number; // Tổng phút bù đã xếp nhưng chưa học
-  available_minutes: number;    // = balance − scheduled_makeup (dùng được để xếp bù mới)
+  available_minutes: number; // = balance − scheduled_makeup (dùng được để xếp bù mới)
 }
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -53,7 +56,9 @@ export async function getStudentWeekdays(studentId: string): Promise<StudentWall
     try {
       const parsed = JSON.parse(String(planRes.rows[0].weekdays_json || "[]"));
       if (Array.isArray(parsed)) weekdays = parsed.map(Number).filter(Boolean);
-    } catch {}
+    } catch (err) {
+      log.debug("Bỏ qua lỗi không ảnh hưởng luồng chính (wallet)", { error: err });
+    }
     return {
       weekdays,
       minutesPerSession: Number(planRes.rows[0].minutes_per_session || 90),
@@ -82,11 +87,13 @@ export async function getStudentWeekdays(studentId: string): Promise<StudentWall
         if (!it.start_time || !it.end_time) return sum;
         const [sh, sm] = String(it.start_time).split(":").map(Number);
         const [eh, em] = String(it.end_time).split(":").map(Number);
-        return sum + Math.max(0, (eh * 60 + em) - (sh * 60 + sm));
+        return sum + Math.max(0, eh * 60 + em - (sh * 60 + sm));
       }, 0);
       if (totalMin > 0) minutesPerSession = Math.round(totalMin / items.length);
     }
-  } catch {}
+  } catch (err) {
+    log.debug("Bỏ qua lỗi không ảnh hưởng luồng chính (wallet)", { error: err });
+  }
 
   return {
     weekdays,
@@ -148,8 +155,8 @@ async function readStudentFallback(studentId: string): Promise<StudentWalletInfo
  */
 export async function grantCycleForPayment(p: {
   studentId: string;
-  cycleMonth: string;      // 'YYYY-MM'
-  startOverride?: string;  // 'YYYY-MM-DD' — dùng khi em vào học giữa tháng
+  cycleMonth: string; // 'YYYY-MM'
+  startOverride?: string; // 'YYYY-MM-DD' — dùng khi em vào học giữa tháng
   createdBy?: string;
 }): Promise<{ granted: boolean; minutes: number; sessions: number; reason?: string }> {
   const db = getDb();
@@ -177,7 +184,11 @@ export async function grantCycleForPayment(p: {
   let startDate = firstOfMonth(p.cycleMonth);
   if (p.startOverride) {
     startDate = p.startOverride;
-  } else if (info.startDate && info.startDate > firstOfMonth(p.cycleMonth) && info.startDate < nextMonthFirst(p.cycleMonth)) {
+  } else if (
+    info.startDate &&
+    info.startDate > firstOfMonth(p.cycleMonth) &&
+    info.startDate < nextMonthFirst(p.cycleMonth)
+  ) {
     startDate = info.startDate; // Em vào học giữa tháng này
   }
   const endDateExclusive = nextMonthFirst(p.cycleMonth);
@@ -192,7 +203,9 @@ export async function grantCycleForPayment(p: {
       const parsed = JSON.parse(String(settingsRes.rows[0].value || "[]"));
       if (Array.isArray(parsed)) closedDates.push(...parsed.map(String));
     }
-  } catch {}
+  } catch (err) {
+    log.debug("Bỏ qua lỗi không ảnh hưởng luồng chính (wallet)", { error: err });
+  }
 
   const grant = calcCycleGrant({
     start: new Date(startDate + "T00:00:00Z"),
@@ -203,7 +216,12 @@ export async function grantCycleForPayment(p: {
   });
 
   if (grant.sessions <= 0) {
-    return { granted: false, minutes: 0, sessions: 0, reason: "Không có buổi học nào rơi vào chu kỳ này" };
+    return {
+      granted: false,
+      minutes: 0,
+      sessions: 0,
+      reason: "Không có buổi học nào rơi vào chu kỳ này",
+    };
   }
 
   const cycleId = `cyc-${p.studentId.slice(0, 8)}-${p.cycleMonth}-${Date.now().toString(36)}`;
@@ -369,7 +387,7 @@ export async function grantHoursForPeriodUtil(
     }
     return results;
   } catch (err) {
-    console.error("grantHoursForPeriodUtil Error (không chặn thanh toán):", err);
+    log.error("grantHoursForPeriodUtil Error (không chặn thanh toán):", { error: err });
     return [];
   }
 }
@@ -409,11 +427,13 @@ export async function getStudentSessionMinutes(
             if (target && target.start_time && target.end_time) {
               const [sh, sm] = String(target.start_time).split(":").map(Number);
               const [eh, em] = String(target.end_time).split(":").map(Number);
-              const diff = (eh * 60 + (em || 0)) - (sh * 60 + (sm || 0));
+              const diff = eh * 60 + (em || 0) - (sh * 60 + (sm || 0));
               if (diff > 0) return diff;
             }
           }
-        } catch {}
+        } catch (err) {
+          log.debug("Bỏ qua lỗi không ảnh hưởng luồng chính (wallet)", { error: err });
+        }
       }
       const h = Number(st.hours_per_week || 0);
       const s = Number(st.sessions_per_week || 0);
@@ -430,11 +450,15 @@ export async function getStudentSessionMinutes(
       return Number(planRes.rows[0].minutes_per_session);
     }
 
-    const setRes = await db.execute("SELECT value FROM settings WHERE key = 'default_minutes_per_session'");
+    const setRes = await db.execute(
+      "SELECT value FROM settings WHERE key = 'default_minutes_per_session'"
+    );
     if (setRes.rows.length > 0 && Number(setRes.rows[0].value) > 0) {
       return Number(setRes.rows[0].value);
     }
-  } catch {}
+  } catch (err) {
+    log.debug("Bỏ qua lỗi không ảnh hưởng luồng chính (wallet)", { error: err });
+  }
 
   return 90;
 }
@@ -447,7 +471,8 @@ export async function syncPendingMakeupsToWallet(studentIds?: string[]): Promise
   const db = getDb();
   let synced = 0;
   try {
-    let query = "SELECT id, student_id, absence_date, status FROM makeup_classes WHERE status = 'pending'";
+    let query =
+      "SELECT id, student_id, absence_date, status FROM makeup_classes WHERE status = 'pending'";
     const args: any[] = [];
     if (studentIds && studentIds.length > 0) {
       query += ` AND student_id IN (${studentIds.map(() => "?").join(",")})`;
@@ -479,19 +504,12 @@ export async function syncPendingMakeupsToWallet(studentIds?: string[]): Promise
       await db.execute({
         sql: `INSERT INTO hour_ledger (id, student_id, cycle_id, type, minutes, ref_type, ref_id, note, created_by)
               VALUES (?, ?, NULL, 'ADJUST', ?, 'absence', ?, ?, 'sync')`,
-        args: [
-          ledgerId,
-          sid,
-          min,
-          mkId,
-          `Báo nghỉ ngày ${absDate}: +${min} phút vào ví giờ bù`,
-        ],
+        args: [ledgerId, sid, min, mkId, `Báo nghỉ ngày ${absDate}: +${min} phút vào ví giờ bù`],
       });
       synced++;
     }
   } catch (err) {
-    console.error("syncPendingMakeupsToWallet error:", err);
+    log.error("syncPendingMakeupsToWallet error:", { error: err });
   }
   return synced;
 }
-

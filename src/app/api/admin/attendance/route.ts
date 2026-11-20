@@ -3,6 +3,10 @@ import { getDb, initDb } from "@/lib/db";
 import { getSchoolIdFromRequest } from "@/lib/authHelper";
 import { appendLedger } from "@/lib/wallet";
 import { formatMinutes } from "@/lib/tuition";
+import { createLogger } from "@/lib/logger";
+import type { DbRow } from "@/lib/types";
+
+const log = createLogger("api/admin/attendance");
 
 // GET /api/admin/attendance?date=YYYY-MM-DD - Lấy danh sách điểm danh toàn trường trong ngày
 export async function GET(req: Request) {
@@ -28,7 +32,7 @@ export async function GET(req: Request) {
       args: [date, schoolId, schoolId],
     });
 
-    const lessonsMap: Record<string, any> = {};
+    const lessonsMap: DbRow = {};
     for (const r of lessonsRes.rows) {
       lessonsMap[`${r.student_id}_${r.start_time}`] = {
         id: String(r.id),
@@ -59,7 +63,7 @@ export async function GET(req: Request) {
       },
     });
   } catch (error: unknown) {
-    console.error("Admin Attendance GET Error:", error);
+    log.error("Admin Attendance GET Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Internal Server Error" },
       { status: 500 }
@@ -83,7 +87,17 @@ export async function POST(req: Request) {
     }
 
     for (const rec of records) {
-      const { student_id, class_id, teacher_id, start_time, planned_minutes, status, teacher_notes, homework, rating } = rec;
+      const {
+        student_id,
+        class_id,
+        teacher_id,
+        start_time,
+        planned_minutes,
+        status,
+        teacher_notes,
+        homework,
+        rating,
+      } = rec;
       if (!student_id || !start_time || !status) continue;
 
       const pMinutes = Number(planned_minutes) || 90;
@@ -167,7 +181,9 @@ export async function POST(req: Request) {
               mkId,
               student_id,
               date,
-              teacher_notes ? `Quản lý ghi nhận: ${teacher_notes}` : "Quản lý điểm danh vắng có phép",
+              teacher_notes
+                ? `Quản lý ghi nhận: ${teacher_notes}`
+                : "Quản lý điểm danh vắng có phép",
               start_time,
               pMinutes,
             ],
@@ -190,7 +206,7 @@ export async function POST(req: Request) {
       message: `Đã lưu điểm danh và nhận xét thành công cho ${records.length} học viên!`,
     });
   } catch (error: unknown) {
-    console.error("Admin Attendance POST Error:", error);
+    log.error("Admin Attendance POST Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Internal Server Error" },
       { status: 500 }

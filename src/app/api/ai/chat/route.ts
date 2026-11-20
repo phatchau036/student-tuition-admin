@@ -1,12 +1,24 @@
 import { NextResponse } from "next/server";
 import { askAiAssistant, generateLessonReview, getAiConfig } from "@/lib/aiBrain";
 import { getSchoolIdFromRequest, getAdminFromRequest } from "@/lib/authHelper";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("api/ai/chat");
 
 // POST /api/ai/chat - Trợ lý AI trung tâm cho Admin & Giáo viên
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { action = "chat", message, history = [], student_name, subject_name, rating = 5, keywords = "", class_name } = body;
+    const {
+      action = "chat",
+      message,
+      history = [],
+      student_name,
+      subject_name,
+      rating = 5,
+      keywords = "",
+      class_name,
+    } = body;
 
     const schoolId = getSchoolIdFromRequest(req) || body.school_id || "school-default";
     const senderName = body.sender_name || "Admin";
@@ -79,9 +91,12 @@ export async function POST(req: Request) {
       });
     }
 
-    return NextResponse.json({ success: false, message: "Hành động không hợp lệ!" }, { status: 400 });
-  } catch (error: any) {
-    console.error("AI Chat API Error:", error);
+    return NextResponse.json(
+      { success: false, message: "Hành động không hợp lệ!" },
+      { status: 400 }
+    );
+  } catch (error: unknown) {
+    log.error("AI Chat API Error:", { error: error });
     return NextResponse.json(
       { success: false, message: "Tính năng này hiện chưa được hỗ trợ." },
       { status: 500 }

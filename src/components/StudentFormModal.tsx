@@ -1,21 +1,21 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Student, LevelSurcharge, TimeSlot, DiscountOption, Teacher, ScheduleItem, TuitionPackage, Subject, SchedulePreset, ClassRoom, DAYS_OF_WEEK } from "@/lib/types";
 import {
-  calculateStudentTuition,
-  calculateStandardTuition,
-  applyDiscount,
-  formatVND,
-  formatTimeSlotLabel,
-  isDayInSlot,
-  timeToMinutes,
-  minutesToTime,
-  getSlotsForDay,
-  isTimeRangeWithinSlot,
-  getDayStartTimes,
-  getDayEndTimes,
-} from "@/lib/tuition";
+  Student,
+  LevelSurcharge,
+  TimeSlot,
+  DiscountOption,
+  Teacher,
+  ScheduleItem,
+  TuitionPackage,
+  Subject,
+  SchedulePreset,
+  ClassRoom,
+  DAYS_OF_WEEK,
+  DbRow,
+} from "@/lib/types";
+import { calculateStudentTuition, formatVND, formatTimeSlotLabel } from "@/lib/tuition";
 import { checkClassCapacityForSchedule } from "@/lib/shiftDetection";
 import { useToast } from "@/components/Toast";
 import {
@@ -26,18 +26,10 @@ import {
   Layers,
   Percent,
   Save,
-  GraduationCap,
   Calendar,
-  Plus,
-  Trash2,
-  CheckCircle2,
   Check,
   X,
-  Hourglass,
-  Tag,
-  DollarSign,
   AlertTriangle,
-  ChevronDown,
   Package,
   CalendarDays,
   Sparkles,
@@ -76,14 +68,14 @@ interface StudentFormModalProps {
   canViewTuition?: boolean;
 }
 
-const ALL_DAYS = DAYS_OF_WEEK;
+const _ALL_DAYS = DAYS_OF_WEEK;
 
 // Helper to calculate hours between two times "09:00" and "10:30" => 1.5
 function calculateDurationHours(start: string, end: string): number {
   if (!start || !end) return 1;
   const [sh, sm] = start.split(":").map(Number);
   const [eh, em] = end.split(":").map(Number);
-  const diffMinutes = (eh * 60 + em) - (sh * 60 + sm);
+  const diffMinutes = eh * 60 + em - (sh * 60 + sm);
   return Math.max(0.5, Math.round((diffMinutes / 60) * 10) / 10);
 }
 
@@ -129,10 +121,12 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
   const [startDate, setStartDate] = useState("");
 
   // Mode: "by_hours" (Theo tổng số tiếng / tuần) HOẶC "by_sessions" (Theo số buổi cố định / tuần)
-  const [durationMode, setDurationMode] = useState<"by_hours" | "by_sessions">(defaultDurationMode);
+  const [_durationMode, setDurationMode] = useState<"by_hours" | "by_sessions">(
+    defaultDurationMode
+  );
 
   // If by_sessions:
-  const [sessionsPerWeek, setSessionsPerWeek] = useState<number>(defaultSessions);
+  const [_sessionsPerWeek, setSessionsPerWeek] = useState<number>(defaultSessions);
   const [fixedSessionTime, setFixedSessionTime] = useState<string>(defaultStudyTime);
   const [selectedDays, setSelectedDays] = useState<string[]>(["Thứ 2", "Thứ 4", "Thứ 6"]);
   const [sessionHours, setSessionHours] = useState<number>(1.5); // Thời lượng mỗi buổi theo kiểu lịch
@@ -140,7 +134,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
   const [selectedPresetName, setSelectedPresetName] = useState<string>("");
 
   // If by_hours: Schedule items with flexible hours per day
-  const [targetHours, setTargetHours] = useState<number>(defaultHours);
+  const [_targetHours, setTargetHours] = useState<number>(defaultHours);
   const [scheduleItems, setScheduleItems] = useState<ScheduleItem[]>([
     { id: "1", day: "Thứ 7", start_time: "09:00", end_time: "10:30", hours: 1.5 },
     { id: "2", day: "Chủ Nhật", start_time: "09:00", end_time: "10:30", hours: 1.5 },
@@ -160,6 +154,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
 
   useEffect(() => {
     if (studentToEdit) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Đồng bộ state khi mở modal hoặc nạp dữ liệu; sẽ chuyển sang pattern key-remount ở Giai đoạn 2.
       setName(studentToEdit.name || "");
       setPhone(studentToEdit.phone || "");
       setZaloLink(studentToEdit.zalo_link || "");
@@ -168,13 +163,15 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
       setSubjectId(studentToEdit.subject_id || (subjects[0]?.id ?? ""));
       setClassId(studentToEdit.class_id || "");
       setTimeSlotId(studentToEdit.time_slot_id || (timeSlots[0]?.id ?? ""));
-      setTeacherId(studentToEdit.class_id ? "" : (studentToEdit.teacher_id || ""));
+      setTeacherId(studentToEdit.class_id ? "" : studentToEdit.teacher_id || "");
       setTuitionPackageId(studentToEdit.tuition_package_id || "");
       setStartDate(studentToEdit.start_date || "");
 
       const mode = (studentToEdit.duration_mode as "by_hours" | "by_sessions") || "by_hours";
       setDurationMode(mode);
-      setSessionsPerWeek(studentToEdit.sessions_per_week === 0 ? 0 : studentToEdit.sessions_per_week || 3);
+      setSessionsPerWeek(
+        studentToEdit.sessions_per_week === 0 ? 0 : studentToEdit.sessions_per_week || 3
+      );
       setTargetHours(studentToEdit.hours_per_week || 3);
 
       // sessions_per_week = 0: học viên đã được gỡ khỏi toàn bộ ca học -> không tự gợi ý lịch
@@ -182,13 +179,17 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
         studentToEdit.sessions_per_week === 0
           ? []
           : studentToEdit.registered_days
-          ? studentToEdit.registered_days.split(",").map((d) => d.trim()).filter(Boolean)
-          : ["Thứ 2", "Thứ 4", "Thứ 6"];
+            ? studentToEdit.registered_days
+                .split(",")
+                .map((d) => d.trim())
+                .filter(Boolean)
+            : ["Thứ 2", "Thứ 4", "Thứ 6"];
       setSelectedDays(regDays);
 
-      const computedSessionH = regDays.length > 0 && studentToEdit.hours_per_week
-        ? Math.round((Number(studentToEdit.hours_per_week) / regDays.length) * 10) / 10
-        : 1.5;
+      const computedSessionH =
+        regDays.length > 0 && studentToEdit.hours_per_week
+          ? Math.round((Number(studentToEdit.hours_per_week) / regDays.length) * 10) / 10
+          : 1.5;
       setSessionHours(computedSessionH);
 
       const matchedPreset = schedulePresets.find(
@@ -249,7 +250,10 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
       if (defaultPreset && !initialDay) {
         setSelectedPresetId(defaultPreset.id);
         setSelectedPresetName(defaultPreset.name);
-        const days = defaultPreset.days && defaultPreset.days.length > 0 ? defaultPreset.days : ["Thứ 2", "Thứ 4", "Thứ 6"];
+        const days =
+          defaultPreset.days && defaultPreset.days.length > 0
+            ? defaultPreset.days
+            : ["Thứ 2", "Thứ 4", "Thứ 6"];
         setSelectedDays(days);
         setSessionsPerWeek(days.length);
         const hPerSession = defaultPreset.hours_per_session || 1.5;
@@ -313,9 +317,9 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                   const shiftEnd = normalizeHm(item.end_time);
                   return Boolean(
                     shiftStart &&
-                      shiftEnd &&
-                      clickedMinutes >= toMinutes(shiftStart) &&
-                      clickedMinutes < toMinutes(shiftEnd)
+                    shiftEnd &&
+                    clickedMinutes >= toMinutes(shiftStart) &&
+                    clickedMinutes < toMinutes(shiftEnd)
                   );
                 });
                 const shiftEnd = normalizeHm(assignment?.end_time);
@@ -324,7 +328,9 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                   endH = shiftEnd;
                 }
               }
-            } catch {}
+            } catch {
+              /* Bỏ qua có chủ đích: lỗi không ảnh hưởng luồng chính. */
+            }
           }
 
           // 2) Khung giờ mở của lớp: chỉ dùng khi chưa xác định được giờ kết thúc
@@ -334,19 +340,28 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
               const parsed: unknown = JSON.parse(initialClassObj.schedule_json);
               if (Array.isArray(parsed)) {
                 const items = parsed as Array<Record<string, unknown>>;
-                const dayItem = items.find((p) => p && typeof p === "object" && p.day === targetDay);
+                const dayItem = items.find(
+                  (p) => p && typeof p === "object" && p.day === targetDay
+                );
                 if (dayItem) {
                   const classStart = normalizeHm(dayItem.start_time);
                   const classEnd = normalizeHm(dayItem.end_time);
                   if (!clickedStart && classStart && classEnd) {
                     startH = classStart;
                     endH = classEnd;
-                  } else if (clickedStart && classStart && classEnd && classStart === normalizeHm(clickedStart)) {
+                  } else if (
+                    clickedStart &&
+                    classStart &&
+                    classEnd &&
+                    classStart === normalizeHm(clickedStart)
+                  ) {
                     endH = classEnd;
                   }
                 }
               }
-            } catch {}
+            } catch {
+              /* Bỏ qua có chủ đích: lỗi không ảnh hưởng luồng chính. */
+            }
           }
         }
 
@@ -362,9 +377,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
         setSessionHours(hours);
         setTargetHours(Math.round(hours * 10) / 10);
 
-        setScheduleItems([
-          { id: "1", day: targetDay, start_time: startH, end_time: endH, hours },
-        ]);
+        setScheduleItems([{ id: "1", day: targetDay, start_time: startH, end_time: endH, hours }]);
       }
       setIsDiscountEnabled(false);
       setDiscountPercent(0);
@@ -380,6 +393,8 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
     defaultSessions,
     defaultHours,
     defaultStudyTime,
+    subjects,
+    tuitionPackages,
     initialTeacherId,
     initialClassId,
     initialDay,
@@ -389,7 +404,10 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
   ]);
 
   // Total hours from schedule items
-  const totalAllocatedHours = scheduleItems.reduce((sum, item) => sum + (Number(item.hours) || 0), 0);
+  const _totalAllocatedHours = scheduleItems.reduce(
+    (sum, item) => sum + (Number(item.hours) || 0),
+    0
+  );
 
   // Compute live preview of tuition
   const selectedLevel = levels.find((l) => l.id === levelId);
@@ -468,7 +486,8 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
     // Kiểm tra ràng buộc sĩ số tối đa theo ca của lớp
     if (classCapacityCheck && classCapacityCheck.isOverCapacity) {
       showToast(
-        classCapacityCheck.warningMessage || "Ca học của lớp đã đạt sĩ số tối đa, không thể lưu thêm học sinh!",
+        classCapacityCheck.warningMessage ||
+          "Ca học của lớp đã đạt sĩ số tối đa, không thể lưu thêm học sinh!",
         "error"
       );
       return;
@@ -481,7 +500,10 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
 
     // Tự động đồng bộ schedule_details_json để ma trận xếp lớp nhận diện chính xác
     // Chuẩn hóa tách giờ thông minh: tránh trường hợp chuỗi chứa dải ngày như "T2, T4 (17h - 18h30)" làm hỏng start_time
-    const cleanTimeStr = finalStudyTimeDetail.replace(/(?:Thứ\s*[2-7]|Chủ\s*Nhật|CN|T[2-7]|S7|C7)\b/gi, " ");
+    const cleanTimeStr = finalStudyTimeDetail.replace(
+      /(?:Thứ\s*[2-7]|Chủ\s*Nhật|CN|T[2-7]|S7|C7)\b/gi,
+      " "
+    );
     const rangeMatch = cleanTimeStr.match(
       /(\d{1,2})(?:\s*h\s*(\d{2})?|\s*:\s*(\d{2}))?\s*[-–to~]\s*(\d{1,2})(?:\s*h\s*(\d{2})?|\s*:\s*(\d{2}))?/i
     );
@@ -544,7 +566,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
           subject_id: subjectId || null,
           class_id: classId || null,
           time_slot_id: timeSlotId || "",
-          teacher_id: classId ? null : (teacherId || null),
+          teacher_id: classId ? null : teacherId || null,
           tuition_package_id: tuitionPackageId || null,
           start_date: startDate.trim() || null,
           duration_mode: "by_sessions",
@@ -553,7 +575,10 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
           registered_days: finalRegisteredDays,
           study_time_detail: finalStudyTimeDetail,
           schedule_details_json: JSON.stringify(autoItems),
-          schedule_preset_name: selectedPresetName || (schedulePresets.find((p) => p.id === selectedPresetId)?.name) || "",
+          schedule_preset_name:
+            selectedPresetName ||
+            schedulePresets.find((p) => p.id === selectedPresetId)?.name ||
+            "",
           is_discount_enabled: isDiscountEnabled ? 1 : 0,
           discount_percent: isDiscountEnabled ? Number(discountPercent) || 0 : 0,
           discount_reason: isDiscountEnabled ? discountReason.trim() : "",
@@ -734,7 +759,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                           if (matchedClass.schedule_json) {
                             const parsed = JSON.parse(matchedClass.schedule_json);
                             if (Array.isArray(parsed) && parsed.length > 0) {
-                              const days = parsed.map((item: any) => item.day);
+                              const days = parsed.map((item: DbRow) => item.day);
                               setSelectedDays(days);
                               const first = parsed[0];
                               if (first.start_time && first.end_time) {
@@ -742,7 +767,9 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                               }
                             }
                           }
-                        } catch {}
+                        } catch {
+                          /* Bỏ qua có chủ đích: lỗi không ảnh hưởng luồng chính. */
+                        }
                       }
                     }
                   }}
@@ -751,7 +778,8 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                   <option value="">-- Chưa gán lớp --</option>
                   {classes.map((cls) => (
                     <option key={cls.id} value={cls.id}>
-                      {cls.name} {cls.room ? `(${cls.room})` : ""} - {cls.student_count || 0}/{cls.max_students || 10} HS
+                      {cls.name} {cls.room ? `(${cls.room})` : ""} - {cls.student_count || 0}/
+                      {cls.max_students || 10} HS
                     </option>
                   ))}
                 </select>
@@ -795,7 +823,8 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                   ) : (
                     levels.map((lvl) => (
                       <option key={lvl.id} value={lvl.id}>
-                        {lvl.level_name}{canViewTuition ? ` (+${formatVND(lvl.surcharge_amount)})` : ""}
+                        {lvl.level_name}
+                        {canViewTuition ? ` (+${formatVND(lvl.surcharge_amount)})` : ""}
                       </option>
                     ))
                   )}
@@ -868,7 +897,8 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                   Kiểu Lịch Học Áp Dụng (Theo Cấu Hình Cơ Sở)
                 </span>
                 <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                  Chọn 1 trong các kiểu lịch mà cơ sở đã thiết lập. Ngày học và thời lượng buổi được áp dụng tự động.
+                  Chọn 1 trong các kiểu lịch mà cơ sở đã thiết lập. Ngày học và thời lượng buổi được
+                  áp dụng tự động.
                 </p>
               </div>
               <span className="self-start sm:self-auto text-[10px] text-indigo-600 dark:text-indigo-400 font-bold flex items-center gap-1 bg-indigo-50 dark:bg-indigo-950/60 px-2 py-0.5 rounded-md border border-indigo-200/60 dark:border-indigo-900/40">
@@ -881,13 +911,36 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
               {(schedulePresets && schedulePresets.length > 0
                 ? schedulePresets
                 : [
-                    { id: "preset-even", name: "Thứ chẵn (2-4-6)", days: ["Thứ 2", "Thứ 4", "Thứ 6"], hours_per_session: 1.5, default_start_time: "18:00", is_default: true },
-                    { id: "preset-odd", name: "Thứ lẻ (3-5-7)", days: ["Thứ 3", "Thứ 5", "Thứ 7"], hours_per_session: 1.5, default_start_time: "18:00", is_default: false },
-                    { id: "preset-weekend", name: "Cuối tuần (T7-CN)", days: ["Thứ 7", "Chủ Nhật"], hours_per_session: 2.0, default_start_time: "09:00", is_default: false },
+                    {
+                      id: "preset-even",
+                      name: "Thứ chẵn (2-4-6)",
+                      days: ["Thứ 2", "Thứ 4", "Thứ 6"],
+                      hours_per_session: 1.5,
+                      default_start_time: "18:00",
+                      is_default: true,
+                    },
+                    {
+                      id: "preset-odd",
+                      name: "Thứ lẻ (3-5-7)",
+                      days: ["Thứ 3", "Thứ 5", "Thứ 7"],
+                      hours_per_session: 1.5,
+                      default_start_time: "18:00",
+                      is_default: false,
+                    },
+                    {
+                      id: "preset-weekend",
+                      name: "Cuối tuần (T7-CN)",
+                      days: ["Thứ 7", "Chủ Nhật"],
+                      hours_per_session: 2.0,
+                      default_start_time: "09:00",
+                      is_default: false,
+                    },
                   ]
               ).map((preset) => {
                 const isSelected = selectedPresetId === preset.id;
-                const calcTotalH = Math.round((preset.days?.length || 0) * (preset.hours_per_session || 1.5) * 10) / 10;
+                const calcTotalH =
+                  Math.round((preset.days?.length || 0) * (preset.hours_per_session || 1.5) * 10) /
+                  10;
                 return (
                   <div
                     key={preset.id}
@@ -934,7 +987,9 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
 
                       <div className="text-[11px] font-bold text-slate-600 dark:text-slate-300">
                         {preset.days?.length || 0} buổi × {preset.hours_per_session}h ={" "}
-                        <strong className="text-indigo-600 dark:text-indigo-400 font-black">{calcTotalH}h / tuần</strong>
+                        <strong className="text-indigo-600 dark:text-indigo-400 font-black">
+                          {calcTotalH}h / tuần
+                        </strong>
                       </div>
                     </div>
                   </div>
@@ -956,7 +1011,8 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                   className="w-full px-3 py-2 text-xs font-bold font-mono rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"
                 />
                 <span className="text-[10px] text-slate-400 mt-0.5 block">
-                  Đã tự động tính theo kiểu lịch ({sessionHours}h/buổi), có thể điều chỉnh giờ nếu ca học lệch
+                  Đã tự động tính theo kiểu lịch ({sessionHours}h/buổi), có thể điều chỉnh giờ nếu
+                  ca học lệch
                 </span>
               </div>
 
@@ -992,8 +1048,8 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                   classCapacityCheck.isOverCapacity
                     ? "bg-rose-50/90 dark:bg-rose-950/40 border-rose-300 dark:border-rose-800"
                     : classCapacityCheck.peakOccupiedCount >= classCapacityCheck.maxCapacity * 0.8
-                    ? "bg-amber-50/90 dark:bg-amber-950/40 border-amber-300 dark:border-amber-800"
-                    : "bg-emerald-50/90 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/60"
+                      ? "bg-amber-50/90 dark:bg-amber-950/40 border-amber-300 dark:border-amber-800"
+                      : "bg-emerald-50/90 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/60"
                 }`}
               >
                 <div className="flex items-start justify-between gap-2">
@@ -1012,7 +1068,13 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                         Kiểm Tra Sĩ Số Ca Lớp Thực Tế
                       </span>
                       <span className="text-[11px] text-slate-600 dark:text-slate-300">
-                        Khung giờ: <strong>{classCapacityCheck.timeRangeDisplay || fixedSessionTime || "18:00 - 19:30"}</strong> • Sĩ số tối đa: <strong>{classCapacityCheck.maxCapacity} HS / ca</strong>
+                        Khung giờ:{" "}
+                        <strong>
+                          {classCapacityCheck.timeRangeDisplay ||
+                            fixedSessionTime ||
+                            "18:00 - 19:30"}
+                        </strong>{" "}
+                        • Sĩ số tối đa: <strong>{classCapacityCheck.maxCapacity} HS / ca</strong>
                       </span>
                     </div>
                   </div>
@@ -1021,9 +1083,10 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                     className={`text-[10px] font-black uppercase px-2.5 py-1 rounded-lg shrink-0 ${
                       classCapacityCheck.isOverCapacity
                         ? "bg-rose-600 text-white shadow-xs"
-                        : classCapacityCheck.peakOccupiedCount >= classCapacityCheck.maxCapacity * 0.8
-                        ? "bg-amber-500 text-white"
-                        : "bg-emerald-600 text-white"
+                        : classCapacityCheck.peakOccupiedCount >=
+                            classCapacityCheck.maxCapacity * 0.8
+                          ? "bg-amber-500 text-white"
+                          : "bg-emerald-600 text-white"
                     }`}
                   >
                     {classCapacityCheck.isOverCapacity
@@ -1035,7 +1098,10 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                 {/* Danh sách sĩ số từng ngày đã chọn */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 mt-2.5 pt-2 border-t border-slate-200/60 dark:border-slate-800">
                   {classCapacityCheck.dayDetails.map((dayItem) => {
-                    const percent = Math.min(100, Math.round((dayItem.occupiedCount / (dayItem.maxCapacity || 1)) * 100));
+                    const percent = Math.min(
+                      100,
+                      Math.round((dayItem.occupiedCount / (dayItem.maxCapacity || 1)) * 100)
+                    );
                     return (
                       <div
                         key={dayItem.day}
@@ -1047,7 +1113,9 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                       >
                         <div className="flex items-center justify-between font-bold mb-1">
                           <span>{dayItem.day}</span>
-                          <span className={`font-black ${dayItem.isOverCapacity ? "text-rose-600 dark:text-rose-400" : "text-indigo-600 dark:text-indigo-400"}`}>
+                          <span
+                            className={`font-black ${dayItem.isOverCapacity ? "text-rose-600 dark:text-rose-400" : "text-indigo-600 dark:text-indigo-400"}`}
+                          >
                             {dayItem.occupiedCount}/{dayItem.maxCapacity}
                           </span>
                         </div>
@@ -1059,8 +1127,8 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                               dayItem.isOverCapacity
                                 ? "bg-rose-600"
                                 : percent >= 80
-                                ? "bg-amber-500"
-                                : "bg-emerald-500"
+                                  ? "bg-amber-500"
+                                  : "bg-emerald-500"
                             }`}
                             style={{ width: `${percent}%` }}
                           />
@@ -1114,7 +1182,9 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
                   </span>
                 )}
               </div>
-              <label className={`relative inline-flex items-center ${canManageTuition ? "cursor-pointer" : "cursor-not-allowed opacity-60"}`}>
+              <label
+                className={`relative inline-flex items-center ${canManageTuition ? "cursor-pointer" : "cursor-not-allowed opacity-60"}`}
+              >
                 <input
                   type="checkbox"
                   disabled={!canManageTuition}
@@ -1187,14 +1257,20 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
           <div className="p-4 rounded-2xl bg-gradient-to-tr from-indigo-50 to-purple-50 dark:from-indigo-950/40 dark:to-purple-950/30 border border-indigo-100 dark:border-indigo-900/60 flex items-center justify-between">
             <div className="space-y-0.5">
               <span className="text-xs font-bold text-slate-700 dark:text-slate-300 block">
-                {selectedPkg ? `Học phí dự tính (${selectedPkg.name}):` : "Học phí chuẩn tự tính (Mặc định):"}
+                {selectedPkg
+                  ? `Học phí dự tính (${selectedPkg.name}):`
+                  : "Học phí chuẩn tự tính (Mặc định):"}
               </span>
               <span className="text-[11px] text-slate-600 dark:text-slate-400 font-medium block">
-                Công thức: <strong className="text-indigo-600 dark:text-indigo-400">{!canViewTuition ? "••••••" : liveBreakdown.formulaText}</strong>
+                Công thức:{" "}
+                <strong className="text-indigo-600 dark:text-indigo-400">
+                  {!canViewTuition ? "••••••" : liveBreakdown.formulaText}
+                </strong>
               </span>
               {selectedPkg && (
                 <span className="text-[10px] text-purple-600 dark:text-purple-400 font-bold block">
-                  Chu kỳ: {selectedPkg.cycle_value} {selectedPkg.cycle_unit === "month" ? "tháng" : "tuần"}
+                  Chu kỳ: {selectedPkg.cycle_value}{" "}
+                  {selectedPkg.cycle_unit === "month" ? "tháng" : "tuần"}
                 </span>
               )}
             </div>
@@ -1221,17 +1297,19 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
             </button>
             <button
               type="submit"
-              disabled={isSaving || Boolean(classCapacityCheck && classCapacityCheck.isOverCapacity)}
+              disabled={
+                isSaving || Boolean(classCapacityCheck && classCapacityCheck.isOverCapacity)
+              }
               className="flex items-center gap-1.5 px-5 py-2.5 text-xs font-black uppercase tracking-wider text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-md shadow-indigo-600/25 transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Save className="w-4 h-4 stroke-[2.5]" />
               {isSaving
                 ? "Đang lưu..."
                 : classCapacityCheck?.isOverCapacity
-                ? "Ca học đã đầy"
-                : studentToEdit
-                ? "Lưu thay đổi"
-                : "Tạo học sinh"}
+                  ? "Ca học đã đầy"
+                  : studentToEdit
+                    ? "Lưu thay đổi"
+                    : "Tạo học sinh"}
             </button>
           </div>
         </form>

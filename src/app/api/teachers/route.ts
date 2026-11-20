@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
 import { getSchoolIdFromRequest } from "@/lib/authHelper";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("api/teachers");
 
 export async function GET(req: Request) {
   try {
@@ -31,7 +34,9 @@ export async function GET(req: Request) {
           const parsed = JSON.parse(String(row.assigned_slot_ids));
           if (Array.isArray(parsed)) assignedSlotIds = parsed;
         }
-      } catch {}
+      } catch (err) {
+        log.debug("Bỏ qua lỗi không ảnh hưởng luồng chính (route)", { error: err });
+      }
 
       return {
         id: String(row.id),
@@ -51,7 +56,7 @@ export async function GET(req: Request) {
 
     return NextResponse.json({ success: true, data: teachers });
   } catch (error: unknown) {
-    console.error("Teachers GET Error:", error);
+    log.error("Teachers GET Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Internal Server Error" },
       { status: 500 }
@@ -68,7 +73,17 @@ export async function POST(req: Request) {
     const querySchoolId = searchParams.get("school_id");
     const headerSchoolId = getSchoolIdFromRequest(req);
 
-    const { name, phone, email, specialty, color, max_students, assigned_slot_ids, working_shifts_json, school_id } = body;
+    const {
+      name,
+      phone,
+      email,
+      specialty,
+      color,
+      max_students,
+      assigned_slot_ids,
+      working_shifts_json,
+      school_id,
+    } = body;
     const targetSchoolId = school_id || querySchoolId || headerSchoolId || "school-default";
 
     if (!name || !phone) {
@@ -80,7 +95,10 @@ export async function POST(req: Request) {
 
     const id = `tc-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
     const slotJson = JSON.stringify(Array.isArray(assigned_slot_ids) ? assigned_slot_ids : []);
-    const shiftJson = typeof working_shifts_json === "string" ? working_shifts_json : JSON.stringify(working_shifts_json || []);
+    const shiftJson =
+      typeof working_shifts_json === "string"
+        ? working_shifts_json
+        : JSON.stringify(working_shifts_json || []);
 
     try {
       await db.execute({
@@ -100,7 +118,7 @@ export async function POST(req: Request) {
         ],
       });
     } catch (insertErr) {
-      console.warn("Retrying insert with base columns due to schema difference:", insertErr);
+      log.warn("Retrying insert with base columns due to schema difference:", { error: insertErr });
       // Fallback an toàn nếu schema cũ chưa kịp migrate cột mới
       await db.execute({
         sql: `INSERT INTO teachers (id, school_id, name, phone, email, specialty, color, is_active)
@@ -123,9 +141,12 @@ export async function POST(req: Request) {
       teacher_id: id,
     });
   } catch (error: unknown) {
-    console.error("Teacher POST Error:", error);
+    log.error("Teacher POST Error:", { error: error });
     return NextResponse.json(
-      { success: false, message: (error as Error).message || "Lỗi lưu dữ liệu giáo viên vào database" },
+      {
+        success: false,
+        message: (error as Error).message || "Lỗi lưu dữ liệu giáo viên vào database",
+      },
       { status: 500 }
     );
   }

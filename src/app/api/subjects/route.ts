@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
 import { getSchoolIdFromRequest } from "@/lib/authHelper";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("api/subjects");
 
 // GET /api/subjects - Lấy danh sách Bộ Môn
 export async function GET(req: Request) {
@@ -26,7 +29,7 @@ export async function GET(req: Request) {
 
     return NextResponse.json({ success: true, data: subjects });
   } catch (error: unknown) {
-    console.error("Subjects GET Error:", error);
+    log.error("Subjects GET Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Internal Server Error" },
       { status: 500 }
@@ -47,7 +50,10 @@ export async function POST(req: Request) {
     // 1. Thêm bộ môn mới
     if (action === "create" || !action) {
       if (!name || !name.trim()) {
-        return NextResponse.json({ success: false, message: "Vui lòng nhập tên môn học!" }, { status: 400 });
+        return NextResponse.json(
+          { success: false, message: "Vui lòng nhập tên môn học!" },
+          { status: 400 }
+        );
       }
 
       const newId = id || `sub-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
@@ -74,7 +80,10 @@ export async function POST(req: Request) {
     // 2. Cập nhật bộ môn
     if (action === "update") {
       if (!id || !name || !name.trim()) {
-        return NextResponse.json({ success: false, message: "Thiếu mã môn hoặc tên môn học!" }, { status: 400 });
+        return NextResponse.json(
+          { success: false, message: "Thiếu mã môn hoặc tên môn học!" },
+          { status: 400 }
+        );
       }
 
       await db.execute({
@@ -96,7 +105,10 @@ export async function POST(req: Request) {
     // 3. Xóa bộ môn
     if (action === "delete") {
       if (!id) {
-        return NextResponse.json({ success: false, message: "Thiếu mã môn cần xóa!" }, { status: 400 });
+        return NextResponse.json(
+          { success: false, message: "Thiếu mã môn cần xóa!" },
+          { status: 400 }
+        );
       }
 
       await db.execute({
@@ -107,9 +119,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true, message: "Đã xóa môn học thành công!" });
     }
 
-    return NextResponse.json({ success: false, message: "Hành động không hợp lệ!" }, { status: 400 });
+    return NextResponse.json(
+      { success: false, message: "Hành động không hợp lệ!" },
+      { status: 400 }
+    );
   } catch (error: unknown) {
-    console.error("Subjects POST Error:", error);
+    log.error("Subjects POST Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Internal Server Error" },
       { status: 500 }

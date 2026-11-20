@@ -255,13 +255,13 @@ Mọi thay đổi database bắt buộc phải tuân theo 2 quy tắc sau:
 
 **Nguyên tắc:** Số dư = `SUM(minutes)` từ `hour_ledger`. Mọi thay đổi = 1 dòng sổ cái mới (GRANT +, CONSUME −, ADJUST ±, EXPIRE −). Không bao giờ UPDATE số dư trực tiếp. Mọi ghi sổ idempotent theo cặp `ref_type + ref_id` (UNIQUE index).
 
-**Công thức cấp giờ:** `calcCycleGrant(start, endExclusive, weekdays, minutesPerSession, closedDates)` — tuần đủ × số buổi + ngày lẻ trùng thứ học − ngày nghỉ lễ. Unit test: `node scripts/test-hour-wallet.js` (10/10 PASS).
+**Công thức cấp giờ:** `calcCycleGrant(start, endExclusive, weekdays, minutesPerSession, closedDates)` — tuần đủ × số buổi + ngày lẻ trùng thứ học − ngày nghỉ lễ. Unit test: `npm test` (10/10 PASS).
 
 **Điểm hook cấp giờ:** `POST /api/payments` (action `mark_paid`, `set_months_status`) + SePay webhook → gọi `grantHoursForPeriod` cho từng tháng trong khoảng đã đóng.
 
 **API mới:** `/api/wallet` — `preview_cycle`, `grant_cycle`, `mark_attendance`, `report_absence` (không trừ giờ), `schedule_makeup` (trừ số dư khả dụng, check sĩ số + trùng giờ + bội 30 phút), `cancel_makeup` (không hoàn giờ), `adjust_hours`, `report_unexcused` (trừ giờ theo config), `get_wallet` (sổ cái phân trang).
 
-**Migration:** `node scripts/migrate-hour-wallet.js --dry-run` (xem trước) → bỏ `--dry-run` để thực thi. Idempotent chạy lại an toàn. Chuyển suất bù cũ → ADJUST, lịch bù cũ → lessons.
+**Migration:** `node scripts/migrations/migrate-hour-wallet.js --dry-run` (xem trước) → bỏ `--dry-run` để thực thi. Idempotent chạy lại an toàn. Chuyển suất bù cũ → ADJUST, lịch bù cũ → lessons.
 
 ---
 

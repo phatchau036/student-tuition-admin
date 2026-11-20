@@ -7,26 +7,17 @@ import {
   Users,
   GraduationCap,
   CalendarCheck,
-  CreditCard,
   QrCode,
   ShieldCheck,
-  Zap,
-  Clock,
   History,
   MessageSquare,
   Send,
   Star,
-  CheckCircle2,
-  AlertCircle,
-  HelpCircle,
   X,
-  Layers,
-  ChevronRight,
   TrendingUp,
   Inbox,
   Award,
   Terminal,
-  RefreshCw,
   ImageIcon,
   Upload,
   Trash2,
@@ -34,6 +25,10 @@ import {
 } from "lucide-react";
 import { ParentFeedback, SystemFeedback } from "@/lib/types";
 import { useToast } from "@/components/Toast";
+import { createLogger } from "@/lib/logger";
+import { APP_VERSION } from "@/lib/constants";
+
+const log = createLogger("ui/AppInfoModal");
 
 interface AppInfoModalProps {
   isOpen: boolean;
@@ -51,14 +46,18 @@ export const AppInfoModal: React.FC<AppInfoModalProps> = ({
   schoolCode = "TT",
 }) => {
   const { showToast } = useToast();
-  const [activeTab, setActiveTab] = useState<"about" | "changelog" | "tpteam_feedback" | "parent_feedbacks">("about");
+  const [activeTab, setActiveTab] = useState<
+    "about" | "changelog" | "tpteam_feedback" | "parent_feedbacks"
+  >("about");
 
   // Tab 3: TpTeam Feedback State
   const [fbTitle, setFbTitle] = useState("");
-  const [fbCategory, setFbCategory] = useState<"feature_request" | "bug_report" | "ui_ux" | "performance" | "other">("feature_request");
+  const [fbCategory, setFbCategory] = useState<
+    "feature_request" | "bug_report" | "ui_ux" | "performance" | "other"
+  >("feature_request");
   const [fbPriority, setFbPriority] = useState<"low" | "medium" | "high">("medium");
   const [fbContent, setFbContent] = useState("");
-  const [fbSenderName, setFbSenderName] = useState("");
+  const [fbSenderName, _setFbSenderName] = useState("");
   const [fbSenderContact, setFbSenderContact] = useState("");
   const [fbImages, setFbImages] = useState<string[]>([]);
   const [isSubmittingTpTeam, setIsSubmittingTpTeam] = useState(false);
@@ -69,7 +68,7 @@ export const AppInfoModal: React.FC<AppInfoModalProps> = ({
   // Tab 4: Parent Feedbacks List
   const [parentFeedbacks, setParentFeedbacks] = useState<ParentFeedback[]>([]);
   const [isLoadingParentFb, setIsLoadingParentFb] = useState(false);
-  const [selectedParentFb, setSelectedParentFb] = useState<ParentFeedback | null>(null);
+  const [_selectedParentFb, setSelectedParentFb] = useState<ParentFeedback | null>(null);
   const [replyNote, setReplyNote] = useState("");
 
   useEffect(() => {
@@ -80,9 +79,10 @@ export const AppInfoModal: React.FC<AppInfoModalProps> = ({
         loadParentFeedbacks();
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Loader là hàm khai báo trong component, chỉ gọi khi mở modal/mount; thêm vào deps sẽ gây gọi lại vô hạn. Sẽ chuyển sang useCallback ở Giai đoạn 2.
   }, [isOpen, activeTab]);
 
-  const loadSystemFeedbacks = async () => {
+  async function loadSystemFeedbacks() {
     try {
       setIsLoadingSystemFb(true);
       const res = await fetch(`/api/feedbacks/system?school_id=${schoolId}`);
@@ -91,13 +91,13 @@ export const AppInfoModal: React.FC<AppInfoModalProps> = ({
         setSystemFeedbacks(json.data || []);
       }
     } catch {
-      console.error("Lỗi tải góp ý hệ thống");
+      log.error("Lỗi tải góp ý hệ thống");
     } finally {
       setIsLoadingSystemFb(false);
     }
-  };
+  }
 
-  const loadParentFeedbacks = async () => {
+  async function loadParentFeedbacks() {
     try {
       setIsLoadingParentFb(true);
       const res = await fetch(`/api/feedbacks/parent?school_id=${schoolId}`);
@@ -106,11 +106,11 @@ export const AppInfoModal: React.FC<AppInfoModalProps> = ({
         setParentFeedbacks(json.data || []);
       }
     } catch {
-      console.error("Lỗi tải góp ý phụ huynh");
+      log.error("Lỗi tải góp ý phụ huynh");
     } finally {
       setIsLoadingParentFb(false);
     }
-  };
+  }
 
   // Helper nén và đọc file ảnh thành Data URL
   const processImageFile = (file: File) => {
@@ -167,7 +167,7 @@ export const AppInfoModal: React.FC<AppInfoModalProps> = ({
   };
 
   // Bắt sự kiện Paste ảnh (Ctrl+V) vào khung textarea
-  const handlePasteContent = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+  const handlePasteContent = (e: React.ClipboardEvent<HTMLElement>) => {
     const items = e.clipboardData?.items;
     if (!items) return;
 
@@ -360,7 +360,10 @@ export const AppInfoModal: React.FC<AppInfoModalProps> = ({
                     Giải Pháp Vận Hành Toàn Diện Cho Trung Tâm Đào Tạo
                   </h3>
                   <p className="text-sm text-indigo-100/90 leading-relaxed font-normal">
-                    Phần mềm được thiết kế chuyên biệt nhằm chuẩn hóa toàn bộ quy trình: từ quản lý hồ sơ học sinh, xếp lịch học bù thông minh theo sức chứa thực tế, phân công giáo viên đến đối soát học phí tự động 100% qua ngân hàng và cổng kết nối trực tuyến với phụ huynh.
+                    Phần mềm được thiết kế chuyên biệt nhằm chuẩn hóa toàn bộ quy trình: từ quản lý
+                    hồ sơ học sinh, xếp lịch học bù thông minh theo sức chứa thực tế, phân công giáo
+                    viên đến đối soát học phí tự động 100% qua ngân hàng và cổng kết nối trực tuyến
+                    với phụ huynh.
                   </p>
                 </div>
                 <div className="absolute right-0 bottom-0 translate-x-8 translate-y-8 opacity-10 pointer-events-none">
@@ -378,7 +381,9 @@ export const AppInfoModal: React.FC<AppInfoModalProps> = ({
                     Quản Lý Học Sinh Đa Chiều
                   </h4>
                   <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                    Theo dõi đầy đủ mã học sinh, ngày bắt đầu nhập học, hình thức học theo giờ/buổi, cấp độ level, chính sách chiết khấu kèm lý do cụ thể và trạng thái bảo lưu / nghỉ học có lưu vết.
+                    Theo dõi đầy đủ mã học sinh, ngày bắt đầu nhập học, hình thức học theo giờ/buổi,
+                    cấp độ level, chính sách chiết khấu kèm lý do cụ thể và trạng thái bảo lưu /
+                    nghỉ học có lưu vết.
                   </p>
                 </div>
 
@@ -390,7 +395,9 @@ export const AppInfoModal: React.FC<AppInfoModalProps> = ({
                     Đối Soát Học Phí Tự Động (SePay)
                   </h4>
                   <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                    Tích hợp Webhook kết nối trực tiếp biến động số dư ngân hàng (Vietcombank, MB, ACB...). Tự nhận diện mã học sinh hoặc SĐT để gạch nợ tức thì mà không cần đối soát thủ công.
+                    Tích hợp Webhook kết nối trực tiếp biến động số dư ngân hàng (Vietcombank, MB,
+                    ACB...). Tự nhận diện mã học sinh hoặc SĐT để gạch nợ tức thì mà không cần đối
+                    soát thủ công.
                   </p>
                 </div>
 
@@ -402,7 +409,9 @@ export const AppInfoModal: React.FC<AppInfoModalProps> = ({
                     Học Bù Thông Minh & Sức Chứa
                   </h4>
                   <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                    Tự động cấp suất học bù khi bé xin nghỉ. Kiểm tra sức chứa lớp học thời gian thực, cảnh báo khi ca học quá tải (&gt;80%) và tự động khóa chọn khi lớp đã đủ sĩ số tối đa.
+                    Tự động cấp suất học bù khi bé xin nghỉ. Kiểm tra sức chứa lớp học thời gian
+                    thực, cảnh báo khi ca học quá tải (&gt;80%) và tự động khóa chọn khi lớp đã đủ
+                    sĩ số tối đa.
                   </p>
                 </div>
 
@@ -414,7 +423,8 @@ export const AppInfoModal: React.FC<AppInfoModalProps> = ({
                     Phân Công Giáo Viên & Cổng GV
                   </h4>
                   <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                    Gán giáo viên chủ nhiệm và phân ca giảng dạy trực tiếp. Cung cấp cổng riêng dành cho giáo viên tra cứu danh sách lớp học và theo dõi lịch học bù của học viên.
+                    Gán giáo viên chủ nhiệm và phân ca giảng dạy trực tiếp. Cung cấp cổng riêng dành
+                    cho giáo viên tra cứu danh sách lớp học và theo dõi lịch học bù của học viên.
                   </p>
                 </div>
 
@@ -426,7 +436,9 @@ export const AppInfoModal: React.FC<AppInfoModalProps> = ({
                     Báo Cáo & Tổng Kết Tháng
                   </h4>
                   <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                    Trực quan hóa tài chính: tổng doanh thu dự kiến, số tiền thực tế đã thu, nợ tồn, tỷ lệ hoàn tất thu học phí và lịch sử toàn bộ các giao dịch chuyển khoản tự động.
+                    Trực quan hóa tài chính: tổng doanh thu dự kiến, số tiền thực tế đã thu, nợ tồn,
+                    tỷ lệ hoàn tất thu học phí và lịch sử toàn bộ các giao dịch chuyển khoản tự
+                    động.
                   </p>
                 </div>
 
@@ -438,7 +450,9 @@ export const AppInfoModal: React.FC<AppInfoModalProps> = ({
                     Cổng Phụ Huynh Trực Tuyến
                   </h4>
                   <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                    Phụ huynh đăng nhập nhanh bằng số điện thoại để kiểm tra lịch học, thông tin học phí, chủ động báo nghỉ học, chọn lịch bù trực tiếp và gửi ý kiến đóng góp cho trung tâm.
+                    Phụ huynh đăng nhập nhanh bằng số điện thoại để kiểm tra lịch học, thông tin học
+                    phí, chủ động báo nghỉ học, chọn lịch bù trực tiếp và gửi ý kiến đóng góp cho
+                    trung tâm.
                   </p>
                 </div>
               </div>
@@ -453,17 +467,18 @@ export const AppInfoModal: React.FC<AppInfoModalProps> = ({
                   Nhật Ký Cập Nhật Tính Năng & Phiên Bản
                 </h3>
                 <p className="text-xs text-slate-500">
-                  Hệ thống được phát triển và nâng cấp liên tục để phục vụ tối đa nhu cầu vận hành của cơ sở
+                  Hệ thống được phát triển và nâng cấp liên tục để phục vụ tối đa nhu cầu vận hành
+                  của cơ sở
                 </p>
               </div>
 
               <div className="space-y-4">
-                {/* v2.8.3 */}
+                {/* Phiên bản hiện tại */}
                 <div className="p-5 rounded-2xl border-2 border-indigo-200 dark:border-indigo-900/60 bg-indigo-50/20 dark:bg-indigo-950/20 space-y-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <span className="px-2.5 py-1 rounded-xl text-xs font-black bg-indigo-600 text-white">
-                        v2.8.3 (Hiện tại)
+                        v{APP_VERSION} (Hiện tại)
                       </span>
                       <span className="text-xs font-bold text-slate-500">31/10/2026</span>
                     </div>
@@ -472,10 +487,23 @@ export const AppInfoModal: React.FC<AppInfoModalProps> = ({
                     </span>
                   </div>
                   <ul className="text-xs text-slate-700 dark:text-slate-300 space-y-1.5 list-disc list-inside">
-                    <li><strong>Quản lý Lớp học & Sĩ số tối đa:</strong> Thiết lập số lượng lớp, phân bổ số học sinh tối đa cho từng lớp, phòng học và thời khóa biểu tuần.</li>
-                    <li><strong>Thời khóa biểu đứng lớp cho Giáo viên:</strong> Cổng giáo viên bổ sung Tab &quot;Lớp Đứng&quot; hiển thị trực quan các ca dạy trong tuần, phòng học và sĩ số.</li>
-                    <li><strong>Gán Lớp học vào Hồ sơ học sinh:</strong> Tự động gợi ý giáo viên và lịch học khi học sinh chọn lớp.</li>
-                    <li><strong>Bộ lọc Lớp học trên Dashboard & Ma trận:</strong> Lọc danh sách học sinh và sơ đồ lớp học theo từng lớp thuận tiện.</li>
+                    <li>
+                      <strong>Quản lý Lớp học & Sĩ số tối đa:</strong> Thiết lập số lượng lớp, phân
+                      bổ số học sinh tối đa cho từng lớp, phòng học và thời khóa biểu tuần.
+                    </li>
+                    <li>
+                      <strong>Thời khóa biểu đứng lớp cho Giáo viên:</strong> Cổng giáo viên bổ sung
+                      Tab &quot;Lớp Đứng&quot; hiển thị trực quan các ca dạy trong tuần, phòng học
+                      và sĩ số.
+                    </li>
+                    <li>
+                      <strong>Gán Lớp học vào Hồ sơ học sinh:</strong> Tự động gợi ý giáo viên và
+                      lịch học khi học sinh chọn lớp.
+                    </li>
+                    <li>
+                      <strong>Bộ lọc Lớp học trên Dashboard & Ma trận:</strong> Lọc danh sách học
+                      sinh và sơ đồ lớp học theo từng lớp thuận tiện.
+                    </li>
                   </ul>
                 </div>
 
@@ -493,9 +521,21 @@ export const AppInfoModal: React.FC<AppInfoModalProps> = ({
                     </span>
                   </div>
                   <ul className="text-xs text-slate-600 dark:text-slate-400 space-y-1.5 list-disc list-inside">
-                    <li><strong>Tích hợp toàn bộ quỹ giờ vào Module Báo Nghỉ & Học Bù:</strong> Xóa bỏ giao diện Ví Giờ riêng lẻ, thống nhất việc quản lý số giờ học bù tích lũy và sử dụng vào chung một nơi.</li>
-                    <li><strong>Chuyển đổi hoàn toàn sang đơn vị Giờ Học (Hours/Minutes):</strong> Định lượng chính xác 0.5h (30p), 1.0h (60p), 1.5h (90p), 2.0h (120p) thay vì cộng trừ buổi bù chung chung.</li>
-                    <li><strong>Cơ chế Báo nghỉ tích lũy tự động:</strong> Tự động nhận diện khung giờ học của học sinh để tính toán và cộng dồn chính xác số giờ nghỉ vào Quỹ giờ học bù.</li>
+                    <li>
+                      <strong>Tích hợp toàn bộ quỹ giờ vào Module Báo Nghỉ & Học Bù:</strong> Xóa bỏ
+                      giao diện Ví Giờ riêng lẻ, thống nhất việc quản lý số giờ học bù tích lũy và
+                      sử dụng vào chung một nơi.
+                    </li>
+                    <li>
+                      <strong>Chuyển đổi hoàn toàn sang đơn vị Giờ Học (Hours/Minutes):</strong>{" "}
+                      Định lượng chính xác 0.5h (30p), 1.0h (60p), 1.5h (90p), 2.0h (120p) thay vì
+                      cộng trừ buổi bù chung chung.
+                    </li>
+                    <li>
+                      <strong>Cơ chế Báo nghỉ tích lũy tự động:</strong> Tự động nhận diện khung giờ
+                      học của học sinh để tính toán và cộng dồn chính xác số giờ nghỉ vào Quỹ giờ
+                      học bù.
+                    </li>
                   </ul>
                 </div>
 
@@ -513,12 +553,35 @@ export const AppInfoModal: React.FC<AppInfoModalProps> = ({
                     </span>
                   </div>
                   <ul className="text-xs text-slate-600 dark:text-slate-400 space-y-1.5 list-disc list-inside">
-                    <li><strong>Tự động cộng phụ thu Level vào Gói học phí:</strong> Áp dụng chuẩn hóa công thức tính học phí tự động đồng bộ trên toàn hệ thống API, Dashboard và Cổng phụ huynh.</li>
-                    <li><strong>Bảng kê cấu thành học phí chi tiết (Transparent Breakdown):</strong> Bấm vào học phí để xem bóc tách chi tiết từng khoản: Gói học phí + Phụ thu level - Chiết khấu % + Điều chỉnh tháng + Nợ cũ tích lũy.</li>
-                    <li><strong>Kéo thả & Nút Lên/Xuống sắp xếp thứ tự Level trong Cài đặt:</strong> Tự do di chuyển thứ tự ưu tiên các Level (Grade 1 trước Grade 7, Cơ bản lên đầu...).</li>
-                    <li><strong>Sắp xếp cột trên bảng giống Google Sheets:</strong> Bấm vào tiêu đề cột `LEVEL & PHỤ THU` để sắp xếp danh sách học sinh theo đúng thứ tự Level mong muốn.</li>
-                    <li><strong>Hỗ trợ Dán ảnh chụp màn hình (Ctrl+V) trong góp ý TpTeam:</strong> Chụp màn hình lỗi và ấn Ctrl+V trực tiếp vào nội dung góp ý, đính kèm nhiều ảnh kèm Lightbox phóng to.</li>
-                    <li><strong>Hỗ trợ nhập mọi số tiền lẻ bất kỳ (step=&quot;any&quot;):</strong> Cho phép nhập tiền lẻ thoải mái khi điều chỉnh học phí riêng tháng hoặc đối soát.</li>
+                    <li>
+                      <strong>Tự động cộng phụ thu Level vào Gói học phí:</strong> Áp dụng chuẩn hóa
+                      công thức tính học phí tự động đồng bộ trên toàn hệ thống API, Dashboard và
+                      Cổng phụ huynh.
+                    </li>
+                    <li>
+                      <strong>Bảng kê cấu thành học phí chi tiết (Transparent Breakdown):</strong>{" "}
+                      Bấm vào học phí để xem bóc tách chi tiết từng khoản: Gói học phí + Phụ thu
+                      level - Chiết khấu % + Điều chỉnh tháng + Nợ cũ tích lũy.
+                    </li>
+                    <li>
+                      <strong>Kéo thả & Nút Lên/Xuống sắp xếp thứ tự Level trong Cài đặt:</strong>{" "}
+                      Tự do di chuyển thứ tự ưu tiên các Level (Grade 1 trước Grade 7, Cơ bản lên
+                      đầu...).
+                    </li>
+                    <li>
+                      <strong>Sắp xếp cột trên bảng giống Google Sheets:</strong> Bấm vào tiêu đề
+                      cột `LEVEL & PHỤ THU` để sắp xếp danh sách học sinh theo đúng thứ tự Level
+                      mong muốn.
+                    </li>
+                    <li>
+                      <strong>Hỗ trợ Dán ảnh chụp màn hình (Ctrl+V) trong góp ý TpTeam:</strong>{" "}
+                      Chụp màn hình lỗi và ấn Ctrl+V trực tiếp vào nội dung góp ý, đính kèm nhiều
+                      ảnh kèm Lightbox phóng to.
+                    </li>
+                    <li>
+                      <strong>Hỗ trợ nhập mọi số tiền lẻ bất kỳ (step=&quot;any&quot;):</strong> Cho
+                      phép nhập tiền lẻ thoải mái khi điều chỉnh học phí riêng tháng hoặc đối soát.
+                    </li>
                   </ul>
                 </div>
 
@@ -536,8 +599,15 @@ export const AppInfoModal: React.FC<AppInfoModalProps> = ({
                     </span>
                   </div>
                   <ul className="text-xs text-slate-600 dark:text-slate-400 space-y-1.5 list-disc list-inside">
-                    <li><strong>Kiểu Lịch Học Cơ Sở (Schedule Presets):</strong> Quản lý các ca học cố định (Thứ chẵn 2-4-6, Thứ lẻ 3-5-7, Cuối tuần T7-CN) và tự động tính tổng số tiếng/tuần.</li>
-                    <li><strong>Huy hiệu lịch học trên danh sách học sinh:</strong> Hiển thị badge nhận diện kiểu lịch trực quan cho từng em.</li>
+                    <li>
+                      <strong>Kiểu Lịch Học Cơ Sở (Schedule Presets):</strong> Quản lý các ca học cố
+                      định (Thứ chẵn 2-4-6, Thứ lẻ 3-5-7, Cuối tuần T7-CN) và tự động tính tổng số
+                      tiếng/tuần.
+                    </li>
+                    <li>
+                      <strong>Huy hiệu lịch học trên danh sách học sinh:</strong> Hiển thị badge
+                      nhận diện kiểu lịch trực quan cho từng em.
+                    </li>
                   </ul>
                 </div>
 
@@ -555,8 +625,15 @@ export const AppInfoModal: React.FC<AppInfoModalProps> = ({
                     </span>
                   </div>
                   <ul className="text-xs text-slate-600 dark:text-slate-400 space-y-1.5 list-disc list-inside">
-                    <li><strong>Ví giờ học theo phút:</strong> Thay thế suất bù bằng số dư thời lượng phút thực tế, cấp giờ tự động khi đóng tiền và trừ giờ theo buổi điểm danh thật.</li>
-                    <li><strong>Sổ cái giao dịch minh bạch:</strong> Cho phép phụ huynh và trung tâm theo dõi chi tiết lịch sử cộng/trừ giờ học.</li>
+                    <li>
+                      <strong>Ví giờ học theo phút:</strong> Thay thế suất bù bằng số dư thời lượng
+                      phút thực tế, cấp giờ tự động khi đóng tiền và trừ giờ theo buổi điểm danh
+                      thật.
+                    </li>
+                    <li>
+                      <strong>Sổ cái giao dịch minh bạch:</strong> Cho phép phụ huynh và trung tâm
+                      theo dõi chi tiết lịch sử cộng/trừ giờ học.
+                    </li>
                   </ul>
                 </div>
 
@@ -574,10 +651,25 @@ export const AppInfoModal: React.FC<AppInfoModalProps> = ({
                     </span>
                   </div>
                   <ul className="text-xs text-slate-600 dark:text-slate-400 space-y-1.5 list-disc list-inside">
-                    <li><strong>Nhập Excel thông minh (Smart Column Mapping):</strong> Cho phép kéo thả trực tiếp file Excel bất kỳ của trung tâm, tự động nhận diện cột và đưa học viên vào hệ thống mà không cần sửa file mẫu.</li>
-                    <li><strong>Xuất danh sách học viên ra Excel (.xlsx):</strong> Tự động xuất đầy đủ 19 cột nghiệp vụ kèm học phí, nợ cũ và bóc tách phát sinh chỉ với 1-click.</li>
-                    <li><strong>Quản lý danh mục Bộ Môn linh hoạt:</strong> Tự do thiết lập các môn học (*Piano, Guitar, IELTS, Toán, Vẽ, Võ...*) để phù hợp với mọi mô hình cơ sở đào tạo.</li>
-                    <li><strong>Bóc tách hóa đơn chi tiết (+ Phụ thu / - Giảm trừ):</strong> Cho phép thêm các khoản thu phát sinh (tiền sách, đồng phục) hoặc trừ tiền nghỉ lễ trên cả Dashboard, Cổng phụ huynh và tin nhắn Zalo Bot.</li>
+                    <li>
+                      <strong>Nhập Excel thông minh (Smart Column Mapping):</strong> Cho phép kéo
+                      thả trực tiếp file Excel bất kỳ của trung tâm, tự động nhận diện cột và đưa
+                      học viên vào hệ thống mà không cần sửa file mẫu.
+                    </li>
+                    <li>
+                      <strong>Xuất danh sách học viên ra Excel (.xlsx):</strong> Tự động xuất đầy đủ
+                      19 cột nghiệp vụ kèm học phí, nợ cũ và bóc tách phát sinh chỉ với 1-click.
+                    </li>
+                    <li>
+                      <strong>Quản lý danh mục Bộ Môn linh hoạt:</strong> Tự do thiết lập các môn
+                      học (*Piano, Guitar, IELTS, Toán, Vẽ, Võ...*) để phù hợp với mọi mô hình cơ sở
+                      đào tạo.
+                    </li>
+                    <li>
+                      <strong>Bóc tách hóa đơn chi tiết (+ Phụ thu / - Giảm trừ):</strong> Cho phép
+                      thêm các khoản thu phát sinh (tiền sách, đồng phục) hoặc trừ tiền nghỉ lễ trên
+                      cả Dashboard, Cổng phụ huynh và tin nhắn Zalo Bot.
+                    </li>
                   </ul>
                 </div>
 
@@ -595,12 +687,36 @@ export const AppInfoModal: React.FC<AppInfoModalProps> = ({
                     </span>
                   </div>
                   <ul className="text-xs text-slate-600 dark:text-slate-400 space-y-1.5 list-disc list-inside">
-                    <li><strong>Kết nối thông báo Zalo cho Giáo viên & Phụ huynh:</strong> Cung cấp khu vực kết nối trực tiếp trên Cổng Giáo Viên và Cổng Phụ Huynh để nhận tin nhắn lịch học, nhắc học phí và lịch bù qua Zalo Bot.</li>
-                    <li><strong>Thông báo đóng học phí & Mã VietQR tự động:</strong> Cổng Phụ Huynh hiển thị rõ trạng thái đóng/nợ học phí, mã VietQR quét nộp tiền tức thì kèm nút &quot;Tôi đã đóng học phí&quot; để ghi nhận ngay lập tức vào hệ thống.</li>
-                    <li><strong>Đa ngôn ngữ toàn diện (Full System i18n):</strong> Hỗ trợ 4 ngôn ngữ chuẩn quốc tế (🇻🇳 Tiếng Việt, 🇬🇧 English, 🇨🇳 中文, 🇯🇵 日本語) với chuyển ngữ 1-click tức thì trên toàn giao diện quản trị và cổng phụ huynh.</li>
-                    <li><strong>1-Click Cập nhật tự động từ GitHub:</strong> Tự động tải mã nguồn mới nhất từ kho GitHub, biên dịch bản build và khởi động lại dịch vụ ngay trên trang quản trị hệ thống.</li>
-                    <li><strong>Chế độ Bảo Trì Thông Minh (Maintenance Guard):</strong> Tự động kích hoạt màn hình thông báo &quot;Server Đang Được Nâng Cấp&quot; khi cập nhật, tự động kết nối lại khi máy chủ hoàn tất.</li>
-                    <li><strong>Tự động phát hiện nợ quá hạn & cộng dồn:</strong> Đánh dấu cảnh báo đỏ học sinh nợ học phí từ 2 tháng liên tiếp trở lên và tự động tính tổng nợ cũ vào tháng kế tiếp.</li>
+                    <li>
+                      <strong>Kết nối thông báo Zalo cho Giáo viên & Phụ huynh:</strong> Cung cấp
+                      khu vực kết nối trực tiếp trên Cổng Giáo Viên và Cổng Phụ Huynh để nhận tin
+                      nhắn lịch học, nhắc học phí và lịch bù qua Zalo Bot.
+                    </li>
+                    <li>
+                      <strong>Thông báo đóng học phí & Mã VietQR tự động:</strong> Cổng Phụ Huynh
+                      hiển thị rõ trạng thái đóng/nợ học phí, mã VietQR quét nộp tiền tức thì kèm
+                      nút &quot;Tôi đã đóng học phí&quot; để ghi nhận ngay lập tức vào hệ thống.
+                    </li>
+                    <li>
+                      <strong>Đa ngôn ngữ toàn diện (Full System i18n):</strong> Hỗ trợ 4 ngôn ngữ
+                      chuẩn quốc tế (🇻🇳 Tiếng Việt, 🇬🇧 English, 🇨🇳 中文, 🇯🇵 日本語) với chuyển ngữ
+                      1-click tức thì trên toàn giao diện quản trị và cổng phụ huynh.
+                    </li>
+                    <li>
+                      <strong>1-Click Cập nhật tự động từ GitHub:</strong> Tự động tải mã nguồn mới
+                      nhất từ kho GitHub, biên dịch bản build và khởi động lại dịch vụ ngay trên
+                      trang quản trị hệ thống.
+                    </li>
+                    <li>
+                      <strong>Chế độ Bảo Trì Thông Minh (Maintenance Guard):</strong> Tự động kích
+                      hoạt màn hình thông báo &quot;Server Đang Được Nâng Cấp&quot; khi cập nhật, tự
+                      động kết nối lại khi máy chủ hoàn tất.
+                    </li>
+                    <li>
+                      <strong>Tự động phát hiện nợ quá hạn & cộng dồn:</strong> Đánh dấu cảnh báo đỏ
+                      học sinh nợ học phí từ 2 tháng liên tiếp trở lên và tự động tính tổng nợ cũ
+                      vào tháng kế tiếp.
+                    </li>
                   </ul>
                 </div>
 
@@ -618,11 +734,26 @@ export const AppInfoModal: React.FC<AppInfoModalProps> = ({
                     </span>
                   </div>
                   <ul className="text-xs text-slate-600 dark:text-slate-400 space-y-1.5 list-disc list-inside">
-                    <li><strong>Tích hợp SePay Webhook tự động:</strong> Nhận biến động số dư ngân hàng và tự động gạch nợ học phí theo mã HS và số điện thoại.</li>
-                    <li><strong>Cửa sổ Tổng Kết Tháng (Monthly Summary):</strong> Theo dõi doanh thu dự thu, thực thu, số nợ và nhật ký giao dịch ngân hàng theo từng tháng.</li>
-                    <li><strong>Lý do chiết khấu:</strong> Thêm cấu hình tên/lý do mốc chiết khấu trong Cài đặt và tự động điền vào hồ sơ học sinh.</li>
-                    <li><strong>Ngày bắt đầu đăng ký học:</strong> Bổ sung trường ngày nhập học kèm nút 1-click &quot;Hôm nay (Hiện tại ngay)&quot;.</li>
-                    <li><strong>Kênh tiếp nhận góp ý phụ huynh:</strong> Cung cấp form đánh giá sao và gửi phản hồi trực tiếp từ Cổng Phụ Huynh.</li>
+                    <li>
+                      <strong>Tích hợp SePay Webhook tự động:</strong> Nhận biến động số dư ngân
+                      hàng và tự động gạch nợ học phí theo mã HS và số điện thoại.
+                    </li>
+                    <li>
+                      <strong>Cửa sổ Tổng Kết Tháng (Monthly Summary):</strong> Theo dõi doanh thu
+                      dự thu, thực thu, số nợ và nhật ký giao dịch ngân hàng theo từng tháng.
+                    </li>
+                    <li>
+                      <strong>Lý do chiết khấu:</strong> Thêm cấu hình tên/lý do mốc chiết khấu
+                      trong Cài đặt và tự động điền vào hồ sơ học sinh.
+                    </li>
+                    <li>
+                      <strong>Ngày bắt đầu đăng ký học:</strong> Bổ sung trường ngày nhập học kèm
+                      nút 1-click &quot;Hôm nay (Hiện tại ngay)&quot;.
+                    </li>
+                    <li>
+                      <strong>Kênh tiếp nhận góp ý phụ huynh:</strong> Cung cấp form đánh giá sao và
+                      gửi phản hồi trực tiếp từ Cổng Phụ Huynh.
+                    </li>
                   </ul>
                 </div>
 
@@ -633,16 +764,27 @@ export const AppInfoModal: React.FC<AppInfoModalProps> = ({
                       <span className="px-2.5 py-1 rounded-xl text-xs font-black bg-slate-200 text-slate-800 dark:bg-slate-800 dark:text-slate-200">
                         v2.3.0
                       </span>
-                      <span className="text-xs font-bold text-slate-500">24/10/2026 (Bắt đầu dự án)</span>
+                      <span className="text-xs font-bold text-slate-500">
+                        24/10/2026 (Bắt đầu dự án)
+                      </span>
                     </div>
                     <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
                       Khởi tạo nền tảng
                     </span>
                   </div>
                   <ul className="text-xs text-slate-600 dark:text-slate-400 space-y-1.5 list-disc list-inside">
-                    <li><strong>Khởi tạo hệ thống quản trị trung tâm:</strong> Quản lý học sinh, danh sách lớp, gói học phí, phân công giáo viên và cổng phụ huynh tra cứu.</li>
-                    <li><strong>Quản lý học bù & sĩ số:</strong> Đăng ký học bù trực tuyến, theo dõi số buổi cần bù của học sinh.</li>
-                    <li><strong>Cấu hình chiết khấu & ngày đăng ký:</strong> Quản lý mốc chiết khấu, lý do giảm và ngày nhập học kèm nút Hôm nay.</li>
+                    <li>
+                      <strong>Khởi tạo hệ thống quản trị trung tâm:</strong> Quản lý học sinh, danh
+                      sách lớp, gói học phí, phân công giáo viên và cổng phụ huynh tra cứu.
+                    </li>
+                    <li>
+                      <strong>Quản lý học bù & sĩ số:</strong> Đăng ký học bù trực tuyến, theo dõi
+                      số buổi cần bù của học sinh.
+                    </li>
+                    <li>
+                      <strong>Cấu hình chiết khấu & ngày đăng ký:</strong> Quản lý mốc chiết khấu,
+                      lý do giảm và ngày nhập học kèm nút Hôm nay.
+                    </li>
                   </ul>
                 </div>
               </div>
@@ -660,12 +802,17 @@ export const AppInfoModal: React.FC<AppInfoModalProps> = ({
                   <span className="font-bold text-amber-900 dark:text-amber-200 block text-sm mb-0.5">
                     Kênh Kết Nối Trực Tiếp Đến Đội Ngũ Phát Triển TpTeam
                   </span>
-                  Quý trung tâm có mong muốn bổ sung tính năng mới, phát hiện lỗi phát sinh hoặc cần tối ưu trải nghiệm? Mọi góp ý được gửi tại đây sẽ chuyển thẳng đến ban kỹ thuật TpTeam để đánh giá và đưa vào lộ trình phát triển.
+                  Quý trung tâm có mong muốn bổ sung tính năng mới, phát hiện lỗi phát sinh hoặc cần
+                  tối ưu trải nghiệm? Mọi góp ý được gửi tại đây sẽ chuyển thẳng đến ban kỹ thuật
+                  TpTeam để đánh giá và đưa vào lộ trình phát triển.
                 </div>
               </div>
 
               {/* Form gửi góp ý */}
-              <form onSubmit={handleSubmitToTpTeam} className="p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-800/40 space-y-4">
+              <form
+                onSubmit={handleSubmitToTpTeam}
+                className="p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-800/40 space-y-4"
+              >
                 <h4 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">
                   Gửi Góp Ý / Yêu Cầu Tính Năng Mới
                 </h4>
@@ -677,7 +824,12 @@ export const AppInfoModal: React.FC<AppInfoModalProps> = ({
                     </label>
                     <select
                       value={fbCategory}
-                      onChange={(e) => setFbCategory(e.target.value as any)}
+                      onChange={(e) =>
+                        setFbCategory(
+                          e.target.value as
+                            "feature_request" | "bug_report" | "ui_ux" | "performance" | "other"
+                        )
+                      }
                       className="w-full px-3 py-2 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 outline-none"
                     >
                       <option value="feature_request">Yêu cầu tính năng mới</option>
@@ -694,7 +846,7 @@ export const AppInfoModal: React.FC<AppInfoModalProps> = ({
                     </label>
                     <select
                       value={fbPriority}
-                      onChange={(e) => setFbPriority(e.target.value as any)}
+                      onChange={(e) => setFbPriority(e.target.value as "low" | "medium" | "high")}
                       className="w-full px-3 py-2 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 outline-none"
                     >
                       <option value="low">Thấp (Cải thiện dần)</option>
@@ -737,7 +889,8 @@ export const AppInfoModal: React.FC<AppInfoModalProps> = ({
                       Nội dung chi tiết <span className="text-rose-500">*</span>
                     </label>
                     <span className="text-[11px] text-amber-600 dark:text-amber-400 font-bold flex items-center gap-1">
-                      <ImageIcon className="w-3.5 h-3.5" /> Có thể dán ảnh chụp màn hình (Ctrl+V) trực tiếp vào ô này
+                      <ImageIcon className="w-3.5 h-3.5" /> Có thể dán ảnh chụp màn hình (Ctrl+V)
+                      trực tiếp vào ô này
                     </span>
                   </div>
                   <textarea
@@ -775,7 +928,10 @@ export const AppInfoModal: React.FC<AppInfoModalProps> = ({
                   {fbImages.length > 0 ? (
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 p-3 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
                       {fbImages.map((imgUrl, idx) => (
-                        <div key={idx} className="relative group rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-black/5 aspect-video flex items-center justify-center">
+                        <div
+                          key={idx}
+                          className="relative group rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-black/5 aspect-video flex items-center justify-center"
+                        >
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
                             src={imgUrl}
@@ -806,14 +962,20 @@ export const AppInfoModal: React.FC<AppInfoModalProps> = ({
                     </div>
                   ) : (
                     <div
-                      onPaste={(e: any) => handlePasteContent(e)}
+                      onPaste={handlePasteContent}
                       className="p-3.5 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40 text-center text-xs text-slate-400 space-y-1"
                     >
                       <p>
-                        💡 <strong>Cách 1:</strong> Bấm <code className="px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-800 text-slate-800 dark:text-slate-200 font-mono">Ctrl + V</code> ngay trong khung nội dung để dán ảnh chụp màn hình.
+                        💡 <strong>Cách 1:</strong> Bấm{" "}
+                        <code className="px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-800 text-slate-800 dark:text-slate-200 font-mono">
+                          Ctrl + V
+                        </code>{" "}
+                        ngay trong khung nội dung để dán ảnh chụp màn hình.
                       </p>
                       <p className="text-[11px] text-slate-400">
-                        💡 <strong>Cách 2:</strong> Bấm <strong>&quot;Chọn file từ máy...&quot;</strong> ở góc trên bên phải để tải ảnh lên.
+                        💡 <strong>Cách 2:</strong> Bấm{" "}
+                        <strong>&quot;Chọn file từ máy...&quot;</strong> ở góc trên bên phải để tải
+                        ảnh lên.
                       </p>
                     </div>
                   )}
@@ -838,7 +1000,9 @@ export const AppInfoModal: React.FC<AppInfoModalProps> = ({
                 </h4>
 
                 {isLoadingSystemFb ? (
-                  <div className="py-8 text-center text-xs text-slate-400">Đang tải lịch sử góp ý...</div>
+                  <div className="py-8 text-center text-xs text-slate-400">
+                    Đang tải lịch sử góp ý...
+                  </div>
                 ) : systemFeedbacks.length === 0 ? (
                   <div className="p-8 text-center rounded-2xl bg-slate-50 dark:bg-slate-800/40 text-xs text-slate-400">
                     Trung tâm chưa gửi góp ý nào cho hệ thống.
@@ -864,19 +1028,19 @@ export const AppInfoModal: React.FC<AppInfoModalProps> = ({
                               fb.status === "completed"
                                 ? "bg-emerald-100 text-emerald-800"
                                 : fb.status === "planned"
-                                ? "bg-blue-100 text-blue-800"
-                                : fb.status === "in_review"
-                                ? "bg-amber-100 text-amber-800"
-                                : "bg-slate-100 text-slate-700"
+                                  ? "bg-blue-100 text-blue-800"
+                                  : fb.status === "in_review"
+                                    ? "bg-amber-100 text-amber-800"
+                                    : "bg-slate-100 text-slate-700"
                             }`}
                           >
                             {fb.status === "completed"
                               ? "Đã hoàn thành"
                               : fb.status === "planned"
-                              ? "Đã lên kế hoạch"
-                              : fb.status === "in_review"
-                              ? "Đang xem xét"
-                              : "Đã tiếp nhận"}
+                                ? "Đã lên kế hoạch"
+                                : fb.status === "in_review"
+                                  ? "Đang xem xét"
+                                  : "Đã tiếp nhận"}
                           </span>
                         </div>
 
@@ -902,7 +1066,9 @@ export const AppInfoModal: React.FC<AppInfoModalProps> = ({
 
                         {fb.admin_reply && (
                           <div className="p-3 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900/50 text-xs text-indigo-900 dark:text-indigo-200">
-                            <strong className="block text-[10px] uppercase text-indigo-600">Phản hồi từ TpTeam:</strong>
+                            <strong className="block text-[10px] uppercase text-indigo-600">
+                              Phản hồi từ TpTeam:
+                            </strong>
                             <p className="mt-0.5">{fb.admin_reply}</p>
                           </div>
                         )}
@@ -939,7 +1105,9 @@ export const AppInfoModal: React.FC<AppInfoModalProps> = ({
               </div>
 
               {isLoadingParentFb ? (
-                <div className="py-12 text-center text-xs text-slate-400">Đang tải danh sách góp ý...</div>
+                <div className="py-12 text-center text-xs text-slate-400">
+                  Đang tải danh sách góp ý...
+                </div>
               ) : parentFeedbacks.length === 0 ? (
                 <div className="p-12 text-center rounded-2xl bg-slate-50 dark:bg-slate-800/40 text-xs text-slate-400 space-y-2">
                   <Inbox className="w-8 h-8 mx-auto text-slate-300" />
@@ -958,7 +1126,9 @@ export const AppInfoModal: React.FC<AppInfoModalProps> = ({
                             {fb.student_name ? `Học sinh: ${fb.student_name}` : "Phụ huynh"}
                           </span>
                           {fb.parent_phone && (
-                            <span className="font-mono text-xs text-slate-500">({fb.parent_phone})</span>
+                            <span className="font-mono text-xs text-slate-500">
+                              ({fb.parent_phone})
+                            </span>
                           )}
                           <div className="flex items-center text-amber-400">
                             {[...Array(fb.rating || 5)].map((_, i) => (
@@ -972,21 +1142,19 @@ export const AppInfoModal: React.FC<AppInfoModalProps> = ({
                             fb.status === "resolved"
                               ? "bg-emerald-100 text-emerald-800"
                               : fb.status === "reviewed"
-                              ? "bg-blue-100 text-blue-800"
-                              : "bg-amber-100 text-amber-800"
+                                ? "bg-blue-100 text-blue-800"
+                                : "bg-amber-100 text-amber-800"
                           }`}
                         >
                           {fb.status === "resolved"
                             ? "Đã xử lý"
                             : fb.status === "reviewed"
-                            ? "Đã xem"
-                            : "Mới gửi"}
+                              ? "Đã xem"
+                              : "Mới gửi"}
                         </span>
                       </div>
 
-                      <div className="text-xs text-slate-600 dark:text-slate-300">
-                        {fb.content}
-                      </div>
+                      <div className="text-xs text-slate-600 dark:text-slate-300">{fb.content}</div>
 
                       <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1">
                         <span>Gửi ngày: {fb.created_at}</span>

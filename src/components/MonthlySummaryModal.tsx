@@ -15,6 +15,9 @@ import {
   Search,
 } from "lucide-react";
 import { MonthPicker } from "./MonthPicker";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("ui/MonthlySummaryModal");
 
 interface MonthlySummaryModalProps {
   isOpen: boolean;
@@ -68,30 +71,34 @@ export const MonthlySummaryModal: React.FC<MonthlySummaryModalProps> = ({
   const [studentFilter, setStudentFilter] = useState<"all" | "paid" | "unpaid">("all");
   const [searchQuery, setSearchQuery] = useState("");
 
-  const loadSummary = useCallback(async (m: string) => {
-    try {
-      setIsLoading(true);
-      const token = typeof window !== "undefined" ? localStorage.getItem("admin_token") : null;
-      const headers: Record<string, string> = {};
-      if (token) headers["Authorization"] = `Bearer ${token}`;
-      if (schoolId) headers["x-school-id"] = schoolId;
-      const schoolQuery = schoolId ? `&school_id=${encodeURIComponent(schoolId)}` : "";
-      const res = await fetch(`/api/reconciliation/summary?month=${m}${schoolQuery}`, {
-        headers,
-      });
-      const json = await res.json();
-      if (json.success) {
-        setData(json.data);
+  const loadSummary = useCallback(
+    async (m: string) => {
+      try {
+        setIsLoading(true);
+        const token = typeof window !== "undefined" ? localStorage.getItem("admin_token") : null;
+        const headers: Record<string, string> = {};
+        if (token) headers["Authorization"] = `Bearer ${token}`;
+        if (schoolId) headers["x-school-id"] = schoolId;
+        const schoolQuery = schoolId ? `&school_id=${encodeURIComponent(schoolId)}` : "";
+        const res = await fetch(`/api/reconciliation/summary?month=${m}${schoolQuery}`, {
+          headers,
+        });
+        const json = await res.json();
+        if (json.success) {
+          setData(json.data);
+        }
+      } catch (err) {
+        log.error("Failed to load summary:", { error: err });
+      } finally {
+        setIsLoading(false);
       }
-    } catch (err) {
-      console.error("Failed to load summary:", err);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [schoolId]);
+    },
+    [schoolId]
+  );
 
   useEffect(() => {
     if (isOpen) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Đồng bộ state khi mở modal hoặc nạp dữ liệu; sẽ chuyển sang pattern key-remount ở Giai đoạn 2.
       loadSummary(selectedMonth);
     }
   }, [isOpen, selectedMonth, loadSummary]);
@@ -116,8 +123,8 @@ export const MonthlySummaryModal: React.FC<MonthlySummaryModalProps> = ({
     s && s.total_expected_revenue > 0
       ? Math.min(100, Math.round((s.total_actual_revenue / s.total_expected_revenue) * 100))
       : s && s.paid_count > 0
-      ? 100
-      : 0;
+        ? 100
+        : 0;
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5 overflow-y-auto font-sans">
@@ -299,8 +306,12 @@ export const MonthlySummaryModal: React.FC<MonthlySummaryModalProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
                 <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 flex items-center justify-between">
                   <div>
-                    <span className="text-[10px] uppercase font-bold text-slate-400 block">Đang theo học</span>
-                    <span className="text-xl font-black text-emerald-600">{s?.studying_students || 0} HS</span>
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block">
+                      Đang theo học
+                    </span>
+                    <span className="text-xl font-black text-emerald-600">
+                      {s?.studying_students || 0} HS
+                    </span>
                   </div>
                   <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-xs">
                     🟢
@@ -309,8 +320,12 @@ export const MonthlySummaryModal: React.FC<MonthlySummaryModalProps> = ({
 
                 <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 flex items-center justify-between">
                   <div>
-                    <span className="text-[10px] uppercase font-bold text-slate-400 block">Đang bảo lưu</span>
-                    <span className="text-xl font-black text-amber-600">{s?.reserved_students || 0} HS</span>
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block">
+                      Đang bảo lưu
+                    </span>
+                    <span className="text-xl font-black text-amber-600">
+                      {s?.reserved_students || 0} HS
+                    </span>
                   </div>
                   <div className="w-8 h-8 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center font-bold text-xs">
                     🟡
@@ -319,8 +334,12 @@ export const MonthlySummaryModal: React.FC<MonthlySummaryModalProps> = ({
 
                 <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 flex items-center justify-between">
                   <div>
-                    <span className="text-[10px] uppercase font-bold text-slate-400 block">Đã nghỉ học</span>
-                    <span className="text-xl font-black text-rose-600">{s?.dropped_students || 0} HS</span>
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block">
+                      Đã nghỉ học
+                    </span>
+                    <span className="text-xl font-black text-rose-600">
+                      {s?.dropped_students || 0} HS
+                    </span>
                   </div>
                   <div className="w-8 h-8 rounded-full bg-rose-100 text-rose-700 flex items-center justify-center font-bold text-xs">
                     🔴
@@ -418,7 +437,9 @@ export const MonthlySummaryModal: React.FC<MonthlySummaryModalProps> = ({
                               <span className="text-rose-600 font-bold">🔴 Nghỉ học</span>
                             )}
                           </td>
-                          <td className="py-2.5 px-3 text-slate-600 dark:text-slate-300">{st.package_name}</td>
+                          <td className="py-2.5 px-3 text-slate-600 dark:text-slate-300">
+                            {st.package_name}
+                          </td>
                           <td className="py-2.5 px-3 text-right font-black text-slate-900 dark:text-white">
                             {formatVND(st.fee)}
                           </td>
@@ -445,7 +466,8 @@ export const MonthlySummaryModal: React.FC<MonthlySummaryModalProps> = ({
             <div className="space-y-4">
               <div className="p-3.5 rounded-2xl bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/40 text-xs text-indigo-900 dark:text-indigo-300 flex items-center justify-between">
                 <span>
-                  Các giao dịch chuyển khoản tự động được gửi qua Webhook từ cổng SePay và đối soát vào hệ thống:
+                  Các giao dịch chuyển khoản tự động được gửi qua Webhook từ cổng SePay và đối soát
+                  vào hệ thống:
                 </span>
                 <button
                   onClick={() => loadSummary(selectedMonth)}
@@ -524,7 +546,8 @@ export const MonthlySummaryModal: React.FC<MonthlySummaryModalProps> = ({
         {/* Footer */}
         <div className="px-6 py-3.5 border-t border-slate-200/80 dark:border-slate-800 flex items-center justify-between bg-slate-50/70 dark:bg-slate-950/40 text-xs">
           <span className="text-slate-400 font-medium">
-            Dữ liệu tổng kết được tính toán thời gian thực theo kỳ {formatMonthDisplay(selectedMonth, monthFormat)}
+            Dữ liệu tổng kết được tính toán thời gian thực theo kỳ{" "}
+            {formatMonthDisplay(selectedMonth, monthFormat)}
           </span>
           <button
             onClick={onClose}

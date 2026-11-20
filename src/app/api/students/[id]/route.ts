@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
 import { requireAdminPermission } from "@/lib/authHelper";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("api/students/id");
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -81,7 +84,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       message: "Cập nhật thông tin học sinh thành công!",
     });
   } catch (error: unknown) {
-    console.error("Student PUT Error:", error);
+    log.error("Student PUT Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Internal Server Error" },
       { status: 500 }
@@ -104,7 +107,9 @@ function normalizeTimeValue(value: unknown): string {
 
 // Chuẩn hóa tên thứ: "Thứ 4", "T4", "thu 4" -> "t4"; "Chủ Nhật", "CN" -> "cn"
 function normalizeDayValue(value: unknown): string {
-  const text = String(value || "").trim().toLowerCase();
+  const text = String(value || "")
+    .trim()
+    .toLowerCase();
   if (!text) return "";
   if (text.includes("chủ nhật") || text === "cn" || text === "c7") return "cn";
   const match = text.match(/([2-7])\s*$/);
@@ -179,7 +184,9 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
           (item): item is ScheduleItemLike => Boolean(item) && typeof item === "object"
         );
       }
-    } catch {}
+    } catch (err) {
+      log.debug("Bỏ qua lỗi không ảnh hưởng luồng chính (route)", { error: err });
+    }
 
     if (items.length === 0) {
       return NextResponse.json(
@@ -252,7 +259,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       if (!hours || isNaN(hours)) {
         const start = normalizeTimeValue(item.start_time);
         const end = normalizeTimeValue(item.end_time);
-        hours = start && end ? Math.max(0, (timeValueToMinutes(end) - timeValueToMinutes(start)) / 60) : 1;
+        hours =
+          start && end
+            ? Math.max(0, (timeValueToMinutes(end) - timeValueToMinutes(start)) / 60)
+            : 1;
       }
       totalHours += hours;
     }
@@ -285,7 +295,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     }
 
     // Không còn ca học nào => gỡ học viên khỏi lớp để không còn tính vào sĩ số lớp
-    const nextClassId = remaining.length > 0 && studentRow.class_id ? String(studentRow.class_id) : null;
+    const nextClassId =
+      remaining.length > 0 && studentRow.class_id ? String(studentRow.class_id) : null;
 
     await db.execute({
       sql: `UPDATE students
@@ -325,7 +336,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       },
     });
   } catch (error: unknown) {
-    console.error("Student PATCH Error:", error);
+    log.error("Student PATCH Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Internal Server Error" },
       { status: 500 }
@@ -366,7 +377,7 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
       message: "Đã xóa học sinh khỏi danh sách!",
     });
   } catch (error: unknown) {
-    console.error("Student DELETE Error:", error);
+    log.error("Student DELETE Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Internal Server Error" },
       { status: 500 }

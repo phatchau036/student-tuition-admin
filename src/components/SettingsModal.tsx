@@ -15,14 +15,13 @@ import {
   SchedulePreset,
   DAYS_OF_WEEK,
 } from "@/lib/types";
-import { formatVND, formatTimeSlotLabel, formatMonthDisplay, getCurrentMonthStr } from "@/lib/tuition";
+import { formatVND } from "@/lib/tuition";
 import { useLanguage } from "@/lib/i18n";
 import { useToast } from "@/components/Toast";
 import {
   Clock,
   Layers,
   Percent,
-  Coins,
   Plus,
   Trash2,
   Save,
@@ -34,9 +33,6 @@ import {
   Lock,
   KeyRound,
   ShieldCheck,
-  Tag,
-  AlertCircle,
-  HelpCircle,
   X,
   Sliders,
   Sparkles,
@@ -50,7 +46,6 @@ import {
   QrCode,
   Copy,
   ExternalLink,
-  Globe,
   BookOpen,
   ArrowUp,
   ArrowDown,
@@ -102,9 +97,30 @@ interface SettingsModalProps {
 const WEEKDAYS = DAYS_OF_WEEK;
 
 const DEFAULT_SCHEDULE_PRESETS: SchedulePreset[] = [
-  { id: "preset-even", name: "Thứ chẵn (2-4-6)", days: ["Thứ 2", "Thứ 4", "Thứ 6"], hours_per_session: 1.5, default_start_time: "18:00", is_default: true },
-  { id: "preset-odd", name: "Thứ lẻ (3-5-7)", days: ["Thứ 3", "Thứ 5", "Thứ 7"], hours_per_session: 1.5, default_start_time: "18:00", is_default: false },
-  { id: "preset-weekend", name: "Cuối tuần (T7-CN)", days: ["Thứ 7", "Chủ Nhật"], hours_per_session: 2.0, default_start_time: "09:00", is_default: false },
+  {
+    id: "preset-even",
+    name: "Thứ chẵn (2-4-6)",
+    days: ["Thứ 2", "Thứ 4", "Thứ 6"],
+    hours_per_session: 1.5,
+    default_start_time: "18:00",
+    is_default: true,
+  },
+  {
+    id: "preset-odd",
+    name: "Thứ lẻ (3-5-7)",
+    days: ["Thứ 3", "Thứ 5", "Thứ 7"],
+    hours_per_session: 1.5,
+    default_start_time: "18:00",
+    is_default: false,
+  },
+  {
+    id: "preset-weekend",
+    name: "Cuối tuần (T7-CN)",
+    days: ["Thứ 7", "Chủ Nhật"],
+    hours_per_session: 2.0,
+    default_start_time: "09:00",
+    is_default: false,
+  },
 ];
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -148,7 +164,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 }) => {
   const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState<
-    "general" | "packages" | "reconciliation" | "zalo" | "subjects" | "slots" | "levels" | "discounts" | "password"
+    | "general"
+    | "packages"
+    | "reconciliation"
+    | "zalo"
+    | "subjects"
+    | "slots"
+    | "levels"
+    | "discounts"
+    | "password"
   >("general");
 
   const { setLanguage: setGlobalLanguage } = useLanguage();
@@ -173,29 +197,41 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [capacityMode, setCapacityMode] = useState<CapacityMode>(initialCapacityMode);
 
   // Reconciliation settings
-  const [reconciliationMode, setReconciliationMode] = useState<ReconciliationMode>(initialReconciliationMode);
+  const [reconciliationMode, setReconciliationMode] =
+    useState<ReconciliationMode>(initialReconciliationMode);
   const [sepayApiKey, setSepayApiKey] = useState<string>(initialSepayApiKey);
   const [sepayAccountNumber, setSepayAccountNumber] = useState<string>(initialSepayAccountNumber);
   const [sepayBankName, setSepayBankName] = useState<string>(initialSepayBankName);
   const [sepayPrefix, setSepayPrefix] = useState<string>(initialSepayPrefix);
-  const [defaultMinutesPerSession, setDefaultMinutesPerSession] = useState<number>(initialDefaultMinutesPerSession);
+  const [defaultMinutesPerSession, setDefaultMinutesPerSession] = useState<number>(
+    initialDefaultMinutesPerSession
+  );
   const [isSimulatingSepay, setIsSimulatingSepay] = useState(false);
-  const [testTransferAmount, setTestTransferAmount] = useState<number>(1000000);
-  const [testContent, setTestContent] = useState<string>("");
+  const [_testTransferAmount, _setTestTransferAmount] = useState<number>(1000000);
+  const [_testContent, _setTestContent] = useState<string>("");
 
   // Zalo Reminder settings
-  const [zaloReminderMode, setZaloReminderMode] = useState<ZaloReminderMode>(initialZaloReminderMode);
+  const [zaloReminderMode, setZaloReminderMode] =
+    useState<ZaloReminderMode>(initialZaloReminderMode);
   const [zaloBotToken, setZaloBotToken] = useState<string>(initialZaloBotToken);
   const [zaloBotName, setZaloBotName] = useState<string>(initialZaloBotName);
   const [zaloBotAccountName, setZaloBotAccountName] = useState<string>("");
   const [zaloAdminChatId, setZaloAdminChatId] = useState<string>(initialZaloAdminChatId || "");
-  const [zaloNotifyPayment, setZaloNotifyPayment] = useState<boolean>(initialZaloNotifyPayment !== 0);
-  const [zaloNotifyStudentAbsence, setZaloNotifyStudentAbsence] = useState<boolean>(initialZaloNotifyStudentAbsence !== 0);
-  const [zaloNotifyTeacherLeave, setZaloNotifyTeacherLeave] = useState<boolean>(initialZaloNotifyTeacherLeave !== 0);
-  const [zaloNotifyParentFeedback, setZaloNotifyParentFeedback] = useState<boolean>(initialZaloNotifyParentFeedback !== 0);
+  const [zaloNotifyPayment, setZaloNotifyPayment] = useState<boolean>(
+    initialZaloNotifyPayment !== 0
+  );
+  const [zaloNotifyStudentAbsence, setZaloNotifyStudentAbsence] = useState<boolean>(
+    initialZaloNotifyStudentAbsence !== 0
+  );
+  const [zaloNotifyTeacherLeave, setZaloNotifyTeacherLeave] = useState<boolean>(
+    initialZaloNotifyTeacherLeave !== 0
+  );
+  const [zaloNotifyParentFeedback, setZaloNotifyParentFeedback] = useState<boolean>(
+    initialZaloNotifyParentFeedback !== 0
+  );
   const [isTestingBot, setIsTestingBot] = useState(false);
   const [isSettingWebhook, setIsSettingWebhook] = useState(false);
-  const [webhookStatus, setWebhookStatus] = useState<string | null>(null);
+  const [_webhookStatus, setWebhookStatus] = useState<string | null>(null);
   const [isFetchingUpdates, setIsFetchingUpdates] = useState(false);
   const [isSendingAdminTest, setIsSendingAdminTest] = useState(false);
   const [recentChatsList, setRecentChatsList] = useState<
@@ -213,7 +249,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [newPkgOriginalAmount, setNewPkgOriginalAmount] = useState<number>(1000000);
   const [newPkgCycleUnit, setNewPkgCycleUnit] = useState<"month" | "week">("month");
   const [newPkgCycleValue, setNewPkgCycleValue] = useState<number>(1);
-  const [newPkgDiscountType, setNewPkgDiscountType] = useState<"none" | "percent" | "amount">("none");
+  const [newPkgDiscountType, setNewPkgDiscountType] = useState<"none" | "percent" | "amount">(
+    "none"
+  );
   const [newPkgDiscountValue, setNewPkgDiscountValue] = useState<number>(0);
   const [newPkgBenefits, setNewPkgBenefits] = useState<string>("");
   const [isEditingPkgId, setIsEditingPkgId] = useState<string | null>(null);
@@ -409,6 +447,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Đồng bộ state khi mở modal hoặc nạp dữ liệu; sẽ chuyển sang pattern key-remount ở Giai đoạn 2.
     setBaseTuition(initialBaseTuition);
     setDurationMode(initialDurationMode);
     setAppLanguage(initialAppLanguage);
@@ -443,6 +482,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     if (initialSchedulePresets && initialSchedulePresets.length > 0) {
       setSchedulePresets(initialSchedulePresets);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Loader là hàm khai báo trong component, chỉ gọi khi mở modal/mount; thêm vào deps sẽ gây gọi lại vô hạn. Sẽ chuyển sang useCallback ở Giai đoạn 2.
   }, [
     initialBaseTuition,
     initialDurationMode,
@@ -507,7 +547,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   // Helper lấy Webhook URL chính xác cho Zalo Bot Platform
   const getZaloWebhookUrl = (): string => {
-    const origin = typeof window !== "undefined" ? window.location.origin : "https://your-domain.com";
+    const origin =
+      typeof window !== "undefined" ? window.location.origin : "https://your-domain.com";
     if (schoolId && schoolId !== "school-default") {
       return `${origin}/api/zalo-bot/webhook?school_id=${encodeURIComponent(schoolId)}`;
     }
@@ -522,7 +563,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
     const webhookUrl = getZaloWebhookUrl();
     if (webhookUrl.includes("localhost") || webhookUrl.includes("127.0.0.1")) {
-      showToast("Webhook Zalo yêu cầu domain công khai HTTPS (không nhận localhost). Bạn có thể dùng Cloudflare Tunnel hoặc VPS!", "info");
+      showToast(
+        "Webhook Zalo yêu cầu domain công khai HTTPS (không nhận localhost). Bạn có thể dùng Cloudflare Tunnel hoặc VPS!",
+        "info"
+      );
     }
 
     try {
@@ -755,7 +799,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setTimeSlots([...timeSlots, newSlot]);
   };
 
-  const handleUpdateTimeSlot = (index: number, field: keyof TimeSlot, value: any) => {
+  const handleUpdateTimeSlot = (index: number, field: keyof TimeSlot, value: string | number) => {
     const updated = [...timeSlots];
     const current = { ...updated[index], [field]: value };
 
@@ -763,11 +807,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     if (field === "from_day" || field === "to_day") {
       const from = field === "from_day" ? value : current.from_day || "Thứ 2";
       const to = field === "to_day" ? value : current.to_day || "Thứ 7";
-      current.days = from === to ? from : `${from} – ${to}`;
+      current.days = String(from) === String(to) ? String(from) : `${from} – ${to}`;
     }
 
     // Auto smart name if name is empty or starts with "Ca " or "Khung giờ"
-    if (field === "start_time" || field === "end_time" || field === "from_day" || field === "to_day") {
+    if (
+      field === "start_time" ||
+      field === "end_time" ||
+      field === "from_day" ||
+      field === "to_day"
+    ) {
       const prevName = current.name || "";
       if (!prevName || prevName.startsWith("Ca ") || prevName.includes("Khung giờ")) {
         const start = field === "start_time" ? value : current.start_time;
@@ -797,7 +846,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setLevels([...levels, newLvl]);
   };
 
-  const handleUpdateLevel = (index: number, field: keyof LevelSurcharge, value: any) => {
+  const handleUpdateLevel = (
+    index: number,
+    field: keyof LevelSurcharge,
+    value: string | number
+  ) => {
     const updated = [...levels];
     updated[index] = { ...updated[index], [field]: value };
     setLevels(updated);
@@ -832,7 +885,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   };
 
   const handleRemoveLevel = (index: number) => {
-    const updated = levels.filter((_, i) => i !== index).map((l, i) => ({ ...l, sort_order: i + 1 }));
+    const updated = levels
+      .filter((_, i) => i !== index)
+      .map((l, i) => ({ ...l, sort_order: i + 1 }));
     setLevels(updated);
   };
 
@@ -847,7 +902,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setDiscounts([...discounts, newDisc]);
   };
 
-  const handleUpdateDiscount = (index: number, field: "percentage" | "label", val: any) => {
+  const handleUpdateDiscount = (
+    index: number,
+    field: "percentage" | "label",
+    val: string | number
+  ) => {
     const updated = [...discounts];
     if (field === "percentage") {
       const numVal = Number(val) || 0;
@@ -893,13 +952,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       const data = await res.json();
       if (data.success) {
         showToast(data.message, "success");
-        setSubjects([...subjects, {
-          id: data.subject_id,
-          name: newSubjectName.trim(),
-          description: newSubjectDesc.trim(),
-          color: newSubjectColor,
-          is_active: 1,
-        }]);
+        setSubjects([
+          ...subjects,
+          {
+            id: data.subject_id,
+            name: newSubjectName.trim(),
+            description: newSubjectDesc.trim(),
+            color: newSubjectColor,
+            is_active: 1,
+          },
+        ]);
         setNewSubjectName("");
         setNewSubjectDesc("");
       } else {
@@ -940,7 +1002,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         body: JSON.stringify({
           school_id: schoolId || undefined,
           base_tuition: Number(baseTuition) || 0,
-          duration_mode: "by_sessions",
+          duration_mode: durationMode,
           app_language: appLanguage,
           month_format: monthFormat,
           default_hours_per_week: Number(defaultHours) || 3,
@@ -1048,7 +1110,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <Package className="w-4 h-4 shrink-0" />
                 <span>Gói Học Phí</span>
               </div>
-              <span className={`text-[10px] px-1.5 py-0.2 rounded-md font-bold hidden md:inline ${activeTab === "packages" ? "bg-white/20 text-white" : "bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400"}`}>
+              <span
+                className={`text-[10px] px-1.5 py-0.2 rounded-md font-bold hidden md:inline ${activeTab === "packages" ? "bg-white/20 text-white" : "bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400"}`}
+              >
                 {packages.length}
               </span>
             </button>
@@ -1096,7 +1160,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <BookOpen className="w-4 h-4 shrink-0" />
                 <span>Môn học ({subjects.length})</span>
               </div>
-              <span className={`text-[10px] px-1.5 py-0.2 rounded-md font-bold hidden md:inline ${activeTab === "subjects" ? "bg-white/20 text-white" : "bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400"}`}>
+              <span
+                className={`text-[10px] px-1.5 py-0.2 rounded-md font-bold hidden md:inline ${activeTab === "subjects" ? "bg-white/20 text-white" : "bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400"}`}
+              >
                 {subjects.length}
               </span>
             </button>
@@ -1113,7 +1179,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <Clock className="w-4 h-4 shrink-0" />
                 <span>Khung giờ ca</span>
               </div>
-              <span className={`text-[10px] px-1.5 py-0.2 rounded-md font-bold hidden md:inline ${activeTab === "slots" ? "bg-white/20 text-white" : "bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400"}`}>
+              <span
+                className={`text-[10px] px-1.5 py-0.2 rounded-md font-bold hidden md:inline ${activeTab === "slots" ? "bg-white/20 text-white" : "bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400"}`}
+              >
                 {timeSlots.length}
               </span>
             </button>
@@ -1130,7 +1198,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <Layers className="w-4 h-4 shrink-0" />
                 <span>Phụ thu Level</span>
               </div>
-              <span className={`text-[10px] px-1.5 py-0.2 rounded-md font-bold hidden md:inline ${activeTab === "levels" ? "bg-white/20 text-white" : "bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400"}`}>
+              <span
+                className={`text-[10px] px-1.5 py-0.2 rounded-md font-bold hidden md:inline ${activeTab === "levels" ? "bg-white/20 text-white" : "bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400"}`}
+              >
                 {levels.length}
               </span>
             </button>
@@ -1147,7 +1217,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <Percent className="w-4 h-4 shrink-0" />
                 <span>Mức chiết khấu</span>
               </div>
-              <span className={`text-[10px] px-1.5 py-0.2 rounded-md font-bold hidden md:inline ${activeTab === "discounts" ? "bg-white/20 text-white" : "bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400"}`}>
+              <span
+                className={`text-[10px] px-1.5 py-0.2 rounded-md font-bold hidden md:inline ${activeTab === "discounts" ? "bg-white/20 text-white" : "bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400"}`}
+              >
                 {discounts.length}
               </span>
             </button>
@@ -1169,1937 +1241,2071 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
           {/* Right Panel: Scrollable Tab Content */}
           <div className="p-6 overflow-y-auto flex-1 space-y-6">
-          {/* TAB 1: Capacity & Weekly Duration Mode */}
-          {activeTab === "general" && (
-            <div className="space-y-6 w-full">
-              {/* QUẢN LÝ THỜI LƯỢNG & KIỂU LỊCH HỌC CƠ SỞ (MA TRẬN TÍNH TOÁN TỰ ĐỘNG) */}
-              <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <Calendar className="w-4 h-4 text-indigo-600" />
-                      <h4 className="text-sm font-black text-slate-900 dark:text-white">
-                        Chế Độ Quản Lý Thời Lượng & Kiểu Lịch Học Cơ Sở
-                      </h4>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300">
-                        {schedulePresets.length} kiểu lịch
-                      </span>
-                    </div>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                      Cố định các ca học theo lịch chuẩn (tên kiểu, các ngày trong tuần và số tiếng/buổi) để hệ thống tự động tính ma trận thời lượng tuần.
-                    </p>
-                  </div>
-
-                  {!isEditingPreset && (
-                    <button
-                      type="button"
-                      onClick={handleOpenAddPreset}
-                      className="self-start sm:self-auto flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs transition shrink-0"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>Thêm kiểu lịch mới</span>
-                    </button>
-                  )}
-                </div>
-
-                <div className="space-y-4">
-                  {/* FORM THÊM / SỬA KIỂU LỊCH */}
-                  {isEditingPreset && (
-                    <div className="p-4 rounded-2xl border-2 border-indigo-500/80 bg-indigo-50/30 dark:bg-indigo-950/20 space-y-3.5 animate-in fade-in duration-200">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-black text-indigo-900 dark:text-indigo-200 flex items-center gap-1.5">
-                          <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
-                          {editingPresetId ? "Chỉnh sửa kiểu lịch học" : "Tạo kiểu lịch học mới"}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setIsEditingPreset(false);
-                            setEditingPresetId(null);
-                          }}
-                          className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-white dark:hover:bg-slate-800 transition"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        {/* Tên kiểu lịch */}
-                        <div className="sm:col-span-2">
-                          <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 block mb-1">
-                            Tên kiểu lịch:
-                          </label>
-                          <input
-                            type="text"
-                            value={presetFormName}
-                            onChange={(e) => setPresetFormName(e.target.value)}
-                            placeholder="Ví dụ: Thứ chẵn (2-4-6), Thứ lẻ (3-5-7), Lớp cuối tuần..."
-                            className="w-full px-3 py-2 text-xs font-bold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"
-                          />
-                        </div>
-
-                        {/* Giờ vào lớp mặc định */}
-                        <div>
-                          <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 block mb-1">
-                            Giờ vào lớp gợi ý:
-                          </label>
-                          <input
-                            type="text"
-                            value={presetFormStartTime}
-                            onChange={(e) => setPresetFormStartTime(e.target.value)}
-                            placeholder="18:00"
-                            className="w-full px-3 py-2 text-xs font-bold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500 text-center"
-                          />
-                        </div>
-                      </div>
-
-                      {/* Chọn các ngày trong tuần */}
-                      <div>
-                        <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 block mb-1.5">
-                          Chọn các ngày học trong tuần ({presetFormDays.length} ngày đã chọn):
-                        </label>
-                        <div className="flex flex-wrap gap-1.5">
-                          {WEEKDAYS.map((day) => {
-                            const isChecked = presetFormDays.includes(day);
-                            return (
-                              <button
-                                type="button"
-                                key={day}
-                                onClick={() => handleTogglePresetDay(day)}
-                                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 ${
-                                  isChecked
-                                    ? "bg-indigo-600 text-white shadow-xs"
-                                    : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800"
-                                }`}
-                              >
-                                {isChecked && <Check className="w-3 h-3" />}
-                                {day}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-
-                      {/* Thời lượng 1 buổi & Ma trận tính toán xem trước */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                        <div>
-                          <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 block mb-1">
-                            Thời lượng 1 buổi học:
-                          </label>
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="number"
-                              min="0.5"
-                              max="8"
-                              step="0.5"
-                              value={presetFormHours}
-                              onChange={(e) => setPresetFormHours(Number(e.target.value) || 1)}
-                              className="w-24 px-3 py-2 text-xs font-black text-center rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"
-                            />
-                            <span className="text-xs font-bold text-slate-500">tiếng / buổi</span>
-                            <div className="flex gap-1">
-                              {[1, 1.5, 2].map((quickH) => (
-                                <button
-                                  type="button"
-                                  key={quickH}
-                                  onClick={() => setPresetFormHours(quickH)}
-                                  className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition ${
-                                    presetFormHours === quickH
-                                      ? "bg-indigo-600 text-white border-indigo-600"
-                                      : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50"
-                                  }`}
-                                >
-                                  {quickH}h
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Card Ma trận tính toán xem trước */}
-                        <div className="p-2.5 rounded-xl bg-indigo-100/70 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-900/60 flex items-center justify-between">
-                          <div>
-                            <span className="text-[10px] font-black uppercase tracking-wider text-indigo-700 dark:text-indigo-300 block">
-                              Ma trận tính toán tự động
-                            </span>
-                            <div className="text-xs font-black text-indigo-950 dark:text-indigo-100 mt-0.5">
-                              {presetFormDays.length} buổi × {presetFormHours}h ={" "}
-                              <span className="text-indigo-600 dark:text-indigo-400 text-sm">
-                                {Math.round(presetFormDays.length * presetFormHours * 10) / 10} tiếng/tuần
-                              </span>
-                            </div>
-                          </div>
-                          <span className="text-[10px] font-bold px-2 py-1 rounded-md bg-white dark:bg-slate-900 text-indigo-700 dark:text-indigo-300 shadow-2xs">
-                            {Math.round(presetFormDays.length * presetFormHours * 60)} phút/tuần
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Nút hành động của form */}
-                      <div className="flex items-center justify-end gap-2 pt-2 border-t border-indigo-100 dark:border-indigo-900/60">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setIsEditingPreset(false);
-                            setEditingPresetId(null);
-                          }}
-                          className="px-3 py-1.5 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800 transition"
-                        >
-                          Hủy bỏ
-                        </button>
-                        <button
-                          type="button"
-                          onClick={handleSavePresetForm}
-                          className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs transition"
-                        >
-                          <Save className="w-3.5 h-3.5" />
-                          <span>{editingPresetId ? "Lưu thay đổi kiểu" : "Tạo kiểu này"}</span>
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* DANH SÁCH THẺ CÁC KIỂU LỊCH HỌC */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
-                    {schedulePresets.map((preset) => {
-                      const totalHours = Math.round((preset.days?.length || 0) * (preset.hours_per_session || 1.5) * 10) / 10;
-                      const totalMinutes = Math.round(totalHours * 60);
-
-                      return (
-                        <div
-                          key={preset.id}
-                          className={`p-3.5 rounded-2xl border transition relative flex flex-col justify-between ${
-                            preset.is_default
-                              ? "border-indigo-500 bg-indigo-50/50 dark:bg-indigo-950/30 shadow-xs ring-1 ring-indigo-500/40"
-                              : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-slate-300"
-                          }`}
-                        >
-                          <div>
-                            {/* Header thẻ: Tên + Badge mặc định */}
-                            <div className="flex items-start justify-between gap-1.5 mb-1.5">
-                              <div className="flex items-center gap-1.5 min-w-0">
-                                <Calendar className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
-                                <span className="text-xs font-black text-slate-900 dark:text-white truncate">
-                                  {preset.name}
-                                </span>
-                              </div>
-                              {preset.is_default ? (
-                                <span className="text-[10px] font-black px-1.5 py-0.5 rounded-md bg-indigo-600 text-white shrink-0">
-                                  Mặc định
-                                </span>
-                              ) : (
-                                <button
-                                  type="button"
-                                  onClick={() => handleSetDefaultPreset(preset.id)}
-                                  className="text-[10px] font-bold text-slate-400 hover:text-indigo-600 hover:underline shrink-0"
-                                >
-                                  Đặt mặc định
-                                </button>
-                              )}
-                            </div>
-
-                            {/* Badges các ngày trong tuần */}
-                            <div className="flex flex-wrap gap-1 my-2">
-                              {(preset.days || []).map((d) => (
-                                <span
-                                  key={d}
-                                  className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300"
-                                >
-                                  {d}
-                                </span>
-                              ))}
-                            </div>
-
-                            {/* Ma trận tính toán: số buổi × thời lượng = tổng tiếng */}
-                            <div className="p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 text-[11px] space-y-0.5">
-                              <div className="flex items-center justify-between text-slate-600 dark:text-slate-400">
-                                <span>Thời lượng:</span>
-                                <strong className="text-slate-900 dark:text-white font-mono">
-                                  {preset.hours_per_session}h / buổi
-                                </strong>
-                              </div>
-                              <div className="flex items-center justify-between text-slate-600 dark:text-slate-400">
-                                <span>Ma trận tuần:</span>
-                                <strong className="text-indigo-600 dark:text-indigo-400 font-mono font-black">
-                                  {preset.days?.length || 0} buổi × {preset.hours_per_session}h = {totalHours}h
-                                </strong>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Footer: Thao tác sửa / xóa */}
-                          <div className="flex items-center justify-between pt-2.5 mt-2.5 border-t border-slate-100 dark:border-slate-800/80">
-                            <span className="text-[10px] font-mono text-slate-400">
-                              {totalMinutes} phút/tuần
-                            </span>
-                            <div className="flex items-center gap-1">
-                              <button
-                                type="button"
-                                onClick={() => handleOpenEditPreset(preset)}
-                                className="p-1 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
-                                title="Chỉnh sửa kiểu lịch"
-                              >
-                                <Edit2 className="w-3.5 h-3.5" />
-                              </button>
-                              {schedulePresets.length > 1 && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleDeletePreset(preset.id)}
-                                  className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition"
-                                  title="Xóa kiểu lịch"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-
-              {/* Class Capacity & Crowded Threshold Card */}
-              <div className="bg-amber-50/50 dark:bg-amber-950/20 p-5 rounded-2xl border border-amber-200/80 dark:border-amber-900/40 space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                      <Users className="w-4 h-4 text-amber-600" />
-                      Cấu Hình Sĩ Số Ca & Cảnh Báo Lớp Đông Khi Học Bù
-                    </h4>
-                    <p className="text-xs text-slate-500 mt-0.5">
-                      Lựa chọn cơ chế kiểm soát giới hạn học sinh để bảo vệ chất lượng giảng dạy
-                    </p>
-                  </div>
-                  <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-300">
-                    Bảo vệ lớp học
-                  </span>
-                </div>
-
-                {/* 2 LỰA CHỌN CƠ CHẾ: THEO LỚP/GIỜ MỞ CỬA vs THEO GIÁO VIÊN */}
-                <div>
-                  <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-2">
-                    Cơ chế tính sĩ số & kiểm soát hết suất:
-                  </label>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {/* Option 1: Theo Lớp / Giờ Mở Cửa */}
-                    <div
-                      onClick={() => setCapacityMode("by_slot")}
-                      className={`p-3.5 rounded-2xl border-2 transition cursor-pointer flex flex-col justify-between ${
-                        capacityMode === "by_slot"
-                          ? "border-amber-500 bg-white dark:bg-slate-900 shadow-xs"
-                          : "border-slate-200 dark:border-slate-800 bg-white/60 dark:bg-slate-900/40 opacity-70 hover:opacity-100"
-                      }`}
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                          <Clock className="w-4 h-4 text-amber-600" />
-                          <span className="text-xs font-bold text-slate-900 dark:text-white">
-                            1. Theo Lớp / Giờ Mở Cửa
-                          </span>
-                        </div>
-                        {capacityMode === "by_slot" && (
-                          <div className="w-4 h-4 rounded-full bg-amber-500 text-white flex items-center justify-center">
-                            <Check className="w-3 h-3 stroke-[3]" />
-                          </div>
-                        )}
-                      </div>
-                      <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
-                        Sĩ số tính chung theo khung giờ mở cửa của cơ sở. Khi ca đạt giới hạn tối đa sẽ tự động khóa và hiển thị &quot;Hết suất&quot;.
-                      </p>
-                    </div>
-
-                    {/* Option 2: Theo Giáo Viên Đứng Lớp */}
-                    <div
-                      onClick={() => setCapacityMode("by_teacher")}
-                      className={`p-3.5 rounded-2xl border-2 transition cursor-pointer flex flex-col justify-between ${
-                        capacityMode === "by_teacher"
-                          ? "border-indigo-600 bg-white dark:bg-slate-900 shadow-xs"
-                          : "border-slate-200 dark:border-slate-800 bg-white/60 dark:bg-slate-900/40 opacity-70 hover:opacity-100"
-                      }`}
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                          <GraduationCap className="w-4 h-4 text-indigo-600" />
-                          <span className="text-xs font-bold text-slate-900 dark:text-white">
-                            2. Theo Giáo Viên Đứng Lớp
-                          </span>
-                        </div>
-                        {capacityMode === "by_teacher" && (
-                          <div className="w-4 h-4 rounded-full bg-indigo-600 text-white flex items-center justify-center">
-                            <Check className="w-3 h-3 stroke-[3]" />
-                          </div>
-                        )}
-                      </div>
-                      <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
-                        Sĩ số tính riêng theo từng giáo viên (cấu hình trong mục Giáo viên: GV nhận tối đa bao nhiêu học sinh, làm ca nào, tuần làm mấy buổi...).
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
-                  <div>
-                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                      {capacityMode === "by_teacher"
-                        ? "Sĩ số chuẩn tối đa mặc định của Giáo viên"
-                        : "Sĩ số tối đa trong một ca / lớp"}
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        min="1"
-                        max="100"
-                        value={maxStudents}
-                        onChange={(e) => setMaxStudents(Number(e.target.value) || 10)}
-                        className="w-full px-3 py-2 text-sm font-bold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 outline-none focus:ring-2 focus:ring-amber-500"
-                      />
-                      <span className="absolute right-3 top-2 text-xs text-slate-400 font-semibold">
-                        {capacityMode === "by_teacher" ? "học sinh / GV" : "học sinh / ca"}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                      Ngưỡng cảnh báo Lớp Đông (%)
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        min="10"
-                        max="99"
-                        value={crowdedThreshold}
-                        onChange={(e) => setCrowdedThreshold(Number(e.target.value) || 80)}
-                        className="w-full px-3 py-2 text-sm font-bold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 outline-none focus:ring-2 focus:ring-amber-500"
-                      />
-                      <span className="absolute right-3 top-2 text-xs text-slate-400 font-bold">%</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* ⭐ VÍ GIỜ HỌC: Thời lượng 1 buổi học mặc định */}
-                <div className="pt-3 mt-3 border-t border-slate-200 dark:border-slate-800">
-                  <label className="text-xs font-black text-indigo-700 dark:text-indigo-400 uppercase tracking-wider block mb-1.5 flex items-center gap-1.5">
-                    ⏱️ Ví Giờ Học — Thời lượng 1 buổi mặc định
-                  </label>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-2">
-                    Số phút được cấp vào ví khi học sinh đóng tiền 1 buổi học. Giờ trừ theo phút học thật (điểm danh).
-                  </p>
-                  <div className="relative max-w-xs">
-                    <input
-                      type="number"
-                      min="15"
-                      max="480"
-                      step="5"
-                      value={defaultMinutesPerSession}
-                      onChange={(e) => setDefaultMinutesPerSession(Number(e.target.value) || 90)}
-                      className="w-full px-3 py-2 text-sm font-bold rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50/40 dark:bg-slate-900 text-indigo-700 dark:text-indigo-400 outline-none focus:ring-2 focus:ring-indigo-500"
-                    />
-                    <span className="absolute right-3 top-2 text-xs text-indigo-400 font-bold">phút / buổi</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 mt-2 flex-wrap">
-                    {[45, 60, 90, 120].map((min) => (
-                      <button
-                        key={min}
-                        type="button"
-                        onClick={() => setDefaultMinutesPerSession(min)}
-                        className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition cursor-pointer ${
-                          defaultMinutesPerSession === min
-                            ? "bg-indigo-600 text-white border-indigo-600"
-                            : "bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-indigo-400"
-                        }`}
-                      >
-                        {min} phút
-                      </button>
-                    ))}
-                    <span className="text-[10px] text-slate-400 ml-1">
-                      = {(defaultMinutesPerSession / 60).toFixed(defaultMinutesPerSession % 60 === 0 ? 0 : 1)} tiếng/buổi
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-              {/* TAB 1.1: GÓI HỌC PHÍ (TUITION PACKAGES) */}
-              {activeTab === "packages" && (
-                <div className="space-y-6 w-full">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            {/* TAB 1: Capacity & Weekly Duration Mode */}
+            {activeTab === "general" && (
+              <div className="space-y-6 w-full">
+                {/* QUẢN LÝ THỜI LƯỢNG & KIỂU LỊCH HỌC CƠ SỞ (MA TRẬN TÍNH TOÁN TỰ ĐỘNG) */}
+                <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
                     <div>
-                      <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                        <Package className="w-5 h-5 text-indigo-600" />
-                        <span>Danh Mục Gói Học Phí Cơ Sở</span>
-                      </h3>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                        Tạo gói theo tháng (1 tháng, 3 tháng...) hoặc theo tuần (24 tuần...) để gán cho học sinh
+                      <div className="flex items-center gap-2">
+                        <Calendar className="w-4 h-4 text-indigo-600" />
+                        <h4 className="text-sm font-black text-slate-900 dark:text-white">
+                          Chế Độ Quản Lý Thời Lượng & Kiểu Lịch Học Cơ Sở
+                        </h4>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300">
+                          {schedulePresets.length} kiểu lịch
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                        Cố định các ca học theo lịch chuẩn (tên kiểu, các ngày trong tuần và số
+                        tiếng/buổi) để hệ thống tự động tính ma trận thời lượng tuần.
                       </p>
                     </div>
-                  </div>
 
-                  {/* Form Tạo / Sửa gói */}
-                  <form
-                    onSubmit={handleCreateOrUpdatePackage}
-                    className="p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 space-y-4 shadow-xs"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-black uppercase tracking-wider text-indigo-600 flex items-center gap-1.5">
-                        {isEditingPkgId ? <Edit2 className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-                        {isEditingPkgId ? "Chỉnh Sửa Gói Học Phí" : "Thêm Gói Học Phí Mới"}
-                      </span>
-                      {isEditingPkgId && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setIsEditingPkgId(null);
-                            setNewPkgName("");
-                            setNewPkgAmount(1000000);
-                            setNewPkgCycleUnit("month");
-                            setNewPkgCycleValue(1);
-                          }}
-                          className="text-xs font-bold text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-                        >
-                          Hủy sửa
-                        </button>
-                      )}
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-                      <div className="sm:col-span-2">
-                        <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">
-                          Tên gói học phí *
-                        </label>
-                        <input
-                          type="text"
-                          required
-                          value={newPkgName}
-                          onChange={(e) => setNewPkgName(e.target.value)}
-                          placeholder="VD: Theo quý - 3 tháng, Khóa 6 tháng..."
-                          className="w-full px-3 py-2 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none"
-                        />
-                      </div>
-
-                      <div className="sm:col-span-1">
-                        <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">
-                          Đơn vị chu kỳ *
-                        </label>
-                        <select
-                          value={newPkgCycleUnit}
-                          onChange={(e) => setNewPkgCycleUnit(e.target.value as "month" | "week")}
-                          className="w-full px-3 py-2 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none"
-                        >
-                          <option value="month">Tháng (Khóa theo tháng/quý)</option>
-                          <option value="week">Tuần (Khóa theo tuần)</option>
-                        </select>
-                      </div>
-
-                      <div className="sm:col-span-1">
-                        <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">
-                          Số {newPkgCycleUnit === "month" ? "Tháng" : "Tuần"} *
-                        </label>
-                        <input
-                          type="number"
-                          min="1"
-                          max="200"
-                          required
-                          value={newPkgCycleValue}
-                          onChange={(e) => {
-                            const val = Number(e.target.value) || 1;
-                            setNewPkgCycleValue(val);
-                            // Auto estimate original amount based on base tuition
-                            if (baseTuition > 0 && newPkgCycleUnit === "month") {
-                              const autoOrig = baseTuition * val;
-                              setNewPkgOriginalAmount(autoOrig);
-                              if (newPkgDiscountType === "percent" && newPkgDiscountValue > 0) {
-                                setNewPkgAmount(Math.round(autoOrig * (1 - newPkgDiscountValue / 100)));
-                              } else if (newPkgDiscountType === "amount" && newPkgDiscountValue > 0) {
-                                setNewPkgAmount(Math.max(0, autoOrig - newPkgDiscountValue));
-                              } else {
-                                setNewPkgAmount(autoOrig);
-                              }
-                            }
-                          }}
-                          className="w-full px-3 py-2 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none"
-                        />
-                      </div>
-
-                      {/* Giá gốc ban đầu */}
-                      <div className="sm:col-span-2">
-                        <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">
-                          Giá gốc ban đầu (VNĐ)
-                        </label>
-                        <div className="relative">
-                          <input
-                            type="number"
-                            min="0"
-                            step="any"
-                            value={newPkgOriginalAmount === 0 ? "" : newPkgOriginalAmount}
-                            onChange={(e) => {
-                              const val = e.target.value === "" ? 0 : Number(e.target.value);
-                              setNewPkgOriginalAmount(val);
-                              if (newPkgDiscountType === "percent" && newPkgDiscountValue > 0) {
-                                setNewPkgAmount(Math.round(val * (1 - newPkgDiscountValue / 100)));
-                              } else if (newPkgDiscountType === "amount" && newPkgDiscountValue > 0) {
-                                setNewPkgAmount(Math.max(0, val - newPkgDiscountValue));
-                              } else if (newPkgDiscountType === "none") {
-                                setNewPkgAmount(val);
-                              }
-                            }}
-                            className="w-full px-3 py-2 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none"
-                          />
-                          <span className="absolute right-3 top-2 text-[10px] font-bold text-slate-400">
-                            {formatVND(newPkgOriginalAmount)}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Loại ưu đãi */}
-                      <div className="sm:col-span-1">
-                        <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">
-                          Ưu đãi / Giảm giá
-                        </label>
-                        <select
-                          value={newPkgDiscountType}
-                          onChange={(e) => {
-                            const dt = e.target.value as "none" | "percent" | "amount";
-                            setNewPkgDiscountType(dt);
-                            if (dt === "none") {
-                              setNewPkgDiscountValue(0);
-                              setNewPkgAmount(newPkgOriginalAmount);
-                            } else if (dt === "percent") {
-                              const disc = 10;
-                              setNewPkgDiscountValue(disc);
-                              setNewPkgAmount(Math.round(newPkgOriginalAmount * (1 - disc / 100)));
-                            } else if (dt === "amount") {
-                              const disc = 200000;
-                              setNewPkgDiscountValue(disc);
-                              setNewPkgAmount(Math.max(0, newPkgOriginalAmount - disc));
-                            }
-                          }}
-                          className="w-full px-3 py-2 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none"
-                        >
-                          <option value="none">Không giảm</option>
-                          <option value="percent">Giảm theo %</option>
-                          <option value="amount">Giảm tiền mặt (VNĐ)</option>
-                        </select>
-                      </div>
-
-                      {/* Giá trị giảm */}
-                      <div className="sm:col-span-1">
-                        <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">
-                          Mức giảm {newPkgDiscountType === "percent" ? "(%)" : "(VNĐ)"}
-                        </label>
-                        <input
-                          type="number"
-                          min="0"
-                          disabled={newPkgDiscountType === "none"}
-                          value={newPkgDiscountValue}
-                          onChange={(e) => {
-                            const val = Number(e.target.value) || 0;
-                            setNewPkgDiscountValue(val);
-                            if (newPkgDiscountType === "percent") {
-                              setNewPkgAmount(Math.round(newPkgOriginalAmount * (1 - val / 100)));
-                            } else if (newPkgDiscountType === "amount") {
-                              setNewPkgAmount(Math.max(0, newPkgOriginalAmount - val));
-                            }
-                          }}
-                          className="w-full px-3 py-2 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none disabled:opacity-50"
-                        />
-                      </div>
-
-                      {/* Số tiền thực thu (Sau ưu đãi) */}
-                      <div className="sm:col-span-2">
-                        <label className="text-[10px] font-black uppercase tracking-wider text-emerald-600 block mb-1 flex items-center justify-between">
-                          <span>Số tiền thực thu (Sau ưu đãi) *</span>
-                          {newPkgOriginalAmount > newPkgAmount && (
-                            <span className="text-rose-500 font-bold">
-                              Tiết kiệm: {formatVND(newPkgOriginalAmount - newPkgAmount)}
-                            </span>
-                          )}
-                        </label>
-                        <div className="relative">
-                          <input
-                            type="number"
-                            min="0"
-                            step="any"
-                            required
-                            value={newPkgAmount === 0 ? "" : newPkgAmount}
-                            onChange={(e) => setNewPkgAmount(e.target.value === "" ? 0 : Number(e.target.value))}
-                            className="w-full px-3 py-2 text-xs font-black text-emerald-600 dark:text-emerald-400 rounded-xl border border-emerald-300 dark:border-emerald-800 bg-emerald-50/30 dark:bg-emerald-950/20 focus:ring-2 focus:ring-emerald-500 outline-none"
-                          />
-                          <span className="absolute right-3 top-2 text-[10px] font-bold text-slate-400">
-                            {formatVND(newPkgAmount)}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Quyền lợi / Ưu đãi tặng kèm */}
-                      <div className="sm:col-span-2">
-                        <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">
-                          Ưu đãi & Quà tặng kèm (Tùy chọn)
-                        </label>
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="text"
-                            value={newPkgBenefits}
-                            onChange={(e) => setNewPkgBenefits(e.target.value)}
-                            placeholder="VD: Tặng 1 buổi học bù + Bộ giáo trình chuyên sâu"
-                            className="w-full px-3 py-2 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none"
-                          />
-                          <button
-                            type="submit"
-                            className="px-4 py-2 text-xs font-black uppercase tracking-wider text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-sm shadow-indigo-600/25 transition shrink-0"
-                          >
-                            {isEditingPkgId ? "Cập Nhật" : "Thêm Gói"}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </form>
-
-                  {/* Danh sách các gói hiện có */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
-                    {packages.map((pkg) => (
-                      <div
-                        key={pkg.id}
-                        className={`p-4 rounded-2xl border transition flex flex-col justify-between space-y-3 ${
-                          pkg.is_active === 1
-                            ? "bg-white dark:bg-slate-900 border-slate-200/80 dark:border-slate-800 shadow-xs"
-                            : "bg-slate-100/60 dark:bg-slate-850/40 border-slate-200 dark:border-slate-800 opacity-60"
-                        }`}
+                    {!isEditingPreset && (
+                      <button
+                        type="button"
+                        onClick={handleOpenAddPreset}
+                        className="self-start sm:self-auto flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs transition shrink-0"
                       >
-                        <div>
-                          <div className="flex items-start justify-between gap-2">
-                            <span className="font-extrabold text-sm text-slate-900 dark:text-white leading-snug">
-                              {pkg.name}
-                            </span>
-                            <span
-                              className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase shrink-0 ${
-                                pkg.is_active === 1
-                                  ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
-                                  : "bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
-                              }`}
-                            >
-                              {pkg.is_active === 1 ? "Hoạt động" : "Tạm tắt"}
-                            </span>
-                          </div>
-
-                          <div className="mt-2 flex items-baseline gap-2 flex-wrap">
-                            <span className="text-lg font-black text-emerald-600 dark:text-emerald-400">
-                              {formatVND(pkg.amount)}
-                            </span>
-                            {pkg.original_amount && pkg.original_amount > pkg.amount && (
-                              <span className="text-xs font-semibold text-slate-400 line-through">
-                                {formatVND(pkg.original_amount)}
-                              </span>
-                            )}
-                          </div>
-
-                          <div className="mt-1 flex items-center gap-1.5 flex-wrap">
-                            <span className="text-xs text-slate-500 font-medium">
-                              Chu kỳ: <strong>{pkg.cycle_value} {pkg.cycle_unit === "month" ? "Tháng" : "Tuần"}</strong>
-                            </span>
-                            {pkg.discount_type === "percent" && pkg.discount_value && pkg.discount_value > 0 ? (
-                              <span className="px-1.5 py-0.2 rounded text-[10px] font-black bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300">
-                                -{pkg.discount_value}%
-                              </span>
-                            ) : pkg.discount_type === "amount" && pkg.discount_value && pkg.discount_value > 0 ? (
-                              <span className="px-1.5 py-0.2 rounded text-[10px] font-black bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300">
-                                -{formatVND(pkg.discount_value)}
-                              </span>
-                            ) : null}
-                          </div>
-
-                          {pkg.benefits && (
-                            <div className="mt-2 p-2 rounded-xl bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/40 text-[11px] text-indigo-800 dark:text-indigo-300">
-                              <span className="font-bold block text-[10px] uppercase text-indigo-500">Ưu đãi tặng kèm:</span>
-                              <p className="mt-0.5 leading-relaxed">{pkg.benefits}</p>
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
-                          <button
-                            type="button"
-                            onClick={() => handleTogglePackageActive(pkg.id)}
-                            className="text-[11px] font-bold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 flex items-center gap-1"
-                          >
-                            <Power className="w-3.5 h-3.5" />
-                            <span>{pkg.is_active === 1 ? "Tắt gói" : "Bật lại"}</span>
-                          </button>
-
-                          <div className="flex items-center gap-1.5">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setIsEditingPkgId(pkg.id);
-                                setNewPkgName(pkg.name);
-                                setNewPkgAmount(pkg.amount);
-                                setNewPkgOriginalAmount(pkg.original_amount || pkg.amount);
-                                setNewPkgCycleUnit(pkg.cycle_unit);
-                                setNewPkgCycleValue(pkg.cycle_value);
-                                setNewPkgDiscountType(pkg.discount_type || "none");
-                                setNewPkgDiscountValue(pkg.discount_value || 0);
-                                setNewPkgBenefits(pkg.benefits || "");
-                              }}
-                              className="p-1 text-slate-400 hover:text-indigo-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition"
-                              title="Sửa thông tin gói"
-                            >
-                              <Edit2 className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleDeletePackage(pkg.id)}
-                              className="p-1 text-rose-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition"
-                              title="Xóa gói này"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-
-                    {packages.length === 0 && (
-                      <div className="col-span-full py-12 text-center text-xs text-slate-400 border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl">
-                        Chưa có gói học phí nào. Vui lòng thêm gói học phí ở form trên.
-                      </div>
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Thêm kiểu lịch mới</span>
+                      </button>
                     )}
                   </div>
-                </div>
-              )}
 
-              {/* TAB 1.2: CÀI ĐẶT ĐỐI SOÁT (RECONCILIATION SETTINGS) */}
-              {activeTab === "reconciliation" && (
-                <div className="space-y-6 w-full">
-                  <div>
-                    <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                      <CreditCard className="w-5 h-5 text-indigo-600" />
-                      <span>Cài Đặt Chế Độ Đối Soát Học Phí</span>
-                    </h3>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                      Chọn phương thức đối soát học phí đã đóng hoặc cần đóng tiền
-                    </p>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {/* Option 1: Thủ công */}
-                    <div
-                      onClick={() => setReconciliationMode("manual")}
-                      className={`p-5 rounded-2xl border-2 transition cursor-pointer flex flex-col justify-between ${
-                        reconciliationMode === "manual"
-                          ? "border-indigo-600 bg-indigo-50/40 dark:bg-indigo-950/30 shadow-xs"
-                          : "border-slate-200 dark:border-slate-700/80 bg-slate-50/50 dark:bg-slate-800/40 hover:border-slate-300"
-                      }`}
-                    >
-                      <div>
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-[11px] font-black uppercase tracking-wider text-indigo-600">
-                            Chế Độ 1
+                  <div className="space-y-4">
+                    {/* FORM THÊM / SỬA KIỂU LỊCH */}
+                    {isEditingPreset && (
+                      <div className="p-4 rounded-2xl border-2 border-indigo-500/80 bg-indigo-50/30 dark:bg-indigo-950/20 space-y-3.5 animate-in fade-in duration-200">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-black text-indigo-900 dark:text-indigo-200 flex items-center gap-1.5">
+                            <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+                            {editingPresetId ? "Chỉnh sửa kiểu lịch học" : "Tạo kiểu lịch học mới"}
                           </span>
-                          {reconciliationMode === "manual" && (
-                            <div className="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center">
-                              <CheckCircle2 className="w-3.5 h-3.5" />
-                            </div>
-                          )}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsEditingPreset(false);
+                              setEditingPresetId(null);
+                            }}
+                            className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-white dark:hover:bg-slate-800 transition"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
                         </div>
-                        <h4 className="text-sm font-extrabold text-slate-900 dark:text-white">
-                          Đối Soát Thủ Công (Manual)
-                        </h4>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-                          Admin tự bấm tích chọn học sinh đã đóng theo gói 1 tháng hoặc gói khóa nhiều tháng. Hệ thống tự động duy trì trạng thái &quot;Đã đóng&quot; suốt thời hạn gói và chỉ chuyển sang &quot;Cần đóng tiền&quot; khi hết chu kỳ.
-                        </p>
-                      </div>
-                      <div className="mt-4 pt-3 border-t border-slate-200/60 dark:border-slate-700/60 flex items-center gap-2 text-xs font-bold text-indigo-600">
-                        <span>{reconciliationMode === "manual" ? "Đang được chọn" : "Bấm để chọn"}</span>
-                      </div>
-                    </div>
 
-                    {/* Option 2: Tự động SePay Webhook */}
-                    <div
-                      onClick={() => setReconciliationMode("auto")}
-                      className={`p-5 rounded-2xl border-2 transition cursor-pointer flex flex-col justify-between ${
-                        reconciliationMode === "auto"
-                          ? "border-emerald-600 bg-emerald-50/40 dark:bg-emerald-950/30 shadow-xs"
-                          : "border-slate-200 dark:border-slate-700/80 bg-slate-50/50 dark:bg-slate-800/40 hover:border-slate-300"
-                      }`}
-                    >
-                      <div>
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-[11px] font-black uppercase tracking-wider text-emerald-600">
-                            Chế Độ 2 (Tự Động)
-                          </span>
-                          {reconciliationMode === "auto" && (
-                            <div className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center">
-                              <CheckCircle2 className="w-3.5 h-3.5" />
-                            </div>
-                          )}
-                        </div>
-                        <h4 className="text-sm font-extrabold text-slate-900 dark:text-white flex items-center gap-1.5">
-                          <span>Đối Soát Tự Động SePay</span>
-                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300">
-                            Khuyên dùng
-                          </span>
-                        </h4>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-                          Tự động nhận thông báo biến động số dư ngân hàng (Vietcombank, MB, ACB, Techcombank...) qua <strong>SePay Webhook</strong>. Khớp mã học sinh hoặc SĐT để tự gạch nợ và đổi trạng thái Đã đóng ngay lập tức.
-                        </p>
-                      </div>
-                      <div className="mt-4 pt-3 border-t border-slate-200/60 dark:border-slate-700/60 flex items-center gap-2 text-xs font-bold text-emerald-600">
-                        <span>{reconciliationMode === "auto" ? "Đang được chọn" : "Bấm để chọn"}</span>
-                      </div>
-                    </div>
-                  </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                          {/* Tên kiểu lịch */}
+                          <div className="sm:col-span-2">
+                            <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 block mb-1">
+                              Tên kiểu lịch:
+                            </label>
+                            <input
+                              type="text"
+                              value={presetFormName}
+                              onChange={(e) => setPresetFormName(e.target.value)}
+                              placeholder="Ví dụ: Thứ chẵn (2-4-6), Thứ lẻ (3-5-7), Lớp cuối tuần..."
+                              className="w-full px-3 py-2 text-xs font-bold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"
+                            />
+                          </div>
 
-                  {/* CẤU HÌNH CHI TIẾT SEPAY */}
-                  <div className="p-5 rounded-2xl border border-emerald-200/80 dark:border-emerald-900/40 bg-emerald-50/30 dark:bg-emerald-950/20 space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold">
-                          <QrCode className="w-5 h-5" />
-                        </div>
-                        <div>
-                          <h4 className="text-sm font-black text-slate-900 dark:text-white">
-                            Cấu Hình Tích Hợp SePay Webhook
-                          </h4>
-                          <p className="text-xs text-slate-500">
-                            Xem hướng dẫn tạo Webhook tại{" "}
-                            <a
-                              href="https://docs.sepay.vn/tich-hop-webhooks.html"
-                              target="_blank"
-                              rel="noreferrer"
-                              className="text-emerald-600 font-bold underline inline-flex items-center gap-0.5"
-                            >
-                              docs.sepay.vn <ExternalLink className="w-3 h-3" />
-                            </a>
-                          </p>
-                        </div>
-                      </div>
-
-                      <span className="text-[11px] font-mono px-2.5 py-1 rounded-lg bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300 font-bold">
-                        docs.sepay.vn
-                      </span>
-                    </div>
-
-                    {/* Webhook URL Display */}
-                    <div className="p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-1.5">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="font-bold text-slate-700 dark:text-slate-300">
-                          Webhook URL cần dán vào SePay Platform:
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const origin = typeof window !== "undefined" ? window.location.origin : "http://localhost:3000";
-                            const fullUrl = `${origin}/api/sepay/webhook`;
-                            navigator.clipboard.writeText(fullUrl);
-                            showToast("Đã copy Webhook URL vào bộ nhớ tạm!", "success");
-                          }}
-                          className="text-emerald-600 font-bold hover:underline flex items-center gap-1"
-                        >
-                          <Copy className="w-3.5 h-3.5" /> Copy URL
-                        </button>
-                      </div>
-                      <div className="p-2 rounded-lg bg-slate-50 dark:bg-slate-800 font-mono text-xs text-indigo-600 dark:text-indigo-400 break-all select-all">
-                        {typeof window !== "undefined" ? `${window.location.origin}/api/sepay/webhook` : "https://your-domain.com/api/sepay/webhook"}
-                      </div>
-                    </div>
-
-                    {/* Inputs Form */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 block mb-1">
-                          API Key SePay (Authentication Header)
-                        </label>
-                        <input
-                          type="password"
-                          value={sepayApiKey}
-                          onChange={(e) => setSepayApiKey(e.target.value)}
-                          placeholder="Ví dụ: SEPAY_API_KEY_abc123"
-                          className="w-full px-3 py-2 text-xs font-mono font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:ring-2 focus:ring-emerald-500 outline-none"
-                        />
-                        <span className="text-[10px] text-slate-400 mt-0.5 block">
-                          Nhập nếu bạn thiết lập kiểu xác thực API Key trên SePay
-                        </span>
-                      </div>
-
-                      <div>
-                        <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 block mb-1">
-                          Cú Pháp / Tiền Tố Nhận Diện (Prefix)
-                        </label>
-                        <input
-                          type="text"
-                          value={sepayPrefix}
-                          onChange={(e) => setSepayPrefix(e.target.value.toUpperCase())}
-                          placeholder="Mặc định: HP"
-                          className="w-full px-3 py-2 text-xs font-mono font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:ring-2 focus:ring-emerald-500 outline-none"
-                        />
-                        <span className="text-[10px] text-slate-400 mt-0.5 block">
-                          Cú pháp khuyên dùng khi phụ huynh chuyển: <strong>{sepayPrefix || "HP"} [MãHS hoặc SĐT]</strong>
-                        </span>
-                      </div>
-
-                      <div>
-                        <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 block mb-1">
-                          Số Tài Khoản Ngân Hàng Nhận Tiền
-                        </label>
-                        <input
-                          type="text"
-                          value={sepayAccountNumber}
-                          onChange={(e) => setSepayAccountNumber(e.target.value)}
-                          placeholder="Ví dụ: 09012345678"
-                          className="w-full px-3 py-2 text-xs font-mono font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:ring-2 focus:ring-emerald-500 outline-none"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 block mb-1">
-                          Tên Ngân Hàng
-                        </label>
-                        <input
-                          type="text"
-                          value={sepayBankName}
-                          onChange={(e) => setSepayBankName(e.target.value)}
-                          placeholder="Ví dụ: Vietcombank, MBBank, ACB, ..."
-                          className="w-full px-3 py-2 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:ring-2 focus:ring-emerald-500 outline-none"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Test Webhook Tool */}
-                    <div className="pt-3 border-t border-emerald-200/60 dark:border-emerald-900/60 flex flex-col sm:flex-row items-center justify-between gap-3">
-                      <div className="text-xs text-slate-600 dark:text-slate-400">
-                        <span className="font-bold text-slate-800 dark:text-slate-200">Công cụ kiểm thử đối soát:</span> Bấm giả lập một biến động số dư SePay gửi đến Webhook để xác minh quy trình tự động.
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          try {
-                            setIsSimulatingSepay(true);
-                            const res = await fetch("/api/sepay/webhook", {
-                              method: "POST",
-                              headers: {
-                                "Content-Type": "application/json",
-                                "Authorization": sepayApiKey ? `Apikey ${sepayApiKey}` : "",
-                              },
-                              body: JSON.stringify({
-                                id: Math.floor(100000 + Math.random() * 900000),
-                                gateway: sepayBankName || "Vietcombank",
-                                transactionDate: new Date().toISOString().slice(0, 19).replace("T", " "),
-                                accountNumber: sepayAccountNumber || "1017588888",
-                                code: "TESTSEPAY",
-                                content: `SEVN HP HS ${new Date().toISOString().slice(5, 7)} test chuyen hoc phi`,
-                                transferType: "in",
-                                transferAmount: 1000000,
-                                referenceCode: `REF${Date.now().toString().slice(-6)}`,
-                              }),
-                            });
-                            const data = await res.json();
-                            if (data.success) {
-                              showToast(`Kiểm thử Webhook SePay thành công: ${data.message}`, "success");
-                            } else {
-                              showToast(data.message || "Kiểm thử Webhook thất bại", "error");
-                            }
-                          } catch {
-                            showToast("Lỗi khi gửi yêu cầu kiểm thử webhook!", "error");
-                          } finally {
-                            setIsSimulatingSepay(false);
-                          }
-                        }}
-                        disabled={isSimulatingSepay}
-                        className="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition flex items-center gap-1.5 shrink-0"
-                      >
-                        <RefreshCw className={`w-3.5 h-3.5 ${isSimulatingSepay ? "animate-spin" : ""}`} />
-                        <span>{isSimulatingSepay ? "Đang gửi..." : "Thử Nghiệm Gửi Webhook"}</span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* TAB 1.3: NHẮC HỌC PHÍ QUA ZALO */}
-              {activeTab === "zalo" && (
-                <div className="space-y-6 w-full">
-                  <div>
-                    <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                      <MessageSquare className="w-5 h-5 text-blue-600" />
-                      <span>Cấu Hình Phương Thức Nhắc Học Phí Qua Zalo</span>
-                    </h3>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                      Lựa chọn hình thức gửi thông báo học phí đến phụ huynh và học sinh
-                    </p>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {/* Option B: Nhắc học phí thủ công (Active) */}
-                    <div
-                      onClick={() => setZaloReminderMode("manual")}
-                      className={`p-5 rounded-2xl border-2 transition cursor-pointer flex flex-col justify-between ${
-                        zaloReminderMode === "manual"
-                          ? "border-blue-600 bg-blue-50/40 dark:bg-blue-950/30 shadow-xs"
-                          : "border-slate-200 dark:border-slate-700/80 bg-slate-50/50 dark:bg-slate-800/40 hover:border-slate-300"
-                      }`}
-                    >
-                      <div>
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-[11px] font-black uppercase tracking-wider text-blue-600">
-                            Phương Thức B (Khuyên dùng)
-                          </span>
-                          {zaloReminderMode === "manual" && (
-                            <div className="w-5 h-5 rounded-full bg-blue-600 text-white flex items-center justify-center">
-                              <CheckCircle2 className="w-3.5 h-3.5" />
-                            </div>
-                          )}
-                        </div>
-                        <h4 className="text-sm font-extrabold text-slate-900 dark:text-white">
-                          Nhắc Học Phí Thủ Công (Manual Assist)
-                        </h4>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-                          Khi bấm vào học sinh, hệ thống mở cửa sổ mẫu tin nhắn nhắc học phí chuẩn soạn sẵn. Có sẵn <strong>Nút Copy</strong> và <strong>Nút Mở Zalo</strong> chuyển thẳng vào phòng chat với phụ huynh.
-                        </p>
-                      </div>
-                      <div className="mt-4 pt-3 border-t border-slate-200/60 dark:border-slate-700/60 flex items-center gap-2 text-xs font-bold text-blue-600">
-                        <span>Đang kích hoạt</span>
-                      </div>
-                    </div>
-
-                    {/* Option A: Tích hợp Bot Zalo Platform (Hoạt động) */}
-                    <div
-                      onClick={() => setZaloReminderMode("bot")}
-                      className={`p-5 rounded-2xl border-2 transition cursor-pointer flex flex-col justify-between ${
-                        zaloReminderMode === "bot"
-                          ? "border-blue-600 bg-blue-50/40 dark:bg-blue-950/30 shadow-xs"
-                          : "border-slate-200 dark:border-slate-700/80 bg-slate-50/50 dark:bg-slate-800/40 hover:border-slate-300"
-                      }`}
-                    >
-                      <div>
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-[11px] font-black uppercase tracking-wider text-blue-600">
-                            Phương Thức A (Zalo Bot API)
-                          </span>
-                          {zaloReminderMode === "bot" && (
-                            <div className="w-5 h-5 rounded-full bg-blue-600 text-white flex items-center justify-center">
-                              <CheckCircle2 className="w-3.5 h-3.5" />
-                            </div>
-                          )}
-                        </div>
-                        <h4 className="text-sm font-extrabold text-slate-900 dark:text-white flex items-center gap-1.5">
-                          <Bot className="w-4 h-4 text-blue-600" />
-                          <span>Tích Hợp Zalo Bot Tự Động</span>
-                        </h4>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-                          Sử dụng nền tảng <strong>Zalo Bot Platform</strong> (bot-api.zapps.me). Tự động gửi tin nhắn nhắc nợ học phí vào Zalo của phụ huynh khi đến hạn qua lệnh sendMessage.
-                        </p>
-
-                        {/* Form cấu hình Zalo Bot */}
-                        <div className="space-y-3 mt-3 pt-3 border-t border-slate-200 dark:border-slate-800 text-left">
+                          {/* Giờ vào lớp mặc định */}
                           <div>
                             <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 block mb-1">
-                              Zalo Bot Token *
+                              Giờ vào lớp gợi ý:
                             </label>
-                            <div className="flex items-center gap-1.5">
-                              <input
-                                type="text"
-                                placeholder="Nhập Bot Token từ Zalo Bot Creator..."
-                                value={zaloBotToken}
-                                onChange={(e) => setZaloBotToken(e.target.value)}
-                                className="w-full px-3 py-1.5 text-xs font-mono font-bold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none focus:ring-2 focus:ring-blue-500"
-                              />
-                              <button
-                                type="button"
-                                disabled={isTestingBot}
-                                onClick={handleTestBotConnection}
-                                className="px-3 py-1.5 text-[11px] font-bold rounded-xl bg-blue-600 hover:bg-blue-700 text-white shrink-0 transition disabled:opacity-50"
-                              >
-                                {isTestingBot ? "Đang thử..." : "Test Bot"}
-                              </button>
-                            </div>
-                          </div>
-
-                          {zaloBotName && (
-                            <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-[11px] text-emerald-800 dark:text-emerald-300 font-bold flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                              <div className="flex items-center gap-1.5">
-                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                                <span>Đã kết nối: {zaloBotName}</span>
-                              </div>
-                              {zaloBotAccountName && (
-                                <a
-                                  href={`https://zalo.me/${zaloBotAccountName}`}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 underline font-semibold"
-                                  title="Mở ứng dụng Zalo để chat ngay với Bot"
-                                >
-                                  <span>Mở Chat Bot (@{zaloBotAccountName})</span>
-                                  <ExternalLink className="w-3 h-3" />
-                                </a>
-                              )}
-                            </div>
-                          )}
-
-                          {/* KHU VỰC WEBHOOK URL & NÚT KÍCH HOẠT TỰ ĐỘNG */}
-                          <div className="p-3 rounded-2xl bg-blue-50/70 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/60 space-y-2">
-                            <div className="flex items-center justify-between">
-                              <span className="text-[11px] font-black uppercase tracking-wider text-blue-900 dark:text-blue-200 flex items-center gap-1.5">
-                                <Sparkles className="w-3.5 h-3.5 text-blue-600" />
-                                <span>Webhook URL Zalo Bot (Đồng bộ tức thì)</span>
-                              </span>
-                              <div className="flex items-center gap-1.5">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    const url = getZaloWebhookUrl();
-                                    navigator.clipboard.writeText(url);
-                                    showToast("Đã copy Webhook URL vào bộ nhớ tạm!", "success");
-                                  }}
-                                  className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold rounded-lg bg-white dark:bg-slate-900 text-blue-700 dark:text-blue-300 border border-blue-300 dark:border-blue-700 hover:bg-blue-50 transition shadow-2xs"
-                                  title="Copy URL để dán vào Bot Zalo"
-                                >
-                                  <Copy className="w-3 h-3" />
-                                  <span>Copy URL</span>
-                                </button>
-                                <button
-                                  type="button"
-                                  disabled={isSettingWebhook || !zaloBotToken.trim()}
-                                  onClick={handleAutoSetWebhook}
-                                  className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition shadow-2xs disabled:opacity-50"
-                                  title="Tự động gọi setWebhook qua API của Zalo"
-                                >
-                                  <RefreshCw className={`w-3 h-3 ${isSettingWebhook ? "animate-spin" : ""}`} />
-                                  <span>{isSettingWebhook ? "Đang gắn..." : "Kích Hoạt Tự Động"}</span>
-                                </button>
-                              </div>
-                            </div>
-                            <div className="p-2 rounded-xl bg-white dark:bg-slate-900 border border-blue-200/80 dark:border-blue-900/40 font-mono text-[11px] text-blue-800 dark:text-blue-300 break-all select-all">
-                              {typeof window !== "undefined" ? getZaloWebhookUrl() : "https://domain.com/api/zalo-bot/webhook"}
-                            </div>
-                            <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                              💡 <strong>Cách dùng đơn giản:</strong> Bấm <strong>&quot;Kích Hoạt Tự Động&quot;</strong> để hệ thống tự đăng ký Webhook với Zalo Bot. Hoặc bấm <strong>&quot;Copy URL&quot;</strong> rồi gửi lệnh <code>/setwebhook &lt;url&gt;</code> cho Bot trong Zalo.
-                            </p>
-                          </div>
-
-                          {/* Hướng dẫn tạo bot theo chuẩn tài liệu zaloplatforms */}
-                          <div className="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-[11px] text-slate-600 dark:text-slate-400 space-y-1">
-                            <span className="font-bold text-slate-700 dark:text-slate-200 block text-[10px] uppercase">
-                              Hướng dẫn kết nối Bot Zalo (3 bước nhanh):
-                            </span>
-                            <p>1. Mở app Zalo, tìm kiếm <strong>&quot;Zalo Bot Manager&quot;</strong>.</p>
-                            <p>2. Chọn <strong>&quot;Tạo bot&quot;</strong>, đặt tên bot có tiền tố <em>Bot</em> (VD: <em>BotTrungTamHongAn</em>).</p>
-                            <p>3. Dán mã <strong>Bot Token</strong> vào ô trên ➔ Bấm <strong>&quot;Test Bot&quot;</strong> ➔ Bấm <strong>&quot;Kích Hoạt Tự Động&quot;</strong> là xong!</p>
+                            <input
+                              type="text"
+                              value={presetFormStartTime}
+                              onChange={(e) => setPresetFormStartTime(e.target.value)}
+                              placeholder="18:00"
+                              className="w-full px-3 py-2 text-xs font-bold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500 text-center"
+                            />
                           </div>
                         </div>
-                      </div>
-                      <div className="mt-3 pt-2 flex items-center gap-1.5 text-xs font-bold text-blue-600">
-                        <span>Hỗ trợ gửi tin nhắn tự động 1-click qua Bot</span>
-                      </div>
-                    </div>
-                  </div>
 
-                  {/* PHẦN MỚI: KÊNH THÔNG BÁO TỰ ĐỘNG VỀ ZALO CHO QUẢN LÝ / ADMIN */}
-                  <div className="p-5 rounded-2xl border-2 border-indigo-200 dark:border-indigo-900/60 bg-gradient-to-br from-indigo-50/50 via-white to-blue-50/40 dark:from-slate-900 dark:via-slate-900 dark:to-indigo-950/40 shadow-xs space-y-4">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-indigo-100 dark:border-indigo-900/60 pb-3">
-                      <div>
-                        <h4 className="text-sm font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
-                          <Bell className="w-4 h-4 text-indigo-600" />
-                          <span>Kênh Thông Báo Tự Động Về Zalo Cho Quản Lý / Admin</span>
-                        </h4>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                          Bot sẽ tự động gửi tin nhắn báo cáo tức thì về Zalo cá nhân của bạn khi có biến động tại trung tâm
-                        </p>
-                      </div>
-                      <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300 self-start sm:self-auto">
-                        Thời gian thực
-                      </span>
-                    </div>
+                        {/* Chọn các ngày trong tuần */}
+                        <div>
+                          <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 block mb-1.5">
+                            Chọn các ngày học trong tuần ({presetFormDays.length} ngày đã chọn):
+                          </label>
+                          <div className="flex flex-wrap gap-1.5">
+                            {WEEKDAYS.map((day) => {
+                              const isChecked = presetFormDays.includes(day);
+                              return (
+                                <button
+                                  type="button"
+                                  key={day}
+                                  onClick={() => handleTogglePresetDay(day)}
+                                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 ${
+                                    isChecked
+                                      ? "bg-indigo-600 text-white shadow-xs"
+                                      : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800"
+                                  }`}
+                                >
+                                  {isChecked && <Check className="w-3 h-3" />}
+                                  {day}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
 
-                    {/* Ô nhập Chat ID & nút Lấy Chat ID */}
-                    <div className="space-y-2">
-                      <label className="text-[11px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-300 block">
-                        Zalo Chat ID của Quản lý / Admin nhận thông báo *
-                      </label>
-                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                        <input
-                          type="text"
-                          placeholder="Ví dụ: 123456789 (nhập mã hoặc bấm Lấy Chat ID)"
-                          value={zaloAdminChatId}
-                          onChange={(e) => setZaloAdminChatId(e.target.value)}
-                          className="flex-1 px-3.5 py-2 text-xs font-mono font-bold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"
-                        />
-                        <button
-                          type="button"
-                          disabled={isFetchingUpdates}
-                          onClick={handleFetchRecentChats}
-                          className="flex items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white shrink-0 transition shadow-xs disabled:opacity-50"
-                          title="Lấy danh sách người vừa nhắn tin cho Bot để chọn nhanh Chat ID"
-                        >
-                          <RefreshCw className={`w-3.5 h-3.5 ${isFetchingUpdates ? "animate-spin" : ""}`} />
-                          <span>{isFetchingUpdates ? "Đang dò tìm..." : "Lấy Chat ID gần đây"}</span>
-                        </button>
-                        <button
-                          type="button"
-                          disabled={isSendingAdminTest || !zaloAdminChatId.trim()}
-                          onClick={handleTestAdminMessage}
-                          className="flex items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shrink-0 transition shadow-xs disabled:opacity-50"
-                          title="Gửi 1 tin nhắn thử nghiệm tới Zalo Admin để kiểm tra chuông"
-                        >
-                          <Send className={`w-3.5 h-3.5 ${isSendingAdminTest ? "animate-spin" : ""}`} />
-                          <span>{isSendingAdminTest ? "Đang gửi..." : "Gửi Thử Tin Nhắn"}</span>
-                        </button>
-                      </div>
-                    </div>
+                        {/* Thời lượng 1 buổi & Ma trận tính toán xem trước */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                          <div>
+                            <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 block mb-1">
+                              Thời lượng 1 buổi học:
+                            </label>
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="number"
+                                min="0.5"
+                                max="8"
+                                step="0.5"
+                                value={presetFormHours}
+                                onChange={(e) => setPresetFormHours(Number(e.target.value) || 1)}
+                                className="w-24 px-3 py-2 text-xs font-black text-center rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"
+                              />
+                              <span className="text-xs font-bold text-slate-500">tiếng / buổi</span>
+                              <div className="flex gap-1">
+                                {[1, 1.5, 2].map((quickH) => (
+                                  <button
+                                    type="button"
+                                    key={quickH}
+                                    onClick={() => setPresetFormHours(quickH)}
+                                    className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition ${
+                                      presetFormHours === quickH
+                                        ? "bg-indigo-600 text-white border-indigo-600"
+                                        : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50"
+                                    }`}
+                                  >
+                                    {quickH}h
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
 
-                    {/* Hướng dẫn 3 bước ngắn gọn */}
-                    <div className="p-3.5 rounded-xl bg-slate-100/80 dark:bg-slate-800/80 text-xs text-slate-600 dark:text-slate-300 space-y-1.5 border border-slate-200/60 dark:border-slate-700/60">
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-slate-800 dark:text-slate-200 block text-[10px] uppercase tracking-wider">
-                          Cách kết nối Zalo Admin trong 10 giây:
-                        </span>
-                        {zaloBotAccountName && (
-                          <a
-                            href={`https://zalo.me/${zaloBotAccountName}`}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline font-bold inline-flex items-center gap-1"
+                          {/* Card Ma trận tính toán xem trước */}
+                          <div className="p-2.5 rounded-xl bg-indigo-100/70 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-900/60 flex items-center justify-between">
+                            <div>
+                              <span className="text-[10px] font-black uppercase tracking-wider text-indigo-700 dark:text-indigo-300 block">
+                                Ma trận tính toán tự động
+                              </span>
+                              <div className="text-xs font-black text-indigo-950 dark:text-indigo-100 mt-0.5">
+                                {presetFormDays.length} buổi × {presetFormHours}h ={" "}
+                                <span className="text-indigo-600 dark:text-indigo-400 text-sm">
+                                  {Math.round(presetFormDays.length * presetFormHours * 10) / 10}{" "}
+                                  tiếng/tuần
+                                </span>
+                              </div>
+                            </div>
+                            <span className="text-[10px] font-bold px-2 py-1 rounded-md bg-white dark:bg-slate-900 text-indigo-700 dark:text-indigo-300 shadow-2xs">
+                              {Math.round(presetFormDays.length * presetFormHours * 60)} phút/tuần
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Nút hành động của form */}
+                        <div className="flex items-center justify-end gap-2 pt-2 border-t border-indigo-100 dark:border-indigo-900/60">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsEditingPreset(false);
+                              setEditingPresetId(null);
+                            }}
+                            className="px-3 py-1.5 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800 transition"
                           >
-                            <span>Mở Zalo nhắn cho Bot</span>
-                            <ExternalLink className="w-3 h-3" />
-                          </a>
-                        )}
+                            Hủy bỏ
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleSavePresetForm}
+                            className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs transition"
+                          >
+                            <Save className="w-3.5 h-3.5" />
+                            <span>{editingPresetId ? "Lưu thay đổi kiểu" : "Tạo kiểu này"}</span>
+                          </button>
+                        </div>
                       </div>
-                      <p>
-                        • <strong>Bước 1:</strong> Mở app Zalo trên điện thoại, tìm bot{" "}
-                        <strong className="text-indigo-600 dark:text-indigo-400">
-                          {zaloBotName || "của trung tâm"} {zaloBotAccountName ? `(@${zaloBotAccountName})` : ""}
-                        </strong>{" "}
-                        và nhắn tin chữ <em>&quot;Hi&quot;</em>.
-                      </p>
-                      <p>
-                        • <strong>Bước 2:</strong> Bấm nút <strong>&quot;Lấy Chat ID gần đây&quot;</strong> ở trên, hệ thống sẽ hiện tên bạn và tự động điền Chat ID.
-                      </p>
-                      <p>
-                        • <strong>Bước 3:</strong> Bấm <strong>&quot;Gửi Thử Tin Nhắn&quot;</strong>, điện thoại của bạn sẽ ting ting nhận tin nhắn xác nhận ngay lập tức!
-                      </p>
-                    </div>
+                    )}
 
-                    {/* 4 Checkbox lựa chọn nhận thông báo */}
-                    <div className="pt-2">
-                      <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-2">
-                        Tùy chọn sự kiện nhận thông báo trên Zalo:
-                      </span>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                        <label className="flex items-center gap-2.5 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 cursor-pointer hover:border-indigo-400 transition">
-                          <input
-                            type="checkbox"
-                            checked={zaloNotifyPayment}
-                            onChange={(e) => setZaloNotifyPayment(e.target.checked)}
-                            className="w-4 h-4 text-indigo-600 rounded-md focus:ring-indigo-500"
-                          />
-                          <div className="text-xs">
-                            <span className="font-bold text-slate-800 dark:text-slate-200 block">
-                              💰 Tiền học phí về tài khoản (SePay)
-                            </span>
-                            <span className="text-[11px] text-slate-400">
-                              Báo khi nhận chuyển khoản và gạch nợ thành công
-                            </span>
-                          </div>
-                        </label>
+                    {/* DANH SÁCH THẺ CÁC KIỂU LỊCH HỌC */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                      {schedulePresets.map((preset) => {
+                        const totalHours =
+                          Math.round(
+                            (preset.days?.length || 0) * (preset.hours_per_session || 1.5) * 10
+                          ) / 10;
+                        const totalMinutes = Math.round(totalHours * 60);
 
-                        <label className="flex items-center gap-2.5 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 cursor-pointer hover:border-indigo-400 transition">
-                          <input
-                            type="checkbox"
-                            checked={zaloNotifyStudentAbsence}
-                            onChange={(e) => setZaloNotifyStudentAbsence(e.target.checked)}
-                            className="w-4 h-4 text-indigo-600 rounded-md focus:ring-indigo-500"
-                          />
-                          <div className="text-xs">
-                            <span className="font-bold text-slate-800 dark:text-slate-200 block">
-                              🏥 Học sinh nộp đơn báo nghỉ học
-                            </span>
-                            <span className="text-[11px] text-slate-400">
-                              Báo khi phụ huynh gửi báo nghỉ trực tuyến
-                            </span>
-                          </div>
-                        </label>
+                        return (
+                          <div
+                            key={preset.id}
+                            className={`p-3.5 rounded-2xl border transition relative flex flex-col justify-between ${
+                              preset.is_default
+                                ? "border-indigo-500 bg-indigo-50/50 dark:bg-indigo-950/30 shadow-xs ring-1 ring-indigo-500/40"
+                                : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-slate-300"
+                            }`}
+                          >
+                            <div>
+                              {/* Header thẻ: Tên + Badge mặc định */}
+                              <div className="flex items-start justify-between gap-1.5 mb-1.5">
+                                <div className="flex items-center gap-1.5 min-w-0">
+                                  <Calendar className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                                  <span className="text-xs font-black text-slate-900 dark:text-white truncate">
+                                    {preset.name}
+                                  </span>
+                                </div>
+                                {preset.is_default ? (
+                                  <span className="text-[10px] font-black px-1.5 py-0.5 rounded-md bg-indigo-600 text-white shrink-0">
+                                    Mặc định
+                                  </span>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSetDefaultPreset(preset.id)}
+                                    className="text-[10px] font-bold text-slate-400 hover:text-indigo-600 hover:underline shrink-0"
+                                  >
+                                    Đặt mặc định
+                                  </button>
+                                )}
+                              </div>
 
-                        <label className="flex items-center gap-2.5 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 cursor-pointer hover:border-indigo-400 transition">
-                          <input
-                            type="checkbox"
-                            checked={zaloNotifyTeacherLeave}
-                            onChange={(e) => setZaloNotifyTeacherLeave(e.target.checked)}
-                            className="w-4 h-4 text-indigo-600 rounded-md focus:ring-indigo-500"
-                          />
-                          <div className="text-xs">
-                            <span className="font-bold text-slate-800 dark:text-slate-200 block">
-                              👨‍🏫 Giáo viên gửi đơn xin nghỉ dạy
-                            </span>
-                            <span className="text-[11px] text-slate-400">
-                              Báo khi giáo viên xin nghỉ và đề xuất người dạy thay
-                            </span>
-                          </div>
-                        </label>
+                              {/* Badges các ngày trong tuần */}
+                              <div className="flex flex-wrap gap-1 my-2">
+                                {(preset.days || []).map((d) => (
+                                  <span
+                                    key={d}
+                                    className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300"
+                                  >
+                                    {d}
+                                  </span>
+                                ))}
+                              </div>
 
-                        <label className="flex items-center gap-2.5 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 cursor-pointer hover:border-indigo-400 transition">
-                          <input
-                            type="checkbox"
-                            checked={zaloNotifyParentFeedback}
-                            onChange={(e) => setZaloNotifyParentFeedback(e.target.checked)}
-                            className="w-4 h-4 text-indigo-600 rounded-md focus:ring-indigo-500"
-                          />
-                          <div className="text-xs">
-                            <span className="font-bold text-slate-800 dark:text-slate-200 block">
-                              ⭐ Phụ huynh gửi góp ý / đánh giá
-                            </span>
-                            <span className="text-[11px] text-slate-400">
-                              Báo khi nhận được nhận xét chất lượng giảng dạy
-                            </span>
+                              {/* Ma trận tính toán: số buổi × thời lượng = tổng tiếng */}
+                              <div className="p-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 text-[11px] space-y-0.5">
+                                <div className="flex items-center justify-between text-slate-600 dark:text-slate-400">
+                                  <span>Thời lượng:</span>
+                                  <strong className="text-slate-900 dark:text-white font-mono">
+                                    {preset.hours_per_session}h / buổi
+                                  </strong>
+                                </div>
+                                <div className="flex items-center justify-between text-slate-600 dark:text-slate-400">
+                                  <span>Ma trận tuần:</span>
+                                  <strong className="text-indigo-600 dark:text-indigo-400 font-mono font-black">
+                                    {preset.days?.length || 0} buổi × {preset.hours_per_session}h ={" "}
+                                    {totalHours}h
+                                  </strong>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Footer: Thao tác sửa / xóa */}
+                            <div className="flex items-center justify-between pt-2.5 mt-2.5 border-t border-slate-100 dark:border-slate-800/80">
+                              <span className="text-[10px] font-mono text-slate-400">
+                                {totalMinutes} phút/tuần
+                              </span>
+                              <div className="flex items-center gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenEditPreset(preset)}
+                                  className="p-1 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                                  title="Chỉnh sửa kiểu lịch"
+                                >
+                                  <Edit2 className="w-3.5 h-3.5" />
+                                </button>
+                                {schedulePresets.length > 1 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeletePreset(preset.id)}
+                                    className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition"
+                                    title="Xóa kiểu lịch"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
                           </div>
-                        </label>
-                      </div>
+                        );
+                      })}
                     </div>
                   </div>
                 </div>
-              )}
-              {/* TAB MỚI: QUẢN LÝ BỘ MÔN / CHƯƠNG TRÌNH HỌC */}
-              {activeTab === "subjects" && (
-                <div className="space-y-6">
+
+                {/* Class Capacity & Crowded Threshold Card */}
+                <div className="bg-amber-50/50 dark:bg-amber-950/20 p-5 rounded-2xl border border-amber-200/80 dark:border-amber-900/40 space-y-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                        <BookOpen className="w-5 h-5 text-indigo-600" />
-                        <span>Danh Mục Bộ Môn / Chương Trình Học</span>
-                      </h3>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">
-                        Tự do thiết lập các môn học phù hợp với ngành đào tạo của trung tâm (Âm nhạc, Ngoại ngữ, Dạy thêm, Năng khiếu...)
+                      <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                        <Users className="w-4 h-4 text-amber-600" />
+                        Cấu Hình Sĩ Số Ca & Cảnh Báo Lớp Đông Khi Học Bù
+                      </h4>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Lựa chọn cơ chế kiểm soát giới hạn học sinh để bảo vệ chất lượng giảng dạy
                       </p>
                     </div>
+                    <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-300">
+                      Bảo vệ lớp học
+                    </span>
                   </div>
 
-                  {/* Form thêm môn học mới */}
-                  <form onSubmit={handleAddSubject} className="p-4 rounded-2xl bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/60 space-y-3">
-                    <span className="text-xs font-black uppercase tracking-wider text-indigo-900 dark:text-indigo-300 block">
-                      Thêm Môn Học Mới:
-                    </span>
-                    <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
-                      <div className="sm:col-span-2">
-                        <input
-                          type="text"
-                          required
-                          placeholder="Tên môn (VD: Piano, IELTS, Toán 10, Vẽ...)"
-                          value={newSubjectName}
-                          onChange={(e) => setNewSubjectName(e.target.value)}
-                          className="w-full px-3 py-2 text-xs font-bold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"
-                        />
-                      </div>
-                      <div>
-                        <select
-                          value={newSubjectColor}
-                          onChange={(e) => setNewSubjectColor(e.target.value)}
-                          className="w-full px-3 py-2 text-xs font-bold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white outline-none"
-                        >
-                          <option value="indigo">Màu Xanh Indigo</option>
-                          <option value="purple">Màu Tím Purple</option>
-                          <option value="emerald">Màu Xanh Lá Emerald</option>
-                          <option value="amber">Màu Cam Amber</option>
-                          <option value="rose">Màu Đỏ Rose</option>
-                          <option value="sky">Màu Xanh Biển Sky</option>
-                        </select>
-                      </div>
-                      <div>
-                        <button
-                          type="submit"
-                          disabled={isAddingSubject}
-                          className="w-full py-2 px-3 text-xs font-bold rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs transition flex items-center justify-center gap-1.5 disabled:opacity-50"
-                        >
-                          <Plus className="w-3.5 h-3.5" />
-                          <span>{isAddingSubject ? "Đang thêm..." : "Thêm Môn"}</span>
-                        </button>
-                      </div>
-                    </div>
-                  </form>
-
-                  {/* Danh sách các môn hiện có */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {subjects.map((sub) => (
+                  {/* 2 LỰA CHỌN CƠ CHẾ: THEO LỚP/GIỜ MỞ CỬA vs THEO GIÁO VIÊN */}
+                  <div>
+                    <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-2">
+                      Cơ chế tính sĩ số & kiểm soát hết suất:
+                    </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* Option 1: Theo Lớp / Giờ Mở Cửa */}
                       <div
-                        key={sub.id}
-                        className="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs flex items-center justify-between gap-3 hover:border-slate-300 transition"
+                        onClick={() => setCapacityMode("by_slot")}
+                        className={`p-3.5 rounded-2xl border-2 transition cursor-pointer flex flex-col justify-between ${
+                          capacityMode === "by_slot"
+                            ? "border-amber-500 bg-white dark:bg-slate-900 shadow-xs"
+                            : "border-slate-200 dark:border-slate-800 bg-white/60 dark:bg-slate-900/40 opacity-70 hover:opacity-100"
+                        }`}
                       >
-                        <div className="flex items-center gap-2.5">
-                          <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-white shrink-0 ${
-                            sub.color === "purple" ? "bg-purple-600 shadow-purple-600/30" :
-                            sub.color === "emerald" ? "bg-emerald-600 shadow-emerald-600/30" :
-                            sub.color === "amber" ? "bg-amber-600 shadow-amber-600/30" :
-                            sub.color === "rose" ? "bg-rose-600 shadow-rose-600/30" :
-                            sub.color === "sky" ? "bg-sky-600 shadow-sky-600/30" :
-                            "bg-indigo-600 shadow-indigo-600/30"
-                          } shadow-sm`}>
-                            <BookOpen className="w-4 h-4" />
-                          </div>
-                          <div>
-                            <h4 className="text-sm font-bold text-slate-900 dark:text-white leading-tight">
-                              {sub.name}
-                            </h4>
-                            <span className="text-[10px] text-slate-400">
-                              {sub.description || "Môn học cơ sở"}
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <Clock className="w-4 h-4 text-amber-600" />
+                            <span className="text-xs font-bold text-slate-900 dark:text-white">
+                              1. Theo Lớp / Giờ Mở Cửa
                             </span>
                           </div>
+                          {capacityMode === "by_slot" && (
+                            <div className="w-4 h-4 rounded-full bg-amber-500 text-white flex items-center justify-center">
+                              <Check className="w-3 h-3 stroke-[3]" />
+                            </div>
+                          )}
                         </div>
-
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteSubject(sub.id)}
-                          className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition"
-                          title="Xóa môn học này"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
+                          Sĩ số tính chung theo khung giờ mở cửa của cơ sở. Khi ca đạt giới hạn tối
+                          đa sẽ tự động khóa và hiển thị &quot;Hết suất&quot;.
+                        </p>
                       </div>
-                    ))}
+
+                      {/* Option 2: Theo Giáo Viên Đứng Lớp */}
+                      <div
+                        onClick={() => setCapacityMode("by_teacher")}
+                        className={`p-3.5 rounded-2xl border-2 transition cursor-pointer flex flex-col justify-between ${
+                          capacityMode === "by_teacher"
+                            ? "border-indigo-600 bg-white dark:bg-slate-900 shadow-xs"
+                            : "border-slate-200 dark:border-slate-800 bg-white/60 dark:bg-slate-900/40 opacity-70 hover:opacity-100"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <GraduationCap className="w-4 h-4 text-indigo-600" />
+                            <span className="text-xs font-bold text-slate-900 dark:text-white">
+                              2. Theo Giáo Viên Đứng Lớp
+                            </span>
+                          </div>
+                          {capacityMode === "by_teacher" && (
+                            <div className="w-4 h-4 rounded-full bg-indigo-600 text-white flex items-center justify-center">
+                              <Check className="w-3 h-3 stroke-[3]" />
+                            </div>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
+                          Sĩ số tính riêng theo từng giáo viên (cấu hình trong mục Giáo viên: GV
+                          nhận tối đa bao nhiêu học sinh, làm ca nào, tuần làm mấy buổi...).
+                        </p>
+                      </div>
+                    </div>
                   </div>
 
-                  {subjects.length === 0 && (
-                    <div className="py-12 text-center text-xs text-slate-400 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-3xl">
-                      <BookOpen className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                      <p>Chưa có môn học nào. Hãy thêm các môn đào tạo ở form trên!</p>
-                    </div>
-                  )}
-                </div>
-              )}
-          {activeTab === "slots" && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                    Danh Sách Khung Giờ Mở Cửa Của Cơ Sở
-                  </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Chọn nhanh từ Thứ mấy tới Thứ mấy bằng menu chọn gọn gàng
-                  </p>
-                </div>
-                <button
-                  onClick={handleAddTimeSlot}
-                  className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-xs transition"
-                >
-                  <Plus className="w-4 h-4" /> Thêm khung giờ
-                </button>
-              </div>
-
-              <div className="space-y-3">
-                {timeSlots.map((slot, index) => (
-                  <div
-                    key={slot.id || index}
-                    className="p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-800/40 flex flex-col md:flex-row md:items-center gap-3 shadow-xs hover:border-slate-300 transition"
-                  >
-                    <div className="flex-1 grid grid-cols-1 sm:grid-cols-6 gap-2.5">
-                      {/* Name */}
-                      <div className="sm:col-span-1">
-                        <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                          Tên khung giờ
-                        </label>
-                        <input
-                          type="text"
-                          value={slot.name}
-                          onChange={(e) => handleUpdateTimeSlot(index, "name", e.target.value)}
-                          placeholder="Ca Sáng T7"
-                          className="w-full mt-1 px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none"
-                        />
-                      </div>
-
-                      {/* Dropdown: Từ thứ mấy */}
-                      <div className="sm:col-span-1">
-                        <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                          Từ thứ
-                        </label>
-                        <select
-                          value={slot.from_day || "Thứ 2"}
-                          onChange={(e) => handleUpdateTimeSlot(index, "from_day", e.target.value)}
-                          className="w-full mt-1 px-2.5 py-1.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none"
-                        >
-                          {WEEKDAYS.map((d) => (
-                            <option key={d} value={d}>
-                              {d}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      {/* Dropdown: Tới thứ mấy */}
-                      <div className="sm:col-span-1">
-                        <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                          Đến thứ
-                        </label>
-                        <select
-                          value={slot.to_day || "Thứ 7"}
-                          onChange={(e) => handleUpdateTimeSlot(index, "to_day", e.target.value)}
-                          className="w-full mt-1 px-2.5 py-1.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none"
-                        >
-                          {WEEKDAYS.map((d) => (
-                            <option key={d} value={d}>
-                              {d}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      {/* Giờ mở */}
-                      <div className="sm:col-span-1">
-                        <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                          Mở cửa
-                        </label>
-                        <input
-                          type="time"
-                          value={slot.start_time}
-                          onChange={(e) => handleUpdateTimeSlot(index, "start_time", e.target.value)}
-                          className="w-full mt-1 px-2.5 py-1.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 outline-none"
-                        />
-                      </div>
-
-                      {/* Giờ đóng */}
-                      <div className="sm:col-span-1">
-                        <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                          Đóng cửa
-                        </label>
-                        <input
-                          type="time"
-                          value={slot.end_time}
-                          onChange={(e) => handleUpdateTimeSlot(index, "end_time", e.target.value)}
-                          className="w-full mt-1 px-2.5 py-1.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 outline-none"
-                        />
-                      </div>
-
-                      {/* Sĩ số max */}
-                      <div className="sm:col-span-1">
-                        <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                          Sĩ số max
-                        </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                    <div>
+                      <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                        {capacityMode === "by_teacher"
+                          ? "Sĩ số chuẩn tối đa mặc định của Giáo viên"
+                          : "Sĩ số tối đa trong một ca / lớp"}
+                      </label>
+                      <div className="relative">
                         <input
                           type="number"
                           min="1"
                           max="100"
-                          value={slot.max_students || maxStudents || 10}
-                          onChange={(e) => handleUpdateTimeSlot(index, "max_students", Number(e.target.value) || 10)}
-                          className="w-full mt-1 px-2.5 py-1.5 text-xs font-black text-indigo-600 dark:text-indigo-400 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 outline-none"
+                          value={maxStudents}
+                          onChange={(e) => setMaxStudents(Number(e.target.value) || 10)}
+                          className="w-full px-3 py-2 text-sm font-bold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 outline-none focus:ring-2 focus:ring-amber-500"
                         />
+                        <span className="absolute right-3 top-2 text-xs text-slate-400 font-semibold">
+                          {capacityMode === "by_teacher" ? "học sinh / GV" : "học sinh / ca"}
+                        </span>
                       </div>
-                    </div>
-
-                    <div className="flex items-center justify-between md:justify-end gap-3 pt-2 md:pt-0 border-t md:border-t-0 border-slate-100 dark:border-slate-800">
-                      <label className="flex items-center gap-1.5 cursor-pointer text-xs font-bold text-slate-600 dark:text-slate-300">
-                        <input
-                          type="checkbox"
-                          checked={Boolean(slot.is_active)}
-                          onChange={(e) => handleUpdateTimeSlot(index, "is_active", e.target.checked ? 1 : 0)}
-                          className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
-                        />
-                        Hoạt động
-                      </label>
-
-                      <button
-                        onClick={() => handleRemoveTimeSlot(index)}
-                        className="p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl transition"
-                        title="Xóa khung giờ"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-
-                {timeSlots.length === 0 && (
-                  <div className="text-center py-12 text-slate-400 text-xs">
-                    Chưa có khung giờ nào. Bấm <strong>&quot;+ Thêm khung giờ&quot;</strong> để thiết lập ca học.
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* TAB 3: Level Surcharges */}
-          {activeTab === "levels" && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                    Bảng Phụ Thu Theo Level & Trình Độ
-                  </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Số tiền cộng thêm vào học phí cơ bản theo cấp độ của học sinh
-                  </p>
-                </div>
-                <button
-                  onClick={handleAddLevel}
-                  className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-xs transition"
-                >
-                  <Plus className="w-4 h-4" /> Thêm Level
-                </button>
-              </div>
-
-              <div className="space-y-2.5">
-                {levels.map((lvl, index) => (
-                  <div
-                    key={lvl.id || index}
-                    draggable
-                    onDragStart={(e) => handleDragStartLevel(e, index)}
-                    onDragOver={(e) => e.preventDefault()}
-                    onDrop={(e) => handleDropLevel(e, index)}
-                    className="p-3.5 sm:p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-800/40 flex items-center gap-2.5 sm:gap-3.5 shadow-xs hover:border-indigo-300 dark:hover:border-indigo-700/80 transition cursor-grab active:cursor-grabbing group"
-                  >
-                    {/* Tay cầm kéo thả + Nút lên/xuống */}
-                    <div className="flex flex-col items-center justify-center gap-0.5 shrink-0">
-                      <button
-                        type="button"
-                        disabled={index === 0}
-                        onClick={() => handleMoveLevel(index, "up")}
-                        className="p-1 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-20 disabled:hover:bg-transparent transition cursor-pointer"
-                        title="Di chuyển lên trên"
-                      >
-                        <ArrowUp className="w-3.5 h-3.5" />
-                      </button>
-                      <GripVertical className="w-4 h-4 text-slate-300 group-hover:text-indigo-500 transition" />
-                      <button
-                        type="button"
-                        disabled={index === levels.length - 1}
-                        onClick={() => handleMoveLevel(index, "down")}
-                        className="p-1 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-20 disabled:hover:bg-transparent transition cursor-pointer"
-                        title="Di chuyển xuống dưới"
-                      >
-                        <ArrowDown className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-
-                    <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 font-black text-xs flex items-center justify-center shrink-0">
-                      #{index + 1}
-                    </div>
-
-                    <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-3">
-                      <div>
-                        <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                          Tên Level
-                        </label>
-                        <input
-                          type="text"
-                          value={lvl.level_name}
-                          onChange={(e) => handleUpdateLevel(index, "level_name", e.target.value)}
-                          placeholder="Tên Level (Grade 1, Nâng Cao...)"
-                          className="w-full mt-1 px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                          Kiểu Phụ Thu
-                        </label>
-                        <select
-                          value={lvl.surcharge_type || "fixed"}
-                          onChange={(e) => handleUpdateLevel(index, "surcharge_type", e.target.value)}
-                          className="w-full mt-1 px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none cursor-pointer"
-                        >
-                          <option value="fixed">Cố định (VNĐ)</option>
-                          <option value="percent">Phần trăm (%)</option>
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                          {lvl.surcharge_type === "percent" ? "Mức phụ thu (%)" : "Mức phụ thu (VNĐ)"}
-                        </label>
-                        <div className="relative mt-1">
-                          <input
-                            type="number"
-                            min="0"
-                            step="any"
-                            value={lvl.surcharge_amount === 0 ? "" : lvl.surcharge_amount}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              handleUpdateLevel(index, "surcharge_amount", val === "" ? 0 : Number(val));
-                            }}
-                            className="w-full px-3 py-1.5 text-xs font-black text-emerald-600 dark:text-emerald-400 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none"
-                          />
-                          <span className="absolute right-3 top-1.5 text-xs font-bold text-slate-400">
-                            {lvl.surcharge_type === "percent" ? "%" : formatVND(lvl.surcharge_amount)}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <button
-                      onClick={() => handleRemoveLevel(index)}
-                      className="p-2 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl transition shrink-0 cursor-pointer"
-                      title="Xóa Level"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                ))}
-
-                {levels.length === 0 && (
-                  <div className="text-center py-12 text-slate-400 text-xs">
-                    Chưa có Level nào. Bấm <strong>&quot;+ Thêm Level&quot;</strong> để thiết lập.
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* TAB 4: Discounts */}
-          {activeTab === "discounts" && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                    Cấu Hình Các Mốc Chiết Khấu (Discount Presets)
-                  </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Các mốc phần trăm giảm giá nhanh khi thêm/sửa học sinh
-                  </p>
-                </div>
-                <button
-                  onClick={handleAddDiscount}
-                  className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-xs transition"
-                >
-                  <Plus className="w-4 h-4" /> Thêm mốc chiết khấu
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {discounts.map((disc, index) => (
-                  <div
-                    key={disc.id || index}
-                    className="p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-800/40 space-y-2.5 shadow-xs hover:border-slate-300 transition"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-xl bg-amber-50 dark:bg-amber-950/50 text-amber-600 flex items-center justify-center shrink-0">
-                          <Percent className="w-4 h-4" />
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <input
-                            type="number"
-                            min="0"
-                            max="100"
-                            value={disc.percentage}
-                            onChange={(e) => handleUpdateDiscount(index, "percentage", e.target.value)}
-                            className="w-16 px-2 py-1 text-sm font-black text-slate-900 dark:text-white rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-center focus:ring-2 focus:ring-indigo-500 outline-none"
-                          />
-                          <span className="text-xs font-black text-slate-500">%</span>
-                        </div>
-                      </div>
-
-                      <button
-                        onClick={() => handleRemoveDiscount(index)}
-                        className="p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl transition"
-                        title="Xóa mức chiết khấu"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
                     </div>
 
                     <div>
+                      <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                        Ngưỡng cảnh báo Lớp Đông (%)
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          min="10"
+                          max="99"
+                          value={crowdedThreshold}
+                          onChange={(e) => setCrowdedThreshold(Number(e.target.value) || 80)}
+                          className="w-full px-3 py-2 text-sm font-bold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 outline-none focus:ring-2 focus:ring-amber-500"
+                        />
+                        <span className="absolute right-3 top-2 text-xs text-slate-400 font-bold">
+                          %
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* ⭐ VÍ GIỜ HỌC: Thời lượng 1 buổi học mặc định */}
+                  <div className="pt-3 mt-3 border-t border-slate-200 dark:border-slate-800">
+                    <label className="text-xs font-black text-indigo-700 dark:text-indigo-400 uppercase tracking-wider block mb-1.5 flex items-center gap-1.5">
+                      ⏱️ Ví Giờ Học — Thời lượng 1 buổi mặc định
+                    </label>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-2">
+                      Số phút được cấp vào ví khi học sinh đóng tiền 1 buổi học. Giờ trừ theo phút
+                      học thật (điểm danh).
+                    </p>
+                    <div className="relative max-w-xs">
+                      <input
+                        type="number"
+                        min="15"
+                        max="480"
+                        step="5"
+                        value={defaultMinutesPerSession}
+                        onChange={(e) => setDefaultMinutesPerSession(Number(e.target.value) || 90)}
+                        className="w-full px-3 py-2 text-sm font-bold rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50/40 dark:bg-slate-900 text-indigo-700 dark:text-indigo-400 outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                      <span className="absolute right-3 top-2 text-xs text-indigo-400 font-bold">
+                        phút / buổi
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                      {[45, 60, 90, 120].map((min) => (
+                        <button
+                          key={min}
+                          type="button"
+                          onClick={() => setDefaultMinutesPerSession(min)}
+                          className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition cursor-pointer ${
+                            defaultMinutesPerSession === min
+                              ? "bg-indigo-600 text-white border-indigo-600"
+                              : "bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-indigo-400"
+                          }`}
+                        >
+                          {min} phút
+                        </button>
+                      ))}
+                      <span className="text-[10px] text-slate-400 ml-1">
+                        ={" "}
+                        {(defaultMinutesPerSession / 60).toFixed(
+                          defaultMinutesPerSession % 60 === 0 ? 0 : 1
+                        )}{" "}
+                        tiếng/buổi
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* TAB 1.1: GÓI HỌC PHÍ (TUITION PACKAGES) */}
+            {activeTab === "packages" && (
+              <div className="space-y-6 w-full">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                      <Package className="w-5 h-5 text-indigo-600" />
+                      <span>Danh Mục Gói Học Phí Cơ Sở</span>
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      Tạo gói theo tháng (1 tháng, 3 tháng...) hoặc theo tuần (24 tuần...) để gán
+                      cho học sinh
+                    </p>
+                  </div>
+                </div>
+
+                {/* Form Tạo / Sửa gói */}
+                <form
+                  onSubmit={handleCreateOrUpdatePackage}
+                  className="p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40 space-y-4 shadow-xs"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-black uppercase tracking-wider text-indigo-600 flex items-center gap-1.5">
+                      {isEditingPkgId ? (
+                        <Edit2 className="w-4 h-4" />
+                      ) : (
+                        <Plus className="w-4 h-4" />
+                      )}
+                      {isEditingPkgId ? "Chỉnh Sửa Gói Học Phí" : "Thêm Gói Học Phí Mới"}
+                    </span>
+                    {isEditingPkgId && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsEditingPkgId(null);
+                          setNewPkgName("");
+                          setNewPkgAmount(1000000);
+                          setNewPkgCycleUnit("month");
+                          setNewPkgCycleValue(1);
+                        }}
+                        className="text-xs font-bold text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                      >
+                        Hủy sửa
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                    <div className="sm:col-span-2">
                       <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">
-                        Lý do được giảm / Tên mức giảm
+                        Tên gói học phí *
                       </label>
                       <input
                         type="text"
-                        value={disc.label || ""}
-                        onChange={(e) => handleUpdateDiscount(index, "label", e.target.value)}
-                        placeholder="VD: Anh em ruột, Đăng ký sớm, Hộ nghèo..."
-                        className="w-full px-2.5 py-1.5 text-xs font-semibold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition"
+                        required
+                        value={newPkgName}
+                        onChange={(e) => setNewPkgName(e.target.value)}
+                        placeholder="VD: Theo quý - 3 tháng, Khóa 6 tháng..."
+                        className="w-full px-3 py-2 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none"
+                      />
+                    </div>
+
+                    <div className="sm:col-span-1">
+                      <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">
+                        Đơn vị chu kỳ *
+                      </label>
+                      <select
+                        value={newPkgCycleUnit}
+                        onChange={(e) => setNewPkgCycleUnit(e.target.value as "month" | "week")}
+                        className="w-full px-3 py-2 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none"
+                      >
+                        <option value="month">Tháng (Khóa theo tháng/quý)</option>
+                        <option value="week">Tuần (Khóa theo tuần)</option>
+                      </select>
+                    </div>
+
+                    <div className="sm:col-span-1">
+                      <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">
+                        Số {newPkgCycleUnit === "month" ? "Tháng" : "Tuần"} *
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="200"
+                        required
+                        value={newPkgCycleValue}
+                        onChange={(e) => {
+                          const val = Number(e.target.value) || 1;
+                          setNewPkgCycleValue(val);
+                          // Auto estimate original amount based on base tuition
+                          if (baseTuition > 0 && newPkgCycleUnit === "month") {
+                            const autoOrig = baseTuition * val;
+                            setNewPkgOriginalAmount(autoOrig);
+                            if (newPkgDiscountType === "percent" && newPkgDiscountValue > 0) {
+                              setNewPkgAmount(
+                                Math.round(autoOrig * (1 - newPkgDiscountValue / 100))
+                              );
+                            } else if (newPkgDiscountType === "amount" && newPkgDiscountValue > 0) {
+                              setNewPkgAmount(Math.max(0, autoOrig - newPkgDiscountValue));
+                            } else {
+                              setNewPkgAmount(autoOrig);
+                            }
+                          }
+                        }}
+                        className="w-full px-3 py-2 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none"
+                      />
+                    </div>
+
+                    {/* Giá gốc ban đầu */}
+                    <div className="sm:col-span-2">
+                      <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">
+                        Giá gốc ban đầu (VNĐ)
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          min="0"
+                          step="any"
+                          value={newPkgOriginalAmount === 0 ? "" : newPkgOriginalAmount}
+                          onChange={(e) => {
+                            const val = e.target.value === "" ? 0 : Number(e.target.value);
+                            setNewPkgOriginalAmount(val);
+                            if (newPkgDiscountType === "percent" && newPkgDiscountValue > 0) {
+                              setNewPkgAmount(Math.round(val * (1 - newPkgDiscountValue / 100)));
+                            } else if (newPkgDiscountType === "amount" && newPkgDiscountValue > 0) {
+                              setNewPkgAmount(Math.max(0, val - newPkgDiscountValue));
+                            } else if (newPkgDiscountType === "none") {
+                              setNewPkgAmount(val);
+                            }
+                          }}
+                          className="w-full px-3 py-2 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none"
+                        />
+                        <span className="absolute right-3 top-2 text-[10px] font-bold text-slate-400">
+                          {formatVND(newPkgOriginalAmount)}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Loại ưu đãi */}
+                    <div className="sm:col-span-1">
+                      <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">
+                        Ưu đãi / Giảm giá
+                      </label>
+                      <select
+                        value={newPkgDiscountType}
+                        onChange={(e) => {
+                          const dt = e.target.value as "none" | "percent" | "amount";
+                          setNewPkgDiscountType(dt);
+                          if (dt === "none") {
+                            setNewPkgDiscountValue(0);
+                            setNewPkgAmount(newPkgOriginalAmount);
+                          } else if (dt === "percent") {
+                            const disc = 10;
+                            setNewPkgDiscountValue(disc);
+                            setNewPkgAmount(Math.round(newPkgOriginalAmount * (1 - disc / 100)));
+                          } else if (dt === "amount") {
+                            const disc = 200000;
+                            setNewPkgDiscountValue(disc);
+                            setNewPkgAmount(Math.max(0, newPkgOriginalAmount - disc));
+                          }
+                        }}
+                        className="w-full px-3 py-2 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none"
+                      >
+                        <option value="none">Không giảm</option>
+                        <option value="percent">Giảm theo %</option>
+                        <option value="amount">Giảm tiền mặt (VNĐ)</option>
+                      </select>
+                    </div>
+
+                    {/* Giá trị giảm */}
+                    <div className="sm:col-span-1">
+                      <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">
+                        Mức giảm {newPkgDiscountType === "percent" ? "(%)" : "(VNĐ)"}
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        disabled={newPkgDiscountType === "none"}
+                        value={newPkgDiscountValue}
+                        onChange={(e) => {
+                          const val = Number(e.target.value) || 0;
+                          setNewPkgDiscountValue(val);
+                          if (newPkgDiscountType === "percent") {
+                            setNewPkgAmount(Math.round(newPkgOriginalAmount * (1 - val / 100)));
+                          } else if (newPkgDiscountType === "amount") {
+                            setNewPkgAmount(Math.max(0, newPkgOriginalAmount - val));
+                          }
+                        }}
+                        className="w-full px-3 py-2 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none disabled:opacity-50"
+                      />
+                    </div>
+
+                    {/* Số tiền thực thu (Sau ưu đãi) */}
+                    <div className="sm:col-span-2">
+                      <label className="text-[10px] font-black uppercase tracking-wider text-emerald-600 block mb-1 flex items-center justify-between">
+                        <span>Số tiền thực thu (Sau ưu đãi) *</span>
+                        {newPkgOriginalAmount > newPkgAmount && (
+                          <span className="text-rose-500 font-bold">
+                            Tiết kiệm: {formatVND(newPkgOriginalAmount - newPkgAmount)}
+                          </span>
+                        )}
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          min="0"
+                          step="any"
+                          required
+                          value={newPkgAmount === 0 ? "" : newPkgAmount}
+                          onChange={(e) =>
+                            setNewPkgAmount(e.target.value === "" ? 0 : Number(e.target.value))
+                          }
+                          className="w-full px-3 py-2 text-xs font-black text-emerald-600 dark:text-emerald-400 rounded-xl border border-emerald-300 dark:border-emerald-800 bg-emerald-50/30 dark:bg-emerald-950/20 focus:ring-2 focus:ring-emerald-500 outline-none"
+                        />
+                        <span className="absolute right-3 top-2 text-[10px] font-bold text-slate-400">
+                          {formatVND(newPkgAmount)}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Quyền lợi / Ưu đãi tặng kèm */}
+                    <div className="sm:col-span-2">
+                      <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">
+                        Ưu đãi & Quà tặng kèm (Tùy chọn)
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={newPkgBenefits}
+                          onChange={(e) => setNewPkgBenefits(e.target.value)}
+                          placeholder="VD: Tặng 1 buổi học bù + Bộ giáo trình chuyên sâu"
+                          className="w-full px-3 py-2 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none"
+                        />
+                        <button
+                          type="submit"
+                          className="px-4 py-2 text-xs font-black uppercase tracking-wider text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-sm shadow-indigo-600/25 transition shrink-0"
+                        >
+                          {isEditingPkgId ? "Cập Nhật" : "Thêm Gói"}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </form>
+
+                {/* Danh sách các gói hiện có */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                  {packages.map((pkg) => (
+                    <div
+                      key={pkg.id}
+                      className={`p-4 rounded-2xl border transition flex flex-col justify-between space-y-3 ${
+                        pkg.is_active === 1
+                          ? "bg-white dark:bg-slate-900 border-slate-200/80 dark:border-slate-800 shadow-xs"
+                          : "bg-slate-100/60 dark:bg-slate-850/40 border-slate-200 dark:border-slate-800 opacity-60"
+                      }`}
+                    >
+                      <div>
+                        <div className="flex items-start justify-between gap-2">
+                          <span className="font-extrabold text-sm text-slate-900 dark:text-white leading-snug">
+                            {pkg.name}
+                          </span>
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase shrink-0 ${
+                              pkg.is_active === 1
+                                ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
+                                : "bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
+                            }`}
+                          >
+                            {pkg.is_active === 1 ? "Hoạt động" : "Tạm tắt"}
+                          </span>
+                        </div>
+
+                        <div className="mt-2 flex items-baseline gap-2 flex-wrap">
+                          <span className="text-lg font-black text-emerald-600 dark:text-emerald-400">
+                            {formatVND(pkg.amount)}
+                          </span>
+                          {pkg.original_amount && pkg.original_amount > pkg.amount && (
+                            <span className="text-xs font-semibold text-slate-400 line-through">
+                              {formatVND(pkg.original_amount)}
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                          <span className="text-xs text-slate-500 font-medium">
+                            Chu kỳ:{" "}
+                            <strong>
+                              {pkg.cycle_value} {pkg.cycle_unit === "month" ? "Tháng" : "Tuần"}
+                            </strong>
+                          </span>
+                          {pkg.discount_type === "percent" &&
+                          pkg.discount_value &&
+                          pkg.discount_value > 0 ? (
+                            <span className="px-1.5 py-0.2 rounded text-[10px] font-black bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300">
+                              -{pkg.discount_value}%
+                            </span>
+                          ) : pkg.discount_type === "amount" &&
+                            pkg.discount_value &&
+                            pkg.discount_value > 0 ? (
+                            <span className="px-1.5 py-0.2 rounded text-[10px] font-black bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300">
+                              -{formatVND(pkg.discount_value)}
+                            </span>
+                          ) : null}
+                        </div>
+
+                        {pkg.benefits && (
+                          <div className="mt-2 p-2 rounded-xl bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/40 text-[11px] text-indigo-800 dark:text-indigo-300">
+                            <span className="font-bold block text-[10px] uppercase text-indigo-500">
+                              Ưu đãi tặng kèm:
+                            </span>
+                            <p className="mt-0.5 leading-relaxed">{pkg.benefits}</p>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
+                        <button
+                          type="button"
+                          onClick={() => handleTogglePackageActive(pkg.id)}
+                          className="text-[11px] font-bold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 flex items-center gap-1"
+                        >
+                          <Power className="w-3.5 h-3.5" />
+                          <span>{pkg.is_active === 1 ? "Tắt gói" : "Bật lại"}</span>
+                        </button>
+
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsEditingPkgId(pkg.id);
+                              setNewPkgName(pkg.name);
+                              setNewPkgAmount(pkg.amount);
+                              setNewPkgOriginalAmount(pkg.original_amount || pkg.amount);
+                              setNewPkgCycleUnit(pkg.cycle_unit);
+                              setNewPkgCycleValue(pkg.cycle_value);
+                              setNewPkgDiscountType(pkg.discount_type || "none");
+                              setNewPkgDiscountValue(pkg.discount_value || 0);
+                              setNewPkgBenefits(pkg.benefits || "");
+                            }}
+                            className="p-1 text-slate-400 hover:text-indigo-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition"
+                            title="Sửa thông tin gói"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeletePackage(pkg.id)}
+                            className="p-1 text-rose-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition"
+                            title="Xóa gói này"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+
+                  {packages.length === 0 && (
+                    <div className="col-span-full py-12 text-center text-xs text-slate-400 border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl">
+                      Chưa có gói học phí nào. Vui lòng thêm gói học phí ở form trên.
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* TAB 1.2: CÀI ĐẶT ĐỐI SOÁT (RECONCILIATION SETTINGS) */}
+            {activeTab === "reconciliation" && (
+              <div className="space-y-6 w-full">
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <CreditCard className="w-5 h-5 text-indigo-600" />
+                    <span>Cài Đặt Chế Độ Đối Soát Học Phí</span>
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    Chọn phương thức đối soát học phí đã đóng hoặc cần đóng tiền
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Option 1: Thủ công */}
+                  <div
+                    onClick={() => setReconciliationMode("manual")}
+                    className={`p-5 rounded-2xl border-2 transition cursor-pointer flex flex-col justify-between ${
+                      reconciliationMode === "manual"
+                        ? "border-indigo-600 bg-indigo-50/40 dark:bg-indigo-950/30 shadow-xs"
+                        : "border-slate-200 dark:border-slate-700/80 bg-slate-50/50 dark:bg-slate-800/40 hover:border-slate-300"
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-[11px] font-black uppercase tracking-wider text-indigo-600">
+                          Chế Độ 1
+                        </span>
+                        {reconciliationMode === "manual" && (
+                          <div className="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center">
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                          </div>
+                        )}
+                      </div>
+                      <h4 className="text-sm font-extrabold text-slate-900 dark:text-white">
+                        Đối Soát Thủ Công (Manual)
+                      </h4>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                        Admin tự bấm tích chọn học sinh đã đóng theo gói 1 tháng hoặc gói khóa nhiều
+                        tháng. Hệ thống tự động duy trì trạng thái &quot;Đã đóng&quot; suốt thời hạn
+                        gói và chỉ chuyển sang &quot;Cần đóng tiền&quot; khi hết chu kỳ.
+                      </p>
+                    </div>
+                    <div className="mt-4 pt-3 border-t border-slate-200/60 dark:border-slate-700/60 flex items-center gap-2 text-xs font-bold text-indigo-600">
+                      <span>
+                        {reconciliationMode === "manual" ? "Đang được chọn" : "Bấm để chọn"}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Option 2: Tự động SePay Webhook */}
+                  <div
+                    onClick={() => setReconciliationMode("auto")}
+                    className={`p-5 rounded-2xl border-2 transition cursor-pointer flex flex-col justify-between ${
+                      reconciliationMode === "auto"
+                        ? "border-emerald-600 bg-emerald-50/40 dark:bg-emerald-950/30 shadow-xs"
+                        : "border-slate-200 dark:border-slate-700/80 bg-slate-50/50 dark:bg-slate-800/40 hover:border-slate-300"
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-[11px] font-black uppercase tracking-wider text-emerald-600">
+                          Chế Độ 2 (Tự Động)
+                        </span>
+                        {reconciliationMode === "auto" && (
+                          <div className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center">
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                          </div>
+                        )}
+                      </div>
+                      <h4 className="text-sm font-extrabold text-slate-900 dark:text-white flex items-center gap-1.5">
+                        <span>Đối Soát Tự Động SePay</span>
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300">
+                          Khuyên dùng
+                        </span>
+                      </h4>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                        Tự động nhận thông báo biến động số dư ngân hàng (Vietcombank, MB, ACB,
+                        Techcombank...) qua <strong>SePay Webhook</strong>. Khớp mã học sinh hoặc
+                        SĐT để tự gạch nợ và đổi trạng thái Đã đóng ngay lập tức.
+                      </p>
+                    </div>
+                    <div className="mt-4 pt-3 border-t border-slate-200/60 dark:border-slate-700/60 flex items-center gap-2 text-xs font-bold text-emerald-600">
+                      <span>
+                        {reconciliationMode === "auto" ? "Đang được chọn" : "Bấm để chọn"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* CẤU HÌNH CHI TIẾT SEPAY */}
+                <div className="p-5 rounded-2xl border border-emerald-200/80 dark:border-emerald-900/40 bg-emerald-50/30 dark:bg-emerald-950/20 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold">
+                        <QrCode className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-black text-slate-900 dark:text-white">
+                          Cấu Hình Tích Hợp SePay Webhook
+                        </h4>
+                        <p className="text-xs text-slate-500">
+                          Xem hướng dẫn tạo Webhook tại{" "}
+                          <a
+                            href="https://docs.sepay.vn/tich-hop-webhooks.html"
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-emerald-600 font-bold underline inline-flex items-center gap-0.5"
+                          >
+                            docs.sepay.vn <ExternalLink className="w-3 h-3" />
+                          </a>
+                        </p>
+                      </div>
+                    </div>
+
+                    <span className="text-[11px] font-mono px-2.5 py-1 rounded-lg bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300 font-bold">
+                      docs.sepay.vn
+                    </span>
+                  </div>
+
+                  {/* Webhook URL Display */}
+                  <div className="p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-1.5">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-bold text-slate-700 dark:text-slate-300">
+                        Webhook URL cần dán vào SePay Platform:
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const origin =
+                            typeof window !== "undefined"
+                              ? window.location.origin
+                              : "http://localhost:3000";
+                          const fullUrl = `${origin}/api/sepay/webhook`;
+                          navigator.clipboard.writeText(fullUrl);
+                          showToast("Đã copy Webhook URL vào bộ nhớ tạm!", "success");
+                        }}
+                        className="text-emerald-600 font-bold hover:underline flex items-center gap-1"
+                      >
+                        <Copy className="w-3.5 h-3.5" /> Copy URL
+                      </button>
+                    </div>
+                    <div className="p-2 rounded-lg bg-slate-50 dark:bg-slate-800 font-mono text-xs text-indigo-600 dark:text-indigo-400 break-all select-all">
+                      {typeof window !== "undefined"
+                        ? `${window.location.origin}/api/sepay/webhook`
+                        : "https://your-domain.com/api/sepay/webhook"}
+                    </div>
+                  </div>
+
+                  {/* Inputs Form */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 block mb-1">
+                        API Key SePay (Authentication Header)
+                      </label>
+                      <input
+                        type="password"
+                        value={sepayApiKey}
+                        onChange={(e) => setSepayApiKey(e.target.value)}
+                        placeholder="Ví dụ: SEPAY_API_KEY_abc123"
+                        className="w-full px-3 py-2 text-xs font-mono font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:ring-2 focus:ring-emerald-500 outline-none"
+                      />
+                      <span className="text-[10px] text-slate-400 mt-0.5 block">
+                        Nhập nếu bạn thiết lập kiểu xác thực API Key trên SePay
+                      </span>
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 block mb-1">
+                        Cú Pháp / Tiền Tố Nhận Diện (Prefix)
+                      </label>
+                      <input
+                        type="text"
+                        value={sepayPrefix}
+                        onChange={(e) => setSepayPrefix(e.target.value.toUpperCase())}
+                        placeholder="Mặc định: HP"
+                        className="w-full px-3 py-2 text-xs font-mono font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:ring-2 focus:ring-emerald-500 outline-none"
+                      />
+                      <span className="text-[10px] text-slate-400 mt-0.5 block">
+                        Cú pháp khuyên dùng khi phụ huynh chuyển:{" "}
+                        <strong>{sepayPrefix || "HP"} [MãHS hoặc SĐT]</strong>
+                      </span>
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 block mb-1">
+                        Số Tài Khoản Ngân Hàng Nhận Tiền
+                      </label>
+                      <input
+                        type="text"
+                        value={sepayAccountNumber}
+                        onChange={(e) => setSepayAccountNumber(e.target.value)}
+                        placeholder="Ví dụ: 09012345678"
+                        className="w-full px-3 py-2 text-xs font-mono font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:ring-2 focus:ring-emerald-500 outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 block mb-1">
+                        Tên Ngân Hàng
+                      </label>
+                      <input
+                        type="text"
+                        value={sepayBankName}
+                        onChange={(e) => setSepayBankName(e.target.value)}
+                        placeholder="Ví dụ: Vietcombank, MBBank, ACB, ..."
+                        className="w-full px-3 py-2 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:ring-2 focus:ring-emerald-500 outline-none"
                       />
                     </div>
                   </div>
-                ))}
 
-                {discounts.length === 0 && (
-                  <div className="col-span-full text-center py-12 text-slate-400 text-xs">
-                    Chưa có mức chiết khấu nào. Bấm <strong>&quot;+ Thêm mốc chiết khấu&quot;</strong> để tạo nhanh các mốc 10%, 20%...
+                  {/* Test Webhook Tool */}
+                  <div className="pt-3 border-t border-emerald-200/60 dark:border-emerald-900/60 flex flex-col sm:flex-row items-center justify-between gap-3">
+                    <div className="text-xs text-slate-600 dark:text-slate-400">
+                      <span className="font-bold text-slate-800 dark:text-slate-200">
+                        Công cụ kiểm thử đối soát:
+                      </span>{" "}
+                      Bấm giả lập một biến động số dư SePay gửi đến Webhook để xác minh quy trình tự
+                      động.
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          setIsSimulatingSepay(true);
+                          const res = await fetch("/api/sepay/webhook", {
+                            method: "POST",
+                            headers: {
+                              "Content-Type": "application/json",
+                              Authorization: sepayApiKey ? `Apikey ${sepayApiKey}` : "",
+                            },
+                            body: JSON.stringify({
+                              id: Math.floor(100000 + Math.random() * 900000),
+                              gateway: sepayBankName || "Vietcombank",
+                              transactionDate: new Date()
+                                .toISOString()
+                                .slice(0, 19)
+                                .replace("T", " "),
+                              accountNumber: sepayAccountNumber || "1017588888",
+                              code: "TESTSEPAY",
+                              content: `SEVN HP HS ${new Date().toISOString().slice(5, 7)} test chuyen hoc phi`,
+                              transferType: "in",
+                              transferAmount: 1000000,
+                              referenceCode: `REF${Date.now().toString().slice(-6)}`,
+                            }),
+                          });
+                          const data = await res.json();
+                          if (data.success) {
+                            showToast(
+                              `Kiểm thử Webhook SePay thành công: ${data.message}`,
+                              "success"
+                            );
+                          } else {
+                            showToast(data.message || "Kiểm thử Webhook thất bại", "error");
+                          }
+                        } catch {
+                          showToast("Lỗi khi gửi yêu cầu kiểm thử webhook!", "error");
+                        } finally {
+                          setIsSimulatingSepay(false);
+                        }
+                      }}
+                      disabled={isSimulatingSepay}
+                      className="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition flex items-center gap-1.5 shrink-0"
+                    >
+                      <RefreshCw
+                        className={`w-3.5 h-3.5 ${isSimulatingSepay ? "animate-spin" : ""}`}
+                      />
+                      <span>{isSimulatingSepay ? "Đang gửi..." : "Thử Nghiệm Gửi Webhook"}</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* TAB 1.3: NHẮC HỌC PHÍ QUA ZALO */}
+            {activeTab === "zalo" && (
+              <div className="space-y-6 w-full">
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <MessageSquare className="w-5 h-5 text-blue-600" />
+                    <span>Cấu Hình Phương Thức Nhắc Học Phí Qua Zalo</span>
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    Lựa chọn hình thức gửi thông báo học phí đến phụ huynh và học sinh
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Option B: Nhắc học phí thủ công (Active) */}
+                  <div
+                    onClick={() => setZaloReminderMode("manual")}
+                    className={`p-5 rounded-2xl border-2 transition cursor-pointer flex flex-col justify-between ${
+                      zaloReminderMode === "manual"
+                        ? "border-blue-600 bg-blue-50/40 dark:bg-blue-950/30 shadow-xs"
+                        : "border-slate-200 dark:border-slate-700/80 bg-slate-50/50 dark:bg-slate-800/40 hover:border-slate-300"
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-[11px] font-black uppercase tracking-wider text-blue-600">
+                          Phương Thức B (Khuyên dùng)
+                        </span>
+                        {zaloReminderMode === "manual" && (
+                          <div className="w-5 h-5 rounded-full bg-blue-600 text-white flex items-center justify-center">
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                          </div>
+                        )}
+                      </div>
+                      <h4 className="text-sm font-extrabold text-slate-900 dark:text-white">
+                        Nhắc Học Phí Thủ Công (Manual Assist)
+                      </h4>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                        Khi bấm vào học sinh, hệ thống mở cửa sổ mẫu tin nhắn nhắc học phí chuẩn
+                        soạn sẵn. Có sẵn <strong>Nút Copy</strong> và <strong>Nút Mở Zalo</strong>{" "}
+                        chuyển thẳng vào phòng chat với phụ huynh.
+                      </p>
+                    </div>
+                    <div className="mt-4 pt-3 border-t border-slate-200/60 dark:border-slate-700/60 flex items-center gap-2 text-xs font-bold text-blue-600">
+                      <span>Đang kích hoạt</span>
+                    </div>
+                  </div>
+
+                  {/* Option A: Tích hợp Bot Zalo Platform (Hoạt động) */}
+                  <div
+                    onClick={() => setZaloReminderMode("bot")}
+                    className={`p-5 rounded-2xl border-2 transition cursor-pointer flex flex-col justify-between ${
+                      zaloReminderMode === "bot"
+                        ? "border-blue-600 bg-blue-50/40 dark:bg-blue-950/30 shadow-xs"
+                        : "border-slate-200 dark:border-slate-700/80 bg-slate-50/50 dark:bg-slate-800/40 hover:border-slate-300"
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-[11px] font-black uppercase tracking-wider text-blue-600">
+                          Phương Thức A (Zalo Bot API)
+                        </span>
+                        {zaloReminderMode === "bot" && (
+                          <div className="w-5 h-5 rounded-full bg-blue-600 text-white flex items-center justify-center">
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                          </div>
+                        )}
+                      </div>
+                      <h4 className="text-sm font-extrabold text-slate-900 dark:text-white flex items-center gap-1.5">
+                        <Bot className="w-4 h-4 text-blue-600" />
+                        <span>Tích Hợp Zalo Bot Tự Động</span>
+                      </h4>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                        Sử dụng nền tảng <strong>Zalo Bot Platform</strong> (bot-api.zapps.me). Tự
+                        động gửi tin nhắn nhắc nợ học phí vào Zalo của phụ huynh khi đến hạn qua
+                        lệnh sendMessage.
+                      </p>
+
+                      {/* Form cấu hình Zalo Bot */}
+                      <div className="space-y-3 mt-3 pt-3 border-t border-slate-200 dark:border-slate-800 text-left">
+                        <div>
+                          <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 block mb-1">
+                            Zalo Bot Token *
+                          </label>
+                          <div className="flex items-center gap-1.5">
+                            <input
+                              type="text"
+                              placeholder="Nhập Bot Token từ Zalo Bot Creator..."
+                              value={zaloBotToken}
+                              onChange={(e) => setZaloBotToken(e.target.value)}
+                              className="w-full px-3 py-1.5 text-xs font-mono font-bold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                            <button
+                              type="button"
+                              disabled={isTestingBot}
+                              onClick={handleTestBotConnection}
+                              className="px-3 py-1.5 text-[11px] font-bold rounded-xl bg-blue-600 hover:bg-blue-700 text-white shrink-0 transition disabled:opacity-50"
+                            >
+                              {isTestingBot ? "Đang thử..." : "Test Bot"}
+                            </button>
+                          </div>
+                        </div>
+
+                        {zaloBotName && (
+                          <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-[11px] text-emerald-800 dark:text-emerald-300 font-bold flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                            <div className="flex items-center gap-1.5">
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                              <span>Đã kết nối: {zaloBotName}</span>
+                            </div>
+                            {zaloBotAccountName && (
+                              <a
+                                href={`https://zalo.me/${zaloBotAccountName}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 underline font-semibold"
+                                title="Mở ứng dụng Zalo để chat ngay với Bot"
+                              >
+                                <span>Mở Chat Bot (@{zaloBotAccountName})</span>
+                                <ExternalLink className="w-3 h-3" />
+                              </a>
+                            )}
+                          </div>
+                        )}
+
+                        {/* KHU VỰC WEBHOOK URL & NÚT KÍCH HOẠT TỰ ĐỘNG */}
+                        <div className="p-3 rounded-2xl bg-blue-50/70 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/60 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11px] font-black uppercase tracking-wider text-blue-900 dark:text-blue-200 flex items-center gap-1.5">
+                              <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+                              <span>Webhook URL Zalo Bot (Đồng bộ tức thì)</span>
+                            </span>
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const url = getZaloWebhookUrl();
+                                  navigator.clipboard.writeText(url);
+                                  showToast("Đã copy Webhook URL vào bộ nhớ tạm!", "success");
+                                }}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold rounded-lg bg-white dark:bg-slate-900 text-blue-700 dark:text-blue-300 border border-blue-300 dark:border-blue-700 hover:bg-blue-50 transition shadow-2xs"
+                                title="Copy URL để dán vào Bot Zalo"
+                              >
+                                <Copy className="w-3 h-3" />
+                                <span>Copy URL</span>
+                              </button>
+                              <button
+                                type="button"
+                                disabled={isSettingWebhook || !zaloBotToken.trim()}
+                                onClick={handleAutoSetWebhook}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition shadow-2xs disabled:opacity-50"
+                                title="Tự động gọi setWebhook qua API của Zalo"
+                              >
+                                <RefreshCw
+                                  className={`w-3 h-3 ${isSettingWebhook ? "animate-spin" : ""}`}
+                                />
+                                <span>
+                                  {isSettingWebhook ? "Đang gắn..." : "Kích Hoạt Tự Động"}
+                                </span>
+                              </button>
+                            </div>
+                          </div>
+                          <div className="p-2 rounded-xl bg-white dark:bg-slate-900 border border-blue-200/80 dark:border-blue-900/40 font-mono text-[11px] text-blue-800 dark:text-blue-300 break-all select-all">
+                            {typeof window !== "undefined"
+                              ? getZaloWebhookUrl()
+                              : "https://domain.com/api/zalo-bot/webhook"}
+                          </div>
+                          <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                            💡 <strong>Cách dùng đơn giản:</strong> Bấm{" "}
+                            <strong>&quot;Kích Hoạt Tự Động&quot;</strong> để hệ thống tự đăng ký
+                            Webhook với Zalo Bot. Hoặc bấm <strong>&quot;Copy URL&quot;</strong> rồi
+                            gửi lệnh <code>/setwebhook &lt;url&gt;</code> cho Bot trong Zalo.
+                          </p>
+                        </div>
+
+                        {/* Hướng dẫn tạo bot theo chuẩn tài liệu zaloplatforms */}
+                        <div className="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-[11px] text-slate-600 dark:text-slate-400 space-y-1">
+                          <span className="font-bold text-slate-700 dark:text-slate-200 block text-[10px] uppercase">
+                            Hướng dẫn kết nối Bot Zalo (3 bước nhanh):
+                          </span>
+                          <p>
+                            1. Mở app Zalo, tìm kiếm <strong>&quot;Zalo Bot Manager&quot;</strong>.
+                          </p>
+                          <p>
+                            2. Chọn <strong>&quot;Tạo bot&quot;</strong>, đặt tên bot có tiền tố{" "}
+                            <em>Bot</em> (VD: <em>BotTrungTamHongAn</em>).
+                          </p>
+                          <p>
+                            3. Dán mã <strong>Bot Token</strong> vào ô trên ➔ Bấm{" "}
+                            <strong>&quot;Test Bot&quot;</strong> ➔ Bấm{" "}
+                            <strong>&quot;Kích Hoạt Tự Động&quot;</strong> là xong!
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mt-3 pt-2 flex items-center gap-1.5 text-xs font-bold text-blue-600">
+                      <span>Hỗ trợ gửi tin nhắn tự động 1-click qua Bot</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* PHẦN MỚI: KÊNH THÔNG BÁO TỰ ĐỘNG VỀ ZALO CHO QUẢN LÝ / ADMIN */}
+                <div className="p-5 rounded-2xl border-2 border-indigo-200 dark:border-indigo-900/60 bg-gradient-to-br from-indigo-50/50 via-white to-blue-50/40 dark:from-slate-900 dark:via-slate-900 dark:to-indigo-950/40 shadow-xs space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-indigo-100 dark:border-indigo-900/60 pb-3">
+                    <div>
+                      <h4 className="text-sm font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+                        <Bell className="w-4 h-4 text-indigo-600" />
+                        <span>Kênh Thông Báo Tự Động Về Zalo Cho Quản Lý / Admin</span>
+                      </h4>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                        Bot sẽ tự động gửi tin nhắn báo cáo tức thì về Zalo cá nhân của bạn khi có
+                        biến động tại trung tâm
+                      </p>
+                    </div>
+                    <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300 self-start sm:self-auto">
+                      Thời gian thực
+                    </span>
+                  </div>
+
+                  {/* Ô nhập Chat ID & nút Lấy Chat ID */}
+                  <div className="space-y-2">
+                    <label className="text-[11px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-300 block">
+                      Zalo Chat ID của Quản lý / Admin nhận thông báo *
+                    </label>
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                      <input
+                        type="text"
+                        placeholder="Ví dụ: 123456789 (nhập mã hoặc bấm Lấy Chat ID)"
+                        value={zaloAdminChatId}
+                        onChange={(e) => setZaloAdminChatId(e.target.value)}
+                        className="flex-1 px-3.5 py-2 text-xs font-mono font-bold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                      <button
+                        type="button"
+                        disabled={isFetchingUpdates}
+                        onClick={handleFetchRecentChats}
+                        className="flex items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white shrink-0 transition shadow-xs disabled:opacity-50"
+                        title="Lấy danh sách người vừa nhắn tin cho Bot để chọn nhanh Chat ID"
+                      >
+                        <RefreshCw
+                          className={`w-3.5 h-3.5 ${isFetchingUpdates ? "animate-spin" : ""}`}
+                        />
+                        <span>{isFetchingUpdates ? "Đang dò tìm..." : "Lấy Chat ID gần đây"}</span>
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isSendingAdminTest || !zaloAdminChatId.trim()}
+                        onClick={handleTestAdminMessage}
+                        className="flex items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shrink-0 transition shadow-xs disabled:opacity-50"
+                        title="Gửi 1 tin nhắn thử nghiệm tới Zalo Admin để kiểm tra chuông"
+                      >
+                        <Send
+                          className={`w-3.5 h-3.5 ${isSendingAdminTest ? "animate-spin" : ""}`}
+                        />
+                        <span>{isSendingAdminTest ? "Đang gửi..." : "Gửi Thử Tin Nhắn"}</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Hướng dẫn 3 bước ngắn gọn */}
+                  <div className="p-3.5 rounded-xl bg-slate-100/80 dark:bg-slate-800/80 text-xs text-slate-600 dark:text-slate-300 space-y-1.5 border border-slate-200/60 dark:border-slate-700/60">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-slate-800 dark:text-slate-200 block text-[10px] uppercase tracking-wider">
+                        Cách kết nối Zalo Admin trong 10 giây:
+                      </span>
+                      {zaloBotAccountName && (
+                        <a
+                          href={`https://zalo.me/${zaloBotAccountName}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline font-bold inline-flex items-center gap-1"
+                        >
+                          <span>Mở Zalo nhắn cho Bot</span>
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      )}
+                    </div>
+                    <p>
+                      • <strong>Bước 1:</strong> Mở app Zalo trên điện thoại, tìm bot{" "}
+                      <strong className="text-indigo-600 dark:text-indigo-400">
+                        {zaloBotName || "của trung tâm"}{" "}
+                        {zaloBotAccountName ? `(@${zaloBotAccountName})` : ""}
+                      </strong>{" "}
+                      và nhắn tin chữ <em>&quot;Hi&quot;</em>.
+                    </p>
+                    <p>
+                      • <strong>Bước 2:</strong> Bấm nút{" "}
+                      <strong>&quot;Lấy Chat ID gần đây&quot;</strong> ở trên, hệ thống sẽ hiện tên
+                      bạn và tự động điền Chat ID.
+                    </p>
+                    <p>
+                      • <strong>Bước 3:</strong> Bấm <strong>&quot;Gửi Thử Tin Nhắn&quot;</strong>,
+                      điện thoại của bạn sẽ ting ting nhận tin nhắn xác nhận ngay lập tức!
+                    </p>
+                  </div>
+
+                  {/* 4 Checkbox lựa chọn nhận thông báo */}
+                  <div className="pt-2">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-2">
+                      Tùy chọn sự kiện nhận thông báo trên Zalo:
+                    </span>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      <label className="flex items-center gap-2.5 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 cursor-pointer hover:border-indigo-400 transition">
+                        <input
+                          type="checkbox"
+                          checked={zaloNotifyPayment}
+                          onChange={(e) => setZaloNotifyPayment(e.target.checked)}
+                          className="w-4 h-4 text-indigo-600 rounded-md focus:ring-indigo-500"
+                        />
+                        <div className="text-xs">
+                          <span className="font-bold text-slate-800 dark:text-slate-200 block">
+                            💰 Tiền học phí về tài khoản (SePay)
+                          </span>
+                          <span className="text-[11px] text-slate-400">
+                            Báo khi nhận chuyển khoản và gạch nợ thành công
+                          </span>
+                        </div>
+                      </label>
+
+                      <label className="flex items-center gap-2.5 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 cursor-pointer hover:border-indigo-400 transition">
+                        <input
+                          type="checkbox"
+                          checked={zaloNotifyStudentAbsence}
+                          onChange={(e) => setZaloNotifyStudentAbsence(e.target.checked)}
+                          className="w-4 h-4 text-indigo-600 rounded-md focus:ring-indigo-500"
+                        />
+                        <div className="text-xs">
+                          <span className="font-bold text-slate-800 dark:text-slate-200 block">
+                            🏥 Học sinh nộp đơn báo nghỉ học
+                          </span>
+                          <span className="text-[11px] text-slate-400">
+                            Báo khi phụ huynh gửi báo nghỉ trực tuyến
+                          </span>
+                        </div>
+                      </label>
+
+                      <label className="flex items-center gap-2.5 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 cursor-pointer hover:border-indigo-400 transition">
+                        <input
+                          type="checkbox"
+                          checked={zaloNotifyTeacherLeave}
+                          onChange={(e) => setZaloNotifyTeacherLeave(e.target.checked)}
+                          className="w-4 h-4 text-indigo-600 rounded-md focus:ring-indigo-500"
+                        />
+                        <div className="text-xs">
+                          <span className="font-bold text-slate-800 dark:text-slate-200 block">
+                            👨‍🏫 Giáo viên gửi đơn xin nghỉ dạy
+                          </span>
+                          <span className="text-[11px] text-slate-400">
+                            Báo khi giáo viên xin nghỉ và đề xuất người dạy thay
+                          </span>
+                        </div>
+                      </label>
+
+                      <label className="flex items-center gap-2.5 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 cursor-pointer hover:border-indigo-400 transition">
+                        <input
+                          type="checkbox"
+                          checked={zaloNotifyParentFeedback}
+                          onChange={(e) => setZaloNotifyParentFeedback(e.target.checked)}
+                          className="w-4 h-4 text-indigo-600 rounded-md focus:ring-indigo-500"
+                        />
+                        <div className="text-xs">
+                          <span className="font-bold text-slate-800 dark:text-slate-200 block">
+                            ⭐ Phụ huynh gửi góp ý / đánh giá
+                          </span>
+                          <span className="text-[11px] text-slate-400">
+                            Báo khi nhận được nhận xét chất lượng giảng dạy
+                          </span>
+                        </div>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+            {/* TAB MỚI: QUẢN LÝ BỘ MÔN / CHƯƠNG TRÌNH HỌC */}
+            {activeTab === "subjects" && (
+              <div className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                      <BookOpen className="w-5 h-5 text-indigo-600" />
+                      <span>Danh Mục Bộ Môn / Chương Trình Học</span>
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Tự do thiết lập các môn học phù hợp với ngành đào tạo của trung tâm (Âm nhạc,
+                      Ngoại ngữ, Dạy thêm, Năng khiếu...)
+                    </p>
+                  </div>
+                </div>
+
+                {/* Form thêm môn học mới */}
+                <form
+                  onSubmit={handleAddSubject}
+                  className="p-4 rounded-2xl bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/60 space-y-3"
+                >
+                  <span className="text-xs font-black uppercase tracking-wider text-indigo-900 dark:text-indigo-300 block">
+                    Thêm Môn Học Mới:
+                  </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
+                    <div className="sm:col-span-2">
+                      <input
+                        type="text"
+                        required
+                        placeholder="Tên môn (VD: Piano, IELTS, Toán 10, Vẽ...)"
+                        value={newSubjectName}
+                        onChange={(e) => setNewSubjectName(e.target.value)}
+                        className="w-full px-3 py-2 text-xs font-bold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </div>
+                    <div>
+                      <select
+                        value={newSubjectColor}
+                        onChange={(e) => setNewSubjectColor(e.target.value)}
+                        className="w-full px-3 py-2 text-xs font-bold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white outline-none"
+                      >
+                        <option value="indigo">Màu Xanh Indigo</option>
+                        <option value="purple">Màu Tím Purple</option>
+                        <option value="emerald">Màu Xanh Lá Emerald</option>
+                        <option value="amber">Màu Cam Amber</option>
+                        <option value="rose">Màu Đỏ Rose</option>
+                        <option value="sky">Màu Xanh Biển Sky</option>
+                      </select>
+                    </div>
+                    <div>
+                      <button
+                        type="submit"
+                        disabled={isAddingSubject}
+                        className="w-full py-2 px-3 text-xs font-bold rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs transition flex items-center justify-center gap-1.5 disabled:opacity-50"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>{isAddingSubject ? "Đang thêm..." : "Thêm Môn"}</span>
+                      </button>
+                    </div>
+                  </div>
+                </form>
+
+                {/* Danh sách các môn hiện có */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {subjects.map((sub) => (
+                    <div
+                      key={sub.id}
+                      className="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs flex items-center justify-between gap-3 hover:border-slate-300 transition"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <div
+                          className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-white shrink-0 ${
+                            sub.color === "purple"
+                              ? "bg-purple-600 shadow-purple-600/30"
+                              : sub.color === "emerald"
+                                ? "bg-emerald-600 shadow-emerald-600/30"
+                                : sub.color === "amber"
+                                  ? "bg-amber-600 shadow-amber-600/30"
+                                  : sub.color === "rose"
+                                    ? "bg-rose-600 shadow-rose-600/30"
+                                    : sub.color === "sky"
+                                      ? "bg-sky-600 shadow-sky-600/30"
+                                      : "bg-indigo-600 shadow-indigo-600/30"
+                          } shadow-sm`}
+                        >
+                          <BookOpen className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-bold text-slate-900 dark:text-white leading-tight">
+                            {sub.name}
+                          </h4>
+                          <span className="text-[10px] text-slate-400">
+                            {sub.description || "Môn học cơ sở"}
+                          </span>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteSubject(sub.id)}
+                        className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition"
+                        title="Xóa môn học này"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                {subjects.length === 0 && (
+                  <div className="py-12 text-center text-xs text-slate-400 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-3xl">
+                    <BookOpen className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                    <p>Chưa có môn học nào. Hãy thêm các môn đào tạo ở form trên!</p>
                   </div>
                 )}
               </div>
-            </div>
-          )}
-
-          {/* TAB 5: Change Password for Admin */}
-          {activeTab === "password" && (
-            <div className="space-y-5 max-w-md mx-auto py-4">
-              <div className="text-center space-y-1.5">
-                <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 mx-auto flex items-center justify-center shadow-xs">
-                  <KeyRound className="w-6 h-6" />
-                </div>
-                <h3 className="text-base font-black text-slate-900 dark:text-white">
-                  Đổi Mật Khẩu Quản Trị Viên
-                </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Cập nhật mật khẩu đăng nhập vào cổng Quản trị cơ sở này
-                </p>
-              </div>
-
-              <form onSubmit={handleChangePassword} className="space-y-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Mật khẩu hiện tại *
-                  </label>
-                  <div className="relative">
-                    <Lock className="w-4 h-4 absolute left-3.5 top-3 text-slate-400" />
-                    <input
-                      type="password"
-                      required
-                      placeholder="Nhập mật khẩu đang sử dụng"
-                      value={currentPassword}
-                      onChange={(e) => setCurrentPassword(e.target.value)}
-                      className="w-full pl-10 pr-3 py-2.5 text-sm font-semibold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition"
-                    />
+            )}
+            {activeTab === "slots" && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                      Danh Sách Khung Giờ Mở Cửa Của Cơ Sở
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Chọn nhanh từ Thứ mấy tới Thứ mấy bằng menu chọn gọn gàng
+                    </p>
                   </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Mật khẩu mới (Tối thiểu 6 ký tự) *
-                  </label>
-                  <div className="relative">
-                    <Lock className="w-4 h-4 absolute left-3.5 top-3 text-slate-400" />
-                    <input
-                      type="password"
-                      required
-                      placeholder="Nhập mật khẩu mới"
-                      value={newPassword}
-                      onChange={(e) => setNewPassword(e.target.value)}
-                      className="w-full pl-10 pr-3 py-2.5 text-sm font-semibold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Xác nhận mật khẩu mới *
-                  </label>
-                  <div className="relative">
-                    <Lock className="w-4 h-4 absolute left-3.5 top-3 text-slate-400" />
-                    <input
-                      type="password"
-                      required
-                      placeholder="Nhập lại mật khẩu mới"
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      className="w-full pl-10 pr-3 py-2.5 text-sm font-semibold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition"
-                    />
-                  </div>
-                </div>
-
-                <div className="pt-2">
                   <button
-                    type="submit"
-                    disabled={isChangingPassword}
-                    className="w-full py-3 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs uppercase tracking-wider shadow-md shadow-indigo-600/30 transition flex items-center justify-center gap-2 disabled:opacity-50"
+                    onClick={handleAddTimeSlot}
+                    className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-xs transition"
                   >
-                    <ShieldCheck className="w-4 h-4" />
-                    <span>{isChangingPassword ? "Đang cập nhật..." : "Cập Nhật Mật Khẩu Mới"}</span>
+                    <Plus className="w-4 h-4" /> Thêm khung giờ
                   </button>
                 </div>
-              </form>
-            </div>
-          )}
+
+                <div className="space-y-3">
+                  {timeSlots.map((slot, index) => (
+                    <div
+                      key={slot.id || index}
+                      className="p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-800/40 flex flex-col md:flex-row md:items-center gap-3 shadow-xs hover:border-slate-300 transition"
+                    >
+                      <div className="flex-1 grid grid-cols-1 sm:grid-cols-6 gap-2.5">
+                        {/* Name */}
+                        <div className="sm:col-span-1">
+                          <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                            Tên khung giờ
+                          </label>
+                          <input
+                            type="text"
+                            value={slot.name}
+                            onChange={(e) => handleUpdateTimeSlot(index, "name", e.target.value)}
+                            placeholder="Ca Sáng T7"
+                            className="w-full mt-1 px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none"
+                          />
+                        </div>
+
+                        {/* Dropdown: Từ thứ mấy */}
+                        <div className="sm:col-span-1">
+                          <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                            Từ thứ
+                          </label>
+                          <select
+                            value={slot.from_day || "Thứ 2"}
+                            onChange={(e) =>
+                              handleUpdateTimeSlot(index, "from_day", e.target.value)
+                            }
+                            className="w-full mt-1 px-2.5 py-1.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none"
+                          >
+                            {WEEKDAYS.map((d) => (
+                              <option key={d} value={d}>
+                                {d}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        {/* Dropdown: Tới thứ mấy */}
+                        <div className="sm:col-span-1">
+                          <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                            Đến thứ
+                          </label>
+                          <select
+                            value={slot.to_day || "Thứ 7"}
+                            onChange={(e) => handleUpdateTimeSlot(index, "to_day", e.target.value)}
+                            className="w-full mt-1 px-2.5 py-1.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none"
+                          >
+                            {WEEKDAYS.map((d) => (
+                              <option key={d} value={d}>
+                                {d}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        {/* Giờ mở */}
+                        <div className="sm:col-span-1">
+                          <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                            Mở cửa
+                          </label>
+                          <input
+                            type="time"
+                            value={slot.start_time}
+                            onChange={(e) =>
+                              handleUpdateTimeSlot(index, "start_time", e.target.value)
+                            }
+                            className="w-full mt-1 px-2.5 py-1.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 outline-none"
+                          />
+                        </div>
+
+                        {/* Giờ đóng */}
+                        <div className="sm:col-span-1">
+                          <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                            Đóng cửa
+                          </label>
+                          <input
+                            type="time"
+                            value={slot.end_time}
+                            onChange={(e) =>
+                              handleUpdateTimeSlot(index, "end_time", e.target.value)
+                            }
+                            className="w-full mt-1 px-2.5 py-1.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 outline-none"
+                          />
+                        </div>
+
+                        {/* Sĩ số max */}
+                        <div className="sm:col-span-1">
+                          <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                            Sĩ số max
+                          </label>
+                          <input
+                            type="number"
+                            min="1"
+                            max="100"
+                            value={slot.max_students || maxStudents || 10}
+                            onChange={(e) =>
+                              handleUpdateTimeSlot(
+                                index,
+                                "max_students",
+                                Number(e.target.value) || 10
+                              )
+                            }
+                            className="w-full mt-1 px-2.5 py-1.5 text-xs font-black text-indigo-600 dark:text-indigo-400 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 outline-none"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between md:justify-end gap-3 pt-2 md:pt-0 border-t md:border-t-0 border-slate-100 dark:border-slate-800">
+                        <label className="flex items-center gap-1.5 cursor-pointer text-xs font-bold text-slate-600 dark:text-slate-300">
+                          <input
+                            type="checkbox"
+                            checked={Boolean(slot.is_active)}
+                            onChange={(e) =>
+                              handleUpdateTimeSlot(index, "is_active", e.target.checked ? 1 : 0)
+                            }
+                            className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
+                          />
+                          Hoạt động
+                        </label>
+
+                        <button
+                          onClick={() => handleRemoveTimeSlot(index)}
+                          className="p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl transition"
+                          title="Xóa khung giờ"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+
+                  {timeSlots.length === 0 && (
+                    <div className="text-center py-12 text-slate-400 text-xs">
+                      Chưa có khung giờ nào. Bấm <strong>&quot;+ Thêm khung giờ&quot;</strong> để
+                      thiết lập ca học.
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* TAB 3: Level Surcharges */}
+            {activeTab === "levels" && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                      Bảng Phụ Thu Theo Level & Trình Độ
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Số tiền cộng thêm vào học phí cơ bản theo cấp độ của học sinh
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleAddLevel}
+                    className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-xs transition"
+                  >
+                    <Plus className="w-4 h-4" /> Thêm Level
+                  </button>
+                </div>
+
+                <div className="space-y-2.5">
+                  {levels.map((lvl, index) => (
+                    <div
+                      key={lvl.id || index}
+                      draggable
+                      onDragStart={(e) => handleDragStartLevel(e, index)}
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={(e) => handleDropLevel(e, index)}
+                      className="p-3.5 sm:p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-800/40 flex items-center gap-2.5 sm:gap-3.5 shadow-xs hover:border-indigo-300 dark:hover:border-indigo-700/80 transition cursor-grab active:cursor-grabbing group"
+                    >
+                      {/* Tay cầm kéo thả + Nút lên/xuống */}
+                      <div className="flex flex-col items-center justify-center gap-0.5 shrink-0">
+                        <button
+                          type="button"
+                          disabled={index === 0}
+                          onClick={() => handleMoveLevel(index, "up")}
+                          className="p-1 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-20 disabled:hover:bg-transparent transition cursor-pointer"
+                          title="Di chuyển lên trên"
+                        >
+                          <ArrowUp className="w-3.5 h-3.5" />
+                        </button>
+                        <GripVertical className="w-4 h-4 text-slate-300 group-hover:text-indigo-500 transition" />
+                        <button
+                          type="button"
+                          disabled={index === levels.length - 1}
+                          onClick={() => handleMoveLevel(index, "down")}
+                          className="p-1 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-20 disabled:hover:bg-transparent transition cursor-pointer"
+                          title="Di chuyển xuống dưới"
+                        >
+                          <ArrowDown className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
+                      <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 font-black text-xs flex items-center justify-center shrink-0">
+                        #{index + 1}
+                      </div>
+
+                      <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div>
+                          <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                            Tên Level
+                          </label>
+                          <input
+                            type="text"
+                            value={lvl.level_name}
+                            onChange={(e) => handleUpdateLevel(index, "level_name", e.target.value)}
+                            placeholder="Tên Level (Grade 1, Nâng Cao...)"
+                            className="w-full mt-1 px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                            Kiểu Phụ Thu
+                          </label>
+                          <select
+                            value={lvl.surcharge_type || "fixed"}
+                            onChange={(e) =>
+                              handleUpdateLevel(index, "surcharge_type", e.target.value)
+                            }
+                            className="w-full mt-1 px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none cursor-pointer"
+                          >
+                            <option value="fixed">Cố định (VNĐ)</option>
+                            <option value="percent">Phần trăm (%)</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                            {lvl.surcharge_type === "percent"
+                              ? "Mức phụ thu (%)"
+                              : "Mức phụ thu (VNĐ)"}
+                          </label>
+                          <div className="relative mt-1">
+                            <input
+                              type="number"
+                              min="0"
+                              step="any"
+                              value={lvl.surcharge_amount === 0 ? "" : lvl.surcharge_amount}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                handleUpdateLevel(
+                                  index,
+                                  "surcharge_amount",
+                                  val === "" ? 0 : Number(val)
+                                );
+                              }}
+                              className="w-full px-3 py-1.5 text-xs font-black text-emerald-600 dark:text-emerald-400 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none"
+                            />
+                            <span className="absolute right-3 top-1.5 text-xs font-bold text-slate-400">
+                              {lvl.surcharge_type === "percent"
+                                ? "%"
+                                : formatVND(lvl.surcharge_amount)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={() => handleRemoveLevel(index)}
+                        className="p-2 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl transition shrink-0 cursor-pointer"
+                        title="Xóa Level"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+
+                  {levels.length === 0 && (
+                    <div className="text-center py-12 text-slate-400 text-xs">
+                      Chưa có Level nào. Bấm <strong>&quot;+ Thêm Level&quot;</strong> để thiết lập.
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* TAB 4: Discounts */}
+            {activeTab === "discounts" && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                      Cấu Hình Các Mốc Chiết Khấu (Discount Presets)
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Các mốc phần trăm giảm giá nhanh khi thêm/sửa học sinh
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleAddDiscount}
+                    className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-xs transition"
+                  >
+                    <Plus className="w-4 h-4" /> Thêm mốc chiết khấu
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {discounts.map((disc, index) => (
+                    <div
+                      key={disc.id || index}
+                      className="p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-800/40 space-y-2.5 shadow-xs hover:border-slate-300 transition"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-xl bg-amber-50 dark:bg-amber-950/50 text-amber-600 flex items-center justify-center shrink-0">
+                            <Percent className="w-4 h-4" />
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="number"
+                              min="0"
+                              max="100"
+                              value={disc.percentage}
+                              onChange={(e) =>
+                                handleUpdateDiscount(index, "percentage", e.target.value)
+                              }
+                              className="w-16 px-2 py-1 text-sm font-black text-slate-900 dark:text-white rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-center focus:ring-2 focus:ring-indigo-500 outline-none"
+                            />
+                            <span className="text-xs font-black text-slate-500">%</span>
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={() => handleRemoveDiscount(index)}
+                          className="p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl transition"
+                          title="Xóa mức chiết khấu"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">
+                          Lý do được giảm / Tên mức giảm
+                        </label>
+                        <input
+                          type="text"
+                          value={disc.label || ""}
+                          onChange={(e) => handleUpdateDiscount(index, "label", e.target.value)}
+                          placeholder="VD: Anh em ruột, Đăng ký sớm, Hộ nghèo..."
+                          className="w-full px-2.5 py-1.5 text-xs font-semibold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition"
+                        />
+                      </div>
+                    </div>
+                  ))}
+
+                  {discounts.length === 0 && (
+                    <div className="col-span-full text-center py-12 text-slate-400 text-xs">
+                      Chưa có mức chiết khấu nào. Bấm{" "}
+                      <strong>&quot;+ Thêm mốc chiết khấu&quot;</strong> để tạo nhanh các mốc 10%,
+                      20%...
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* TAB 5: Change Password for Admin */}
+            {activeTab === "password" && (
+              <div className="space-y-5 max-w-md mx-auto py-4">
+                <div className="text-center space-y-1.5">
+                  <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 mx-auto flex items-center justify-center shadow-xs">
+                    <KeyRound className="w-6 h-6" />
+                  </div>
+                  <h3 className="text-base font-black text-slate-900 dark:text-white">
+                    Đổi Mật Khẩu Quản Trị Viên
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Cập nhật mật khẩu đăng nhập vào cổng Quản trị cơ sở này
+                  </p>
+                </div>
+
+                <form onSubmit={handleChangePassword} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      Mật khẩu hiện tại *
+                    </label>
+                    <div className="relative">
+                      <Lock className="w-4 h-4 absolute left-3.5 top-3 text-slate-400" />
+                      <input
+                        type="password"
+                        required
+                        placeholder="Nhập mật khẩu đang sử dụng"
+                        value={currentPassword}
+                        onChange={(e) => setCurrentPassword(e.target.value)}
+                        className="w-full pl-10 pr-3 py-2.5 text-sm font-semibold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      Mật khẩu mới (Tối thiểu 6 ký tự) *
+                    </label>
+                    <div className="relative">
+                      <Lock className="w-4 h-4 absolute left-3.5 top-3 text-slate-400" />
+                      <input
+                        type="password"
+                        required
+                        placeholder="Nhập mật khẩu mới"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        className="w-full pl-10 pr-3 py-2.5 text-sm font-semibold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      Xác nhận mật khẩu mới *
+                    </label>
+                    <div className="relative">
+                      <Lock className="w-4 h-4 absolute left-3.5 top-3 text-slate-400" />
+                      <input
+                        type="password"
+                        required
+                        placeholder="Nhập lại mật khẩu mới"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        className="w-full pl-10 pr-3 py-2.5 text-sm font-semibold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="pt-2">
+                    <button
+                      type="submit"
+                      disabled={isChangingPassword}
+                      className="w-full py-3 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs uppercase tracking-wider shadow-md shadow-indigo-600/30 transition flex items-center justify-center gap-2 disabled:opacity-50"
+                    >
+                      <ShieldCheck className="w-4 h-4" />
+                      <span>
+                        {isChangingPassword ? "Đang cập nhật..." : "Cập Nhật Mật Khẩu Mới"}
+                      </span>
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
           </div>
         </div>
 

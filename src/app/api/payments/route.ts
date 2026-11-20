@@ -1,15 +1,24 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
-import { getPreviousMonthStr, getNextMonthStr, calculateStudentTuition, computeEndMonth } from "@/lib/tuition";
+import {
+  getPreviousMonthStr,
+  getNextMonthStr,
+  calculateStudentTuition,
+  computeEndMonth,
+} from "@/lib/tuition";
 import { grantCycleForPayment } from "@/lib/wallet";
 import { requireAdminPermission } from "@/lib/authHelper";
+import { createLogger } from "@/lib/logger";
+import type { DbRow } from "@/lib/types";
+
+const log = createLogger("api/payments");
 
 // Helper: cấp giờ vào Ví Giờ Học cho toàn bộ chu kỳ tháng đã đóng (idempotent, lỗi không chặn thanh toán)
 async function grantHoursForPeriod(studentId: string, startPeriod: string, endPeriod: string) {
   try {
     let cursor = startPeriod;
     let safety = 0;
-    const results: any[] = [];
+    const results: DbRow[] = [];
     while (safety < 24) {
       const r = await grantCycleForPayment({
         studentId,
@@ -23,7 +32,7 @@ async function grantHoursForPeriod(studentId: string, startPeriod: string, endPe
     }
     return results;
   } catch (err) {
-    console.error("grantHoursForPeriod Error (không chặn thanh toán):", err);
+    log.error("grantHoursForPeriod Error (không chặn thanh toán):", { error: err });
     return [];
   }
 }
@@ -65,7 +74,7 @@ export async function GET(req: Request) {
 
     return NextResponse.json({ success: true, data: payments });
   } catch (error: unknown) {
-    console.error("Payments GET Error:", error);
+    log.error("Payments GET Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Internal Server Error" },
       { status: 500 }
@@ -85,7 +94,10 @@ export async function POST(req: Request) {
     const { action, student_id, month, package_id, amount, note, receipt_number } = body;
 
     if (!student_id) {
-      return NextResponse.json({ success: false, message: "Thiếu thông tin học sinh!" }, { status: 400 });
+      return NextResponse.json(
+        { success: false, message: "Thiếu thông tin học sinh!" },
+        { status: 400 }
+      );
     }
 
     const currentMonth = month || new Date().toISOString().slice(0, 7);
@@ -166,13 +178,25 @@ export async function POST(req: Request) {
       await db.execute({
         sql: `INSERT INTO student_payments (id, student_id, package_id, package_name, amount, paid_date, start_period, end_period, status, note, receipt_number)
               VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'paid', ?, ?)`,
-        args: [paymentId, student_id, targetPackageId, packageName, paymentAmount, todayStr, startPeriod, endPeriod, note || "", receipt_number || null],
+        args: [
+          paymentId,
+          student_id,
+          targetPackageId,
+          packageName,
+          paymentAmount,
+          todayStr,
+          startPeriod,
+          endPeriod,
+          note || "",
+          receipt_number || null,
+        ],
       });
 
       // ⭐ VÍ GIỜ HỌC: Cấp giờ vào ví cho toàn bộ chu kỳ tháng đã đóng (idempotent)
       await grantHoursForPeriod(student_id, startPeriod, endPeriod);
 
-      const periodDesc = cycleMonths > 1 ? `${startPeriod} đến ${endPeriod}` : `Tháng ${startPeriod}`;
+      const periodDesc =
+        cycleMonths > 1 ? `${startPeriod} đến ${endPeriod}` : `Tháng ${startPeriod}`;
       return NextResponse.json({
         success: true,
         message: `Đã xác nhận thanh toán thành công cho ${periodDesc}!`,
@@ -274,7 +298,7 @@ export async function POST(req: Request) {
     // 3. ĐỐI SOÁT CHUẨN XÁC: SET TRẠNG THÁI CHO NHIỀU THÁNG CỤ THỂ
     if (action === "set_months_status") {
       const { paid_months, unpaid_months } = body; // Mảng các tháng dạng ["2026-09", "2026-10", "2026-11"]
-      
+
       // Xử lý các tháng được đánh dấu Cần đóng tiền (unpaid)
       if (Array.isArray(unpaid_months)) {
         for (const unMonth of unpaid_months) {
@@ -289,31 +313,60 @@ export async function POST(req: Request) {
             const ep = String(pay.end_period);
 
             if (sp === ep) {
-              await db.execute({ sql: "DELETE FROM student_payments WHERE id = ?", args: [pay.id] });
+              await db.execute({
+                sql: "DELETE FROM student_payments WHERE id = ?",
+                args: [pay.id],
+              });
             } else if (unMonth === sp) {
               const nextStart = getNextMonthStr(unMonth);
               if (nextStart <= ep) {
-                await db.execute({ sql: "UPDATE student_payments SET start_period = ? WHERE id = ?", args: [nextStart, pay.id] });
+                await db.execute({
+                  sql: "UPDATE student_payments SET start_period = ? WHERE id = ?",
+                  args: [nextStart, pay.id],
+                });
               } else {
-                await db.execute({ sql: "DELETE FROM student_payments WHERE id = ?", args: [pay.id] });
+                await db.execute({
+                  sql: "DELETE FROM student_payments WHERE id = ?",
+                  args: [pay.id],
+                });
               }
             } else if (unMonth === ep) {
               const prevEnd = getPreviousMonthStr(unMonth);
               if (prevEnd >= sp) {
-                await db.execute({ sql: "UPDATE student_payments SET end_period = ? WHERE id = ?", args: [prevEnd, pay.id] });
+                await db.execute({
+                  sql: "UPDATE student_payments SET end_period = ? WHERE id = ?",
+                  args: [prevEnd, pay.id],
+                });
               } else {
-                await db.execute({ sql: "DELETE FROM student_payments WHERE id = ?", args: [pay.id] });
+                await db.execute({
+                  sql: "DELETE FROM student_payments WHERE id = ?",
+                  args: [pay.id],
+                });
               }
             } else {
               const prevEnd = getPreviousMonthStr(unMonth);
               const nextStart = getNextMonthStr(unMonth);
-              await db.execute({ sql: "UPDATE student_payments SET end_period = ? WHERE id = ?", args: [prevEnd, pay.id] });
+              await db.execute({
+                sql: "UPDATE student_payments SET end_period = ? WHERE id = ?",
+                args: [prevEnd, pay.id],
+              });
               if (nextStart <= ep) {
                 const splitId = `pay-split-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
                 await db.execute({
                   sql: `INSERT INTO student_payments (id, student_id, package_id, package_name, amount, paid_date, start_period, end_period, status, note, receipt_number)
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'paid', ?, ?)`,
-                  args: [splitId, pay.student_id, pay.package_id, pay.package_name, pay.amount, pay.paid_date, nextStart, ep, pay.note || "", pay.receipt_number || null],
+                  args: [
+                    splitId,
+                    pay.student_id,
+                    pay.package_id,
+                    pay.package_name,
+                    pay.amount,
+                    pay.paid_date,
+                    nextStart,
+                    ep,
+                    pay.note || "",
+                    pay.receipt_number || null,
+                  ],
                 });
               }
             }
@@ -363,9 +416,12 @@ export async function POST(req: Request) {
       });
     }
 
-    return NextResponse.json({ success: false, message: "Hành động không hợp lệ!" }, { status: 400 });
+    return NextResponse.json(
+      { success: false, message: "Hành động không hợp lệ!" },
+      { status: 400 }
+    );
   } catch (error: unknown) {
-    console.error("Payments API Error:", error);
+    log.error("Payments API Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Internal Server Error" },
       { status: 500 }

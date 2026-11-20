@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
 import { getSchoolIdFromRequest, getAdminFromRequest } from "@/lib/authHelper";
+import { createLogger } from "@/lib/logger";
+import { getErrorMessage } from "@/lib/errors";
+
+const log = createLogger("api/admin/tuition-reminders");
 
 const ZALO_BOT_BASE_URL = "https://bot-api.zapps.me";
 
@@ -26,9 +30,9 @@ export async function GET(req: Request) {
     );
     const canAccess = Boolean(
       admin &&
-        (isOwnerOrWildcard ||
-          admin.permissions.includes("tuition.view") ||
-          admin.permissions.includes("tuition.remind"))
+      (isOwnerOrWildcard ||
+        admin.permissions.includes("tuition.view") ||
+        admin.permissions.includes("tuition.remind"))
     );
     if (!canAccess) {
       return NextResponse.json(
@@ -135,10 +139,10 @@ export async function GET(req: Request) {
         total_actions: remindersRes.rows.length,
       },
     });
-  } catch (error: any) {
-    console.error("GET /api/admin/tuition-reminders error:", error);
+  } catch (error: unknown) {
+    log.error("GET /api/admin/tuition-reminders error:", { error: error });
     return NextResponse.json(
-      { success: false, message: error.message || "Lỗi truy vấn lịch sử nhắc học phí" },
+      { success: false, message: getErrorMessage(error) || "Lỗi truy vấn lịch sử nhắc học phí" },
       { status: 500 }
     );
   }
@@ -150,7 +154,10 @@ export async function POST(req: Request) {
     await initDb();
     const admin = await getAdminFromRequest(req);
     const canRemind = Boolean(
-      admin && (admin.is_owner === 1 || admin.permissions.includes("*") || admin.permissions.includes("tuition.remind"))
+      admin &&
+      (admin.is_owner === 1 ||
+        admin.permissions.includes("*") ||
+        admin.permissions.includes("tuition.remind"))
     );
     if (!canRemind) {
       return NextResponse.json(
@@ -160,7 +167,18 @@ export async function POST(req: Request) {
     }
     const db = getDb();
     const body = await req.json();
-    const { action = "log", school_id, student_id, month, amount, channel = "zalo_manual", reminded_by, note, text, items } = body;
+    const {
+      action = "log",
+      school_id,
+      student_id,
+      month,
+      amount,
+      channel = "zalo_manual",
+      reminded_by,
+      note,
+      text,
+      items,
+    } = body;
 
     const querySchoolId = school_id || getSchoolIdFromRequest(req) || "school-default";
     const currentMonth = month || new Date().toISOString().slice(0, 7);
@@ -214,7 +232,10 @@ export async function POST(req: Request) {
       });
 
       if (studentRes.rows.length === 0) {
-        return NextResponse.json({ success: false, message: "Không tìm thấy học sinh!" }, { status: 404 });
+        return NextResponse.json(
+          { success: false, message: "Không tìm thấy học sinh!" },
+          { status: 404 }
+        );
       }
 
       const st = studentRes.rows[0];
@@ -223,7 +244,8 @@ export async function POST(req: Request) {
         return NextResponse.json(
           {
             success: false,
-            message: "Học sinh này chưa có Zalo Chat ID! Vui lòng chọn gửi thủ công qua số điện thoại Zalo.",
+            message:
+              "Học sinh này chưa có Zalo Chat ID! Vui lòng chọn gửi thủ công qua số điện thoại Zalo.",
           },
           { status: 400 }
         );
@@ -240,13 +262,15 @@ export async function POST(req: Request) {
         return NextResponse.json(
           {
             success: false,
-            message: "Trung tâm chưa cấu hình Zalo Bot Token! Vui lòng vào Cài Đặt > Nhắc Zalo Bot để thiết lập.",
+            message:
+              "Trung tâm chưa cấu hình Zalo Bot Token! Vui lòng vào Cài Đặt > Nhắc Zalo Bot để thiết lập.",
           },
           { status: 400 }
         );
       }
 
-      const messageText = text || `Trung tâm thông báo học phí tháng ${currentMonth}: Số tiền cần đóng ${amount} đ.`;
+      const messageText =
+        text || `Trung tâm thông báo học phí tháng ${currentMonth}: Số tiền cần đóng ${amount} đ.`;
 
       // Gửi request tới Zalo Bot API
       const url = `${ZALO_BOT_BASE_URL}/bot${botToken}/sendMessage`;
@@ -305,7 +329,10 @@ export async function POST(req: Request) {
     // 3. Gửi tin nhắn Zalo Bot hàng loạt cho các em có Chat ID
     if (action === "send_bot_batch") {
       if (!Array.isArray(items) || items.length === 0) {
-        return NextResponse.json({ success: false, message: "Danh sách học sinh gửi bot rỗng!" }, { status: 400 });
+        return NextResponse.json(
+          { success: false, message: "Danh sách học sinh gửi bot rỗng!" },
+          { status: 400 }
+        );
       }
 
       let botToken = "";
@@ -318,7 +345,8 @@ export async function POST(req: Request) {
         return NextResponse.json(
           {
             success: false,
-            message: "Trung tâm chưa cấu hình Zalo Bot Token! Vui lòng vào Cài Đặt > Nhắc Zalo Bot để thiết lập.",
+            message:
+              "Trung tâm chưa cấu hình Zalo Bot Token! Vui lòng vào Cài Đặt > Nhắc Zalo Bot để thiết lập.",
           },
           { status: 400 }
         );
@@ -370,9 +398,9 @@ export async function POST(req: Request) {
             failCount++;
             errors.push({ student_id: sId, reason: data.description || "Lỗi gửi tin nhắn" });
           }
-        } catch (err: any) {
+        } catch (err: unknown) {
           failCount++;
-          errors.push({ student_id: sId, reason: err.message || "Lỗi kết nối" });
+          errors.push({ student_id: sId, reason: getErrorMessage(err) || "Lỗi kết nối" });
         }
       }
 
@@ -385,11 +413,14 @@ export async function POST(req: Request) {
       });
     }
 
-    return NextResponse.json({ success: false, message: "Hành động không hợp lệ!" }, { status: 400 });
-  } catch (error: any) {
-    console.error("POST /api/admin/tuition-reminders error:", error);
     return NextResponse.json(
-      { success: false, message: error.message || "Lỗi xử lý nhắc học phí" },
+      { success: false, message: "Hành động không hợp lệ!" },
+      { status: 400 }
+    );
+  } catch (error: unknown) {
+    log.error("POST /api/admin/tuition-reminders error:", { error: error });
+    return NextResponse.json(
+      { success: false, message: getErrorMessage(error) || "Lỗi xử lý nhắc học phí" },
       { status: 500 }
     );
   }

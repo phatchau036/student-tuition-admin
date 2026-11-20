@@ -2,9 +2,12 @@ import { NextResponse } from "next/server";
 import { spawn } from "child_process";
 import { writeFileSync, unlinkSync, existsSync } from "fs";
 import { join } from "path";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("api/system/upgrade");
 
 // API Kích hoạt nâng cấp tự động từ GitHub
-export async function POST(req: Request) {
+export async function POST(_req: Request) {
   try {
     const cwd = process.cwd();
     const flagPath = join(cwd, ".maintenance");
@@ -26,14 +29,17 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       success: true,
-      message: "Hệ thống đã nhận lệnh và bắt đầu tự động nâng cấp: Kéo code -> Cài thư viện -> Build -> Khởi động lại. Bạn chỉ cần ngồi chờ khoảng 1-2 phút là xong!",
+      message:
+        "Hệ thống đã nhận lệnh và bắt đầu tự động nâng cấp: Kéo code -> Cài thư viện -> Build -> Khởi động lại. Bạn chỉ cần ngồi chờ khoảng 1-2 phút là xong!",
     });
   } catch (error: unknown) {
-    console.error("System Upgrade Error:", error);
+    log.error("System Upgrade Error:", { error: error });
     try {
       const flagPath = join(process.cwd(), ".maintenance");
       if (existsSync(flagPath)) unlinkSync(flagPath);
-    } catch {}
+    } catch (err) {
+      log.debug("Bỏ qua lỗi không ảnh hưởng luồng chính (route)", { error: err });
+    }
 
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Lỗi khi kích hoạt nâng cấp" },

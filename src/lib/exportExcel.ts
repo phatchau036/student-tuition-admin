@@ -1,20 +1,31 @@
 import * as XLSX from "xlsx";
 import { Student } from "./types";
 import { formatVND } from "./tuition";
+import type { DbRow } from "@/lib/types";
 
-export function exportStudentsToExcel(students: Student[], month: string, schoolName: string = "Trung Tâm") {
+export function exportStudentsToExcel(
+  students: Student[],
+  month: string,
+  schoolName: string = "Trung Tâm"
+) {
   // Chuẩn bị dữ liệu từng dòng
   const rows = students.map((s, index) => {
     let breakdownStr = "";
     try {
       const items = JSON.parse(s.monthly_override?.items_json || "[]");
       if (Array.isArray(items) && items.length > 0) {
-        breakdownStr = items.map((it: any) => `${it.type === "add" ? "+" : "-"}${formatVND(it.amount)} (${it.name})`).join(", ");
+        breakdownStr = items
+          .map(
+            (it: DbRow) => `${it.type === "add" ? "+" : "-"}${formatVND(it.amount)} (${it.name})`
+          )
+          .join(", ");
       }
-    } catch {}
+    } catch {
+      /* Bỏ qua có chủ đích: lỗi không ảnh hưởng luồng chính. */
+    }
 
     return {
-      "STT": index + 1,
+      STT: index + 1,
       "Mã Học Viên": s.student_code || "",
       "Họ Và Tên": s.name,
       "Số Điện Thoại": s.phone,
@@ -28,10 +39,16 @@ export function exportStudentsToExcel(students: Student[], month: string, school
       "Lý Do Giảm": s.discount_reason || "",
       "Học Phí Tháng": s.current_tuition || 0,
       "Phụ Thu / Giảm Trừ Phát Sinh": breakdownStr || s.monthly_override?.note || "",
-      "Trạng Thái Đóng Tiền": s.payment_status === "paid" ? "Đã nộp" : (s.is_overdue ? `Nợ ${s.unpaid_months_count} tháng` : "Cần đóng tiền"),
+      "Trạng Thái Đóng Tiền":
+        s.payment_status === "paid"
+          ? "Đã nộp"
+          : s.is_overdue
+            ? `Nợ ${s.unpaid_months_count} tháng`
+            : "Cần đóng tiền",
       "Nợ Cũ Tích Lũy": s.previous_debt_amount || 0,
       "Tổng Tiền Cần Thu": s.total_tuition_due || 0,
-      "Trạng Thái Học": s.status === "studying" ? "Đang học" : (s.status === "reserved" ? "Bảo lưu" : "Nghỉ học"),
+      "Trạng Thái Học":
+        s.status === "studying" ? "Đang học" : s.status === "reserved" ? "Bảo lưu" : "Nghỉ học",
       "Ghi Chú": s.status_note || "",
     };
   });
@@ -41,7 +58,7 @@ export function exportStudentsToExcel(students: Student[], month: string, school
 
   // Căn chỉnh độ rộng các cột tự động
   const colWidths = [
-    { wch: 6 },  // STT
+    { wch: 6 }, // STT
     { wch: 14 }, // Mã HV
     { wch: 24 }, // Họ tên
     { wch: 14 }, // SĐT

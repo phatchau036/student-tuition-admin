@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
 import { getSchoolIdFromRequest, requireAdminPermission } from "@/lib/authHelper";
 import { parseStudyTimeToSchedule } from "@/lib/tuition";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("api/students/import");
 
 export async function POST(req: Request) {
   try {
@@ -13,7 +16,13 @@ export async function POST(req: Request) {
     const db = getDb();
     const targetSchoolId = getSchoolIdFromRequest(req);
     const body = await req.json();
-    const { students: rawStudents, default_subject_id, default_level_id, default_teacher_id, school_id } = body;
+    const {
+      students: rawStudents,
+      default_subject_id,
+      default_level_id,
+      default_teacher_id,
+      school_id,
+    } = body;
     const finalSchoolId = school_id || targetSchoolId || "school-default";
 
     if (!Array.isArray(rawStudents) || rawStudents.length === 0) {
@@ -28,7 +37,7 @@ export async function POST(req: Request) {
       sql: "SELECT id, level_name FROM level_surcharges WHERE school_id = ? ORDER BY sort_order ASC",
       args: [finalSchoolId],
     });
-    let existingLevels: Array<{ id: string; level_name: string }> = levelsRes.rows.map((r) => ({
+    const existingLevels: Array<{ id: string; level_name: string }> = levelsRes.rows.map((r) => ({
       id: String(r.id),
       level_name: String(r.level_name),
     }));
@@ -46,7 +55,7 @@ export async function POST(req: Request) {
       sql: "SELECT id, name FROM subjects WHERE school_id = ? ORDER BY created_at ASC",
       args: [finalSchoolId],
     });
-    let existingSubjects: Array<{ id: string; name: string }> = subjectsRes.rows.map((r) => ({
+    const existingSubjects: Array<{ id: string; name: string }> = subjectsRes.rows.map((r) => ({
       id: String(r.id),
       name: String(r.name),
     }));
@@ -66,14 +75,15 @@ export async function POST(req: Request) {
       sql: "SELECT id FROM time_slots WHERE school_id = ? AND is_active = 1 LIMIT 1",
       args: [finalSchoolId],
     });
-    const defaultSlotId = slotsRes.rows.length > 0 ? String(slotsRes.rows[0].id) : "";
+    const _defaultSlotId = slotsRes.rows.length > 0 ? String(slotsRes.rows[0].id) : "";
 
     // Lấy gói học phí mặc định (Theo tháng) nếu có
     const defaultPkgRes = await db.execute({
       sql: "SELECT id FROM tuition_packages WHERE (school_id = ? OR school_id = 'school-default') AND cycle_unit = 'month' AND cycle_value = 1 LIMIT 1",
       args: [finalSchoolId],
     });
-    const defaultPackageId = defaultPkgRes.rows.length > 0 ? String(defaultPkgRes.rows[0].id) : null;
+    const defaultPackageId =
+      defaultPkgRes.rows.length > 0 ? String(defaultPkgRes.rows[0].id) : null;
 
     // Lấy danh sách tất cả student_code hiện có trong trường để tính toán mã tự tăng chuẩn (HS01, HS02...)
     const allCodesRes = await db.execute({
@@ -83,7 +93,9 @@ export async function POST(req: Request) {
     let maxStudentCodeNum = 0;
     for (const row of allCodesRes.rows) {
       if (!row.student_code) continue;
-      const m = String(row.student_code).trim().match(/^HS[-_]?0*(\d+)$/i);
+      const m = String(row.student_code)
+        .trim()
+        .match(/^HS[-_]?0*(\d+)$/i);
       if (m) {
         const num = parseInt(m[1], 10);
         if (num > maxStudentCodeNum) maxStudentCodeNum = num;
@@ -107,14 +119,20 @@ export async function POST(req: Request) {
         const mainName = words[words.length - 1];
         if (tcName.length >= 2 && clean.includes(tcName)) return tc.id;
         if (mainName && mainName.length >= 3 && clean.includes(mainName)) return tc.id;
-        if ((mainName === "phonk" || mainName === "phong") && (clean.includes("phong") || clean.includes("phonk"))) return tc.id;
+        if (
+          (mainName === "phonk" || mainName === "phong") &&
+          (clean.includes("phong") || clean.includes("phonk"))
+        )
+          return tc.id;
       }
       return default_teacher_id || null;
     };
 
     for (const item of rawStudents) {
       const name = String(item.name || "").trim();
-      let phone = String(item.phone || "").trim().replace(/\D/g, "");
+      let phone = String(item.phone || "")
+        .trim()
+        .replace(/\D/g, "");
       if (phone.length === 9 && !phone.startsWith("0")) {
         phone = "0" + phone;
       }
@@ -154,7 +172,7 @@ export async function POST(req: Request) {
       }
 
       // Match or Auto-create Subject (Tự động nhận diện & thêm mới vào Setting nếu chưa có)
-      let matchedSubjectId = default_subject_id || (existingSubjects[0]?.id || null);
+      let matchedSubjectId = default_subject_id || existingSubjects[0]?.id || null;
       const rawSubjectName = item.subject_name ? String(item.subject_name).trim() : "";
 
       if (rawSubjectName) {
@@ -169,7 +187,14 @@ export async function POST(req: Request) {
           const newSubId = `sub-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
           await db.execute({
             sql: "INSERT INTO subjects (id, school_id, name, description, color, is_active) VALUES (?, ?, ?, ?, ?, ?)",
-            args: [newSubId, finalSchoolId, rawSubjectName, "Tự động tạo từ danh sách Excel nhập vào", "indigo", 1],
+            args: [
+              newSubId,
+              finalSchoolId,
+              rawSubjectName,
+              "Tự động tạo từ danh sách Excel nhập vào",
+              "indigo",
+              1,
+            ],
           });
 
           existingSubjects.push({ id: newSubId, name: rawSubjectName });
@@ -194,7 +219,9 @@ export async function POST(req: Request) {
       }
 
       // Khớp giáo viên phụ trách từ cột teacher hoặc từ ghi chú
-      const matchedTeacherId = matchTeacherId(item.teacher_name || item.note || item.study_time_detail || "");
+      const matchedTeacherId = matchTeacherId(
+        item.teacher_name || item.note || item.study_time_detail || ""
+      );
 
       // Tự động phân tích chuỗi giờ học sang cấu trúc lịch học chuẩn của hệ thống
       const parsedSchedule = parseStudyTimeToSchedule(item.study_time_detail);
@@ -325,7 +352,7 @@ export async function POST(req: Request) {
       new_subjects_added: newSubjectsAdded,
     });
   } catch (error: unknown) {
-    console.error("Import API Error:", error);
+    log.error("Import API Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Internal Server Error" },
       { status: 500 }

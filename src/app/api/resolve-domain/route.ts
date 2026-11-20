@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
 import { resolveSchoolIdByHost } from "@/lib/authHelper";
+import { getErrorMessage } from "@/lib/errors";
 
 // GET /api/resolve-domain - Xác định cơ sở dựa trên Tên Miền (Host) truy cập
 export async function GET(req: Request) {
@@ -13,7 +14,12 @@ export async function GET(req: Request) {
     const rawHost = forwardedHost || req.headers.get("host") || "";
     const cleanHost = rawHost.split(":")[0].toLowerCase().trim();
 
-    if (!cleanHost || cleanHost === "localhost" || cleanHost === "127.0.0.1" || cleanHost === "::1") {
+    if (
+      !cleanHost ||
+      cleanHost === "localhost" ||
+      cleanHost === "127.0.0.1" ||
+      cleanHost === "::1"
+    ) {
       return NextResponse.json({
         success: true,
         matched: false,
@@ -47,9 +53,9 @@ export async function GET(req: Request) {
       host: cleanHost,
       school: null,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     return NextResponse.json(
-      { success: false, message: error.message || "Lỗi khi phân giải tên miền" },
+      { success: false, message: getErrorMessage(error) || "Lỗi khi phân giải tên miền" },
       { status: 500 }
     );
   }

@@ -3,7 +3,10 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Student, MakeUpClass, TimeSlot } from "@/lib/types";
 import { useToast } from "@/components/Toast";
-import { detectShiftTeachers, ShiftDetectionResult } from "@/lib/shiftDetection";
+import { detectShiftTeachers } from "@/lib/shiftDetection";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("ui/MakeUpClassesModal");
 import {
   Calendar,
   Clock,
@@ -12,25 +15,15 @@ import {
   CheckCircle,
   AlertTriangle,
   RotateCcw,
-  Sparkles,
-  User,
   ArrowRight,
-  Users,
-  Lock,
   X,
   CalendarCheck,
   CalendarDays,
   CheckCircle2,
-  AlertCircle,
-  Phone,
   RefreshCw,
   History,
-  Layers,
-  ChevronRight,
-  HelpCircle,
   TrendingDown,
   TrendingUp,
-  School,
   GraduationCap,
 } from "lucide-react";
 
@@ -92,7 +85,6 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
   isOpen,
   onClose,
   students,
-  timeSlots,
   initialStudentId,
   schoolId,
   onRefresh,
@@ -101,11 +93,15 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
 
   const [activeTab, setActiveTab] = useState<"list" | "report" | "history">("list");
   const [makeups, setMakeups] = useState<MakeUpClass[]>([]);
-  const [selectedStudentFilter, setSelectedStudentFilter] = useState<string>(initialStudentId || "all");
+  const [selectedStudentFilter, setSelectedStudentFilter] = useState<string>(
+    initialStudentId || "all"
+  );
   const [isLoadingList, setIsLoadingList] = useState(false);
 
   // Form Báo Nghỉ (Tích Lũy Giờ Bù)
-  const [reportStudentId, setReportStudentId] = useState<string>(initialStudentId || (students[0]?.id ?? ""));
+  const [reportStudentId, setReportStudentId] = useState<string>(
+    initialStudentId || (students[0]?.id ?? "")
+  );
   const [absenceDate, setAbsenceDate] = useState<string>("");
   const [absenceStartTime, setAbsenceStartTime] = useState<string>("17:00");
   const [absenceEndTime, setAbsenceEndTime] = useState<string>("18:30");
@@ -124,7 +120,10 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
   const [makeupNote, setMakeupNote] = useState<string>("");
 
   // Quỹ Giờ Bù (Lấy từ học sinh đang chọn)
-  const [walletData, setWalletData] = useState<{ balance_minutes: number; available_minutes: number } | null>(null);
+  const [walletData, setWalletData] = useState<{
+    balance_minutes: number;
+    available_minutes: number;
+  } | null>(null);
 
   // Lịch sử Sổ cái Quỹ Giờ Bù (Tab 3)
   const [ledgerHistory, setLedgerHistory] = useState<LedgerHistoryItem[]>([]);
@@ -176,7 +175,7 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
         setMakeups(json.data || []);
       }
     } catch (err) {
-      console.error("Failed to load makeups:", err);
+      log.error("Failed to load makeups:", { error: err });
     } finally {
       setIsLoadingList(false);
     }
@@ -186,7 +185,9 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
     if (!studentId || studentId === "all") return;
     try {
       setIsLoadingHistory(true);
-      const res = await fetch(`/api/makeups?action=history&student_id=${studentId}`, { headers: getHeaders() });
+      const res = await fetch(`/api/makeups?action=history&student_id=${studentId}`, {
+        headers: getHeaders(),
+      });
       const json = await res.json();
       if (json.success && json.data) {
         setLedgerHistory(json.data.history || []);
@@ -198,7 +199,7 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
         }
       }
     } catch (err) {
-      console.error("Failed to load history:", err);
+      log.error("Failed to load history:", { error: err });
     } finally {
       setIsLoadingHistory(false);
     }
@@ -207,18 +208,22 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       if (initialStudentId) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- Đồng bộ state khi mở modal hoặc nạp dữ liệu; sẽ chuyển sang pattern key-remount ở Giai đoạn 2.
         setSelectedStudentFilter(initialStudentId);
         setReportStudentId(initialStudentId);
       }
       loadMakeups();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Loader là hàm khai báo trong component, chỉ gọi khi mở modal/mount; thêm vào deps sẽ gây gọi lại vô hạn. Sẽ chuyển sang useCallback ở Giai đoạn 2.
   }, [isOpen, selectedStudentFilter, initialStudentId, schoolId]);
 
   // Tự động load lịch sử khi đổi tab hoặc đổi học sinh lọc
   useEffect(() => {
     if (activeTab === "history" && selectedStudentFilter && selectedStudentFilter !== "all") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Đồng bộ state khi mở modal hoặc nạp dữ liệu; sẽ chuyển sang pattern key-remount ở Giai đoạn 2.
       loadHistory(selectedStudentFilter);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Loader là hàm khai báo trong component, chỉ gọi khi mở modal/mount; thêm vào deps sẽ gây gọi lại vô hạn. Sẽ chuyển sang useCallback ở Giai đoạn 2.
   }, [activeTab, selectedStudentFilter]);
 
   // Khi chọn học sinh ở form báo nghỉ: tự động đọc lịch ca học của em để điền sẵn giờ bắt đầu/kết thúc
@@ -230,18 +235,26 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
     try {
       if (student.schedule_details_json) {
         const parsed = JSON.parse(student.schedule_details_json);
-        if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].start_time && parsed[0].end_time) {
+        if (
+          Array.isArray(parsed) &&
+          parsed.length > 0 &&
+          parsed[0].start_time &&
+          parsed[0].end_time
+        ) {
           const item = parsed[0];
+          // eslint-disable-next-line react-hooks/set-state-in-effect -- Đồng bộ state khi mở modal hoặc nạp dữ liệu; sẽ chuyển sang pattern key-remount ở Giai đoạn 2.
           setAbsenceStartTime(item.start_time);
           setAbsenceEndTime(item.end_time);
           const [sh, sm] = item.start_time.split(":").map(Number);
           const [eh, em] = item.end_time.split(":").map(Number);
-          const diff = Math.max(30, (eh * 60 + (em || 0)) - (sh * 60 + (sm || 0)));
+          const diff = Math.max(30, eh * 60 + (em || 0) - (sh * 60 + (sm || 0)));
           setAbsenceMinutes(diff);
           return;
         }
       }
-    } catch {}
+    } catch (err) {
+      log.debug("Bỏ qua lỗi không ảnh hưởng luồng chính (MakeUpClassesModal)", { error: err });
+    }
 
     // Fallback qua study_time_detail hoặc 18:00 - 19:30
     if (student.study_time_detail && student.study_time_detail.includes("-")) {
@@ -254,7 +267,7 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
         const [sh, sm] = s.split(":").map(Number);
         const [eh, em] = e.split(":").map(Number);
         if (!isNaN(sh) && !isNaN(eh)) {
-          setAbsenceMinutes(Math.max(30, (eh * 60 + (em || 0)) - (sh * 60 + (sm || 0))));
+          setAbsenceMinutes(Math.max(30, eh * 60 + (em || 0) - (sh * 60 + (sm || 0))));
           return;
         }
       }
@@ -272,7 +285,7 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
     const [sh, sm] = start.split(":").map(Number);
     const [eh, em] = end.split(":").map(Number);
     if (!isNaN(sh) && !isNaN(eh)) {
-      const diff = (eh * 60 + (em || 0)) - (sh * 60 + (sm || 0));
+      const diff = eh * 60 + (em || 0) - (sh * 60 + (sm || 0));
       if (diff > 0) setAbsenceMinutes(diff);
     }
   };
@@ -293,6 +306,7 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
   // Tải thông tin sức chứa ca mở cửa khi chọn ngày học bù
   useEffect(() => {
     if (!makeupDate) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Đồng bộ state khi mở modal hoặc nạp dữ liệu; sẽ chuyển sang pattern key-remount ở Giai đoạn 2.
       setDayOccupancy([]);
       setSelectedSlotId("");
       return;
@@ -302,10 +316,14 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
       try {
         setIsLoadingOccupancy(true);
         const schoolQuery = schoolId ? `&school_id=${schoolId}` : "";
-        const res = await fetch(`/api/classes/occupancy?date=${makeupDate}${schoolQuery}`, { headers: getHeaders() });
+        const res = await fetch(`/api/classes/occupancy?date=${makeupDate}${schoolQuery}`, {
+          headers: getHeaders(),
+        });
         const json = await res.json();
         if (json.success) {
-          const supportedSlots = (json.data.slots as SlotOccupancyInfo[]).filter((s) => s.is_day_supported);
+          const supportedSlots = (json.data.slots as SlotOccupancyInfo[]).filter(
+            (s) => s.is_day_supported
+          );
           const classesList = (json.data.classes as ClassOccupancyInfo[]) || [];
           setDayOccupancy(supportedSlots);
           setDayClassesOccupancy(classesList);
@@ -330,13 +348,14 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
           }
         }
       } catch (err) {
-        console.error("Failed to load occupancy:", err);
+        log.error("Failed to load occupancy:", { error: err });
       } finally {
         setIsLoadingOccupancy(false);
       }
     };
 
     fetchOccupancy();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Loader là hàm khai báo trong component, chỉ gọi khi mở modal/mount; thêm vào deps sẽ gây gọi lại vô hạn. Sẽ chuyển sang useCallback ở Giai đoạn 2.
   }, [makeupDate, schoolId]);
 
   // Mở modal xếp bù: lấy quỹ giờ của học sinh đó
@@ -532,8 +551,14 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
     const completedList = makeups.filter((m) => m.status === "completed");
 
     const pendingMinutes = pendingList.reduce((acc, m) => acc + (m.absence_minutes || 90), 0);
-    const scheduledMinutes = scheduledList.reduce((acc, m) => acc + (m.makeup_minutes || m.absence_minutes || 60), 0);
-    const completedMinutes = completedList.reduce((acc, m) => acc + (m.makeup_minutes || m.absence_minutes || 60), 0);
+    const scheduledMinutes = scheduledList.reduce(
+      (acc, m) => acc + (m.makeup_minutes || m.absence_minutes || 60),
+      0
+    );
+    const completedMinutes = completedList.reduce(
+      (acc, m) => acc + (m.makeup_minutes || m.absence_minutes || 60),
+      0
+    );
 
     return {
       pendingCount: pendingList.length,
@@ -556,7 +581,6 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 md:p-6 overflow-y-auto font-sans animate-in fade-in duration-200">
       <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-3xl w-full max-w-5xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden">
-        
         {/* ================= HEADER MODAL ================= */}
         <div className="px-6 py-4.5 border-b border-slate-200/80 dark:border-slate-800/80 bg-gradient-to-r from-slate-50 via-indigo-50/30 to-white dark:from-slate-900 dark:via-indigo-950/20 dark:to-slate-900 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3.5">
@@ -573,7 +597,8 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
                 </span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Tích lũy chính xác giờ nghỉ vào quỹ, khấu trừ theo thời lượng buổi bù và kiểm soát sĩ số phòng học
+                Tích lũy chính xác giờ nghỉ vào quỹ, khấu trừ theo thời lượng buổi bù và kiểm soát
+                sĩ số phòng học
               </p>
             </div>
           </div>
@@ -589,7 +614,6 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
 
         {/* ================= THANH TỔNG HỢP QUỸ GIỜ & TAB ĐIỀU KHIỂN ================= */}
         <div className="px-6 py-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/40 flex flex-wrap items-center justify-between gap-3 shrink-0">
-          
           {/* Cụm Tabs */}
           <div className="flex items-center gap-1 p-1 bg-slate-200/60 dark:bg-slate-800 rounded-2xl">
             <button
@@ -663,11 +687,9 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
 
         {/* ================= NỘI DUNG CHÍNH (CONTENT BODY) ================= */}
         <div className="p-4 sm:p-6 overflow-y-auto flex-1 bg-slate-50/40 dark:bg-slate-950/30 scrollbar-thin">
-          
           {/* TAB 1: DANH SÁCH BÁO NGHỈ & XẾP BÙ */}
           {activeTab === "list" && (
             <div className="space-y-4">
-              
               {/* Thống kê 3 thẻ trạng thái */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="p-3.5 rounded-2xl bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-900/40 flex items-center justify-between">
@@ -728,14 +750,18 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
                     Không có buổi học bù nào cần xử lý
                   </h4>
                   <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                    Tất cả học viên đang theo học đầy đủ hoặc đã được bù xong. Bấm nút Ghi Nhận Báo Nghỉ nếu có học viên xin nghỉ mới.
+                    Tất cả học viên đang theo học đầy đủ hoặc đã được bù xong. Bấm nút Ghi Nhận Báo
+                    Nghỉ nếu có học viên xin nghỉ mới.
                   </p>
                 </div>
               ) : (
                 <div className="space-y-3">
                   {makeups.map((mk) => {
-                    const absHoursText = ((mk.absence_minutes || 90) / 60).toFixed(1).replace(".0", "") + "h";
-                    const makeupHoursText = mk.makeup_minutes ? ((mk.makeup_minutes / 60).toFixed(1).replace(".0", "") + "h") : absHoursText;
+                    const absHoursText =
+                      ((mk.absence_minutes || 90) / 60).toFixed(1).replace(".0", "") + "h";
+                    const makeupHoursText = mk.makeup_minutes
+                      ? (mk.makeup_minutes / 60).toFixed(1).replace(".0", "") + "h"
+                      : absHoursText;
 
                     return (
                       <div
@@ -773,10 +799,12 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
                           {/* Thông tin ca nghỉ (Tích lũy giờ) */}
                           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-600 dark:text-slate-400">
                             <span className="flex items-center gap-1 text-rose-600 dark:text-rose-400 font-semibold">
-                              <CalendarDays className="w-3.5 h-3.5" /> Nghỉ: <strong>{mk.absence_date}</strong>
+                              <CalendarDays className="w-3.5 h-3.5" /> Nghỉ:{" "}
+                              <strong>{mk.absence_date}</strong>
                             </span>
                             <span className="font-bold text-slate-700 dark:text-slate-300">
-                              Ca: {mk.absence_start_time || "17:00"} - {mk.absence_end_time || "18:30"}
+                              Ca: {mk.absence_start_time || "17:00"} -{" "}
+                              {mk.absence_end_time || "18:30"}
                             </span>
                             <span className="px-2 py-0.2 rounded-md bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300 text-[10px] font-black">
                               Tích lũy: +{absHoursText} ({mk.absence_minutes || 90}p)
@@ -795,7 +823,12 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
                                 <ArrowRight className="w-3 h-3" /> Lịch học bù:
                               </span>
                               <strong className="font-bold">{mk.makeup_date}</strong>
-                              <span>({mk.makeup_time || `${mk.makeup_start_time} - ${mk.makeup_end_time}`})</span>
+                              <span>
+                                (
+                                {mk.makeup_time ||
+                                  `${mk.makeup_start_time} - ${mk.makeup_end_time}`}
+                                )
+                              </span>
                               {mk.class_name && (
                                 <span className="px-2 py-0.2 rounded-md bg-purple-100 dark:bg-purple-900/60 text-purple-800 dark:text-purple-300 text-[10px] font-bold">
                                   Lớp: {mk.class_name}
@@ -804,7 +837,9 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
                               <span className="px-2 py-0.2 rounded-md bg-indigo-100 dark:bg-indigo-900/60 text-indigo-800 dark:text-indigo-300 text-[10px] font-black">
                                 Thời lượng bù: {makeupHoursText} ({mk.makeup_minutes || 60}p)
                               </span>
-                              {mk.note && <span className="italic text-slate-500">• {mk.note}</span>}
+                              {mk.note && (
+                                <span className="italic text-slate-500">• {mk.note}</span>
+                              )}
                             </div>
                           )}
                         </div>
@@ -864,7 +899,10 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
 
           {/* TAB 2: FORM GHI NHẬN BÁO NGHỈ (TÍCH LŨY GIỜ BÙ) */}
           {activeTab === "report" && (
-            <form onSubmit={handleReportAbsence} className="max-w-xl mx-auto p-6 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 space-y-4 shadow-sm">
+            <form
+              onSubmit={handleReportAbsence}
+              className="max-w-xl mx-auto p-6 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/90 dark:border-slate-800 space-y-4 shadow-sm"
+            >
               <div className="flex items-center gap-2 pb-2 border-b border-slate-100 dark:border-slate-800">
                 <Plus className="w-4 h-4 text-indigo-600" />
                 <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">
@@ -957,7 +995,10 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
                         const totalM = sh * 60 + (sm || 0) + m;
                         const eh = Math.floor(totalM / 60);
                         const em = totalM % 60;
-                        handleUpdateAbsenceTimes(absenceStartTime, `${String(eh).padStart(2, "0")}:${String(em).padStart(2, "0")}`);
+                        handleUpdateAbsenceTimes(
+                          absenceStartTime,
+                          `${String(eh).padStart(2, "0")}:${String(em).padStart(2, "0")}`
+                        );
                       }}
                       className={`px-2 py-0.5 rounded-lg text-[10px] font-bold border transition cursor-pointer ${
                         absenceMinutes === m
@@ -988,7 +1029,9 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
               <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 rounded-2xl border border-emerald-200 dark:border-emerald-900/60 text-xs text-emerald-800 dark:text-emerald-300 font-semibold flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
                 <span>
-                  Hệ thống sẽ tự động cộng dồn <strong>+{fmtHoursAndMinutes(absenceMinutes)}</strong> vào Quỹ giờ học bù của học viên.
+                  Hệ thống sẽ tự động cộng dồn{" "}
+                  <strong>+{fmtHoursAndMinutes(absenceMinutes)}</strong> vào Quỹ giờ học bù của học
+                  viên.
                 </span>
               </div>
 
@@ -1025,7 +1068,9 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
                 </div>
                 {walletData && (
                   <div className="text-right">
-                    <span className="text-[10px] uppercase font-bold text-slate-400 block">Quỹ bù khả dụng</span>
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block">
+                      Quỹ bù khả dụng
+                    </span>
                     <span className="text-base font-black text-emerald-600">
                       {fmtHoursAndMinutes(walletData.available_minutes)}
                     </span>
@@ -1048,7 +1093,10 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
                     {ledgerHistory.map((item) => {
                       const isPositive = item.minutes > 0;
                       return (
-                        <div key={item.id} className="p-3.5 flex items-center justify-between gap-3 text-xs">
+                        <div
+                          key={item.id}
+                          className="p-3.5 flex items-center justify-between gap-3 text-xs"
+                        >
                           <div className="flex items-center gap-3 min-w-0">
                             <div
                               className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
@@ -1057,11 +1105,16 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
                                   : "bg-rose-50 text-rose-600 dark:bg-rose-950/60"
                               }`}
                             >
-                              {isPositive ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
+                              {isPositive ? (
+                                <TrendingUp className="w-4 h-4" />
+                              ) : (
+                                <TrendingDown className="w-4 h-4" />
+                              )}
                             </div>
                             <div className="min-w-0">
                               <p className="font-bold text-slate-800 dark:text-slate-200 truncate">
-                                {item.note || (isPositive ? "Tích lũy giờ nghỉ" : "Khấu trừ học bù")}
+                                {item.note ||
+                                  (isPositive ? "Tích lũy giờ nghỉ" : "Khấu trừ học bù")}
                               </p>
                               <span className="text-[10px] text-slate-400 font-mono">
                                 {item.created_at}
@@ -1074,7 +1127,9 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
                               isPositive ? "text-emerald-600" : "text-rose-600"
                             }`}
                           >
-                            {isPositive ? `+${fmtHoursShort(item.minutes)}` : `-${fmtHoursShort(Math.abs(item.minutes))}`}
+                            {isPositive
+                              ? `+${fmtHoursShort(item.minutes)}`
+                              : `-${fmtHoursShort(Math.abs(item.minutes))}`}
                           </span>
                         </div>
                       );
@@ -1089,7 +1144,6 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
           {schedulingItem && (
             <div className="fixed inset-0 z-60 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
               <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-xl w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4.5 animate-in fade-in zoom-in-95">
-                
                 {/* Header Popup */}
                 <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
                   <div>
@@ -1097,7 +1151,8 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
                       Xếp Lịch Học Bù: {schedulingItem.student_name}
                     </h3>
                     <p className="text-xs text-slate-500 mt-0.5">
-                      Bù cho ca nghỉ ngày: <strong>{schedulingItem.absence_date}</strong> (+{fmtHoursAndMinutes(schedulingItem.absence_minutes || 90)})
+                      Bù cho ca nghỉ ngày: <strong>{schedulingItem.absence_date}</strong> (+
+                      {fmtHoursAndMinutes(schedulingItem.absence_minutes || 90)})
                     </p>
                   </div>
                   <button
@@ -1110,14 +1165,15 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
                 </div>
 
                 <form onSubmit={handleScheduleSubmit} className="space-y-4">
-                  
                   {/* Quỹ giờ hiện có */}
                   {walletData && (
                     <div className="p-3.5 rounded-2xl bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900/40 flex items-center justify-between">
                       <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
                         Quỹ giờ học bù khả dụng:
                       </span>
-                      <span className={`text-xs font-black ${walletData.available_minutes < 60 ? "text-rose-600" : "text-emerald-600"}`}>
+                      <span
+                        className={`text-xs font-black ${walletData.available_minutes < 60 ? "text-rose-600" : "text-emerald-600"}`}
+                      >
                         {fmtHoursAndMinutes(walletData.available_minutes)}
                       </span>
                     </div>
@@ -1153,7 +1209,8 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
 
                       {dayClassesOccupancy.length === 0 ? (
                         <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 text-center text-xs text-slate-400">
-                          Chưa có lớp học nào được cấu hình trong ngày {dayNameVi}. Sẽ xếp theo ca mở cửa cơ sở.
+                          Chưa có lớp học nào được cấu hình trong ngày {dayNameVi}. Sẽ xếp theo ca
+                          mở cửa cơ sở.
                         </div>
                       ) : (
                         <div className="space-y-2 max-h-44 overflow-y-auto pr-1 scrollbar-thin">
@@ -1171,18 +1228,22 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
                                   cls.is_full
                                     ? "bg-rose-50/50 dark:bg-rose-950/20 border-rose-200 opacity-60 cursor-not-allowed"
                                     : isPicked
-                                    ? "bg-indigo-50/90 dark:bg-indigo-950/50 border-indigo-600 shadow-xs ring-1 ring-indigo-500/30"
-                                    : "bg-white dark:bg-slate-800 border-slate-200 hover:border-slate-300"
+                                      ? "bg-indigo-50/90 dark:bg-indigo-950/50 border-indigo-600 shadow-xs ring-1 ring-indigo-500/30"
+                                      : "bg-white dark:bg-slate-800 border-slate-200 hover:border-slate-300"
                                 }`}
                               >
                                 <div className="flex items-center justify-between gap-2">
                                   <div className="flex items-center gap-2">
                                     <div
                                       className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center ${
-                                        isPicked ? "border-indigo-600 bg-indigo-600" : "border-slate-300"
+                                        isPicked
+                                          ? "border-indigo-600 bg-indigo-600"
+                                          : "border-slate-300"
                                       }`}
                                     >
-                                      {isPicked && <div className="w-1.5 h-1.5 bg-white rounded-full" />}
+                                      {isPicked && (
+                                        <div className="w-1.5 h-1.5 bg-white rounded-full" />
+                                      )}
                                     </div>
                                     <span className="font-extrabold text-xs text-slate-900 dark:text-white">
                                       {cls.class_name}
@@ -1194,9 +1255,14 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
 
                                   <div className="text-[10px] font-bold">
                                     {cls.is_full ? (
-                                      <span className="text-rose-600 font-extrabold">Hết chỗ ({cls.student_count}/{cls.max_capacity})</span>
+                                      <span className="text-rose-600 font-extrabold">
+                                        Hết chỗ ({cls.student_count}/{cls.max_capacity})
+                                      </span>
                                     ) : (
-                                      <span className="text-emerald-600 font-extrabold">Còn {cls.remaining_slots} chỗ ({cls.student_count}/{cls.max_capacity})</span>
+                                      <span className="text-emerald-600 font-extrabold">
+                                        Còn {cls.remaining_slots} chỗ ({cls.student_count}/
+                                        {cls.max_capacity})
+                                      </span>
                                     )}
                                   </div>
                                 </div>
@@ -1204,7 +1270,9 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
                                 {/* Danh sách các ca giáo viên trong lớp */}
                                 {cls.shifts && cls.shifts.length > 0 && (
                                   <div className="flex items-center gap-1.5 flex-wrap pl-5 text-[11px] text-slate-600 dark:text-slate-400">
-                                    <span className="text-[10px] font-semibold text-slate-400">Ca giáo viên:</span>
+                                    <span className="text-[10px] font-semibold text-slate-400">
+                                      Ca giáo viên:
+                                    </span>
                                     {cls.shifts.map((sh, idx) => (
                                       <span
                                         key={idx}
@@ -1212,7 +1280,9 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
                                       >
                                         <GraduationCap className="w-3 h-3 text-indigo-600" />
                                         <span>{sh.teacher_name}</span>
-                                        <span className="text-slate-400 font-mono font-normal">({sh.start_time} - {sh.end_time})</span>
+                                        <span className="text-slate-400 font-mono font-normal">
+                                          ({sh.start_time} - {sh.end_time})
+                                        </span>
                                       </span>
                                     ))}
                                   </div>
@@ -1260,13 +1330,17 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
                                     slot.is_full
                                       ? "bg-rose-50/50 dark:bg-rose-950/20 border-rose-200 opacity-60 cursor-not-allowed"
                                       : isSelected
-                                      ? "bg-indigo-50 dark:bg-indigo-950/40 border-indigo-600 shadow-xs"
-                                      : "bg-white dark:bg-slate-800 border-slate-200 hover:border-slate-300"
+                                        ? "bg-indigo-50 dark:bg-indigo-950/40 border-indigo-600 shadow-xs"
+                                        : "bg-white dark:bg-slate-800 border-slate-200 hover:border-slate-300"
                                   }`}
                                 >
                                   <div className="flex items-center gap-2">
-                                    <div className={`w-3 h-3 rounded-full border flex items-center justify-center ${isSelected ? "border-indigo-600 bg-indigo-600" : "border-slate-300"}`}>
-                                      {isSelected && <div className="w-1 h-1 bg-white rounded-full" />}
+                                    <div
+                                      className={`w-3 h-3 rounded-full border flex items-center justify-center ${isSelected ? "border-indigo-600 bg-indigo-600" : "border-slate-300"}`}
+                                    >
+                                      {isSelected && (
+                                        <div className="w-1 h-1 bg-white rounded-full" />
+                                      )}
                                     </div>
                                     <span className="font-bold text-[11px] text-slate-800 dark:text-slate-100">
                                       Ca cơ sở: {slot.time_range}
@@ -1275,9 +1349,13 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
 
                                   <div className="text-[10px] font-bold">
                                     {slot.is_full ? (
-                                      <span className="text-rose-600">Hết chỗ ({slot.total_count}/{slot.max_capacity})</span>
+                                      <span className="text-rose-600">
+                                        Hết chỗ ({slot.total_count}/{slot.max_capacity})
+                                      </span>
                                     ) : (
-                                      <span className="text-emerald-600">Còn {slot.max_capacity - slot.total_count} chỗ</span>
+                                      <span className="text-emerald-600">
+                                        Còn {slot.max_capacity - slot.total_count} chỗ
+                                      </span>
                                     )}
                                   </div>
                                 </div>
@@ -1331,8 +1409,8 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
                               isPicked
                                 ? "bg-indigo-600 text-white border-indigo-600 shadow-xs"
                                 : overBalance
-                                ? "bg-slate-100 dark:bg-slate-800 text-slate-400 border-slate-200 opacity-50 cursor-not-allowed"
-                                : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 hover:border-slate-300"
+                                  ? "bg-slate-100 dark:bg-slate-800 text-slate-400 border-slate-200 opacity-50 cursor-not-allowed"
+                                  : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200 hover:border-slate-300"
                             }`}
                           >
                             <div>{min / 60} giờ</div>
@@ -1346,8 +1424,12 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
                     {walletData && (
                       <div className="text-[11px] pt-1 flex items-center justify-between text-slate-500">
                         <span>Quỹ giờ sau khi xếp bù:</span>
-                        <strong className={`font-mono ${walletData.available_minutes - makeupMinutes < 0 ? "text-rose-500" : "text-slate-800 dark:text-slate-200"}`}>
-                          {fmtHoursAndMinutes(Math.max(0, walletData.available_minutes - makeupMinutes))}
+                        <strong
+                          className={`font-mono ${walletData.available_minutes - makeupMinutes < 0 ? "text-rose-500" : "text-slate-800 dark:text-slate-200"}`}
+                        >
+                          {fmtHoursAndMinutes(
+                            Math.max(0, walletData.available_minutes - makeupMinutes)
+                          )}
                           {walletData.available_minutes - makeupMinutes < 0 && " (vượt quỹ!)"}
                         </strong>
                       </div>
@@ -1356,9 +1438,16 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
 
                   {/* 5. CẢNH BÁO ĐỔI CA GIÁO VIÊN HOẶC THÔNG TIN GIÁO VIÊN ĐỨNG LỚP */}
                   {(() => {
-                    const pickedClass = dayClassesOccupancy.find((c) => c.class_id === selectedClassId) || dayClassesOccupancy[0];
-                    if (!pickedClass || !pickedClass.shifts || pickedClass.shifts.length === 0) return null;
-                    const detection = detectShiftTeachers(makeupStartTime, makeupEndTime, pickedClass.shifts);
+                    const pickedClass =
+                      dayClassesOccupancy.find((c) => c.class_id === selectedClassId) ||
+                      dayClassesOccupancy[0];
+                    if (!pickedClass || !pickedClass.shifts || pickedClass.shifts.length === 0)
+                      return null;
+                    const detection = detectShiftTeachers(
+                      makeupStartTime,
+                      makeupEndTime,
+                      pickedClass.shifts
+                    );
 
                     if (detection.hasMultipleTeachers) {
                       return (
@@ -1390,7 +1479,8 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
                           <div className="flex items-center gap-2">
                             <GraduationCap className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
                             <span>
-                              Giáo viên đứng lớp: <strong>{detection.singleTeacherName}</strong> ({makeupStartTime} - {makeupEndTime})
+                              Giáo viên đứng lớp: <strong>{detection.singleTeacherName}</strong> (
+                              {makeupStartTime} - {makeupEndTime})
                             </span>
                           </div>
                           <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 font-bold">
@@ -1426,7 +1516,10 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
                     </button>
                     <button
                       type="submit"
-                      disabled={isSubmitting || (walletData ? walletData.available_minutes < makeupMinutes : false)}
+                      disabled={
+                        isSubmitting ||
+                        (walletData ? walletData.available_minutes < makeupMinutes : false)
+                      }
                       className="px-6 py-2.5 text-xs font-black uppercase tracking-wider text-white bg-indigo-600 hover:bg-indigo-700 rounded-2xl shadow-lg shadow-indigo-600/30 transition disabled:opacity-50 cursor-pointer active:scale-95"
                     >
                       {isSubmitting ? "Đang xếp..." : "Xác Nhận & Khấu Trừ Giờ"}
@@ -1472,7 +1565,6 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
               </div>
             </div>
           )}
-
         </div>
 
         {/* ================= FOOTER ================= */}
@@ -1490,7 +1582,6 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
             Đóng
           </button>
         </div>
-
       </div>
     </div>
   );

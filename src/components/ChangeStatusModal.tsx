@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { Student, StudentStatus } from "@/lib/types";
-import { X, Calendar, Clock, AlertCircle, ArrowRight, ShieldAlert, CheckCircle2 } from "lucide-react";
+import { X } from "lucide-react";
 import { useToast } from "@/components/Toast";
 
 interface ChangeStatusModalProps {
@@ -29,7 +29,7 @@ export const ChangeStatusModal: React.FC<ChangeStatusModalProps> = ({
 
   if (!isOpen || !student) return null;
 
-  const currentStatus: StudentStatus = student.status || "studying";
+  const _currentStatus: StudentStatus = student.status || "studying";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -88,7 +88,9 @@ export const ChangeStatusModal: React.FC<ChangeStatusModalProps> = ({
               Chuyển Trạng Thái Học Sinh
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Học sinh: <strong className="text-slate-800 dark:text-slate-200">{student.name}</strong> ({student.phone})
+              Học sinh:{" "}
+              <strong className="text-slate-800 dark:text-slate-200">{student.name}</strong> (
+              {student.phone})
             </p>
           </div>
           <button
@@ -210,8 +212,8 @@ export const ChangeStatusModal: React.FC<ChangeStatusModalProps> = ({
                 actionType === "reserve"
                   ? "bg-amber-500 hover:bg-amber-600 shadow-amber-500/25"
                   : actionType === "drop"
-                  ? "bg-rose-500 hover:bg-rose-600 shadow-rose-500/25"
-                  : "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/25"
+                    ? "bg-rose-500 hover:bg-rose-600 shadow-rose-500/25"
+                    : "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/25"
               }`}
             >
               {isSubmitting ? "Đang lưu..." : "Xác nhận chuyển"}

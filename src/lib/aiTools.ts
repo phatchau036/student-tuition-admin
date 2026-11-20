@@ -1,7 +1,11 @@
 import { getDb, initDb } from "@/lib/db";
 import { appendLedger } from "@/lib/wallet";
 import { formatMinutes } from "@/lib/tuition";
-import { StudentStatus } from "@/lib/types";
+import { StudentStatus, DbRow } from "@/lib/types";
+import { createLogger } from "@/lib/logger";
+import { getErrorMessage } from "@/lib/errors";
+
+const log = createLogger("lib/aiTools");
 
 const ZALO_BOT_BASE_URL = "https://bot-api.zapps.me";
 
@@ -13,7 +17,8 @@ export const AI_ADMIN_TOOLS = [
     type: "function",
     function: {
       name: "create_student_action",
-      description: "Thêm học sinh mới vào trung tâm khi Admin yêu cầu (tự sinh mã học viên HSxx, tự gán bộ môn và lịch học)",
+      description:
+        "Thêm học sinh mới vào trung tâm khi Admin yêu cầu (tự sinh mã học viên HSxx, tự gán bộ môn và lịch học)",
       parameters: {
         type: "object",
         properties: {
@@ -35,7 +40,8 @@ export const AI_ADMIN_TOOLS = [
           },
           days_of_week: {
             type: "string",
-            description: "Các ngày học trong tuần (VD: 'Thứ 2, Thứ 4, Thứ 6' hoặc 'Thứ 7, Chủ Nhật')",
+            description:
+              "Các ngày học trong tuần (VD: 'Thứ 2, Thứ 4, Thứ 6' hoặc 'Thứ 7, Chủ Nhật')",
           },
           time_detail: {
             type: "string",
@@ -50,7 +56,8 @@ export const AI_ADMIN_TOOLS = [
     type: "function",
     function: {
       name: "mark_attendance_action",
-      description: "Điểm danh buổi học hoặc ghi nhận học sinh vắng có phép/không phép (nếu vắng có phép, tự động cộng phút vào ví giờ học bù)",
+      description:
+        "Điểm danh buổi học hoặc ghi nhận học sinh vắng có phép/không phép (nếu vắng có phép, tự động cộng phút vào ví giờ học bù)",
       parameters: {
         type: "object",
         properties: {
@@ -61,7 +68,8 @@ export const AI_ADMIN_TOOLS = [
           status: {
             type: "string",
             enum: ["attended", "absent_excused", "absent_unexcused"],
-            description: "'attended' (có mặt), 'absent_excused' (vắng có phép - tự cộng giờ học bù), 'absent_unexcused' (vắng không phép)",
+            description:
+              "'attended' (có mặt), 'absent_excused' (vắng có phép - tự cộng giờ học bù), 'absent_unexcused' (vắng không phép)",
           },
           date: {
             type: "string",
@@ -88,7 +96,8 @@ export const AI_ADMIN_TOOLS = [
     type: "function",
     function: {
       name: "change_student_status_action",
-      description: "Thay đổi trạng thái học viên: Bảo lưu (reserve), Nghỉ học (drop), hoặc Đi học lại (resume)",
+      description:
+        "Thay đổi trạng thái học viên: Bảo lưu (reserve), Nghỉ học (drop), hoặc Đi học lại (resume)",
       parameters: {
         type: "object",
         properties: {
@@ -146,9 +155,9 @@ export const AI_ADMIN_TOOLS = [
  */
 export async function executeAiAdminTool(
   toolName: string,
-  args: Record<string, any>,
+  args: DbRow,
   schoolId: string = "school-default"
-): Promise<{ success: boolean; message: string; data?: any }> {
+): Promise<{ success: boolean; message: string; data?: DbRow }> {
   await initDb();
   const db = getDb();
 
@@ -170,7 +179,9 @@ export async function executeAiAdminTool(
       let maxNum = 0;
       for (const row of allCodesRes.rows) {
         if (!row.student_code) continue;
-        const m = String(row.student_code).trim().match(/^HS[-_]?0*(\d+)$/i);
+        const m = String(row.student_code)
+          .trim()
+          .match(/^HS[-_]?0*(\d+)$/i);
         if (m) {
           const num = parseInt(m[1], 10);
           if (num > maxNum) maxNum = num;
@@ -229,7 +240,10 @@ export async function executeAiAdminTool(
       const studyTime = args.time_detail ? String(args.time_detail).trim() : "18:00 - 19:30";
 
       // Tạo schedule_details_json cơ bản
-      const daysArr = regDays.split(",").map((d) => d.trim()).filter(Boolean);
+      const daysArr = regDays
+        .split(",")
+        .map((d) => d.trim())
+        .filter(Boolean);
       const timeParts = studyTime.split("-").map((t) => t.trim());
       const sStart = timeParts[0] || "18:00";
       const sEnd = timeParts[1] || "19:30";
@@ -277,7 +291,9 @@ export async function executeAiAdminTool(
     if (toolName === "mark_attendance_action") {
       const searchKey = String(args.student_name_or_code || "").trim();
       const status = args.status as "attended" | "absent_excused" | "absent_unexcused";
-      const targetDate = args.date ? String(args.date).trim() : new Date().toISOString().slice(0, 10);
+      const targetDate = args.date
+        ? String(args.date).trim()
+        : new Date().toISOString().slice(0, 10);
       const notes = args.notes ? String(args.notes).trim() : "";
       const rating = Math.min(5, Math.max(1, Number(args.rating) || 5));
 
@@ -374,8 +390,8 @@ export async function executeAiAdminTool(
         status === "attended"
           ? "Có mặt"
           : status === "absent_excused"
-          ? "Vắng có phép (+90p học bù)"
-          : "Vắng không phép";
+            ? "Vắng có phép (+90p học bù)"
+            : "Vắng không phép";
 
       return {
         success: true,
@@ -389,7 +405,9 @@ export async function executeAiAdminTool(
     if (toolName === "change_student_status_action") {
       const searchKey = String(args.student_name_or_code || "").trim();
       const actionType = args.action_type as "reserve" | "drop" | "resume";
-      const reason = args.reason ? String(args.reason).trim() : "Trợ lý AI cập nhật theo lệnh Admin";
+      const reason = args.reason
+        ? String(args.reason).trim()
+        : "Trợ lý AI cập nhật theo lệnh Admin";
       const returnDate = args.return_date ? String(args.return_date).trim() : null;
       const effDate = new Date().toISOString().slice(0, 10);
       const month = effDate.slice(0, 7);
@@ -410,7 +428,7 @@ export async function executeAiAdminTool(
       const st = stRes.rows[0];
       const studentId = String(st.id);
       const studentName = String(st.name);
-      const fromStatus = (String(st.status || "studying") as StudentStatus);
+      const fromStatus = String(st.status || "studying") as StudentStatus;
 
       let toStatus: StudentStatus = "studying";
       if (actionType === "reserve") toStatus = "reserved";
@@ -450,8 +468,8 @@ export async function executeAiAdminTool(
         actionType === "reserve"
           ? `Bảo lưu${returnDate ? ` (dự kiến học lại: ${returnDate})` : ""}`
           : actionType === "drop"
-          ? "Nghỉ học hẳn"
-          : "Đã quay lại đi học";
+            ? "Nghỉ học hẳn"
+            : "Đã quay lại đi học";
 
       return {
         success: true,
@@ -464,7 +482,9 @@ export async function executeAiAdminTool(
     // ----------------------------------------------------
     if (toolName === "send_tuition_reminder_action") {
       const searchKey = String(args.student_name_or_code || "").trim();
-      const currentMonth = args.month ? String(args.month).trim() : new Date().toISOString().slice(0, 7);
+      const currentMonth = args.month
+        ? String(args.month).trim()
+        : new Date().toISOString().slice(0, 7);
 
       const stRes = await db.execute({
         sql: `SELECT id, name, student_code, phone, zalo_chat_id FROM students 
@@ -497,7 +517,9 @@ export async function executeAiAdminTool(
         botToken = String(scRes.rows[0].zalo_bot_token).trim();
       }
       if (!botToken) {
-        const tokenRes = await db.execute("SELECT value FROM settings WHERE key = 'zalo_bot_token'");
+        const tokenRes = await db.execute(
+          "SELECT value FROM settings WHERE key = 'zalo_bot_token'"
+        );
         if (tokenRes.rows.length > 0) botToken = String(tokenRes.rows[0].value).trim();
       }
       if (!botToken) {
@@ -520,7 +542,10 @@ export async function executeAiAdminTool(
 
       const data = await res.json();
       if (!data.ok) {
-        return { success: false, message: `Zalo Bot báo lỗi: ${data.description || "Gửi thất bại"}` };
+        return {
+          success: false,
+          message: `Zalo Bot báo lỗi: ${data.description || "Gửi thất bại"}`,
+        };
       }
 
       // Ghi log vào bảng tuition_reminders
@@ -538,8 +563,8 @@ export async function executeAiAdminTool(
     }
 
     return { success: false, message: `Hành động không xác định: ${toolName}` };
-  } catch (error: any) {
-    console.error("executeAiAdminTool Error:", error);
-    return { success: false, message: `Lỗi khi thực thi lệnh: ${error.message}` };
+  } catch (error: unknown) {
+    log.error("executeAiAdminTool Error:", { error: error });
+    return { success: false, message: `Lỗi khi thực thi lệnh: ${getErrorMessage(error)}` };
   }
 }

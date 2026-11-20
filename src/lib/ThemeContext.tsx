@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
 
 type Theme = "light" | "dark";
 
@@ -16,47 +16,43 @@ const ThemeContext = createContext<ThemeContextType>({
   setTheme: () => {},
 });
 
+const STORAGE_KEY = "app_theme";
+
+function applyThemeToDoc(theme: Theme): void {
+  if (typeof document === "undefined") return;
+  const root = document.documentElement;
+  if (theme === "dark") root.classList.add("dark");
+  else root.classList.remove("dark");
+}
+
+/** Đọc theme đã lưu hoặc suy ra từ cài đặt hệ thống (chỉ chạy phía client). */
+function resolveInitialTheme(): Theme {
+  if (typeof window === "undefined") return "light";
+  const saved = localStorage.getItem(STORAGE_KEY);
+  if (saved === "light" || saved === "dark") return saved;
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [theme, setThemeState] = useState<Theme>("light");
-  const [mounted, setMounted] = useState(false);
+  // Khởi tạo trực tiếp từ localStorage: tránh setState trong effect và cascading render.
+  const [theme, setThemeState] = useState<Theme>(resolveInitialTheme);
 
   useEffect(() => {
-    // 1. Check local storage
-    const savedTheme = localStorage.getItem("app_theme") as Theme;
-    if (savedTheme && (savedTheme === "light" || savedTheme === "dark")) {
-      setThemeState(savedTheme);
-      applyThemeToDoc(savedTheme);
-    } else {
-      // Check system preference
-      const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-      const initial = prefersDark ? "dark" : "light";
-      setThemeState(initial);
-      applyThemeToDoc(initial);
-    }
-    setMounted(true);
+    applyThemeToDoc(theme);
+  }, [theme]);
+
+  const setTheme = useCallback((newTheme: Theme) => {
+    setThemeState(newTheme);
+    localStorage.setItem(STORAGE_KEY, newTheme);
   }, []);
 
-  const applyThemeToDoc = (t: Theme) => {
-    if (typeof document !== "undefined") {
-      const root = document.documentElement;
-      if (t === "dark") {
-        root.classList.add("dark");
-      } else {
-        root.classList.remove("dark");
-      }
-    }
-  };
-
-  const setTheme = (newTheme: Theme) => {
-    setThemeState(newTheme);
-    localStorage.setItem("app_theme", newTheme);
-    applyThemeToDoc(newTheme);
-  };
-
-  const toggleTheme = () => {
-    const nextTheme = theme === "dark" ? "light" : "dark";
-    setTheme(nextTheme);
-  };
+  const toggleTheme = useCallback(() => {
+    setThemeState((current) => {
+      const next: Theme = current === "dark" ? "light" : "dark";
+      localStorage.setItem(STORAGE_KEY, next);
+      return next;
+    });
+  }, []);
 
   return (
     <ThemeContext.Provider value={{ theme, toggleTheme, setTheme }}>

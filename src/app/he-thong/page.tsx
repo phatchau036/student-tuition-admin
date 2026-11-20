@@ -8,9 +8,6 @@ import {
   Plus,
   Trash2,
   KeyRound,
-  GraduationCap,
-  CalendarCheck,
-  ChevronRight,
   ExternalLink,
   CheckCircle2,
   AlertCircle,
@@ -20,32 +17,26 @@ import {
   User,
   ArrowRight,
   Globe,
-  ShieldAlert,
-  Settings,
   Edit2,
   Eye,
   EyeOff,
   Sparkles,
   RefreshCw,
   Check,
-  MessageSquare,
-  Send,
   Inbox,
-  Filter,
   UserCheck,
   Clock,
   CheckSquare,
-  Square,
-  UserPlus,
   Play,
   RotateCcw,
 } from "lucide-react";
 import Link from "next/link";
 import { SystemFeedback, SystemTeamMember } from "@/lib/types";
-import {
-  generateAdminUsernameFromSchool,
-  generateRandomPassword,
-} from "@/lib/credentialGen";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("page/he-thong");
+import { generateAdminUsernameFromSchool, generateRandomPassword } from "@/lib/credentialGen";
+import { getErrorMessage } from "@/lib/errors";
 
 interface School {
   id: string;
@@ -90,7 +81,7 @@ export default function SystemAdminPage() {
 
   const [schools, setSchools] = useState<School[]>([]);
   const [admins, setAdmins] = useState<SchoolAdmin[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [_isLoading, setIsLoading] = useState(false);
 
   // Password visibility map for admins
   const [revealedPasswords, setRevealedPasswords] = useState<Record<string, boolean>>({});
@@ -134,17 +125,23 @@ export default function SystemAdminPage() {
   // Feedbacks & Task Workflow (Chưa làm / Đang làm / Đã làm)
   const [systemFeedbacks, setSystemFeedbacks] = useState<SystemFeedback[]>([]);
   const [isLoadingFeedbacks, setIsLoadingFeedbacks] = useState(false);
-  const [feedbackTaskTab, setFeedbackTaskTab] = useState<"pending" | "in_progress" | "completed">("pending");
+  const [feedbackTaskTab, setFeedbackTaskTab] = useState<"pending" | "in_progress" | "completed">(
+    "pending"
+  );
   const [activeFeedbackReplyId, setActiveFeedbackReplyId] = useState<string | null>(null);
   const [feedbackReplyText, setFeedbackReplyText] = useState("");
-  const [feedbackStatusUpdate, setFeedbackStatusUpdate] = useState<"pending" | "in_progress" | "in_review" | "planned" | "completed">("in_progress");
+  const [feedbackStatusUpdate, setFeedbackStatusUpdate] = useState<
+    "pending" | "in_progress" | "in_review" | "planned" | "completed"
+  >("in_progress");
 
   // TpTeam Members Management & Task Assignment Modal
   const [teamMembers, setTeamMembers] = useState<SystemTeamMember[]>([]);
-  const [isLoadingTeam, setIsLoadingTeam] = useState(false);
+  const [_isLoadingTeam, setIsLoadingTeam] = useState(false);
   const [isTeamModalOpen, setIsTeamModalOpen] = useState(false);
   const [newMemberName, setNewMemberName] = useState("");
-  const [newMemberRole, setNewMemberRole] = useState<"developer" | "tester" | "manager" | "support">("developer");
+  const [newMemberRole, setNewMemberRole] = useState<
+    "developer" | "tester" | "manager" | "support"
+  >("developer");
   const [newMemberPhone, setNewMemberPhone] = useState("");
   const [isSavingMember, setIsSavingMember] = useState(false);
 
@@ -182,7 +179,9 @@ export default function SystemAdminPage() {
   } | null>(null);
 
   // Navigation Tab State for System Admin Page
-  const [activeSystemTab, setActiveSystemTab] = useState<"schools" | "feedbacks" | "maintenance" | "ai" | "account">("schools");
+  const [activeSystemTab, setActiveSystemTab] = useState<
+    "schools" | "feedbacks" | "maintenance" | "ai" | "account"
+  >("schools");
 
   // State đổi tài khoản & mật khẩu hệ thống
   const [changeSystemCurrentPass, setChangeSystemCurrentPass] = useState("");
@@ -193,13 +192,19 @@ export default function SystemAdminPage() {
 
   useEffect(() => {
     if (authUsername && !changeSystemNewUsername) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Đồng bộ state khi mở modal hoặc nạp dữ liệu; sẽ chuyển sang pattern key-remount ở Giai đoạn 2.
       setChangeSystemNewUsername(authUsername);
     }
-  }, [authUsername]);
+  }, [authUsername, changeSystemNewUsername]);
 
   const handleChangeSystemCredentials = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!changeSystemCurrentPass || !changeSystemNewUsername || !changeSystemNewPass || !changeSystemConfirmPass) {
+    if (
+      !changeSystemCurrentPass ||
+      !changeSystemNewUsername ||
+      !changeSystemNewPass ||
+      !changeSystemConfirmPass
+    ) {
       showToast("Vui lòng điền đầy đủ thông tin!", "error");
       return;
     }
@@ -255,7 +260,12 @@ export default function SystemAdminPage() {
   const [showApiKey, setShowApiKey] = useState(false);
   const [isTestingAi, setIsTestingAi] = useState(false);
   const [isSavingAi, setIsSavingAi] = useState(false);
-  const [aiTestResult, setAiTestResult] = useState<{ success: boolean; message: string; elapsed_ms?: number; reply?: string } | null>(null);
+  const [aiTestResult, setAiTestResult] = useState<{
+    success: boolean;
+    message: string;
+    elapsed_ms?: number;
+    reply?: string;
+  } | null>(null);
 
   // Custom Delete Confirmations
   const [schoolToDelete, setSchoolToDelete] = useState<School | null>(null);
@@ -268,7 +278,10 @@ export default function SystemAdminPage() {
   const [resetAdminNewPass, setResetAdminNewPass] = useState("");
   const [isResettingAdminPass, setIsResettingAdminPass] = useState(false);
 
-  const [toastMessage, setToastMessage] = useState<{ text: string; type: "success" | "error" | "info" } | null>(null);
+  const [toastMessage, setToastMessage] = useState<{
+    text: string;
+    type: "success" | "error" | "info";
+  } | null>(null);
 
   const showToast = (text: string, type: "success" | "error" | "info" = "success") => {
     setToastMessage({ text, type });
@@ -290,7 +303,9 @@ export default function SystemAdminPage() {
 
   // 1. Kiểm tra xác thực token khi tải trang và duy trì polling kiểm tra phiên định kỳ
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/immutability -- Hàm khai báo bằng function (được hoisting) gọi trong effect mount là an toàn; rule báo nhầm thứ tự khai báo.
     checkAuth();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Loader là hàm khai báo trong component, chỉ gọi khi mở modal/mount; thêm vào deps sẽ gây gọi lại vô hạn. Sẽ chuyển sang useCallback ở Giai đoạn 2.
   }, []);
 
   // Polling mỗi 20s hoặc khi tab trình duyệt active để phát hiện ngay lập tức nếu mật khẩu bị đổi từ nơi khác
@@ -309,11 +324,17 @@ export default function SystemAdminPage() {
         if (cancelled) return;
         if (!json.authenticated || res.status === 401) {
           localStorage.removeItem("system_token");
-          document.cookie = "system_auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; max-age=0";
+          document.cookie =
+            "system_auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; max-age=0";
           setIsAuthenticated(false);
-          showToast("Phiên đăng nhập đã hết hạn hoặc mật khẩu đã bị đổi từ nơi khác. Vui lòng đăng nhập lại!", "info");
+          showToast(
+            "Phiên đăng nhập đã hết hạn hoặc mật khẩu đã bị đổi từ nơi khác. Vui lòng đăng nhập lại!",
+            "info"
+          );
         }
-      } catch {}
+      } catch (err) {
+        log.debug("Bỏ qua lỗi không ảnh hưởng luồng chính (page)", { error: err });
+      }
     };
 
     const interval = setInterval(pollAuth, 20000);
@@ -326,7 +347,7 @@ export default function SystemAdminPage() {
     };
   }, [isAuthenticated]);
 
-  const checkAuth = async () => {
+  async function checkAuth() {
     try {
       const token = localStorage.getItem("system_token");
       const headers: Record<string, string> = {};
@@ -347,7 +368,7 @@ export default function SystemAdminPage() {
     } catch {
       setIsAuthenticated(false);
     }
-  };
+  }
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -393,8 +414,11 @@ export default function SystemAdminPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "logout" }),
       });
-    } catch {}
-    document.cookie = "system_auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; max-age=0";
+    } catch (err) {
+      log.debug("Bỏ qua lỗi không ảnh hưởng luồng chính (page)", { error: err });
+    }
+    document.cookie =
+      "system_auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; max-age=0";
     setIsAuthenticated(false);
     setAuthPassword("");
     showToast("Đã đăng xuất khỏi cổng Quản Trị Hệ Thống", "success");
@@ -436,7 +460,7 @@ export default function SystemAdminPage() {
         setTeamMembers(json.data || []);
       }
     } catch {
-      console.error("Lỗi khi tải thành viên team");
+      log.error("Lỗi khi tải thành viên team");
     } finally {
       setIsLoadingTeam(false);
     }
@@ -495,9 +519,9 @@ export default function SystemAdminPage() {
       } else {
         showToast(data.message || "Kiểm tra kết nối AI thất bại", "error");
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       showToast("Lỗi kết nối kiểm tra AI", "error");
-      setAiTestResult({ success: false, message: err.message || "Lỗi mạng" });
+      setAiTestResult({ success: false, message: getErrorMessage(err) || "Lỗi mạng" });
     } finally {
       setIsTestingAi(false);
     }
@@ -689,7 +713,7 @@ export default function SystemAdminPage() {
         setSystemFeedbacks(json.data || []);
       }
     } catch {
-      console.error("Lỗi khi tải danh sách góp ý");
+      log.error("Lỗi khi tải danh sách góp ý");
     } finally {
       setIsLoadingFeedbacks(false);
     }
@@ -828,7 +852,11 @@ export default function SystemAdminPage() {
   };
 
   // Tự động sinh tài khoản & mật khẩu chuẩn khi chọn trường
-  const applyAutoCredentialsForSchool = (schoolId: string, schoolList = schools, adminList = admins) => {
+  const applyAutoCredentialsForSchool = (
+    schoolId: string,
+    schoolList = schools,
+    adminList = admins
+  ) => {
     setSelectedSchoolId(schoolId);
     const school = schoolList.find((s) => s.id === schoolId) || schoolList[0];
     if (school) {
@@ -878,7 +906,12 @@ export default function SystemAdminPage() {
 
   const handleCreateAdmin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedSchoolId || !adminUsername.trim() || !adminPassword.trim() || !adminFullName.trim()) {
+    if (
+      !selectedSchoolId ||
+      !adminUsername.trim() ||
+      !adminPassword.trim() ||
+      !adminFullName.trim()
+    ) {
       showToast("Vui lòng điền đầy đủ thông tin admin!", "error");
       return;
     }
@@ -1046,7 +1079,10 @@ export default function SystemAdminPage() {
       if (json.success) {
         setUpdateCheckResult(json);
         if (json.has_update) {
-          showToast(`Phát hiện ${json.commits_behind || 1} bản cập nhật mới trên GitHub!`, "success");
+          showToast(
+            `Phát hiện ${json.commits_behind || 1} bản cập nhật mới trên GitHub!`,
+            "success"
+          );
           if (autoOpenModal) setIsUpgradeModalOpen(true);
         } else {
           showToast("Hệ thống hiện tại đã là phiên bản mới nhất!", "success");
@@ -1080,7 +1116,6 @@ export default function SystemAdminPage() {
 
         // Bắt đầu vòng lặp polling log định kỳ từ upgrade.log
         let pollCount = 0;
-        let isServerRestarting = false;
         const pollInterval = setInterval(async () => {
           pollCount++;
           try {
@@ -1100,7 +1135,6 @@ export default function SystemAdminPage() {
             }
           } catch {
             // Khi server restart, fetch sẽ tạm thời lỗi -> Đây là dấu hiệu server đang khởi động lại
-            isServerRestarting = true;
             setUpgradeLogs((prev) => [
               ...prev,
               "Máy chủ đang giải phóng cổng và khởi động lại dịch vụ... Đang kết nối lại...",
@@ -1216,7 +1250,8 @@ export default function SystemAdminPage() {
 
           <div className="pt-2 border-t border-slate-800/80 text-center">
             <p className="text-[11px] text-slate-500">
-              Thông tin đăng nhập được lưu trữ an toàn trong biến môi trường file <code className="text-purple-400 font-mono">.env</code> của máy chủ.
+              Thông tin đăng nhập được lưu trữ an toàn trong biến môi trường file{" "}
+              <code className="text-purple-400 font-mono">.env</code> của máy chủ.
             </p>
           </div>
         </div>
@@ -1326,7 +1361,9 @@ export default function SystemAdminPage() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="p-5 rounded-2xl bg-slate-800/60 border border-slate-700/60 flex items-center justify-between">
             <div>
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Tổng số trường / trung tâm</p>
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                Tổng số trường / trung tâm
+              </p>
               <h3 className="text-3xl font-extrabold text-white mt-1">{schools.length}</h3>
             </div>
             <div className="w-12 h-12 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
@@ -1336,7 +1373,9 @@ export default function SystemAdminPage() {
 
           <div className="p-5 rounded-2xl bg-slate-800/60 border border-slate-700/60 flex items-center justify-between">
             <div>
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Tài khoản Quản trị cơ sở</p>
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                Tài khoản Quản trị cơ sở
+              </p>
               <h3 className="text-3xl font-extrabold text-purple-400 mt-1">{admins.length}</h3>
             </div>
             <div className="w-12 h-12 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
@@ -1346,10 +1385,15 @@ export default function SystemAdminPage() {
 
           <div className="p-5 rounded-2xl bg-slate-800/60 border border-slate-700/60 flex items-center justify-between">
             <div>
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Học sinh toàn hệ thống</p>
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                Học sinh toàn hệ thống
+              </p>
               <div className="flex items-baseline gap-2 mt-1">
                 <h3 className="text-3xl font-extrabold text-emerald-400">
-                  {schools.reduce((acc, s) => acc + (s.active_student_count ?? s.student_count ?? 0), 0)}
+                  {schools.reduce(
+                    (acc, s) => acc + (s.active_student_count ?? s.student_count ?? 0),
+                    0
+                  )}
                 </h3>
                 <span className="text-xs text-slate-400 font-bold">
                   đang học (Tổng {schools.reduce((acc, s) => acc + (s.student_count || 0), 0)})
@@ -1447,7 +1491,8 @@ export default function SystemAdminPage() {
                     <span>Danh Sách Trường & Trung Tâm</span>
                   </h2>
                   <p className="text-xs text-slate-400">
-                    Chủ Hệ Thống có thể đổi tên trung tâm, điều chỉnh mã cơ sở và thiết lập giới hạn IP bảo vệ
+                    Chủ Hệ Thống có thể đổi tên trung tâm, điều chỉnh mã cơ sở và thiết lập giới hạn
+                    IP bảo vệ
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -1526,7 +1571,9 @@ export default function SystemAdminPage() {
                           </div>
                         </div>
 
-                        <h3 className="text-base font-bold text-white mt-2 leading-snug">{school.name}</h3>
+                        <h3 className="text-base font-bold text-white mt-2 leading-snug">
+                          {school.name}
+                        </h3>
 
                         {/* Thông tin tên miền & subdomain */}
                         {(school.domain || school.subdomain) && (
@@ -1559,16 +1606,26 @@ export default function SystemAdminPage() {
 
                       <div className="pt-3 border-t border-slate-700/60 grid grid-cols-3 gap-1 text-center text-xs">
                         <div className="bg-slate-900/40 p-2 rounded-xl">
-                          <span className="text-slate-400 block text-[10px] uppercase font-bold">Admin</span>
-                          <span className="font-extrabold text-purple-400 text-sm">{school.admin_count}</span>
+                          <span className="text-slate-400 block text-[10px] uppercase font-bold">
+                            Admin
+                          </span>
+                          <span className="font-extrabold text-purple-400 text-sm">
+                            {school.admin_count}
+                          </span>
                         </div>
-                        <div className="bg-slate-900/40 p-2 rounded-xl" title={`Tổng hồ sơ: ${school.student_count} (Đang học: ${school.active_student_count ?? school.student_count}, Bảo lưu: ${school.reserved_student_count || 0}, Đã nghỉ: ${school.dropped_student_count || 0})`}>
-                          <span className="text-slate-400 block text-[10px] uppercase font-bold">Học sinh</span>
+                        <div
+                          className="bg-slate-900/40 p-2 rounded-xl"
+                          title={`Tổng hồ sơ: ${school.student_count} (Đang học: ${school.active_student_count ?? school.student_count}, Bảo lưu: ${school.reserved_student_count || 0}, Đã nghỉ: ${school.dropped_student_count || 0})`}
+                        >
+                          <span className="text-slate-400 block text-[10px] uppercase font-bold">
+                            Học sinh
+                          </span>
                           <div className="flex items-baseline justify-center gap-1">
                             <span className="font-extrabold text-emerald-400 text-sm">
                               {school.active_student_count ?? school.student_count}
                             </span>
-                            {school.student_count > (school.active_student_count ?? school.student_count) && (
+                            {school.student_count >
+                              (school.active_student_count ?? school.student_count) && (
                               <span className="text-[10px] text-slate-400">
                                 /{school.student_count}
                               </span>
@@ -1579,8 +1636,12 @@ export default function SystemAdminPage() {
                           </span>
                         </div>
                         <div className="bg-slate-900/40 p-2 rounded-xl">
-                          <span className="text-slate-400 block text-[10px] uppercase font-bold">Giáo viên</span>
-                          <span className="font-extrabold text-blue-400 text-sm">{school.teacher_count}</span>
+                          <span className="text-slate-400 block text-[10px] uppercase font-bold">
+                            Giáo viên
+                          </span>
+                          <span className="font-extrabold text-blue-400 text-sm">
+                            {school.teacher_count}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -1598,7 +1659,8 @@ export default function SystemAdminPage() {
                     <span>Danh Sách Tài Khoản Quản Trị Cơ Sở (Admin)</span>
                   </h2>
                   <p className="text-xs text-slate-400">
-                    Chủ Hệ Thống có toàn quyền bấm xem mật khẩu gốc, sao chép hoặc xóa tài khoản quản trị
+                    Chủ Hệ Thống có toàn quyền bấm xem mật khẩu gốc, sao chép hoặc xóa tài khoản
+                    quản trị
                   </p>
                 </div>
                 <button
@@ -1629,7 +1691,9 @@ export default function SystemAdminPage() {
                         const isRevealed = Boolean(revealedPasswords[adm.id]);
                         return (
                           <tr key={adm.id} className="hover:bg-slate-700/30 transition">
-                            <td className="py-3.5 px-4 font-semibold text-white">{adm.full_name}</td>
+                            <td className="py-3.5 px-4 font-semibold text-white">
+                              {adm.full_name}
+                            </td>
                             <td className="py-3.5 px-4">
                               {adm.is_owner === 1 ? (
                                 <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-black bg-amber-500/10 text-amber-400 border border-amber-500/30">
@@ -1659,7 +1723,9 @@ export default function SystemAdminPage() {
                                       {adm.password}
                                     </span>
                                   ) : (
-                                    <span className="text-slate-500 tracking-widest">••••••••••</span>
+                                    <span className="text-slate-500 tracking-widest">
+                                      ••••••••••
+                                    </span>
                                   )}
                                 </span>
 
@@ -1668,7 +1734,11 @@ export default function SystemAdminPage() {
                                   className="p-1 rounded text-slate-400 hover:text-white hover:bg-slate-700 transition"
                                   title={isRevealed ? "Ẩn mật khẩu" : "Xem mật khẩu của admin này"}
                                 >
-                                  {isRevealed ? <EyeOff className="w-4 h-4 text-amber-400" /> : <Eye className="w-4 h-4" />}
+                                  {isRevealed ? (
+                                    <EyeOff className="w-4 h-4 text-amber-400" />
+                                  ) : (
+                                    <Eye className="w-4 h-4" />
+                                  )}
                                 </button>
 
                                 <button
@@ -1692,7 +1762,9 @@ export default function SystemAdminPage() {
                               </div>
                             </td>
                             <td className="py-3.5 px-4">{adm.school_name}</td>
-                            <td className="py-3.5 px-4 font-mono text-slate-400">{adm.school_code}</td>
+                            <td className="py-3.5 px-4 font-mono text-slate-400">
+                              {adm.school_code}
+                            </td>
                             <td className="py-3.5 px-4 text-right">
                               <button
                                 onClick={() => setAdminToDelete(adm)}
@@ -1708,7 +1780,8 @@ export default function SystemAdminPage() {
                       {admins.length === 0 && (
                         <tr>
                           <td colSpan={6} className="py-8 text-center text-slate-500">
-                            Chưa có tài khoản admin nào. Hãy bấm "Cấp Tài Khoản Admin" ở trên!
+                            Chưa có tài khoản admin nào. Hãy bấm &quot;Cấp Tài Khoản Admin&quot; ở
+                            trên!
                           </td>
                         </tr>
                       )}
@@ -1721,329 +1794,373 @@ export default function SystemAdminPage() {
         )}
 
         {/* TAB 2: FEEDBACKS & TASK WORKFLOW FROM SCHOOLS */}
-        {activeSystemTab === "feedbacks" && (() => {
-          const pendingFeedbacks = systemFeedbacks.filter((fb) => fb.status === "pending" || !fb.status);
-          const inProgressFeedbacks = systemFeedbacks.filter((fb) => fb.status === "in_progress" || fb.status === "in_review" || fb.status === "planned");
-          const completedFeedbacks = systemFeedbacks.filter((fb) => fb.status === "completed");
+        {activeSystemTab === "feedbacks" &&
+          (() => {
+            const pendingFeedbacks = systemFeedbacks.filter(
+              (fb) => fb.status === "pending" || !fb.status
+            );
+            const inProgressFeedbacks = systemFeedbacks.filter(
+              (fb) =>
+                fb.status === "in_progress" || fb.status === "in_review" || fb.status === "planned"
+            );
+            const completedFeedbacks = systemFeedbacks.filter((fb) => fb.status === "completed");
 
-          const currentList =
-            feedbackTaskTab === "pending"
-              ? pendingFeedbacks
-              : feedbackTaskTab === "in_progress"
-              ? inProgressFeedbacks
-              : completedFeedbacks;
+            const currentList =
+              feedbackTaskTab === "pending"
+                ? pendingFeedbacks
+                : feedbackTaskTab === "in_progress"
+                  ? inProgressFeedbacks
+                  : completedFeedbacks;
 
-          return (
-            <div className="space-y-4 animate-in fade-in duration-150">
-              {/* Header Tab 2 & Nút quản lý đội ngũ */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                    <Inbox className="w-5 h-5 text-amber-400" />
-                    <span>Nhiệm Vụ & Phản Hồi Từ Các Trung Tâm ({systemFeedbacks.length})</span>
-                  </h2>
-                  <p className="text-xs text-slate-400">
-                    Quy trình xử lý công việc: <strong>Chưa làm ➔ Đang làm ➔ Đã làm</strong> dành riêng cho đội ngũ phát triển TpTeam
-                  </p>
+            return (
+              <div className="space-y-4 animate-in fade-in duration-150">
+                {/* Header Tab 2 & Nút quản lý đội ngũ */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                      <Inbox className="w-5 h-5 text-amber-400" />
+                      <span>Nhiệm Vụ & Phản Hồi Từ Các Trung Tâm ({systemFeedbacks.length})</span>
+                    </h2>
+                    <p className="text-xs text-slate-400">
+                      Quy trình xử lý công việc: <strong>Chưa làm ➔ Đang làm ➔ Đã làm</strong> dành
+                      riêng cho đội ngũ phát triển TpTeam
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => setIsTeamModalOpen(true)}
+                      className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-xl bg-purple-600/30 hover:bg-purple-600/50 text-purple-200 border border-purple-500/40 transition cursor-pointer"
+                      title="Quản lý thành viên đội ngũ hệ thống"
+                    >
+                      <Users className="w-3.5 h-3.5 text-purple-300" />
+                      <span>Đội Ngũ TpTeam ({teamMembers.length})</span>
+                    </button>
+
+                    <button
+                      onClick={loadSystemFeedbacks}
+                      className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200 transition shrink-0 cursor-pointer"
+                    >
+                      <RefreshCw
+                        className={`w-3.5 h-3.5 ${isLoadingFeedbacks ? "animate-spin" : ""}`}
+                      />
+                      <span>Làm mới</span>
+                    </button>
+                  </div>
                 </div>
 
-                <div className="flex items-center gap-2 flex-wrap">
+                {/* Bộ 3 Tab Nhiệm Vụ: Chưa làm / Đang làm / Đã làm */}
+                <div className="grid grid-cols-3 gap-2 p-1.5 rounded-2xl bg-slate-800/90 border border-slate-700/80">
                   <button
                     type="button"
-                    onClick={() => setIsTeamModalOpen(true)}
-                    className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-xl bg-purple-600/30 hover:bg-purple-600/50 text-purple-200 border border-purple-500/40 transition cursor-pointer"
-                    title="Quản lý thành viên đội ngũ hệ thống"
+                    onClick={() => setFeedbackTaskTab("pending")}
+                    className={`py-2 px-3 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 transition cursor-pointer ${
+                      feedbackTaskTab === "pending"
+                        ? "bg-amber-500 text-slate-950 shadow-md shadow-amber-500/25"
+                        : "text-slate-400 hover:text-white hover:bg-slate-700/50"
+                    }`}
                   >
-                    <Users className="w-3.5 h-3.5 text-purple-300" />
-                    <span>Đội Ngũ TpTeam ({teamMembers.length})</span>
+                    <Clock className="w-3.5 h-3.5" />
+                    <span>Chưa làm</span>
+                    <span
+                      className={`px-2 py-0.2 rounded-full text-[10px] font-black ${
+                        feedbackTaskTab === "pending"
+                          ? "bg-slate-950/20 text-slate-950"
+                          : "bg-slate-700 text-slate-300"
+                      }`}
+                    >
+                      {pendingFeedbacks.length}
+                    </span>
                   </button>
 
                   <button
-                    onClick={loadSystemFeedbacks}
-                    className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200 transition shrink-0 cursor-pointer"
+                    type="button"
+                    onClick={() => setFeedbackTaskTab("in_progress")}
+                    className={`py-2 px-3 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 transition cursor-pointer ${
+                      feedbackTaskTab === "in_progress"
+                        ? "bg-blue-600 text-white shadow-md shadow-blue-600/30"
+                        : "text-slate-400 hover:text-white hover:bg-slate-700/50"
+                    }`}
                   >
-                    <RefreshCw className={`w-3.5 h-3.5 ${isLoadingFeedbacks ? "animate-spin" : ""}`} />
-                    <span>Làm mới</span>
+                    <Play className="w-3.5 h-3.5" />
+                    <span>Đang làm</span>
+                    <span
+                      className={`px-2 py-0.2 rounded-full text-[10px] font-black ${
+                        feedbackTaskTab === "in_progress"
+                          ? "bg-white/20 text-white"
+                          : "bg-slate-700 text-slate-300"
+                      }`}
+                    >
+                      {inProgressFeedbacks.length}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setFeedbackTaskTab("completed")}
+                    className={`py-2 px-3 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 transition cursor-pointer ${
+                      feedbackTaskTab === "completed"
+                        ? "bg-emerald-600 text-white shadow-md shadow-emerald-600/30"
+                        : "text-slate-400 hover:text-white hover:bg-slate-700/50"
+                    }`}
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>Đã làm xong</span>
+                    <span
+                      className={`px-2 py-0.2 rounded-full text-[10px] font-black ${
+                        feedbackTaskTab === "completed"
+                          ? "bg-white/20 text-white"
+                          : "bg-slate-700 text-slate-300"
+                      }`}
+                    >
+                      {completedFeedbacks.length}
+                    </span>
                   </button>
                 </div>
-              </div>
 
-              {/* Bộ 3 Tab Nhiệm Vụ: Chưa làm / Đang làm / Đã làm */}
-              <div className="grid grid-cols-3 gap-2 p-1.5 rounded-2xl bg-slate-800/90 border border-slate-700/80">
-                <button
-                  type="button"
-                  onClick={() => setFeedbackTaskTab("pending")}
-                  className={`py-2 px-3 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 transition cursor-pointer ${
-                    feedbackTaskTab === "pending"
-                      ? "bg-amber-500 text-slate-950 shadow-md shadow-amber-500/25"
-                      : "text-slate-400 hover:text-white hover:bg-slate-700/50"
-                  }`}
-                >
-                  <Clock className="w-3.5 h-3.5" />
-                  <span>Chưa làm</span>
-                  <span className={`px-2 py-0.2 rounded-full text-[10px] font-black ${
-                    feedbackTaskTab === "pending" ? "bg-slate-950/20 text-slate-950" : "bg-slate-700 text-slate-300"
-                  }`}>
-                    {pendingFeedbacks.length}
-                  </span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setFeedbackTaskTab("in_progress")}
-                  className={`py-2 px-3 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 transition cursor-pointer ${
-                    feedbackTaskTab === "in_progress"
-                      ? "bg-blue-600 text-white shadow-md shadow-blue-600/30"
-                      : "text-slate-400 hover:text-white hover:bg-slate-700/50"
-                  }`}
-                >
-                  <Play className="w-3.5 h-3.5" />
-                  <span>Đang làm</span>
-                  <span className={`px-2 py-0.2 rounded-full text-[10px] font-black ${
-                    feedbackTaskTab === "in_progress" ? "bg-white/20 text-white" : "bg-slate-700 text-slate-300"
-                  }`}>
-                    {inProgressFeedbacks.length}
-                  </span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setFeedbackTaskTab("completed")}
-                  className={`py-2 px-3 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 transition cursor-pointer ${
-                    feedbackTaskTab === "completed"
-                      ? "bg-emerald-600 text-white shadow-md shadow-emerald-600/30"
-                      : "text-slate-400 hover:text-white hover:bg-slate-700/50"
-                  }`}
-                >
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>Đã làm xong</span>
-                  <span className={`px-2 py-0.2 rounded-full text-[10px] font-black ${
-                    feedbackTaskTab === "completed" ? "bg-white/20 text-white" : "bg-slate-700 text-slate-300"
-                  }`}>
-                    {completedFeedbacks.length}
-                  </span>
-                </button>
-              </div>
-
-              {/* Danh sách nhiệm vụ theo Tab đã chọn */}
-              <div className="bg-slate-800/80 rounded-2xl border border-slate-700/80 overflow-hidden">
-                {isLoadingFeedbacks ? (
-                  <div className="py-12 text-center text-xs text-slate-400">Đang tải danh sách nhiệm vụ...</div>
-                ) : currentList.length === 0 ? (
-                  <div className="py-12 text-center text-xs text-slate-500">
-                    {feedbackTaskTab === "pending" && "Không có nhiệm vụ nào đang chờ xử lý! Tuyệt vời!"}
-                    {feedbackTaskTab === "in_progress" && "Chưa có nhiệm vụ nào đang được nhận làm."}
-                    {feedbackTaskTab === "completed" && "Chưa có nhiệm vụ nào hoàn thành trong danh mục này."}
-                  </div>
-                ) : (
-                  <div className="divide-y divide-slate-700/60">
-                    {currentList.map((fb) => (
-                      <div key={fb.id} className="p-5 space-y-3.5 hover:bg-slate-700/20 transition">
-                        <div className="flex items-start justify-between gap-3 flex-wrap">
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="px-2 py-0.5 rounded text-[11px] font-black uppercase bg-purple-500/20 text-purple-300 border border-purple-500/30">
-                                {fb.school_name || fb.school_code}
-                              </span>
-                              <span className="text-sm font-bold text-white">{fb.title}</span>
-                              <span
-                                className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                                  fb.priority === "high"
-                                    ? "bg-rose-500/20 text-rose-300 border border-rose-500/30"
-                                    : "bg-slate-700 text-slate-300"
-                                }`}
-                              >
-                                {fb.priority === "high" ? "Ưu tiên cao" : "Bình thường"}
-                              </span>
-                            </div>
-                            {fb.sender_contact && (
-                              <p className="text-xs text-slate-400">
-                                Người liên hệ: <strong className="text-slate-200">{fb.sender_contact}</strong>
-                              </p>
-                            )}
-                          </div>
-
-                          {/* Action Buttons: Nhận Việc, Đang làm bởi ai, Đánh dấu Đã xong */}
-                          <div className="flex items-center gap-2 flex-wrap">
-                            {/* Trạng thái 1: CHƯA LÀM => Nút BẤM NHẬN NHIỆM VỤ */}
-                            {(fb.status === "pending" || !fb.status) && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setAssignModalTask(fb);
-                                  setSelectedAssigneeId(teamMembers[0]?.id || "");
-                                  setCustomAssigneeName("");
-                                }}
-                                className="px-3.5 py-1.5 text-xs font-bold rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-md shadow-amber-500/20 transition flex items-center gap-1.5 cursor-pointer"
-                              >
-                                <Play className="w-3.5 h-3.5 fill-current" />
-                                <span>Nhận Nhiệm Vụ Này</span>
-                              </button>
-                            )}
-
-                            {/* Trạng thái 2: ĐANG LÀM => Hiển thị Người nhận + Nút HOÀN THÀNH */}
-                            {(fb.status === "in_progress" || fb.status === "in_review" || fb.status === "planned") && (
-                              <div className="flex items-center gap-2">
-                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-extrabold bg-blue-500/20 text-blue-300 border border-blue-500/30">
-                                  <UserCheck className="w-3.5 h-3.5 text-blue-400" />
-                                  <span>Đang làm: {fb.assignee_name || "Thành viên TpTeam"}</span>
+                {/* Danh sách nhiệm vụ theo Tab đã chọn */}
+                <div className="bg-slate-800/80 rounded-2xl border border-slate-700/80 overflow-hidden">
+                  {isLoadingFeedbacks ? (
+                    <div className="py-12 text-center text-xs text-slate-400">
+                      Đang tải danh sách nhiệm vụ...
+                    </div>
+                  ) : currentList.length === 0 ? (
+                    <div className="py-12 text-center text-xs text-slate-500">
+                      {feedbackTaskTab === "pending" &&
+                        "Không có nhiệm vụ nào đang chờ xử lý! Tuyệt vời!"}
+                      {feedbackTaskTab === "in_progress" &&
+                        "Chưa có nhiệm vụ nào đang được nhận làm."}
+                      {feedbackTaskTab === "completed" &&
+                        "Chưa có nhiệm vụ nào hoàn thành trong danh mục này."}
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-slate-700/60">
+                      {currentList.map((fb) => (
+                        <div
+                          key={fb.id}
+                          className="p-5 space-y-3.5 hover:bg-slate-700/20 transition"
+                        >
+                          <div className="flex items-start justify-between gap-3 flex-wrap">
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="px-2 py-0.5 rounded text-[11px] font-black uppercase bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                                  {fb.school_name || fb.school_code}
                                 </span>
+                                <span className="text-sm font-bold text-white">{fb.title}</span>
+                                <span
+                                  className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                                    fb.priority === "high"
+                                      ? "bg-rose-500/20 text-rose-300 border border-rose-500/30"
+                                      : "bg-slate-700 text-slate-300"
+                                  }`}
+                                >
+                                  {fb.priority === "high" ? "Ưu tiên cao" : "Bình thường"}
+                                </span>
+                              </div>
+                              {fb.sender_contact && (
+                                <p className="text-xs text-slate-400">
+                                  Người liên hệ:{" "}
+                                  <strong className="text-slate-200">{fb.sender_contact}</strong>
+                                </p>
+                              )}
+                            </div>
 
+                            {/* Action Buttons: Nhận Việc, Đang làm bởi ai, Đánh dấu Đã xong */}
+                            <div className="flex items-center gap-2 flex-wrap">
+                              {/* Trạng thái 1: CHƯA LÀM => Nút BẤM NHẬN NHIỆM VỤ */}
+                              {(fb.status === "pending" || !fb.status) && (
                                 <button
                                   type="button"
                                   onClick={() => {
-                                    setCompleteModalTask(fb);
-                                    setCompleteReplyNote(fb.admin_reply || "");
+                                    setAssignModalTask(fb);
+                                    setSelectedAssigneeId(teamMembers[0]?.id || "");
+                                    setCustomAssigneeName("");
                                   }}
-                                  className="px-3.5 py-1.5 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-600/30 transition flex items-center gap-1.5 cursor-pointer"
-                                  title="Bấm để đánh dấu đã làm xong nhiệm vụ này"
+                                  className="px-3.5 py-1.5 text-xs font-bold rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-md shadow-amber-500/20 transition flex items-center gap-1.5 cursor-pointer"
                                 >
-                                  <CheckSquare className="w-3.5 h-3.5" />
-                                  <span>Đã Làm Xong</span>
+                                  <Play className="w-3.5 h-3.5 fill-current" />
+                                  <span>Nhận Nhiệm Vụ Này</span>
                                 </button>
+                              )}
 
-                                <button
-                                  type="button"
-                                  onClick={() => handleUnassignTask(fb.id)}
-                                  className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition"
-                                  title="Hủy nhận việc (chuyển về Chưa làm)"
-                                >
-                                  <RotateCcw className="w-3.5 h-3.5" />
-                                </button>
+                              {/* Trạng thái 2: ĐANG LÀM => Hiển thị Người nhận + Nút HOÀN THÀNH */}
+                              {(fb.status === "in_progress" ||
+                                fb.status === "in_review" ||
+                                fb.status === "planned") && (
+                                <div className="flex items-center gap-2">
+                                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-extrabold bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                                    <UserCheck className="w-3.5 h-3.5 text-blue-400" />
+                                    <span>Đang làm: {fb.assignee_name || "Thành viên TpTeam"}</span>
+                                  </span>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setCompleteModalTask(fb);
+                                      setCompleteReplyNote(fb.admin_reply || "");
+                                    }}
+                                    className="px-3.5 py-1.5 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-600/30 transition flex items-center gap-1.5 cursor-pointer"
+                                    title="Bấm để đánh dấu đã làm xong nhiệm vụ này"
+                                  >
+                                    <CheckSquare className="w-3.5 h-3.5" />
+                                    <span>Đã Làm Xong</span>
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => handleUnassignTask(fb.id)}
+                                    className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition"
+                                    title="Hủy nhận việc (chuyển về Chưa làm)"
+                                  >
+                                    <RotateCcw className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              )}
+
+                              {/* Trạng thái 3: ĐÃ LÀM XONG => Hiển thị Badge + Nút Mở lại nếu cần */}
+                              {fb.status === "completed" && (
+                                <div className="flex items-center gap-2">
+                                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                                    <span>
+                                      Hoàn thành bởi:{" "}
+                                      {fb.completed_by || fb.assignee_name || "TpTeam"}
+                                    </span>
+                                  </span>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => handleReopenTask(fb.id)}
+                                    className="px-2.5 py-1 text-xs rounded-lg border border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700 transition"
+                                    title="Mở lại nhiệm vụ"
+                                  >
+                                    Mở lại
+                                  </button>
+                                </div>
+                              )}
+
+                              {/* Nút gửi lời nhắn phản hồi lại cơ sở */}
+                              <button
+                                onClick={() => {
+                                  setActiveFeedbackReplyId(fb.id);
+                                  setFeedbackReplyText(fb.admin_reply || "");
+                                  setFeedbackStatusUpdate(fb.status);
+                                }}
+                                className="px-3 py-1.5 text-xs font-semibold rounded-xl bg-purple-600/30 hover:bg-purple-600/50 text-purple-300 border border-purple-500/30 transition cursor-pointer"
+                              >
+                                Phản hồi cơ sở
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Nội dung chi tiết */}
+                          <p className="text-xs text-slate-300 leading-relaxed bg-slate-900/50 p-3.5 rounded-xl border border-slate-700/50 whitespace-pre-wrap">
+                            {fb.content}
+                          </p>
+
+                          {/* Hiển thị ảnh chụp màn hình cơ sở gửi lên */}
+                          {fb.images && fb.images.length > 0 && (
+                            <div className="space-y-1.5">
+                              <span className="text-[10px] uppercase font-bold text-slate-400">
+                                Ảnh đính kèm ({fb.images.length}):
+                              </span>
+                              <div className="flex items-center gap-3 overflow-x-auto py-1">
+                                {fb.images.map((imgUrl, i) => (
+                                  <a
+                                    key={i}
+                                    href={imgUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="block rounded-xl overflow-hidden border border-slate-700 hover:border-purple-400 transition shrink-0"
+                                  >
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img
+                                      src={imgUrl}
+                                      alt={`Ảnh đính kèm ${i + 1}`}
+                                      className="w-24 h-16 object-cover"
+                                    />
+                                  </a>
+                                ))}
                               </div>
-                            )}
+                            </div>
+                          )}
 
-                            {/* Trạng thái 3: ĐÃ LÀM XONG => Hiển thị Badge + Nút Mở lại nếu cần */}
-                            {fb.status === "completed" && (
-                              <div className="flex items-center gap-2">
-                                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                                  <span>Hoàn thành bởi: {fb.completed_by || fb.assignee_name || "TpTeam"}</span>
+                          {fb.admin_reply && (
+                            <div className="p-3 rounded-xl bg-purple-950/30 border border-purple-900/40 text-xs text-purple-200">
+                              <strong className="block text-[10px] uppercase tracking-wider text-purple-400">
+                                Phản hồi của TpTeam đã gửi tới trung tâm:
+                              </strong>
+                              <p className="mt-0.5">{fb.admin_reply}</p>
+                            </div>
+                          )}
+
+                          {/* Form phản hồi khi bấm nút */}
+                          {activeFeedbackReplyId === fb.id && (
+                            <div className="p-4 rounded-xl bg-slate-900/90 border border-purple-500/40 space-y-3 animate-in fade-in">
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs font-bold text-white">
+                                  Lời nhắn gửi lại trung tâm
                                 </span>
-
                                 <button
-                                  type="button"
-                                  onClick={() => handleReopenTask(fb.id)}
-                                  className="px-2.5 py-1 text-xs rounded-lg border border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700 transition"
-                                  title="Mở lại nhiệm vụ"
+                                  onClick={() => setActiveFeedbackReplyId(null)}
+                                  className="text-xs text-slate-400 hover:text-white"
                                 >
-                                  Mở lại
+                                  Đóng
                                 </button>
                               </div>
-                            )}
 
-                            {/* Nút gửi lời nhắn phản hồi lại cơ sở */}
-                            <button
-                              onClick={() => {
-                                setActiveFeedbackReplyId(fb.id);
-                                setFeedbackReplyText(fb.admin_reply || "");
-                                setFeedbackStatusUpdate(fb.status);
-                              }}
-                              className="px-3 py-1.5 text-xs font-semibold rounded-xl bg-purple-600/30 hover:bg-purple-600/50 text-purple-300 border border-purple-500/30 transition cursor-pointer"
-                            >
-                              Phản hồi cơ sở
-                            </button>
-                          </div>
-                        </div>
+                              <div>
+                                <textarea
+                                  rows={3}
+                                  placeholder="Nhập nội dung giải đáp hoặc thông báo phiên bản cập nhật..."
+                                  value={feedbackReplyText}
+                                  onChange={(e) => setFeedbackReplyText(e.target.value)}
+                                  className="w-full px-3 py-2 text-xs rounded-xl bg-slate-800 border border-slate-700 text-white outline-none resize-none"
+                                />
+                              </div>
 
-                        {/* Nội dung chi tiết */}
-                        <p className="text-xs text-slate-300 leading-relaxed bg-slate-900/50 p-3.5 rounded-xl border border-slate-700/50 whitespace-pre-wrap">
-                          {fb.content}
-                        </p>
-
-                        {/* Hiển thị ảnh chụp màn hình cơ sở gửi lên */}
-                        {fb.images && fb.images.length > 0 && (
-                          <div className="space-y-1.5">
-                            <span className="text-[10px] uppercase font-bold text-slate-400">Ảnh đính kèm ({fb.images.length}):</span>
-                            <div className="flex items-center gap-3 overflow-x-auto py-1">
-                              {fb.images.map((imgUrl, i) => (
-                                <a
-                                  key={i}
-                                  href={imgUrl}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="block rounded-xl overflow-hidden border border-slate-700 hover:border-purple-400 transition shrink-0"
+                              <div className="flex items-center justify-end gap-2 pt-1">
+                                <button
+                                  type="button"
+                                  onClick={() => setActiveFeedbackReplyId(null)}
+                                  className="px-3 py-1.5 text-xs rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300"
                                 >
-                                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                                  <img
-                                    src={imgUrl}
-                                    alt={`Ảnh đính kèm ${i + 1}`}
-                                    className="w-24 h-16 object-cover"
-                                  />
-                                </a>
-                              ))}
+                                  Hủy
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleUpdateFeedbackStatus(fb.id)}
+                                  className="px-4 py-1.5 text-xs font-bold rounded-lg bg-purple-600 hover:bg-purple-500 text-white shadow-xs"
+                                >
+                                  Lưu & Gửi Phản Hồi
+                                </button>
+                              </div>
                             </div>
-                          </div>
-                        )}
-
-                        {fb.admin_reply && (
-                          <div className="p-3 rounded-xl bg-purple-950/30 border border-purple-900/40 text-xs text-purple-200">
-                            <strong className="block text-[10px] uppercase tracking-wider text-purple-400">
-                              Phản hồi của TpTeam đã gửi tới trung tâm:
-                            </strong>
-                            <p className="mt-0.5">{fb.admin_reply}</p>
-                          </div>
-                        )}
-
-                        {/* Form phản hồi khi bấm nút */}
-                        {activeFeedbackReplyId === fb.id && (
-                          <div className="p-4 rounded-xl bg-slate-900/90 border border-purple-500/40 space-y-3 animate-in fade-in">
-                            <div className="flex items-center justify-between">
-                              <span className="text-xs font-bold text-white">Lời nhắn gửi lại trung tâm</span>
-                              <button
-                                onClick={() => setActiveFeedbackReplyId(null)}
-                                className="text-xs text-slate-400 hover:text-white"
-                              >
-                                Đóng
-                              </button>
-                            </div>
-
-                            <div>
-                              <textarea
-                                rows={3}
-                                placeholder="Nhập nội dung giải đáp hoặc thông báo phiên bản cập nhật..."
-                                value={feedbackReplyText}
-                                onChange={(e) => setFeedbackReplyText(e.target.value)}
-                                className="w-full px-3 py-2 text-xs rounded-xl bg-slate-800 border border-slate-700 text-white outline-none resize-none"
-                              />
-                            </div>
-
-                            <div className="flex items-center justify-end gap-2 pt-1">
-                              <button
-                                type="button"
-                                onClick={() => setActiveFeedbackReplyId(null)}
-                                className="px-3 py-1.5 text-xs rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300"
-                              >
-                                Hủy
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleUpdateFeedbackStatus(fb.id)}
-                                className="px-4 py-1.5 text-xs font-bold rounded-lg bg-purple-600 hover:bg-purple-500 text-white shadow-xs"
-                              >
-                                Lưu & Gửi Phản Hồi
-                              </button>
-                            </div>
-                          </div>
-                        )}
-
-                        <div className="flex items-center justify-between text-[10px] text-slate-500 pt-1">
-                          <span>Gửi lúc: {fb.created_at}</span>
-                          {fb.assigned_at && fb.assignee_name && (
-                            <span>Đã nhận: {fb.assigned_at.slice(0, 16).replace("T", " ")} ({fb.assignee_name})</span>
                           )}
-                          {fb.completed_at && (
-                            <span className="text-emerald-400 font-bold">Xong lúc: {fb.completed_at.slice(0, 16).replace("T", " ")}</span>
-                          )}
+
+                          <div className="flex items-center justify-between text-[10px] text-slate-500 pt-1">
+                            <span>Gửi lúc: {fb.created_at}</span>
+                            {fb.assigned_at && fb.assignee_name && (
+                              <span>
+                                Đã nhận: {fb.assigned_at.slice(0, 16).replace("T", " ")} (
+                                {fb.assignee_name})
+                              </span>
+                            )}
+                            {fb.completed_at && (
+                              <span className="text-emerald-400 font-bold">
+                                Xong lúc: {fb.completed_at.slice(0, 16).replace("T", " ")}
+                              </span>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          );
-        })()}
+            );
+          })()}
 
         {/* TAB 3: AUTO UPGRADE & MAINTENANCE */}
         {activeSystemTab === "maintenance" && (
@@ -2068,12 +2185,17 @@ export default function SystemAdminPage() {
                         {updateCheckResult.has_update ? (
                           <>
                             <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                            <span>Có {updateCheckResult.commits_behind || 1} bản cập nhật mới trên GitHub</span>
+                            <span>
+                              Có {updateCheckResult.commits_behind || 1} bản cập nhật mới trên
+                              GitHub
+                            </span>
                           </>
                         ) : (
                           <>
                             <Check className="w-3.5 h-3.5 text-blue-400" />
-                            <span>Hệ thống đang ở bản mới nhất ({updateCheckResult.local_commit})</span>
+                            <span>
+                              Hệ thống đang ở bản mới nhất ({updateCheckResult.local_commit})
+                            </span>
                           </>
                         )}
                       </span>
@@ -2084,7 +2206,10 @@ export default function SystemAdminPage() {
                     Tự Động Nâng Cấp Phiên Bản Mới Từ GitHub
                   </h3>
                   <p className="text-xs text-slate-400 max-w-2xl leading-relaxed">
-                    Quy trình tự động hóa độc lập: Kích hoạt màn hình bảo trì toàn hệ thống -&gt; Tải mã nguồn mới nhất từ kho GitHub -&gt; Tự động cài đặt thư viện thiếu -&gt; Tối ưu và biên dịch bản build Next.js -&gt; Tự khởi động lại dịch vụ ngay lập tức.
+                    Quy trình tự động hóa độc lập: Kích hoạt màn hình bảo trì toàn hệ thống -&gt;
+                    Tải mã nguồn mới nhất từ kho GitHub -&gt; Tự động cài đặt thư viện thiếu -&gt;
+                    Tối ưu và biên dịch bản build Next.js -&gt; Tự khởi động lại dịch vụ ngay lập
+                    tức.
                   </p>
                 </div>
 
@@ -2095,7 +2220,9 @@ export default function SystemAdminPage() {
                     onClick={() => handleCheckUpdate(false)}
                     className="px-4 py-3 rounded-2xl border border-slate-700 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs transition flex items-center gap-2 disabled:opacity-50"
                   >
-                    <RefreshCw className={`w-3.5 h-3.5 ${isCheckingUpdate ? "animate-spin" : ""}`} />
+                    <RefreshCw
+                      className={`w-3.5 h-3.5 ${isCheckingUpdate ? "animate-spin" : ""}`}
+                    />
                     <span>{isCheckingUpdate ? "Đang kiểm tra..." : "Kiểm Tra Bản Mới"}</span>
                   </button>
 
@@ -2115,12 +2242,20 @@ export default function SystemAdminPage() {
               {updateCheckResult && (
                 <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-700/60 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                   <div>
-                    <span className="text-slate-400 font-bold block text-[11px] mb-1">Bản đang chạy trên máy chủ:</span>
-                    <p className="font-mono text-purple-300 font-bold">{updateCheckResult.local_log || updateCheckResult.local_commit}</p>
+                    <span className="text-slate-400 font-bold block text-[11px] mb-1">
+                      Bản đang chạy trên máy chủ:
+                    </span>
+                    <p className="font-mono text-purple-300 font-bold">
+                      {updateCheckResult.local_log || updateCheckResult.local_commit}
+                    </p>
                   </div>
                   <div>
-                    <span className="text-slate-400 font-bold block text-[11px] mb-1">Bản mới nhất trên GitHub:</span>
-                    <p className="font-mono text-emerald-400 font-bold">{updateCheckResult.remote_log || updateCheckResult.remote_commit}</p>
+                    <span className="text-slate-400 font-bold block text-[11px] mb-1">
+                      Bản mới nhất trên GitHub:
+                    </span>
+                    <p className="font-mono text-emerald-400 font-bold">
+                      {updateCheckResult.remote_log || updateCheckResult.remote_commit}
+                    </p>
                   </div>
                 </div>
               )}
@@ -2129,11 +2264,27 @@ export default function SystemAdminPage() {
                 <p className="text-slate-400 font-bold uppercase tracking-wider text-[10px]">
                   Các lệnh thực thi trong quy trình tự động:
                 </p>
-                <p>1. <span className="text-purple-300">echo &quot;maintenance&quot; &gt; .maintenance</span> (Kích hoạt bảo trì)</p>
-                <p>2. <span className="text-blue-300">git pull origin main</span> (Kéo code mới nhất)</p>
-                <p>3. <span className="text-amber-300">npm install</span> (Tự cài thư viện bổ sung nếu có)</p>
-                <p>4. <span className="text-emerald-300">npm run build</span> (Tối ưu biên dịch)</p>
-                <p>5. <span className="text-purple-300">del .maintenance &amp;&amp; npm start</span> (Khởi động lại máy chủ)</p>
+                <p>
+                  1.{" "}
+                  <span className="text-purple-300">
+                    echo &quot;maintenance&quot; &gt; .maintenance
+                  </span>{" "}
+                  (Kích hoạt bảo trì)
+                </p>
+                <p>
+                  2. <span className="text-blue-300">git pull origin main</span> (Kéo code mới nhất)
+                </p>
+                <p>
+                  3. <span className="text-amber-300">npm install</span> (Tự cài thư viện bổ sung
+                  nếu có)
+                </p>
+                <p>
+                  4. <span className="text-emerald-300">npm run build</span> (Tối ưu biên dịch)
+                </p>
+                <p>
+                  5. <span className="text-purple-300">del .maintenance &amp;&amp; npm start</span>{" "}
+                  (Khởi động lại máy chủ)
+                </p>
               </div>
             </div>
           </div>
@@ -2150,8 +2301,10 @@ export default function SystemAdminPage() {
                     <span>Cấu Hình Trợ Lý AI Toàn Hệ Thống (OpenAI / Gemini Proxy)</span>
                   </h3>
                   <p className="text-xs text-slate-400 mt-1 max-w-3xl leading-relaxed">
-                    Hỗ trợ mọi endpoint tương thích chuẩn OpenAI API (Google Gemini 3.8 Flash, ChatGPT, v.v.).
-                    Trí tuệ nhân tạo sẽ tự động tiếp sức cho: (1) Cửa sổ Trợ lý AI trên Dashboard Admin, (2) Chat trực tiếp với Zalo Bot của Admin, (3) Gợi ý nhận xét buổi học cho Giáo viên.
+                    Hỗ trợ mọi endpoint tương thích chuẩn OpenAI API (Google Gemini 3.8 Flash,
+                    ChatGPT, v.v.). Trí tuệ nhân tạo sẽ tự động tiếp sức cho: (1) Cửa sổ Trợ lý AI
+                    trên Dashboard Admin, (2) Chat trực tiếp với Zalo Bot của Admin, (3) Gợi ý nhận
+                    xét buổi học cho Giáo viên.
                   </p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
@@ -2182,15 +2335,14 @@ export default function SystemAdminPage() {
                     className="w-full px-4 py-2.5 text-xs font-mono font-bold rounded-xl border border-slate-700 bg-slate-900 text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-purple-500"
                   />
                   <p className="text-[11px] text-slate-400">
-                    Đường dẫn máy chủ API proxy (chuẩn OpenAI Chat Completions). Ví dụ: <code>https://chat.4uai.tech/v1</code>
+                    Đường dẫn máy chủ API proxy (chuẩn OpenAI Chat Completions). Ví dụ:{" "}
+                    <code>https://chat.4uai.tech/v1</code>
                   </p>
                 </div>
 
                 {/* API Key */}
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-300 block">
-                    AI API Key *
-                  </label>
+                  <label className="text-xs font-bold text-slate-300 block">AI API Key *</label>
                   <div className="relative">
                     <input
                       type={showApiKey ? "text" : "password"}
@@ -2258,8 +2410,14 @@ export default function SystemAdminPage() {
                   >
                     <div className="flex items-center justify-between font-bold">
                       <span className="flex items-center gap-1.5">
-                        {aiTestResult.success ? <CheckCircle2 className="w-4 h-4 text-emerald-400" /> : <AlertCircle className="w-4 h-4 text-rose-400" />}
-                        <span>{aiTestResult.success ? "Kết Nối Thành Công!" : "Kết Nối Thất Bại"}</span>
+                        {aiTestResult.success ? (
+                          <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                        ) : (
+                          <AlertCircle className="w-4 h-4 text-rose-400" />
+                        )}
+                        <span>
+                          {aiTestResult.success ? "Kết Nối Thành Công!" : "Kết Nối Thất Bại"}
+                        </span>
                       </span>
                       {aiTestResult.elapsed_ms !== undefined && (
                         <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-black/40">
@@ -2284,7 +2442,9 @@ export default function SystemAdminPage() {
                     onClick={handleTestAiConnection}
                     className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-2.5 text-xs font-bold rounded-xl bg-slate-700 hover:bg-slate-600 text-white transition shadow-sm disabled:opacity-50 cursor-pointer"
                   >
-                    <Sparkles className={`w-4 h-4 text-amber-400 ${isTestingAi ? "animate-spin" : ""}`} />
+                    <Sparkles
+                      className={`w-4 h-4 text-amber-400 ${isTestingAi ? "animate-spin" : ""}`}
+                    />
                     <span>{isTestingAi ? "Đang Thử Nghiệm..." : "Kiểm Tra Kết Nối AI"}</span>
                   </button>
 
@@ -2318,7 +2478,8 @@ export default function SystemAdminPage() {
                     </span>
                   </h2>
                   <p className="text-xs text-slate-400 mt-0.5">
-                    Thay đổi thông tin đăng nhập quản trị cao nhất của trang /he-thong. Mật khẩu được mã hóa và lưu trữ an toàn.
+                    Thay đổi thông tin đăng nhập quản trị cao nhất của trang /he-thong. Mật khẩu
+                    được mã hóa và lưu trữ an toàn.
                   </p>
                 </div>
               </div>
@@ -2346,7 +2507,8 @@ export default function SystemAdminPage() {
                     className="w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-700 bg-slate-900 text-white placeholder:text-slate-500 focus:ring-2 focus:ring-emerald-500 outline-none"
                   />
                   <p className="text-[10px] text-slate-400 mt-1">
-                    Bạn có thể giữ nguyên tên đăng nhập hiện tại hoặc đổi sang tên mới (tối thiểu 3 ký tự).
+                    Bạn có thể giữ nguyên tên đăng nhập hiện tại hoặc đổi sang tên mới (tối thiểu 3
+                    ký tự).
                   </p>
                 </div>
 
@@ -2415,7 +2577,9 @@ export default function SystemAdminPage() {
                     className="flex items-center gap-2 px-6 py-2.5 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white transition shadow-md shadow-emerald-600/30 disabled:opacity-50 cursor-pointer"
                   >
                     <Check className="w-4 h-4" />
-                    <span>{isChangingSystemCreds ? "Đang Cập Nhật..." : "Lưu Thông Tin Đăng Nhập Mới"}</span>
+                    <span>
+                      {isChangingSystemCreds ? "Đang Cập Nhật..." : "Lưu Thông Tin Đăng Nhập Mới"}
+                    </span>
                   </button>
                 </div>
               </form>
@@ -2445,7 +2609,9 @@ export default function SystemAdminPage() {
               {/* Loại cơ sở & Tên trường */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="sm:col-span-1">
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Loại Cơ Sở *</label>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Loại Cơ Sở *
+                  </label>
                   <select
                     value={editSchoolType}
                     onChange={(e) => setEditSchoolType(e.target.value as "TT" | "TH")}
@@ -2456,7 +2622,9 @@ export default function SystemAdminPage() {
                   </select>
                 </div>
                 <div className="sm:col-span-2">
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Tên Trường / Trung Tâm *</label>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Tên Trường / Trung Tâm *
+                  </label>
                   <input
                     type="text"
                     required
@@ -2471,7 +2639,9 @@ export default function SystemAdminPage() {
               {/* Tên đường riêng, Tỉnh thành & Chi nhánh số mấy */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="sm:col-span-1">
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Tên Đường Riêng *</label>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Tên Đường Riêng *
+                  </label>
                   <input
                     type="text"
                     required
@@ -2482,7 +2652,9 @@ export default function SystemAdminPage() {
                   />
                 </div>
                 <div className="sm:col-span-1">
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Tỉnh / Thành Phố *</label>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Tỉnh / Thành Phố *
+                  </label>
                   <select
                     value={editSchoolCity}
                     onChange={(e) => setEditSchoolCity(e.target.value)}
@@ -2498,7 +2670,9 @@ export default function SystemAdminPage() {
                   </select>
                 </div>
                 <div className="sm:col-span-1">
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Chi Nhánh Số Mấy *</label>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Chi Nhánh Số Mấy *
+                  </label>
                   <div className="relative">
                     <input
                       type="number"
@@ -2509,7 +2683,9 @@ export default function SystemAdminPage() {
                       onChange={(e) => setEditSchoolBranchNum(e.target.value)}
                       className="w-full px-3 py-2 text-sm rounded-xl bg-slate-800 border border-slate-700 text-white focus:outline-hidden focus:ring-2 focus:ring-purple-500"
                     />
-                    <span className="absolute right-3 top-2 text-xs font-bold text-slate-400">CN{editSchoolBranchNum || 1}</span>
+                    <span className="absolute right-3 top-2 text-xs font-bold text-slate-400">
+                      CN{editSchoolBranchNum || 1}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -2517,7 +2693,9 @@ export default function SystemAdminPage() {
               {/* Mã trường & Hotline */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Mã Trường (Viết tắt) *</label>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Mã Trường (Viết tắt) *
+                  </label>
                   <input
                     type="text"
                     required
@@ -2528,7 +2706,9 @@ export default function SystemAdminPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Số điện thoại hotline</label>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Số điện thoại hotline
+                  </label>
                   <input
                     type="text"
                     placeholder="Hotline liên hệ"
@@ -2541,7 +2721,9 @@ export default function SystemAdminPage() {
 
               {/* Địa chỉ chi tiết */}
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Địa chỉ đầy đủ</label>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Địa chỉ đầy đủ
+                </label>
                 <input
                   type="text"
                   placeholder="VD: 123 Hiền Vương, P. Phú Thạnh, Q. Tân Phú"
@@ -2568,12 +2750,17 @@ export default function SystemAdminPage() {
                         type="text"
                         placeholder="VD: hongan"
                         value={editSchoolSubdomain}
-                        onChange={(e) => setEditSchoolSubdomain(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
+                        onChange={(e) =>
+                          setEditSchoolSubdomain(
+                            e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "")
+                          )
+                        }
                         className="w-full px-3 py-2 text-sm rounded-xl bg-slate-800 border border-slate-700 text-cyan-300 font-mono font-bold focus:outline-hidden focus:ring-2 focus:ring-purple-500"
                       />
                     </div>
                     <p className="text-[10px] text-slate-400 mt-1">
-                      Dành cho trung tâm <strong>không mua domain riêng</strong> (VD: <em>hongan</em>.tenmienban.com)
+                      Dành cho trung tâm <strong>không mua domain riêng</strong> (VD:{" "}
+                      <em>hongan</em>.tenmienban.com)
                     </p>
                   </div>
 
@@ -2589,7 +2776,8 @@ export default function SystemAdminPage() {
                       className="w-full px-3 py-2 text-sm rounded-xl bg-slate-800 border border-slate-700 text-emerald-300 font-mono font-bold focus:outline-hidden focus:ring-2 focus:ring-purple-500"
                     />
                     <p className="text-[10px] text-slate-400 mt-1">
-                      Dành cho trung tâm <strong>tự mua tên miền riêng</strong> (chỉ cần trỏ CNAME về server bạn)
+                      Dành cho trung tâm <strong>tự mua tên miền riêng</strong> (chỉ cần trỏ CNAME
+                      về server bạn)
                     </p>
                   </div>
                 </div>
@@ -2646,8 +2834,12 @@ export default function SystemAdminPage() {
                   <KeyRound className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-white">Cấp Tài Khoản Quản Trị Viên (Admin)</h3>
-                  <p className="text-xs text-slate-400">Tự động sinh tài khoản & mật khẩu 10 ký tự mạnh</p>
+                  <h3 className="text-base font-bold text-white">
+                    Cấp Tài Khoản Quản Trị Viên (Admin)
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    Tự động sinh tài khoản & mật khẩu 10 ký tự mạnh
+                  </p>
                 </div>
               </div>
               <button
@@ -2670,13 +2862,17 @@ export default function SystemAdminPage() {
                 </span>
               </div>
               <p className="text-[11px] text-purple-200/80 leading-relaxed">
-                Tài khoản và mật khẩu 10 ký tự mạnh đã được sinh sẵn theo thông tin trường. Tài khoản được cấp với tư cách <strong>Chủ Cơ Sở (Toàn quyền quản trị)</strong>. Bạn chỉ việc bấm <strong>"Cấp Tài Khoản Admin"</strong> bên dưới là hoàn tất!
+                Tài khoản và mật khẩu 10 ký tự mạnh đã được sinh sẵn theo thông tin trường. Tài
+                khoản được cấp với tư cách <strong>Chủ Cơ Sở (Toàn quyền quản trị)</strong>. Bạn chỉ
+                việc bấm <strong>&quot;Cấp Tài Khoản Admin&quot;</strong> bên dưới là hoàn tất!
               </p>
             </div>
 
             <form onSubmit={handleCreateAdmin} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Trường phân công *</label>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Trường phân công *
+                </label>
                 <select
                   required
                   value={selectedSchoolId}
@@ -2692,7 +2888,9 @@ export default function SystemAdminPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Họ tên quản trị viên *</label>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Họ tên quản trị viên *
+                </label>
                 <input
                   type="text"
                   required
@@ -2788,7 +2986,8 @@ export default function SystemAdminPage() {
                   )}
                 </div>
                 <p className="text-[10px] text-slate-400 mt-1">
-                  Mật khẩu gồm 10 ký tự ngẫu nhiên (chữ hoa, chữ thường, số, ký tự đặc biệt). Bạn chỉ việc bấm Copy để gửi cho quản trị cơ sở!
+                  Mật khẩu gồm 10 ký tự ngẫu nhiên (chữ hoa, chữ thường, số, ký tự đặc biệt). Bạn
+                  chỉ việc bấm Copy để gửi cho quản trị cơ sở!
                 </p>
               </div>
 
@@ -2856,14 +3055,18 @@ export default function SystemAdminPage() {
                   </label>
                   <span
                     className={`px-2 py-0.5 rounded text-[11px] font-bold ${
-                      ipEnabled ? "bg-emerald-500/20 text-emerald-300" : "bg-slate-700 text-slate-400"
+                      ipEnabled
+                        ? "bg-emerald-500/20 text-emerald-300"
+                        : "bg-slate-700 text-slate-400"
                     }`}
                   >
                     {ipEnabled ? "Đang Bật" : "Đang Tắt"}
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-400 leading-relaxed">
-                  Khi bật tính năng này, người dùng khi vào trang <code className="text-purple-300">/admin</code> sẽ được kiểm tra IP. Nếu không thuộc danh sách bên dưới, hệ thống sẽ báo <strong>Web Error</strong> ngay lập tức.
+                  Khi bật tính năng này, người dùng khi vào trang{" "}
+                  <code className="text-purple-300">/admin</code> sẽ được kiểm tra IP. Nếu không
+                  thuộc danh sách bên dưới, hệ thống sẽ báo <strong>Web Error</strong> ngay lập tức.
                 </p>
               </div>
 
@@ -2876,7 +3079,9 @@ export default function SystemAdminPage() {
                     <button
                       type="button"
                       onClick={() => {
-                        const current = allowedIpsText ? `${allowedIpsText}, 192.168.1.235, 127.0.0.1` : "192.168.1.235, 127.0.0.1";
+                        const current = allowedIpsText
+                          ? `${allowedIpsText}, 192.168.1.235, 127.0.0.1`
+                          : "192.168.1.235, 127.0.0.1";
                         setAllowedIpsText(current);
                       }}
                       className="text-[11px] text-purple-400 hover:text-purple-300 underline"
@@ -2940,7 +3145,9 @@ export default function SystemAdminPage() {
               {/* Loại cơ sở & Tên trường */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="sm:col-span-1">
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Loại Cơ Sở *</label>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Loại Cơ Sở *
+                  </label>
                   <select
                     value={newSchoolType}
                     onChange={(e) => setNewSchoolType(e.target.value as "TT" | "TH")}
@@ -2951,7 +3158,9 @@ export default function SystemAdminPage() {
                   </select>
                 </div>
                 <div className="sm:col-span-2">
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Tên Trường / Trung Tâm *</label>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Tên Trường / Trung Tâm *
+                  </label>
                   <input
                     type="text"
                     required
@@ -2966,7 +3175,9 @@ export default function SystemAdminPage() {
               {/* Tên đường riêng, Tỉnh thành & Chi nhánh số mấy */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="sm:col-span-1">
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Tên Đường Riêng *</label>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Tên Đường Riêng *
+                  </label>
                   <input
                     type="text"
                     required
@@ -2977,7 +3188,9 @@ export default function SystemAdminPage() {
                   />
                 </div>
                 <div className="sm:col-span-1">
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Tỉnh / Thành Phố *</label>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Tỉnh / Thành Phố *
+                  </label>
                   <select
                     value={newSchoolCity}
                     onChange={(e) => setNewSchoolCity(e.target.value)}
@@ -2993,7 +3206,9 @@ export default function SystemAdminPage() {
                   </select>
                 </div>
                 <div className="sm:col-span-1">
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Chi Nhánh Số Mấy *</label>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Chi Nhánh Số Mấy *
+                  </label>
                   <div className="relative">
                     <input
                       type="number"
@@ -3004,7 +3219,9 @@ export default function SystemAdminPage() {
                       onChange={(e) => setNewSchoolBranchNum(e.target.value)}
                       className="w-full px-3 py-2 text-sm rounded-xl bg-slate-800 border border-slate-700 text-white focus:outline-hidden focus:ring-2 focus:ring-purple-500"
                     />
-                    <span className="absolute right-3 top-2 text-xs font-bold text-slate-400">CN{newSchoolBranchNum || 1}</span>
+                    <span className="absolute right-3 top-2 text-xs font-bold text-slate-400">
+                      CN{newSchoolBranchNum || 1}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -3012,7 +3229,9 @@ export default function SystemAdminPage() {
               {/* Mã trường & Hotline */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Mã Trường (Viết tắt) *</label>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Mã Trường (Viết tắt) *
+                  </label>
                   <input
                     type="text"
                     required
@@ -3023,7 +3242,9 @@ export default function SystemAdminPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Số điện thoại hotline</label>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Số điện thoại hotline
+                  </label>
                   <input
                     type="text"
                     placeholder="Hotline liên hệ"
@@ -3036,7 +3257,9 @@ export default function SystemAdminPage() {
 
               {/* Địa chỉ chi tiết */}
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Địa chỉ đầy đủ</label>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Địa chỉ đầy đủ
+                </label>
                 <input
                   type="text"
                   placeholder="VD: 123 Hiền Vương, P. Phú Thạnh, Q. Tân Phú"
@@ -3062,11 +3285,16 @@ export default function SystemAdminPage() {
                       type="text"
                       placeholder="VD: hongan"
                       value={newSchoolSubdomain}
-                      onChange={(e) => setNewSchoolSubdomain(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
+                      onChange={(e) =>
+                        setNewSchoolSubdomain(
+                          e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "")
+                        )
+                      }
                       className="w-full px-3 py-2 text-sm rounded-xl bg-slate-800 border border-slate-700 text-cyan-300 font-mono font-bold focus:outline-hidden focus:ring-2 focus:ring-purple-500"
                     />
                     <p className="text-[10px] text-slate-400 mt-1">
-                      Dành cho trung tâm <strong>không mua domain riêng</strong> (VD: <em>hongan</em>.tenmienban.com)
+                      Dành cho trung tâm <strong>không mua domain riêng</strong> (VD:{" "}
+                      <em>hongan</em>.tenmienban.com)
                     </p>
                   </div>
 
@@ -3082,7 +3310,8 @@ export default function SystemAdminPage() {
                       className="w-full px-3 py-2 text-sm rounded-xl bg-slate-800 border border-slate-700 text-emerald-300 font-mono font-bold focus:outline-hidden focus:ring-2 focus:ring-purple-500"
                     />
                     <p className="text-[10px] text-slate-400 mt-1">
-                      Dành cho trung tâm <strong>tự mua tên miền riêng</strong> (chỉ cần trỏ CNAME về server bạn)
+                      Dành cho trung tâm <strong>tự mua tên miền riêng</strong> (chỉ cần trỏ CNAME
+                      về server bạn)
                     </p>
                   </div>
                 </div>
@@ -3136,17 +3365,23 @@ export default function SystemAdminPage() {
                 <Trash2 className="w-6 h-6" />
               </div>
               <div>
-                <h3 className="text-base font-bold text-white leading-snug">Xác Nhận Xóa Trường Học</h3>
-                <p className="text-xs text-rose-400 font-semibold">Hành động này không thể hoàn tác!</p>
+                <h3 className="text-base font-bold text-white leading-snug">
+                  Xác Nhận Xóa Trường Học
+                </h3>
+                <p className="text-xs text-rose-400 font-semibold">
+                  Hành động này không thể hoàn tác!
+                </p>
               </div>
             </div>
 
             <div className="p-3.5 rounded-2xl bg-slate-800/80 border border-slate-700 space-y-1.5 text-xs text-slate-300">
               <p>
-                Trường học: <span className="font-bold text-white">{schoolToDelete.name}</span> ({schoolToDelete.code})
+                Trường học: <span className="font-bold text-white">{schoolToDelete.name}</span> (
+                {schoolToDelete.code})
               </p>
               <p className="text-slate-400 text-[11px] pt-1 border-t border-slate-700/60 leading-relaxed">
-                Khi xóa trường, tất cả các tài khoản Quản trị viên, danh sách học sinh, giáo viên và ca học thuộc trường này cũng sẽ được xóa sạch hoàn toàn khỏi hệ thống.
+                Khi xóa trường, tất cả các tài khoản Quản trị viên, danh sách học sinh, giáo viên và
+                ca học thuộc trường này cũng sẽ được xóa sạch hoàn toàn khỏi hệ thống.
               </p>
             </div>
 
@@ -3182,17 +3417,25 @@ export default function SystemAdminPage() {
                 <Trash2 className="w-6 h-6" />
               </div>
               <div>
-                <h3 className="text-base font-bold text-white leading-snug">Xóa Tài Khoản Quản Trị Viên</h3>
-                <p className="text-xs text-rose-400 font-semibold">Tài khoản sẽ bị vô hiệu hóa vĩnh viễn</p>
+                <h3 className="text-base font-bold text-white leading-snug">
+                  Xóa Tài Khoản Quản Trị Viên
+                </h3>
+                <p className="text-xs text-rose-400 font-semibold">
+                  Tài khoản sẽ bị vô hiệu hóa vĩnh viễn
+                </p>
               </div>
             </div>
 
             <div className="p-3.5 rounded-2xl bg-slate-800/80 border border-slate-700 space-y-1.5 text-xs text-slate-300">
               <p>
-                Quản trị viên: <span className="font-bold text-white">{adminToDelete.full_name}</span>
+                Quản trị viên:{" "}
+                <span className="font-bold text-white">{adminToDelete.full_name}</span>
               </p>
               <p>
-                Tên đăng nhập: <span className="font-mono text-purple-300 font-bold">{adminToDelete.username}</span>
+                Tên đăng nhập:{" "}
+                <span className="font-mono text-purple-300 font-bold">
+                  {adminToDelete.username}
+                </span>
               </p>
               <p className="text-slate-400 text-[11px] pt-1 border-t border-slate-700/60">
                 Trường: {adminToDelete.school_name} ({adminToDelete.school_code})
@@ -3248,7 +3491,9 @@ export default function SystemAdminPage() {
                 </div>
                 <div className="flex justify-between text-slate-400">
                   <span>Tên đăng nhập:</span>
-                  <span className="font-mono font-bold text-purple-300">{adminToResetPass.username}</span>
+                  <span className="font-mono font-bold text-purple-300">
+                    {adminToResetPass.username}
+                  </span>
                 </div>
                 <div className="flex justify-between text-slate-400">
                   <span>Trường:</span>
@@ -3292,7 +3537,10 @@ export default function SystemAdminPage() {
                 </div>
                 <p className="text-[11px] text-rose-300/80 mt-1.5 flex items-center gap-1">
                   <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                  <span>Sau khi lưu, tất cả các máy đang đăng nhập tài khoản này sẽ bị đăng xuất ngay lập tức.</span>
+                  <span>
+                    Sau khi lưu, tất cả các máy đang đăng nhập tài khoản này sẽ bị đăng xuất ngay
+                    lập tức.
+                  </span>
                 </p>
               </div>
 
@@ -3379,7 +3627,10 @@ export default function SystemAdminPage() {
                 <span>Chế độ bảo vệ & trải nghiệm người dùng:</span>
               </div>
               <p className="text-slate-300 leading-relaxed text-[11px]">
-                Khi bắt đầu nâng cấp, hệ thống sẽ <strong>tự động bật màn hình bảo trì</strong>. Bất kỳ ai vào web lúc này sẽ nhận được thông báo <em>&quot;Server Đang Được Nâng Cấp&quot;</em>. Khi quá trình hoàn tất, máy chủ tự gỡ bảo trì và cho người dùng truy cập bình thường.
+                Khi bắt đầu nâng cấp, hệ thống sẽ <strong>tự động bật màn hình bảo trì</strong>. Bất
+                kỳ ai vào web lúc này sẽ nhận được thông báo{" "}
+                <em>&quot;Server Đang Được Nâng Cấp&quot;</em>. Khi quá trình hoàn tất, máy chủ tự
+                gỡ bảo trì và cho người dùng truy cập bình thường.
               </p>
 
               {upgradeLogs.length > 0 && (
@@ -3435,11 +3686,18 @@ export default function SystemAdminPage() {
             </div>
 
             {/* Form thêm thành viên mới */}
-            <form onSubmit={handleAddTeamMember} className="p-4 rounded-2xl bg-slate-800/80 border border-slate-700 space-y-3">
-              <span className="text-xs font-bold text-white block">Thêm thành viên mới vào team</span>
+            <form
+              onSubmit={handleAddTeamMember}
+              className="p-4 rounded-2xl bg-slate-800/80 border border-slate-700 space-y-3"
+            >
+              <span className="text-xs font-bold text-white block">
+                Thêm thành viên mới vào team
+              </span>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <div>
-                  <label className="text-[10px] font-bold uppercase text-slate-400 block mb-1">Tên thành viên *</label>
+                  <label className="text-[10px] font-bold uppercase text-slate-400 block mb-1">
+                    Tên thành viên *
+                  </label>
                   <input
                     type="text"
                     required
@@ -3450,10 +3708,16 @@ export default function SystemAdminPage() {
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold uppercase text-slate-400 block mb-1">Vai trò</label>
+                  <label className="text-[10px] font-bold uppercase text-slate-400 block mb-1">
+                    Vai trò
+                  </label>
                   <select
                     value={newMemberRole}
-                    onChange={(e) => setNewMemberRole(e.target.value as any)}
+                    onChange={(e) =>
+                      setNewMemberRole(
+                        e.target.value as "developer" | "tester" | "manager" | "support"
+                      )
+                    }
                     className="w-full px-3 py-1.5 text-xs rounded-xl bg-slate-900 border border-slate-700 text-white outline-none"
                   >
                     <option value="developer">Lập trình viên (Developer)</option>
@@ -3465,7 +3729,9 @@ export default function SystemAdminPage() {
               </div>
 
               <div>
-                <label className="text-[10px] font-bold uppercase text-slate-400 block mb-1">Số điện thoại liên hệ (Tùy chọn)</label>
+                <label className="text-[10px] font-bold uppercase text-slate-400 block mb-1">
+                  Số điện thoại liên hệ (Tùy chọn)
+                </label>
                 <div className="flex items-center gap-2">
                   <input
                     type="text"
@@ -3487,7 +3753,9 @@ export default function SystemAdminPage() {
 
             {/* Danh sách thành viên */}
             <div className="space-y-2">
-              <span className="text-xs font-bold text-slate-400 block">Danh sách thành viên hiện tại ({teamMembers.length})</span>
+              <span className="text-xs font-bold text-slate-400 block">
+                Danh sách thành viên hiện tại ({teamMembers.length})
+              </span>
               <div className="divide-y divide-slate-800 border border-slate-800 rounded-2xl overflow-hidden bg-slate-950/40">
                 {teamMembers.map((mem) => (
                   <div key={mem.id} className="p-3 flex items-center justify-between gap-2">
@@ -3497,7 +3765,9 @@ export default function SystemAdminPage() {
                       </div>
                       <div>
                         <span className="text-xs font-bold text-white block">{mem.name}</span>
-                        <span className="text-[10px] text-slate-400 capitalize">{mem.role} {mem.phone ? `• ${mem.phone}` : ""}</span>
+                        <span className="text-[10px] text-slate-400 capitalize">
+                          {mem.role} {mem.phone ? `• ${mem.phone}` : ""}
+                        </span>
                       </div>
                     </div>
 
@@ -3631,7 +3901,9 @@ export default function SystemAdminPage() {
             <div className="p-3.5 rounded-2xl bg-emerald-950/30 border border-emerald-900/40 text-xs text-emerald-200 space-y-1">
               <span className="font-bold block">Bạn đã giải quyết xong yêu cầu này:</span>
               <p className="font-bold text-white">{completeModalTask.title}</p>
-              <span className="text-[10px] text-emerald-400 block">Người thực hiện: {completeModalTask.assignee_name || "Thành viên team"}</span>
+              <span className="text-[10px] text-emerald-400 block">
+                Người thực hiện: {completeModalTask.assignee_name || "Thành viên team"}
+              </span>
             </div>
 
             <form onSubmit={handleConfirmCompleteTask} className="space-y-3.5">

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Student, MonthFormat, TuitionPackage, StudentPayment } from "@/lib/types";
+import { Student, MonthFormat, TuitionPackage, StudentPayment, DbRow } from "@/lib/types";
 import { formatVND, formatMonthDisplay, getPreviousMonthStr, getNextMonthStr } from "@/lib/tuition";
 import { useToast } from "@/components/Toast";
 import { ReceiptModal } from "./ReceiptModal";
@@ -64,6 +64,7 @@ export const QuickAuditModal: React.FC<QuickAuditModalProps> = ({
 
   useEffect(() => {
     if (isOpen && student) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Đồng bộ state khi mở modal hoặc nạp dữ liệu; sẽ chuyển sang pattern key-remount ở Giai đoạn 2.
       setCustomAmount(student.current_tuition || 0);
       setSelectedPackageId(student.tuition_package_id || "");
       setAuditNote("");
@@ -82,11 +83,13 @@ export const QuickAuditModal: React.FC<QuickAuditModalProps> = ({
       setMonthsList(list);
 
       // Tải lịch sử thanh toán từ API
+      // eslint-disable-next-line react-hooks/immutability -- Hàm khai báo bằng function (được hoisting) gọi trong effect mount là an toàn; rule báo nhầm thứ tự khai báo.
       loadPaymentsHistory(student.id, list);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Loader là hàm khai báo trong component, chỉ gọi khi mở modal/mount; thêm vào deps sẽ gây gọi lại vô hạn. Sẽ chuyển sang useCallback ở Giai đoạn 2.
   }, [isOpen, student, selectedMonth]);
 
-  const loadPaymentsHistory = async (studentId: string, months: string[]) => {
+  async function loadPaymentsHistory(studentId: string, months: string[]) {
     try {
       const res = await fetch(`/api/payments?student_id=${studentId}`, {
         headers: getAuthHeaders(),
@@ -98,7 +101,7 @@ export const QuickAuditModal: React.FC<QuickAuditModalProps> = ({
         const payments = json.data;
         for (const m of months) {
           const isCovered = payments.some(
-            (p: any) => p.status === "paid" && m >= p.start_period && m <= p.end_period
+            (p: DbRow) => p.status === "paid" && m >= p.start_period && m <= p.end_period
           );
           statusMap[m] = isCovered;
         }
@@ -119,7 +122,7 @@ export const QuickAuditModal: React.FC<QuickAuditModalProps> = ({
       setMonthStatusMap(statusMap);
       setOriginalMonthStatusMap(statusMap);
     }
-  };
+  }
 
   if (!isOpen || !student) return null;
 
@@ -146,7 +149,7 @@ export const QuickAuditModal: React.FC<QuickAuditModalProps> = ({
       if (data.success) {
         showToast(data.message, "success");
         onSuccess();
-        
+
         // Mở popup biên lai điện tử
         if (data.data?.payment_id) {
           const nowStr = new Date().toISOString().slice(0, 10);
@@ -276,7 +279,12 @@ export const QuickAuditModal: React.FC<QuickAuditModalProps> = ({
                 </span>
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Học sinh: <strong className="text-slate-800 dark:text-slate-200">{student.name}</strong> • Kỳ đối soát: <strong className="text-indigo-600">{formatMonthDisplay(selectedMonth, monthFormat)}</strong>
+                Học sinh:{" "}
+                <strong className="text-slate-800 dark:text-slate-200">{student.name}</strong> • Kỳ
+                đối soát:{" "}
+                <strong className="text-indigo-600">
+                  {formatMonthDisplay(selectedMonth, monthFormat)}
+                </strong>
               </p>
             </div>
           </div>
@@ -375,7 +383,8 @@ export const QuickAuditModal: React.FC<QuickAuditModalProps> = ({
                       <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
                     </div>
                     <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                      Xác nhận học sinh đã hoàn tất học phí kỳ này (hỗ trợ đóng theo khóa 3 tháng, 6 tháng nếu chọn gói bên dưới).
+                      Xác nhận học sinh đã hoàn tất học phí kỳ này (hỗ trợ đóng theo khóa 3 tháng, 6
+                      tháng nếu chọn gói bên dưới).
                     </p>
                     <button
                       type="button"
@@ -399,7 +408,8 @@ export const QuickAuditModal: React.FC<QuickAuditModalProps> = ({
                       <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
                     </div>
                     <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                      Chuyển tháng này về trạng thái Chưa đóng. Các tháng trước đó đã đóng vẫn được bảo lưu an toàn.
+                      Chuyển tháng này về trạng thái Chưa đóng. Các tháng trước đó đã đóng vẫn được
+                      bảo lưu an toàn.
                     </p>
                     <button
                       type="button"
@@ -435,10 +445,13 @@ export const QuickAuditModal: React.FC<QuickAuditModalProps> = ({
                       }}
                       className="w-full px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 outline-none"
                     >
-                      <option value="">-- Gói 1 tháng chuẩn ({formatVND(student.current_tuition)}) --</option>
+                      <option value="">
+                        -- Gói 1 tháng chuẩn ({formatVND(student.current_tuition)}) --
+                      </option>
                       {tuitionPackages.map((pkg) => (
                         <option key={pkg.id} value={pkg.id}>
-                          {pkg.name} ({formatVND(pkg.amount)} - {pkg.cycle_value} {pkg.cycle_unit === "week" ? "tuần" : "tháng"})
+                          {pkg.name} ({formatVND(pkg.amount)} - {pkg.cycle_value}{" "}
+                          {pkg.cycle_unit === "week" ? "tuần" : "tháng"})
                         </option>
                       ))}
                     </select>
@@ -496,9 +509,14 @@ export const QuickAuditModal: React.FC<QuickAuditModalProps> = ({
           {auditMode === "matrix" && (
             <div className="space-y-4 animate-in fade-in duration-150">
               <div className="p-3 rounded-2xl bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-900/40 text-xs text-indigo-900 dark:text-indigo-300 leading-relaxed">
-                <span className="font-bold block mb-0.5">Quản lý đóng học phí chi tiết theo từng tháng:</span>
+                <span className="font-bold block mb-0.5">
+                  Quản lý đóng học phí chi tiết theo từng tháng:
+                </span>
                 <p className="text-[11px] text-indigo-700 dark:text-indigo-400">
-                  Tick chọn <strong className="text-emerald-700 dark:text-emerald-400">Xanh lá</strong> = Đã đóng học phí. Bỏ tick = Cần đóng tiền. Bạn có thể tick chọn nhiều tháng cùng lúc và bấm Lưu để hệ thống cập nhật đồng loạt.
+                  Tick chọn{" "}
+                  <strong className="text-emerald-700 dark:text-emerald-400">Xanh lá</strong> = Đã
+                  đóng học phí. Bỏ tick = Cần đóng tiền. Bạn có thể tick chọn nhiều tháng cùng lúc
+                  và bấm Lưu để hệ thống cập nhật đồng loạt.
                 </p>
               </div>
 
@@ -541,7 +559,9 @@ export const QuickAuditModal: React.FC<QuickAuditModalProps> = ({
                       <div className="flex items-center justify-between text-[10px]">
                         <span
                           className={`font-bold ${
-                            isChecked ? "text-emerald-700 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"
+                            isChecked
+                              ? "text-emerald-700 dark:text-emerald-400"
+                              : "text-rose-600 dark:text-rose-400"
                           }`}
                         >
                           {isChecked ? "Đã đóng" : "Cần đóng"}

@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
 import { clearDomainCache, getSystemAdminFromRequest } from "@/lib/authHelper";
+import { createLogger } from "@/lib/logger";
+import { getErrorMessage } from "@/lib/errors";
+
+const log = createLogger("api/system");
 
 // API quản trị hệ thống: Quản lý các trường & Tài khoản Admin của từng trường
 export async function GET(req: Request) {
@@ -58,7 +62,7 @@ export async function GET(req: Request) {
       },
     });
   } catch (error: unknown) {
-    console.error("System GET Error:", error);
+    log.error("System GET Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Internal Server Error" },
       { status: 500 }
@@ -82,7 +86,18 @@ export async function POST(req: Request) {
 
     // 1. Tạo trường học mới
     if (action === "create_school") {
-      const { name, code, school_type, street, city, branch_num, address, phone, domain, subdomain } = body;
+      const {
+        name,
+        code,
+        school_type,
+        street,
+        city,
+        branch_num,
+        address,
+        phone,
+        domain,
+        subdomain,
+      } = body;
       if (!name || !code) {
         return NextResponse.json(
           { success: false, message: "Vui lòng nhập tên và mã trường!" },
@@ -116,8 +131,19 @@ export async function POST(req: Request) {
           String(branch_num || "1"),
           address?.trim() || "",
           phone?.trim() || "",
-          domain ? domain.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/\/.*$/, "") : "",
-          subdomain ? subdomain.trim().toLowerCase().replace(/[^a-z0-9-]/g, "") : "",
+          domain
+            ? domain
+                .trim()
+                .toLowerCase()
+                .replace(/^https?:\/\//, "")
+                .replace(/\/.*$/, "")
+            : "",
+          subdomain
+            ? subdomain
+                .trim()
+                .toLowerCase()
+                .replace(/[^a-z0-9-]/g, "")
+            : "",
         ],
       });
 
@@ -129,11 +155,7 @@ export async function POST(req: Request) {
               (?, ?, 'Ca Tối (T2 - T7)', 'Thứ 2', 'Thứ 7', 'Thứ 2 – Thứ 7', '17:00', '20:00', 10, 1),
               (?, ?, 'Ca Sáng T7', 'Thứ 7', 'Thứ 7', 'Thứ 7', '09:00', '11:00', 10, 1),
               (?, ?, 'Ca Sáng CN', 'Chủ Nhật', 'Chủ Nhật', 'Chủ Nhật', '08:00', '11:30', 10, 1)`,
-        args: [
-          `slot-${Date.now()}-1`, id,
-          `slot-${Date.now()}-2`, id,
-          `slot-${Date.now()}-3`, id,
-        ],
+        args: [`slot-${Date.now()}-1`, id, `slot-${Date.now()}-2`, id, `slot-${Date.now()}-3`, id],
       });
 
       // 2. Mức phụ thu Level
@@ -142,10 +164,7 @@ export async function POST(req: Request) {
               VALUES 
               (?, ?, 'Grade 1', 0, 1),
               (?, ?, 'Grade 2', 100000, 2)`,
-        args: [
-          `lvl-${Date.now()}-1`, id,
-          `lvl-${Date.now()}-2`, id,
-        ],
+        args: [`lvl-${Date.now()}-1`, id, `lvl-${Date.now()}-2`, id],
       });
 
       // 3. Mức chiết khấu
@@ -155,11 +174,7 @@ export async function POST(req: Request) {
               (?, ?, 10, 'Anh em ruột cùng học'),
               (?, ?, 20, 'Đăng ký sớm'),
               (?, ?, 50, 'Học sinh nghèo vượt khó')`,
-        args: [
-          `disc-${Date.now()}-1`, id,
-          `disc-${Date.now()}-2`, id,
-          `disc-${Date.now()}-3`, id,
-        ],
+        args: [`disc-${Date.now()}-1`, id, `disc-${Date.now()}-2`, id, `disc-${Date.now()}-3`, id],
       });
 
       // 4. Gói học phí mặc định
@@ -168,10 +183,7 @@ export async function POST(req: Request) {
               VALUES 
               (?, ?, 'Học phí 1 tháng', 1000000, 1000000, 'month', 1, 'none', 0, '', 1),
               (?, ?, 'Gói Khóa 3 tháng (-5%)', 2850000, 3000000, 'month', 3, 'percent', 5, 'Tặng 1 buổi học bù', 1)`,
-        args: [
-          `pkg-${Date.now()}-1`, id,
-          `pkg-${Date.now()}-2`, id,
-        ],
+        args: [`pkg-${Date.now()}-1`, id, `pkg-${Date.now()}-2`, id],
       });
 
       // 5. Danh mục bộ môn học mặc định
@@ -180,10 +192,7 @@ export async function POST(req: Request) {
               VALUES 
               (?, ?, 'Piano', 'Bộ môn Piano cơ bản & nâng cao', 'indigo', 1),
               (?, ?, 'Guitar', 'Bộ môn Guitar đệm hát & cổ điển', 'amber', 1)`,
-        args: [
-          `sub-${Date.now()}-1`, id,
-          `sub-${Date.now()}-2`, id,
-        ],
+        args: [`sub-${Date.now()}-1`, id, `sub-${Date.now()}-2`, id],
       });
 
       // 6. Nhóm quyền / Vai trò mẫu (RBAC) cho trường mới
@@ -191,7 +200,8 @@ export async function POST(req: Request) {
         {
           id: `role-office-${id}`,
           name: "Nhân Viên Văn Phòng / Lễ Tân",
-          description: "Tiếp đón phụ huynh, thêm/sửa học sinh, xem ma trận lịch, tư vấn ca trống, điểm danh và xếp ca học bù.",
+          description:
+            "Tiếp đón phụ huynh, thêm/sửa học sinh, xem ma trận lịch, tư vấn ca trống, điểm danh và xếp ca học bù.",
           permissions_json: JSON.stringify([
             "students.view",
             "students.create",
@@ -205,7 +215,8 @@ export async function POST(req: Request) {
         {
           id: `role-accountant-${id}`,
           name: "Kế Toán / Thu Ngân",
-          description: "Xem học phí, công nợ, đối soát thu tiền, xuất biên lai điện tử, gửi nhắc nợ Zalo và xem tổng kết doanh thu tháng.",
+          description:
+            "Xem học phí, công nợ, đối soát thu tiền, xuất biên lai điện tử, gửi nhắc nợ Zalo và xem tổng kết doanh thu tháng.",
           permissions_json: JSON.stringify([
             "students.view",
             "tuition.view",
@@ -218,7 +229,8 @@ export async function POST(req: Request) {
         {
           id: `role-academic-${id}`,
           name: "Quản Lý Đào Tạo / Giáo Vụ",
-          description: "Quản lý danh sách học sinh, quản lý lớp học, phân công giáo viên đứng lớp, quản lý bảo lưu/nghỉ học và lịch học bù.",
+          description:
+            "Quản lý danh sách học sinh, quản lý lớp học, phân công giáo viên đứng lớp, quản lý bảo lưu/nghỉ học và lịch học bù.",
           permissions_json: JSON.stringify([
             "students.view",
             "students.create",
@@ -240,7 +252,9 @@ export async function POST(req: Request) {
             sql: "INSERT OR IGNORE INTO admin_roles (id, school_id, name, description, permissions_json) VALUES (?, ?, ?, ?, ?)",
             args: [r.id, id, r.name, r.description, r.permissions_json],
           });
-        } catch {}
+        } catch (err) {
+          log.debug("Bỏ qua lỗi không ảnh hưởng luồng chính (route)", { error: err });
+        }
       }
 
       return NextResponse.json({
@@ -285,7 +299,19 @@ export async function POST(req: Request) {
 
     // 3. Đổi tên & cập nhật thông tin trường
     if (action === "edit_school") {
-      const { school_id, name, code, school_type, street, city, branch_num, address, phone, domain, subdomain } = body;
+      const {
+        school_id,
+        name,
+        code,
+        school_type,
+        street,
+        city,
+        branch_num,
+        address,
+        phone,
+        domain,
+        subdomain,
+      } = body;
       if (!school_id || !name || !code) {
         return NextResponse.json(
           { success: false, message: "Vui lòng nhập đầy đủ tên và mã trường!" },
@@ -305,8 +331,19 @@ export async function POST(req: Request) {
         );
       }
 
-      const cleanDomain = domain ? domain.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/\/.*$/, "") : "";
-      const cleanSubdomain = subdomain ? subdomain.trim().toLowerCase().replace(/[^a-z0-9-]/g, "") : "";
+      const cleanDomain = domain
+        ? domain
+            .trim()
+            .toLowerCase()
+            .replace(/^https?:\/\//, "")
+            .replace(/\/.*$/, "")
+        : "";
+      const cleanSubdomain = subdomain
+        ? subdomain
+            .trim()
+            .toLowerCase()
+            .replace(/[^a-z0-9-]/g, "")
+        : "";
 
       await db.execute({
         sql: `UPDATE schools 
@@ -338,15 +375,24 @@ export async function POST(req: Request) {
     if (action === "delete_school") {
       const { school_id } = body;
       if (!school_id) {
-        return NextResponse.json({ success: false, message: "Thiếu mã trường cần xóa!" }, { status: 400 });
+        return NextResponse.json(
+          { success: false, message: "Thiếu mã trường cần xóa!" },
+          { status: 400 }
+        );
       }
 
       await db.execute({ sql: "DELETE FROM school_admins WHERE school_id = ?", args: [school_id] });
       await db.execute({ sql: "DELETE FROM students WHERE school_id = ?", args: [school_id] });
       await db.execute({ sql: "DELETE FROM teachers WHERE school_id = ?", args: [school_id] });
       await db.execute({ sql: "DELETE FROM time_slots WHERE school_id = ?", args: [school_id] });
-      await db.execute({ sql: "DELETE FROM level_surcharges WHERE school_id = ?", args: [school_id] });
-      await db.execute({ sql: "DELETE FROM discount_presets WHERE school_id = ?", args: [school_id] });
+      await db.execute({
+        sql: "DELETE FROM level_surcharges WHERE school_id = ?",
+        args: [school_id],
+      });
+      await db.execute({
+        sql: "DELETE FROM discount_presets WHERE school_id = ?",
+        args: [school_id],
+      });
       await db.execute({ sql: "DELETE FROM schools WHERE id = ?", args: [school_id] });
 
       clearDomainCache();
@@ -378,7 +424,8 @@ export async function POST(req: Request) {
       });
       return NextResponse.json({
         success: true,
-        message: "Đã cập nhật mật khẩu cho Admin cơ sở thành công! Các phiên cũ của tài khoản này đã bị hủy.",
+        message:
+          "Đã cập nhật mật khẩu cho Admin cơ sở thành công! Các phiên cũ của tài khoản này đã bị hủy.",
       });
     }
 
@@ -403,7 +450,9 @@ export async function POST(req: Request) {
     // 6. Lưu cấu hình AI Trợ Lý toàn hệ thống (/he-thong)
     if (action === "save_ai_config") {
       const { ai_base_url, ai_api_key, ai_model, ai_is_active } = body;
-      const cleanUrl = String(ai_base_url || "").trim().replace(/\/+$/, "");
+      const cleanUrl = String(ai_base_url || "")
+        .trim()
+        .replace(/\/+$/, "");
       const cleanKey = String(ai_api_key || "").trim();
       const cleanModel = String(ai_model || "gemini-3.8-flash").trim();
       const activeVal = ai_is_active ? "1" : "0";
@@ -431,7 +480,9 @@ export async function POST(req: Request) {
     // 7. Thử nghiệm kết nối AI (Test AI Connection)
     if (action === "test_ai_connection") {
       const { ai_base_url, ai_api_key, ai_model } = body;
-      const testUrl = String(ai_base_url || "").trim().replace(/\/+$/, "");
+      const testUrl = String(ai_base_url || "")
+        .trim()
+        .replace(/\/+$/, "");
       const testKey = String(ai_api_key || "").trim();
       const testModel = String(ai_model || "gemini-3.8-flash").trim();
 
@@ -456,7 +507,8 @@ export async function POST(req: Request) {
             messages: [
               {
                 role: "user",
-                content: "Xin chào! Bạn là mô hình gì? Trả lời ngắn gọn dưới 20 từ bằng tiếng Việt.",
+                content:
+                  "Xin chào! Bạn là mô hình gì? Trả lời ngắn gọn dưới 20 từ bằng tiếng Việt.",
               },
             ],
             max_tokens: 50,
@@ -483,17 +535,20 @@ export async function POST(req: Request) {
           elapsed_ms: elapsedMs,
           reply: replyText.trim(),
         });
-      } catch (err: any) {
+      } catch (err: unknown) {
         return NextResponse.json({
           success: false,
-          message: `Lỗi kết nối tới endpoint: ${err.message}`,
+          message: `Lỗi kết nối tới endpoint: ${getErrorMessage(err)}`,
         });
       }
     }
 
-    return NextResponse.json({ success: false, message: "Hành động không hợp lệ!" }, { status: 400 });
+    return NextResponse.json(
+      { success: false, message: "Hành động không hợp lệ!" },
+      { status: 400 }
+    );
   } catch (error: unknown) {
-    console.error("System POST Error:", error);
+    log.error("System POST Error:", { error: error });
     return NextResponse.json(
       { success: false, message: (error as Error).message || "Internal Server Error" },
       { status: 500 }
