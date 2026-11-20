@@ -18,6 +18,11 @@ import {
 import { formatVND } from "@/lib/tuition";
 import { useLanguage } from "@/lib/i18n";
 import { useToast } from "@/components/ui/Toast";
+import { SubjectsTab } from "./tabs/SubjectsTab";
+import { SlotsTab } from "./tabs/SlotsTab";
+import { LevelsTab } from "./tabs/LevelsTab";
+import { DiscountsTab } from "./tabs/DiscountsTab";
+import { PasswordTab } from "./tabs/PasswordTab";
 import {
   Clock,
   Layers,
@@ -30,9 +35,7 @@ import {
   CheckCircle2,
   Check,
   GraduationCap,
-  Lock,
   KeyRound,
-  ShieldCheck,
   X,
   Sliders,
   Sparkles,
@@ -47,9 +50,6 @@ import {
   Copy,
   ExternalLink,
   BookOpen,
-  ArrowUp,
-  ArrowDown,
-  GripVertical,
   Bell,
   Send,
 } from "lucide-react";
@@ -2727,584 +2727,65 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             )}
             {/* TAB MỚI: QUẢN LÝ BỘ MÔN / CHƯƠNG TRÌNH HỌC */}
             {activeTab === "subjects" && (
-              <div className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                      <BookOpen className="w-5 h-5 text-indigo-600" />
-                      <span>Danh Mục Bộ Môn / Chương Trình Học</span>
-                    </h3>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">
-                      Tự do thiết lập các môn học phù hợp với ngành đào tạo của trung tâm (Âm nhạc,
-                      Ngoại ngữ, Dạy thêm, Năng khiếu...)
-                    </p>
-                  </div>
-                </div>
-
-                {/* Form thêm môn học mới */}
-                <form
-                  onSubmit={handleAddSubject}
-                  className="p-4 rounded-2xl bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/60 space-y-3"
-                >
-                  <span className="text-xs font-black uppercase tracking-wider text-indigo-900 dark:text-indigo-300 block">
-                    Thêm Môn Học Mới:
-                  </span>
-                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
-                    <div className="sm:col-span-2">
-                      <input
-                        type="text"
-                        required
-                        placeholder="Tên môn (VD: Piano, IELTS, Toán 10, Vẽ...)"
-                        value={newSubjectName}
-                        onChange={(e) => setNewSubjectName(e.target.value)}
-                        className="w-full px-3 py-2 text-xs font-bold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"
-                      />
-                    </div>
-                    <div>
-                      <select
-                        value={newSubjectColor}
-                        onChange={(e) => setNewSubjectColor(e.target.value)}
-                        className="w-full px-3 py-2 text-xs font-bold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white outline-none"
-                      >
-                        <option value="indigo">Màu Xanh Indigo</option>
-                        <option value="purple">Màu Tím Purple</option>
-                        <option value="emerald">Màu Xanh Lá Emerald</option>
-                        <option value="amber">Màu Cam Amber</option>
-                        <option value="rose">Màu Đỏ Rose</option>
-                        <option value="sky">Màu Xanh Biển Sky</option>
-                      </select>
-                    </div>
-                    <div>
-                      <button
-                        type="submit"
-                        disabled={isAddingSubject}
-                        className="w-full py-2 px-3 text-xs font-bold rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs transition flex items-center justify-center gap-1.5 disabled:opacity-50"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                        <span>{isAddingSubject ? "Đang thêm..." : "Thêm Môn"}</span>
-                      </button>
-                    </div>
-                  </div>
-                </form>
-
-                {/* Danh sách các môn hiện có */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {subjects.map((sub) => (
-                    <div
-                      key={sub.id}
-                      className="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-xs flex items-center justify-between gap-3 hover:border-slate-300 transition"
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <div
-                          className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-white shrink-0 ${
-                            sub.color === "purple"
-                              ? "bg-purple-600 shadow-purple-600/30"
-                              : sub.color === "emerald"
-                                ? "bg-emerald-600 shadow-emerald-600/30"
-                                : sub.color === "amber"
-                                  ? "bg-amber-600 shadow-amber-600/30"
-                                  : sub.color === "rose"
-                                    ? "bg-rose-600 shadow-rose-600/30"
-                                    : sub.color === "sky"
-                                      ? "bg-sky-600 shadow-sky-600/30"
-                                      : "bg-indigo-600 shadow-indigo-600/30"
-                          } shadow-sm`}
-                        >
-                          <BookOpen className="w-4 h-4" />
-                        </div>
-                        <div>
-                          <h4 className="text-sm font-bold text-slate-900 dark:text-white leading-tight">
-                            {sub.name}
-                          </h4>
-                          <span className="text-[10px] text-slate-400">
-                            {sub.description || "Môn học cơ sở"}
-                          </span>
-                        </div>
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteSubject(sub.id)}
-                        className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition"
-                        title="Xóa môn học này"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-
-                {subjects.length === 0 && (
-                  <div className="py-12 text-center text-xs text-slate-400 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-3xl">
-                    <BookOpen className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                    <p>Chưa có môn học nào. Hãy thêm các môn đào tạo ở form trên!</p>
-                  </div>
-                )}
-              </div>
+              <SubjectsTab
+                subjects={subjects}
+                newSubjectName={newSubjectName}
+                newSubjectColor={newSubjectColor}
+                isAddingSubject={isAddingSubject}
+                onNewSubjectNameChange={setNewSubjectName}
+                onNewSubjectColorChange={setNewSubjectColor}
+                onSubmit={handleAddSubject}
+                onDelete={handleDeleteSubject}
+              />
             )}
+
             {activeTab === "slots" && (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                      Danh Sách Khung Giờ Mở Cửa Của Cơ Sở
-                    </h3>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">
-                      Chọn nhanh từ Thứ mấy tới Thứ mấy bằng menu chọn gọn gàng
-                    </p>
-                  </div>
-                  <button
-                    onClick={handleAddTimeSlot}
-                    className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-xs transition"
-                  >
-                    <Plus className="w-4 h-4" /> Thêm khung giờ
-                  </button>
-                </div>
-
-                <div className="space-y-3">
-                  {timeSlots.map((slot, index) => (
-                    <div
-                      key={slot.id || index}
-                      className="p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-800/40 flex flex-col md:flex-row md:items-center gap-3 shadow-xs hover:border-slate-300 transition"
-                    >
-                      <div className="flex-1 grid grid-cols-1 sm:grid-cols-6 gap-2.5">
-                        {/* Name */}
-                        <div className="sm:col-span-1">
-                          <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                            Tên khung giờ
-                          </label>
-                          <input
-                            type="text"
-                            value={slot.name}
-                            onChange={(e) => handleUpdateTimeSlot(index, "name", e.target.value)}
-                            placeholder="Ca Sáng T7"
-                            className="w-full mt-1 px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none"
-                          />
-                        </div>
-
-                        {/* Dropdown: Từ thứ mấy */}
-                        <div className="sm:col-span-1">
-                          <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                            Từ thứ
-                          </label>
-                          <select
-                            value={slot.from_day || "Thứ 2"}
-                            onChange={(e) =>
-                              handleUpdateTimeSlot(index, "from_day", e.target.value)
-                            }
-                            className="w-full mt-1 px-2.5 py-1.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none"
-                          >
-                            {WEEKDAYS.map((d) => (
-                              <option key={d} value={d}>
-                                {d}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-
-                        {/* Dropdown: Tới thứ mấy */}
-                        <div className="sm:col-span-1">
-                          <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                            Đến thứ
-                          </label>
-                          <select
-                            value={slot.to_day || "Thứ 7"}
-                            onChange={(e) => handleUpdateTimeSlot(index, "to_day", e.target.value)}
-                            className="w-full mt-1 px-2.5 py-1.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-indigo-500 outline-none"
-                          >
-                            {WEEKDAYS.map((d) => (
-                              <option key={d} value={d}>
-                                {d}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-
-                        {/* Giờ mở */}
-                        <div className="sm:col-span-1">
-                          <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                            Mở cửa
-                          </label>
-                          <input
-                            type="time"
-                            value={slot.start_time}
-                            onChange={(e) =>
-                              handleUpdateTimeSlot(index, "start_time", e.target.value)
-                            }
-                            className="w-full mt-1 px-2.5 py-1.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 outline-none"
-                          />
-                        </div>
-
-                        {/* Giờ đóng */}
-                        <div className="sm:col-span-1">
-                          <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                            Đóng cửa
-                          </label>
-                          <input
-                            type="time"
-                            value={slot.end_time}
-                            onChange={(e) =>
-                              handleUpdateTimeSlot(index, "end_time", e.target.value)
-                            }
-                            className="w-full mt-1 px-2.5 py-1.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 outline-none"
-                          />
-                        </div>
-
-                        {/* Sĩ số max */}
-                        <div className="sm:col-span-1">
-                          <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                            Sĩ số max
-                          </label>
-                          <input
-                            type="number"
-                            min="1"
-                            max="100"
-                            value={slot.max_students || maxStudents || 10}
-                            onChange={(e) =>
-                              handleUpdateTimeSlot(
-                                index,
-                                "max_students",
-                                Number(e.target.value) || 10
-                              )
-                            }
-                            className="w-full mt-1 px-2.5 py-1.5 text-xs font-black text-indigo-600 dark:text-indigo-400 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 outline-none"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="flex items-center justify-between md:justify-end gap-3 pt-2 md:pt-0 border-t md:border-t-0 border-slate-100 dark:border-slate-800">
-                        <label className="flex items-center gap-1.5 cursor-pointer text-xs font-bold text-slate-600 dark:text-slate-300">
-                          <input
-                            type="checkbox"
-                            checked={Boolean(slot.is_active)}
-                            onChange={(e) =>
-                              handleUpdateTimeSlot(index, "is_active", e.target.checked ? 1 : 0)
-                            }
-                            className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
-                          />
-                          Hoạt động
-                        </label>
-
-                        <button
-                          onClick={() => handleRemoveTimeSlot(index)}
-                          className="p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl transition"
-                          title="Xóa khung giờ"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-
-                  {timeSlots.length === 0 && (
-                    <div className="text-center py-12 text-slate-400 text-xs">
-                      Chưa có khung giờ nào. Bấm <strong>&quot;+ Thêm khung giờ&quot;</strong> để
-                      thiết lập ca học.
-                    </div>
-                  )}
-                </div>
-              </div>
+              <SlotsTab
+                timeSlots={timeSlots}
+                weekdays={WEEKDAYS}
+                maxStudents={maxStudents}
+                onAdd={handleAddTimeSlot}
+                onUpdate={handleUpdateTimeSlot}
+                onRemove={handleRemoveTimeSlot}
+              />
             )}
 
             {/* TAB 3: Level Surcharges */}
             {activeTab === "levels" && (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                      Bảng Phụ Thu Theo Level & Trình Độ
-                    </h3>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">
-                      Số tiền cộng thêm vào học phí cơ bản theo cấp độ của học sinh
-                    </p>
-                  </div>
-                  <button
-                    onClick={handleAddLevel}
-                    className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-xs transition"
-                  >
-                    <Plus className="w-4 h-4" /> Thêm Level
-                  </button>
-                </div>
-
-                <div className="space-y-2.5">
-                  {levels.map((lvl, index) => (
-                    <div
-                      key={lvl.id || index}
-                      draggable
-                      onDragStart={(e) => handleDragStartLevel(e, index)}
-                      onDragOver={(e) => e.preventDefault()}
-                      onDrop={(e) => handleDropLevel(e, index)}
-                      className="p-3.5 sm:p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-800/40 flex items-center gap-2.5 sm:gap-3.5 shadow-xs hover:border-indigo-300 dark:hover:border-indigo-700/80 transition cursor-grab active:cursor-grabbing group"
-                    >
-                      {/* Tay cầm kéo thả + Nút lên/xuống */}
-                      <div className="flex flex-col items-center justify-center gap-0.5 shrink-0">
-                        <button
-                          type="button"
-                          disabled={index === 0}
-                          onClick={() => handleMoveLevel(index, "up")}
-                          className="p-1 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-20 disabled:hover:bg-transparent transition cursor-pointer"
-                          title="Di chuyển lên trên"
-                        >
-                          <ArrowUp className="w-3.5 h-3.5" />
-                        </button>
-                        <GripVertical className="w-4 h-4 text-slate-300 group-hover:text-indigo-500 transition" />
-                        <button
-                          type="button"
-                          disabled={index === levels.length - 1}
-                          onClick={() => handleMoveLevel(index, "down")}
-                          className="p-1 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-20 disabled:hover:bg-transparent transition cursor-pointer"
-                          title="Di chuyển xuống dưới"
-                        >
-                          <ArrowDown className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-
-                      <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 font-black text-xs flex items-center justify-center shrink-0">
-                        #{index + 1}
-                      </div>
-
-                      <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        <div>
-                          <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                            Tên Level
-                          </label>
-                          <input
-                            type="text"
-                            value={lvl.level_name}
-                            onChange={(e) => handleUpdateLevel(index, "level_name", e.target.value)}
-                            placeholder="Tên Level (Grade 1, Nâng Cao...)"
-                            className="w-full mt-1 px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                            Kiểu Phụ Thu
-                          </label>
-                          <select
-                            value={lvl.surcharge_type || "fixed"}
-                            onChange={(e) =>
-                              handleUpdateLevel(index, "surcharge_type", e.target.value)
-                            }
-                            className="w-full mt-1 px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none cursor-pointer"
-                          >
-                            <option value="fixed">Cố định (VNĐ)</option>
-                            <option value="percent">Phần trăm (%)</option>
-                          </select>
-                        </div>
-
-                        <div>
-                          <label className="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                            {lvl.surcharge_type === "percent"
-                              ? "Mức phụ thu (%)"
-                              : "Mức phụ thu (VNĐ)"}
-                          </label>
-                          <div className="relative mt-1">
-                            <input
-                              type="number"
-                              min="0"
-                              step="any"
-                              value={lvl.surcharge_amount === 0 ? "" : lvl.surcharge_amount}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                handleUpdateLevel(
-                                  index,
-                                  "surcharge_amount",
-                                  val === "" ? 0 : Number(val)
-                                );
-                              }}
-                              className="w-full px-3 py-1.5 text-xs font-black text-emerald-600 dark:text-emerald-400 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none"
-                            />
-                            <span className="absolute right-3 top-1.5 text-xs font-bold text-slate-400">
-                              {lvl.surcharge_type === "percent"
-                                ? "%"
-                                : formatVND(lvl.surcharge_amount)}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <button
-                        onClick={() => handleRemoveLevel(index)}
-                        className="p-2 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl transition shrink-0 cursor-pointer"
-                        title="Xóa Level"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ))}
-
-                  {levels.length === 0 && (
-                    <div className="text-center py-12 text-slate-400 text-xs">
-                      Chưa có Level nào. Bấm <strong>&quot;+ Thêm Level&quot;</strong> để thiết lập.
-                    </div>
-                  )}
-                </div>
-              </div>
+              <LevelsTab
+                levels={levels}
+                onAdd={handleAddLevel}
+                onUpdate={handleUpdateLevel}
+                onRemove={handleRemoveLevel}
+                onMove={handleMoveLevel}
+                onDragStart={handleDragStartLevel}
+                onDrop={handleDropLevel}
+                formatMoney={formatVND}
+              />
             )}
 
             {/* TAB 4: Discounts */}
             {activeTab === "discounts" && (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                      Cấu Hình Các Mốc Chiết Khấu (Discount Presets)
-                    </h3>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">
-                      Các mốc phần trăm giảm giá nhanh khi thêm/sửa học sinh
-                    </p>
-                  </div>
-                  <button
-                    onClick={handleAddDiscount}
-                    className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-xs transition"
-                  >
-                    <Plus className="w-4 h-4" /> Thêm mốc chiết khấu
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {discounts.map((disc, index) => (
-                    <div
-                      key={disc.id || index}
-                      className="p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-800/40 space-y-2.5 shadow-xs hover:border-slate-300 transition"
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                          <div className="w-8 h-8 rounded-xl bg-amber-50 dark:bg-amber-950/50 text-amber-600 flex items-center justify-center shrink-0">
-                            <Percent className="w-4 h-4" />
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <input
-                              type="number"
-                              min="0"
-                              max="100"
-                              value={disc.percentage}
-                              onChange={(e) =>
-                                handleUpdateDiscount(index, "percentage", e.target.value)
-                              }
-                              className="w-16 px-2 py-1 text-sm font-black text-slate-900 dark:text-white rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-center focus:ring-2 focus:ring-indigo-500 outline-none"
-                            />
-                            <span className="text-xs font-black text-slate-500">%</span>
-                          </div>
-                        </div>
-
-                        <button
-                          onClick={() => handleRemoveDiscount(index)}
-                          className="p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl transition"
-                          title="Xóa mức chiết khấu"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-
-                      <div>
-                        <label className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">
-                          Lý do được giảm / Tên mức giảm
-                        </label>
-                        <input
-                          type="text"
-                          value={disc.label || ""}
-                          onChange={(e) => handleUpdateDiscount(index, "label", e.target.value)}
-                          placeholder="VD: Anh em ruột, Đăng ký sớm, Hộ nghèo..."
-                          className="w-full px-2.5 py-1.5 text-xs font-semibold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition"
-                        />
-                      </div>
-                    </div>
-                  ))}
-
-                  {discounts.length === 0 && (
-                    <div className="col-span-full text-center py-12 text-slate-400 text-xs">
-                      Chưa có mức chiết khấu nào. Bấm{" "}
-                      <strong>&quot;+ Thêm mốc chiết khấu&quot;</strong> để tạo nhanh các mốc 10%,
-                      20%...
-                    </div>
-                  )}
-                </div>
-              </div>
+              <DiscountsTab
+                discounts={discounts}
+                onAdd={handleAddDiscount}
+                onUpdate={handleUpdateDiscount}
+                onRemove={handleRemoveDiscount}
+              />
             )}
 
             {/* TAB 5: Change Password for Admin */}
             {activeTab === "password" && (
-              <div className="space-y-5 max-w-md mx-auto py-4">
-                <div className="text-center space-y-1.5">
-                  <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 mx-auto flex items-center justify-center shadow-xs">
-                    <KeyRound className="w-6 h-6" />
-                  </div>
-                  <h3 className="text-base font-black text-slate-900 dark:text-white">
-                    Đổi Mật Khẩu Quản Trị Viên
-                  </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Cập nhật mật khẩu đăng nhập vào cổng Quản trị cơ sở này
-                  </p>
-                </div>
-
-                <form onSubmit={handleChangePassword} className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                      Mật khẩu hiện tại *
-                    </label>
-                    <div className="relative">
-                      <Lock className="w-4 h-4 absolute left-3.5 top-3 text-slate-400" />
-                      <input
-                        type="password"
-                        required
-                        placeholder="Nhập mật khẩu đang sử dụng"
-                        value={currentPassword}
-                        onChange={(e) => setCurrentPassword(e.target.value)}
-                        className="w-full pl-10 pr-3 py-2.5 text-sm font-semibold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                      Mật khẩu mới (Tối thiểu 6 ký tự) *
-                    </label>
-                    <div className="relative">
-                      <Lock className="w-4 h-4 absolute left-3.5 top-3 text-slate-400" />
-                      <input
-                        type="password"
-                        required
-                        placeholder="Nhập mật khẩu mới"
-                        value={newPassword}
-                        onChange={(e) => setNewPassword(e.target.value)}
-                        className="w-full pl-10 pr-3 py-2.5 text-sm font-semibold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                      Xác nhận mật khẩu mới *
-                    </label>
-                    <div className="relative">
-                      <Lock className="w-4 h-4 absolute left-3.5 top-3 text-slate-400" />
-                      <input
-                        type="password"
-                        required
-                        placeholder="Nhập lại mật khẩu mới"
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        className="w-full pl-10 pr-3 py-2.5 text-sm font-semibold rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="pt-2">
-                    <button
-                      type="submit"
-                      disabled={isChangingPassword}
-                      className="w-full py-3 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs uppercase tracking-wider shadow-md shadow-indigo-600/30 transition flex items-center justify-center gap-2 disabled:opacity-50"
-                    >
-                      <ShieldCheck className="w-4 h-4" />
-                      <span>
-                        {isChangingPassword ? "Đang cập nhật..." : "Cập Nhật Mật Khẩu Mới"}
-                      </span>
-                    </button>
-                  </div>
-                </form>
-              </div>
+              <PasswordTab
+                currentPassword={currentPassword}
+                newPassword={newPassword}
+                confirmPassword={confirmPassword}
+                isChangingPassword={isChangingPassword}
+                onCurrentPasswordChange={setCurrentPassword}
+                onNewPasswordChange={setNewPassword}
+                onConfirmPasswordChange={setConfirmPassword}
+                onSubmit={handleChangePassword}
+              />
             )}
           </div>
         </div>

@@ -284,7 +284,7 @@ export async function ensureCoreSchema(db: Client): Promise<void> {
       "UPDATE school_admins SET is_owner = 1 WHERE (is_owner IS NULL OR is_owner = 0) AND (username = 'admin' OR id = 'admin-1' OR role_id IS NULL OR role_id = '')"
     );
   } catch (err) {
-    log.warn("Không thể chuẩn hóa cờ is_owner cho tài khoản admin khởi tạo", { error: err });
+    log.debug("Không thể chuẩn hóa cờ is_owner cho tài khoản admin khởi tạo", { error: err });
   }
 
   // Đảm bảo mỗi trường luôn có ít nhất 1 Chủ cơ sở
