@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { ok } from "@/server/http/response";
 import { getDb, initDb } from "@/lib/db";
 import { getSchoolIdFromRequest, requireAdminPermission } from "@/lib/authHelper";
 import { createLogger } from "@/lib/logger";
@@ -34,7 +35,7 @@ export async function GET(req: Request) {
       created_at: String(row.created_at || ""),
     }));
 
-    return NextResponse.json({ success: true, data: packages });
+    return ok({ data: packages });
   } catch (error: unknown) {
     log.error("Packages GET Error:", { error: error });
     return NextResponse.json(

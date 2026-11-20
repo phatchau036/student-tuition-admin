@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { ok } from "@/server/http/response";
 import { getDb, initDb } from "@/lib/db";
 import { getSchoolIdFromRequest } from "@/lib/authHelper";
 import { createLogger } from "@/lib/logger";
@@ -27,7 +28,7 @@ export async function GET(req: Request) {
       created_at: String(row.created_at || ""),
     }));
 
-    return NextResponse.json({ success: true, data: subjects });
+    return ok({ data: subjects });
   } catch (error: unknown) {
     log.error("Subjects GET Error:", { error: error });
     return NextResponse.json(
