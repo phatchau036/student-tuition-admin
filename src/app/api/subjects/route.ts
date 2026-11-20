@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { ok } from "@/server/http/response";
 import { getDb, initDb } from "@/lib/db";
-import { getSchoolIdFromRequest } from "@/lib/authHelper";
+import { requireAdminPermission, resolveSchoolScopeForAdmin } from "@/lib/authHelper";
 import { createLogger } from "@/lib/logger";
 
 const log = createLogger("api/subjects");
@@ -10,8 +10,10 @@ const log = createLogger("api/subjects");
 export async function GET(req: Request) {
   try {
     await initDb();
+    const auth = await requireAdminPermission(req, "settings.manage");
+    if (!auth.authorized) return auth.errorResponse!;
     const db = getDb();
-    const schoolId = getSchoolIdFromRequest(req);
+    const schoolId = await resolveSchoolScopeForAdmin(req, auth.admin!);
 
     const res = await db.execute({
       sql: "SELECT * FROM subjects WHERE school_id = ? ORDER BY created_at ASC",
@@ -42,11 +44,16 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     await initDb();
+    const auth = await requireAdminPermission(req, "settings.manage");
+    if (!auth.authorized) return auth.errorResponse!;
     const db = getDb();
-    const schoolId = getSchoolIdFromRequest(req);
+    const schoolId = await resolveSchoolScopeForAdmin(req, auth.admin!);
     const body = await req.json();
     const { action, id, school_id, name, description, color, is_active } = body;
-    const targetSchoolId = school_id || schoolId || "school-default";
+    // Chỉ cho phép ghi trong phạm vi tổ chức của tài khoản đang đăng nhập.
+    const targetSchoolId = school_id
+      ? await resolveSchoolScopeForAdmin(req, auth.admin!)
+      : schoolId;
 
     // 1. Thêm bộ môn mới
     if (action === "create" || !action) {

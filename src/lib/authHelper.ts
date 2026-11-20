@@ -210,6 +210,65 @@ export async function getAdminFromRequest(req: Request): Promise<RequestAdminCon
 }
 
 /**
+ * Phân giải `school_id` đáng tin cậy cho một request đã xác thực.
+ *
+ * Chống cross-tenant: header `x-school-id` / query `?school_id` chỉ được chấp nhận
+ * khi nằm trong phạm vi tổ chức của tài khoản (cơ sở gốc hoặc chi nhánh cùng
+ * `parent_school_id`). Mọi giá trị lạ đều bị bỏ qua và rơi về `admin.school_id`.
+ */
+export async function resolveSchoolScopeForAdmin(
+  req: Request,
+  admin: RequestAdminContext
+): Promise<string> {
+  const requested = (() => {
+    const header = req.headers.get("x-school-id");
+    if (header && header.trim()) return header.trim();
+    try {
+      const url = new URL(req.url);
+      const query = url.searchParams.get("school_id");
+      if (query && query.trim()) return query.trim();
+    } catch {
+      /* Bỏ qua có chủ đích: URL không hợp lệ thì dùng school mặc định của admin. */
+    }
+    return "";
+  })();
+
+  if (!requested || requested === admin.school_id) return admin.school_id;
+
+  try {
+    const db = getDb();
+    const targetRes = await db.execute({
+      sql: "SELECT id, parent_school_id FROM schools WHERE id = ? LIMIT 1",
+      args: [requested],
+    });
+    if (targetRes.rows.length === 0) return admin.school_id;
+
+    const adminRes = await db.execute({
+      sql: "SELECT parent_school_id FROM schools WHERE id = ? LIMIT 1",
+      args: [admin.school_id],
+    });
+
+    const targetParent = targetRes.rows[0].parent_school_id
+      ? String(targetRes.rows[0].parent_school_id)
+      : null;
+    const adminParent =
+      adminRes.rows.length > 0 && adminRes.rows[0].parent_school_id
+        ? String(adminRes.rows[0].parent_school_id)
+        : null;
+
+    // Cùng một tổ chức: cùng parent_school_id, hoặc một bên là gốc của bên kia.
+    const rootOfAdmin = adminParent || admin.school_id;
+    const rootOfTarget = targetParent || requested;
+
+    if (rootOfAdmin === rootOfTarget) return requested;
+  } catch {
+    /* Bỏ qua có chủ đích: lỗi truy vấn thì giữ phạm vi an toàn của admin. */
+  }
+
+  return admin.school_id;
+}
+
+/**
  * Kiểm tra quyền hạn của Admin trước khi thực hiện các API nhạy cảm.
  * Chủ cơ sở (is_owner === 1 hoặc permissions bao gồm "*") luôn được phép.
  */

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { ok } from "@/server/http/response";
 import { getDb, initDb } from "@/lib/db";
-import { getSchoolIdFromRequest, requireAdminPermission } from "@/lib/authHelper";
+import { requireAdminPermission, resolveSchoolScopeForAdmin } from "@/lib/authHelper";
 import { createLogger } from "@/lib/logger";
 
 const log = createLogger("api/packages");
@@ -15,7 +15,7 @@ export async function GET(req: Request) {
       return authCheck.errorResponse!;
     }
     const db = getDb();
-    const schoolId = getSchoolIdFromRequest(req);
+    const schoolId = await resolveSchoolScopeForAdmin(req, authCheck.admin!);
     const res = await db.execute({
       sql: "SELECT * FROM tuition_packages WHERE school_id = ? ORDER BY cycle_value ASC, amount ASC",
       args: [schoolId],
@@ -54,7 +54,7 @@ export async function POST(req: Request) {
       return authCheck.errorResponse!;
     }
     const db = getDb();
-    const schoolId = getSchoolIdFromRequest(req);
+    const schoolId = await resolveSchoolScopeForAdmin(req, authCheck.admin!);
     const body = await req.json();
     const {
       action,

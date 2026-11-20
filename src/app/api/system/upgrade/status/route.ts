@@ -4,6 +4,7 @@ import { join } from "path";
 import { exec } from "child_process";
 import { promisify } from "util";
 import { createLogger } from "@/lib/logger";
+import { getSystemAdminFromRequest } from "@/lib/authHelper";
 
 const log = createLogger("api/system/upgrade/status");
 
@@ -11,7 +12,14 @@ const execAsync = promisify(exec);
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
-  const checkGit = url.searchParams.get("check_git") === "1";
+  const wantsGitCheck = url.searchParams.get("check_git") === "1";
+
+  // Chỉ Super Admin được phép đọc commit log Git (tránh lộ thông tin nội bộ).
+  let checkGit = false;
+  if (wantsGitCheck) {
+    const systemAdmin = await getSystemAdminFromRequest(req);
+    checkGit = Boolean(systemAdmin);
+  }
 
   const flagPath = join(process.cwd(), ".maintenance");
   const logPath = join(process.cwd(), "upgrade.log");

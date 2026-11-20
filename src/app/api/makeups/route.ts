@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
-import { getSchoolIdFromRequest } from "@/lib/authHelper";
+import { getSchoolIdFromRequest, requireAdminPermission } from "@/lib/authHelper";
 import { appendLedger, getWalletBalance, getStudentSessionMinutes } from "@/lib/wallet";
 import { formatMinutes, getDayNameVi } from "@/lib/tuition";
 import { isTimeOverlap } from "@/lib/shiftDetection";
@@ -154,6 +154,14 @@ export async function POST(req: Request) {
     await initDb();
     const db = getDb();
     const body = await req.json();
+
+    // Các thao tác quản trị nội bộ bắt buộc quyền makeups.manage.
+    // `report_absence` và `schedule_makeup` vẫn mở cho Cổng Phụ huynh tự phục vụ.
+    const adminActions = ["complete", "reset_pending", "delete"];
+    if (adminActions.includes(String(body?.action || ""))) {
+      const auth = await requireAdminPermission(req, "makeups.manage");
+      if (!auth.authorized) return auth.errorResponse!;
+    }
 
     const {
       action,

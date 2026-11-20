@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
-import { getSchoolIdFromRequest } from "@/lib/authHelper";
+import { getSchoolIdFromRequest, requireAdminPermission } from "@/lib/authHelper";
 import { createLogger } from "@/lib/logger";
 
 const log = createLogger("api/admin/teacher-leaves");
@@ -9,6 +9,8 @@ const log = createLogger("api/admin/teacher-leaves");
 export async function GET(req: Request) {
   try {
     await initDb();
+    const auth = await requireAdminPermission(req, "schedule.matrix");
+    if (!auth.authorized) return auth.errorResponse!;
     const db = getDb();
     const { searchParams } = new URL(req.url);
     const querySchoolId = searchParams.get("school_id");
@@ -78,6 +80,8 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     await initDb();
+    const auth = await requireAdminPermission(req, "schedule.matrix");
+    if (!auth.authorized) return auth.errorResponse!;
     const db = getDb();
     const body = await req.json();
     const { action, leave_id, substitute_teacher_id, admin_note } = body;

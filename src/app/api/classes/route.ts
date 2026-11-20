@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
-import { getSchoolIdFromRequest } from "@/lib/authHelper";
+import { getSchoolIdFromRequest, requireAdminPermission } from "@/lib/authHelper";
 import { createLogger } from "@/lib/logger";
 
 const log = createLogger("api/classes");
@@ -8,6 +8,8 @@ const log = createLogger("api/classes");
 export async function GET(req: Request) {
   try {
     await initDb();
+    const auth = await requireAdminPermission(req, "schedule.matrix");
+    if (!auth.authorized) return auth.errorResponse!;
     const db = getDb();
     const { searchParams } = new URL(req.url);
     const querySchoolId = searchParams.get("school_id");
@@ -92,6 +94,8 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     await initDb();
+    const auth = await requireAdminPermission(req, "classes.manage");
+    if (!auth.authorized) return auth.errorResponse!;
     const db = getDb();
     const headerSchoolId = getSchoolIdFromRequest(req);
     const body = await req.json();
@@ -230,6 +234,8 @@ export async function POST(req: Request) {
 export async function DELETE(req: Request) {
   try {
     await initDb();
+    const auth = await requireAdminPermission(req, "classes.manage");
+    if (!auth.authorized) return auth.errorResponse!;
     const db = getDb();
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");

@@ -3,12 +3,20 @@ import { spawn } from "child_process";
 import { writeFileSync, unlinkSync, existsSync } from "fs";
 import { join } from "path";
 import { createLogger } from "@/lib/logger";
+import { getSystemAdminFromRequest } from "@/lib/authHelper";
 
 const log = createLogger("api/system/upgrade");
 
 // API Kích hoạt nâng cấp tự động từ GitHub
-export async function POST(_req: Request) {
+export async function POST(req: Request) {
   try {
+    const systemAdmin = await getSystemAdminFromRequest(req);
+    if (!systemAdmin) {
+      return NextResponse.json(
+        { success: false, message: "Không có quyền kích hoạt nâng cấp hệ thống!" },
+        { status: 401 }
+      );
+    }
     const cwd = process.cwd();
     const flagPath = join(cwd, ".maintenance");
 

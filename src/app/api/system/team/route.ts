@@ -1,13 +1,21 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
 import { createLogger } from "@/lib/logger";
+import { getSystemAdminFromRequest } from "@/lib/authHelper";
 
 const log = createLogger("api/system/team");
 
 // GET /api/system/team - Lấy danh sách thành viên đội ngũ TpTeam
-export async function GET() {
+export async function GET(req: Request) {
   try {
     await initDb();
+    const systemAdmin = await getSystemAdminFromRequest(req);
+    if (!systemAdmin) {
+      return NextResponse.json(
+        { success: false, message: "Không có quyền truy cập hệ thống!" },
+        { status: 401 }
+      );
+    }
     const db = getDb();
     const res = await db.execute("SELECT * FROM system_team_members ORDER BY created_at ASC");
     return NextResponse.json({
@@ -35,6 +43,13 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     await initDb();
+    const systemAdmin = await getSystemAdminFromRequest(req);
+    if (!systemAdmin) {
+      return NextResponse.json(
+        { success: false, message: "Không có quyền truy cập hệ thống!" },
+        { status: 401 }
+      );
+    }
     const db = getDb();
     const body = await req.json();
     const { action, id, name, role = "developer", phone = "", avatar_color = "purple" } = body;

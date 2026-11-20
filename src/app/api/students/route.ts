@@ -6,9 +6,9 @@ import {
   resolveStudentTeachers,
 } from "@/lib/tuition";
 import {
-  getSchoolIdFromRequest,
   getAdminFromRequest,
   requireAdminPermission,
+  resolveSchoolScopeForAdmin,
 } from "@/lib/authHelper";
 import { syncPendingMakeupsToWallet } from "@/lib/wallet";
 import { createLogger } from "@/lib/logger";
@@ -19,11 +19,8 @@ export async function GET(req: Request) {
   try {
     await initDb();
     const db = getDb();
-    const schoolId = getSchoolIdFromRequest(req);
     const { searchParams } = new URL(req.url);
     const month = searchParams.get("month") || "";
-    const querySchoolId = searchParams.get("school_id") || schoolId;
-    const finalSchoolId = querySchoolId || "school-default";
     const periodFrom = searchParams.get("period_from") || "";
     const periodTo = searchParams.get("period_to") || "";
 
@@ -38,6 +35,9 @@ export async function GET(req: Request) {
         { status: 401 }
       );
     }
+
+    // Phạm vi cơ sở đáng tin cậy: header/query chỉ được chấp nhận trong cùng tổ chức.
+    const finalSchoolId = await resolveSchoolScopeForAdmin(req, admin);
 
     const isOwnerOrWildcard = admin.is_owner === 1 || admin.permissions.includes("*");
     const canViewStudents = isOwnerOrWildcard || admin.permissions.includes("students.view");
@@ -428,8 +428,8 @@ export async function POST(req: Request) {
       return authCheck.errorResponse!;
     }
     const db = getDb();
-    const schoolId = getSchoolIdFromRequest(req);
     const body = await req.json();
+    const scopeAdmin = authCheck.admin!;
 
     const {
       name,
@@ -456,7 +456,10 @@ export async function POST(req: Request) {
       discount_reason,
     } = body;
 
-    const targetSchoolId = school_id || schoolId || "school-default";
+    // Ghi dữ liệu vào phạm vi cơ sở đáng tin cậy của tài khoản đang đăng nhập.
+    const targetSchoolId = school_id
+      ? await resolveSchoolScopeForAdmin(req, scopeAdmin)
+      : scopeAdmin.school_id;
 
     if (!name || !level_id) {
       return NextResponse.json(

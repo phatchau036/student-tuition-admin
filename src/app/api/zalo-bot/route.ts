@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
-import { getSchoolIdFromRequest } from "@/lib/authHelper";
+import { getSchoolIdFromRequest, requireAdminPermission } from "@/lib/authHelper";
 import crypto from "crypto";
 import { createLogger } from "@/lib/logger";
 import { getErrorMessage } from "@/lib/errors";
@@ -13,6 +13,8 @@ const ZALO_BOT_BASE_URL = "https://bot-api.zapps.me";
 export async function POST(req: Request) {
   try {
     await initDb();
+    const auth = await requireAdminPermission(req, "settings.manage");
+    if (!auth.authorized) return auth.errorResponse!;
     const db = getDb();
     const body = await req.json();
     const { action, bot_token, chat_id, text, school_id } = body;
