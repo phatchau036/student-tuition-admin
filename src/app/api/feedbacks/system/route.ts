@@ -1,12 +1,15 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
 import { createLogger } from "@/lib/logger";
+import { requireAdminPermission } from "@/lib/authHelper";
 
 const log = createLogger("api/feedbacks/system");
 
 export async function GET(req: Request) {
   try {
     await initDb();
+    const auth = await requireAdminPermission(req, "settings.manage");
+    if (!auth.authorized) return auth.errorResponse!;
     const db = getDb();
     const { searchParams } = new URL(req.url);
     const schoolId = searchParams.get("school_id") || "";
@@ -65,6 +68,8 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     await initDb();
+    const auth = await requireAdminPermission(req, "settings.manage");
+    if (!auth.authorized) return auth.errorResponse!;
     const db = getDb();
     const body = await req.json();
 
@@ -134,6 +139,8 @@ export async function POST(req: Request) {
 export async function PATCH(req: Request) {
   try {
     await initDb();
+    const auth = await requireAdminPermission(req, "settings.manage");
+    if (!auth.authorized) return auth.errorResponse!;
     const db = getDb();
     const body = await req.json();
     const { id, status, admin_reply, action, assignee_id, assignee_name, completed_by } = body;

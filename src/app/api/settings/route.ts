@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
-import { getSchoolIdFromRequest, getAdminFromRequest } from "@/lib/authHelper";
+import {
+  getSchoolIdFromRequest,
+  getAdminFromRequest,
+  resolveSchoolScopeForAdmin,
+} from "@/lib/authHelper";
 import { SchedulePreset, DbRow } from "@/lib/types";
 import { createLogger } from "@/lib/logger";
 
@@ -27,7 +31,7 @@ export async function GET(req: Request) {
     const canManageSettings = isOwnerOrWildcard || admin.permissions.includes("settings.manage");
 
     const db = getDb();
-    const schoolId = getSchoolIdFromRequest(req);
+    const schoolId = await resolveSchoolScopeForAdmin(req, admin);
 
     // 1. Get Settings
     const settingsRes = await db.execute("SELECT key, value FROM settings");

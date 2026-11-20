@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
-import { getSchoolIdFromRequest } from "@/lib/authHelper";
+import { getSchoolIdFromRequest, requireAdminPermission } from "@/lib/authHelper";
 import { createLogger } from "@/lib/logger";
 
 const log = createLogger("api/status-logs");
 
 // GET /api/status-logs - Lấy lịch sử log tổng bảo lưu, nghỉ học và trở lại học
 export async function GET(req: Request) {
+  const auth = await requireAdminPermission(req, "students.view");
+  if (!auth.authorized) return auth.errorResponse!;
   let month = "";
   let student_id = "";
   let querySchoolId = "";

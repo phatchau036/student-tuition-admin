@@ -14,8 +14,6 @@ import {
   Copy,
   Lock,
   LogOut,
-  User,
-  ArrowRight,
   Globe,
   Edit2,
   Eye,
@@ -33,6 +31,13 @@ import {
 import Link from "next/link";
 import { SystemFeedback, SystemTeamMember } from "@/lib/types";
 import { createLogger } from "@/lib/logger";
+import {
+  SystemLoginScreen,
+  SystemLoadingScreen,
+} from "@/features/system/components/SystemLoginScreen";
+import { AiConfigTab } from "@/features/system/components/AiConfigTab";
+import { SystemAccountTab } from "@/features/system/components/SystemAccountTab";
+import { SystemMaintenanceTab } from "@/features/system/components/SystemMaintenanceTab";
 
 const log = createLogger("page/he-thong");
 import { generateAdminUsernameFromSchool, generateRandomPassword } from "@/lib/credentialGen";
@@ -1165,97 +1170,23 @@ export default function SystemAdminPage() {
     }));
   };
 
-  // CASE 1: Loading screen while checking auth
+  // CASE 1: Màn hình chờ xác thực phiên Super Admin
   if (isAuthenticated === null) {
-    return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-400">
-        <div className="flex items-center gap-2">
-          <div className="w-5 h-5 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
-          <span className="text-sm font-semibold">Đang kiểm tra quyền truy cập hệ thống...</span>
-        </div>
-      </div>
-    );
+    return <SystemLoadingScreen />;
   }
 
-  // CASE 3: Unauthenticated: Super Admin Login Screen (Localhost only)
+  // CASE 2: Chưa đăng nhập — màn hình đăng nhập Super Admin (chỉ localhost)
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-center items-center p-4 font-sans relative">
-        {toastMessage && (
-          <div className="fixed top-5 right-5 z-50 flex items-center gap-2 px-4 py-3 rounded-xl bg-white text-slate-900 shadow-2xl border border-slate-200 animate-in fade-in slide-in-from-top-4">
-            {toastMessage.type === "success" ? (
-              <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-            ) : toastMessage.type === "error" ? (
-              <AlertCircle className="w-5 h-5 text-rose-600" />
-            ) : (
-              <Sparkles className="w-5 h-5 text-indigo-600" />
-            )}
-            <span className="text-sm font-semibold">{toastMessage.text}</span>
-          </div>
-        )}
-
-        <div className="w-full max-w-md p-8 rounded-3xl bg-slate-900/90 border border-slate-800 shadow-2xl space-y-6 backdrop-blur-md">
-          <div className="text-center space-y-2">
-            <div className="w-16 h-16 rounded-2xl bg-purple-600/20 border border-purple-500/30 text-purple-400 mx-auto flex items-center justify-center shadow-lg shadow-purple-600/10">
-              <ShieldCheck className="w-8 h-8" />
-            </div>
-            <h1 className="text-xl font-extrabold text-white">Cổng Quản Trị Hệ Thống</h1>
-            <p className="text-xs text-slate-400">
-              Khu vực đăng nhập dành riêng cho Chủ Hệ Thống quản lý toàn diện các cơ sở.
-            </p>
-          </div>
-
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                Tài khoản Chủ Hệ Thống (.env):
-              </label>
-              <div className="relative">
-                <User className="w-4 h-4 absolute left-3.5 top-3 text-slate-500" />
-                <input
-                  type="text"
-                  required
-                  placeholder="Tên đăng nhập hệ thống"
-                  value={authUsername}
-                  onChange={(e) => setAuthUsername(e.target.value)}
-                  className="w-full pl-10 pr-3 py-2.5 text-sm rounded-xl bg-slate-800/80 border border-slate-700 text-white placeholder:text-slate-500 focus:outline-hidden focus:ring-2 focus:ring-purple-500"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">Mật khẩu:</label>
-              <div className="relative">
-                <Lock className="w-4 h-4 absolute left-3.5 top-3 text-slate-500" />
-                <input
-                  type="password"
-                  required
-                  placeholder="Mật khẩu bảo mật"
-                  value={authPassword}
-                  onChange={(e) => setAuthPassword(e.target.value)}
-                  className="w-full pl-10 pr-3 py-2.5 text-sm rounded-xl bg-slate-800/80 border border-slate-700 text-white placeholder:text-slate-500 focus:outline-hidden focus:ring-2 focus:ring-purple-500"
-                />
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={isSubmittingAuth}
-              className="w-full py-3 px-4 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-sm shadow-lg shadow-purple-600/30 transition flex items-center justify-center gap-2 disabled:opacity-50"
-            >
-              {isSubmittingAuth ? "Đang xác thực..." : "Đăng Nhập Hệ Thống"}
-              <ArrowRight className="w-4 h-4" />
-            </button>
-          </form>
-
-          <div className="pt-2 border-t border-slate-800/80 text-center">
-            <p className="text-[11px] text-slate-500">
-              Thông tin đăng nhập được lưu trữ an toàn trong biến môi trường file{" "}
-              <code className="text-purple-400 font-mono">.env</code> của máy chủ.
-            </p>
-          </div>
-        </div>
-      </div>
+      <SystemLoginScreen
+        username={authUsername}
+        password={authPassword}
+        isSubmitting={isSubmittingAuth}
+        toastMessage={toastMessage}
+        onUsernameChange={setAuthUsername}
+        onPasswordChange={setAuthPassword}
+        onSubmit={handleLogin}
+      />
     );
   }
 
@@ -2164,427 +2095,58 @@ export default function SystemAdminPage() {
 
         {/* TAB 3: AUTO UPGRADE & MAINTENANCE */}
         {activeSystemTab === "maintenance" && (
-          <div className="space-y-6 animate-in fade-in duration-150">
-            <div className="p-6 rounded-3xl bg-slate-800/80 border border-slate-700/80 space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-                <div className="space-y-1.5">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      <span>Hệ Thống Tự Động Hóa 1-Click</span>
-                    </span>
-
-                    {updateCheckResult && (
-                      <span
-                        className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black ${
-                          updateCheckResult.has_update
-                            ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
-                            : "bg-blue-500/20 text-blue-300 border border-blue-500/30"
-                        }`}
-                      >
-                        {updateCheckResult.has_update ? (
-                          <>
-                            <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                            <span>
-                              Có {updateCheckResult.commits_behind || 1} bản cập nhật mới trên
-                              GitHub
-                            </span>
-                          </>
-                        ) : (
-                          <>
-                            <Check className="w-3.5 h-3.5 text-blue-400" />
-                            <span>
-                              Hệ thống đang ở bản mới nhất ({updateCheckResult.local_commit})
-                            </span>
-                          </>
-                        )}
-                      </span>
-                    )}
-                  </div>
-
-                  <h3 className="text-xl font-black text-white mt-1">
-                    Tự Động Nâng Cấp Phiên Bản Mới Từ GitHub
-                  </h3>
-                  <p className="text-xs text-slate-400 max-w-2xl leading-relaxed">
-                    Quy trình tự động hóa độc lập: Kích hoạt màn hình bảo trì toàn hệ thống -&gt;
-                    Tải mã nguồn mới nhất từ kho GitHub -&gt; Tự động cài đặt thư viện thiếu -&gt;
-                    Tối ưu và biên dịch bản build Next.js -&gt; Tự khởi động lại dịch vụ ngay lập
-                    tức.
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-2 shrink-0">
-                  <button
-                    type="button"
-                    disabled={isCheckingUpdate || isUpgrading}
-                    onClick={() => handleCheckUpdate(false)}
-                    className="px-4 py-3 rounded-2xl border border-slate-700 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs transition flex items-center gap-2 disabled:opacity-50"
-                  >
-                    <RefreshCw
-                      className={`w-3.5 h-3.5 ${isCheckingUpdate ? "animate-spin" : ""}`}
-                    />
-                    <span>{isCheckingUpdate ? "Đang kiểm tra..." : "Kiểm Tra Bản Mới"}</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    disabled={isUpgrading}
-                    onClick={() => setIsUpgradeModalOpen(true)}
-                    className="px-5 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-lg shadow-emerald-600/30 transition flex items-center gap-2 disabled:opacity-50"
-                  >
-                    <RefreshCw className={`w-4 h-4 ${isUpgrading ? "animate-spin" : ""}`} />
-                    <span>{isUpgrading ? "Đang Nâng Cấp..." : "Cập Nhật GitHub Ngay"}</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Chi tiết phiên bản git */}
-              {updateCheckResult && (
-                <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-700/60 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                  <div>
-                    <span className="text-slate-400 font-bold block text-[11px] mb-1">
-                      Bản đang chạy trên máy chủ:
-                    </span>
-                    <p className="font-mono text-purple-300 font-bold">
-                      {updateCheckResult.local_log || updateCheckResult.local_commit}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 font-bold block text-[11px] mb-1">
-                      Bản mới nhất trên GitHub:
-                    </span>
-                    <p className="font-mono text-emerald-400 font-bold">
-                      {updateCheckResult.remote_log || updateCheckResult.remote_commit}
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-700/60 space-y-2 text-xs text-slate-300 font-mono">
-                <p className="text-slate-400 font-bold uppercase tracking-wider text-[10px]">
-                  Các lệnh thực thi trong quy trình tự động:
-                </p>
-                <p>
-                  1.{" "}
-                  <span className="text-purple-300">
-                    echo &quot;maintenance&quot; &gt; .maintenance
-                  </span>{" "}
-                  (Kích hoạt bảo trì)
-                </p>
-                <p>
-                  2. <span className="text-blue-300">git pull origin main</span> (Kéo code mới nhất)
-                </p>
-                <p>
-                  3. <span className="text-amber-300">npm install</span> (Tự cài thư viện bổ sung
-                  nếu có)
-                </p>
-                <p>
-                  4. <span className="text-emerald-300">npm run build</span> (Tối ưu biên dịch)
-                </p>
-                <p>
-                  5. <span className="text-purple-300">del .maintenance &amp;&amp; npm start</span>{" "}
-                  (Khởi động lại máy chủ)
-                </p>
-              </div>
-            </div>
-          </div>
+          <SystemMaintenanceTab
+            isCheckingUpdate={isCheckingUpdate}
+            isUpgrading={isUpgrading}
+            updateCheckResult={updateCheckResult}
+            onCheckUpdate={handleCheckUpdate}
+            onOpenUpgradeModal={setIsUpgradeModalOpen}
+          />
         )}
 
         {/* TAB 4: CẤU HÌNH AI TRỢ LÝ TOÀN HỆ THỐNG */}
         {activeSystemTab === "ai" && (
-          <div className="space-y-6 animate-in fade-in duration-150">
-            <div className="p-6 rounded-3xl bg-slate-800/80 border border-slate-700/80 space-y-5">
-              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 border-b border-slate-700/80 pb-4">
-                <div>
-                  <h3 className="text-lg font-black text-white flex items-center gap-2">
-                    <Sparkles className="w-5 h-5 text-amber-400" />
-                    <span>Cấu Hình Trợ Lý AI Toàn Hệ Thống (OpenAI / Gemini Proxy)</span>
-                  </h3>
-                  <p className="text-xs text-slate-400 mt-1 max-w-3xl leading-relaxed">
-                    Hỗ trợ mọi endpoint tương thích chuẩn OpenAI API (Google Gemini 3.8 Flash,
-                    ChatGPT, v.v.). Trí tuệ nhân tạo sẽ tự động tiếp sức cho: (1) Cửa sổ Trợ lý AI
-                    trên Dashboard Admin, (2) Chat trực tiếp với Zalo Bot của Admin, (3) Gợi ý nhận
-                    xét buổi học cho Giáo viên.
-                  </p>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <label className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-700 text-xs font-bold text-slate-300 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={aiIsActive}
-                      onChange={(e) => setAiIsActive(e.target.checked)}
-                      className="w-4 h-4 text-purple-600 rounded-md focus:ring-purple-500"
-                    />
-                    <span>{aiIsActive ? "AI Đang Bật" : "AI Đang Tắt"}</span>
-                  </label>
-                </div>
-              </div>
-
-              <form onSubmit={handleSaveAiConfig} className="space-y-4 max-w-3xl">
-                {/* Endpoint Base URL */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-300 block">
-                    AI Endpoint Base URL *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="https://chat.4uai.tech/v1 hoặc https://api.openai.com/v1"
-                    value={aiBaseUrl}
-                    onChange={(e) => setAiBaseUrl(e.target.value)}
-                    className="w-full px-4 py-2.5 text-xs font-mono font-bold rounded-xl border border-slate-700 bg-slate-900 text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-purple-500"
-                  />
-                  <p className="text-[11px] text-slate-400">
-                    Đường dẫn máy chủ API proxy (chuẩn OpenAI Chat Completions). Ví dụ:{" "}
-                    <code>https://chat.4uai.tech/v1</code>
-                  </p>
-                </div>
-
-                {/* API Key */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-300 block">AI API Key *</label>
-                  <div className="relative">
-                    <input
-                      type={showApiKey ? "text" : "password"}
-                      required
-                      placeholder="sk-aistudio-... hoặc sk-..."
-                      value={aiApiKey}
-                      onChange={(e) => setAiApiKey(e.target.value)}
-                      className="w-full pl-4 pr-11 py-2.5 text-xs font-mono font-bold rounded-xl border border-slate-700 bg-slate-900 text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-purple-500"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowApiKey(!showApiKey)}
-                      className="absolute right-3 top-2.5 text-slate-400 hover:text-white"
-                      title={showApiKey ? "Ẩn mã khóa" : "Hiện mã khóa"}
-                    >
-                      {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                  </div>
-                  <p className="text-[11px] text-slate-400">
-                    Mã khóa bí mật của mô hình. Được bảo mật an toàn trên máy chủ nội bộ.
-                  </p>
-                </div>
-
-                {/* Model ID */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-300 block">
-                    Mã Mô Hình (Model ID) *
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      required
-                      placeholder="gemini-3.8-flash hoặc gpt-4o-mini"
-                      value={aiModel}
-                      onChange={(e) => setAiModel(e.target.value)}
-                      className="flex-1 px-4 py-2.5 text-xs font-mono font-bold rounded-xl border border-slate-700 bg-slate-900 text-white placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-purple-500"
-                    />
-                    <div className="flex items-center gap-1">
-                      {["gemini-3.8-flash", "gpt-4o-mini", "gemini-2.0-flash"].map((quickModel) => (
-                        <button
-                          key={quickModel}
-                          type="button"
-                          onClick={() => setAiModel(quickModel)}
-                          className={`px-2.5 py-2 text-[10px] font-bold rounded-lg border transition ${
-                            aiModel === quickModel
-                              ? "bg-purple-600 text-white border-purple-500"
-                              : "bg-slate-900 text-slate-400 border-slate-700 hover:text-white"
-                          }`}
-                        >
-                          {quickModel}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Test Result Banner */}
-                {aiTestResult && (
-                  <div
-                    className={`p-3.5 rounded-2xl border text-xs space-y-1 animate-in fade-in ${
-                      aiTestResult.success
-                        ? "bg-emerald-950/40 border-emerald-800 text-emerald-300"
-                        : "bg-rose-950/40 border-rose-800 text-rose-300"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between font-bold">
-                      <span className="flex items-center gap-1.5">
-                        {aiTestResult.success ? (
-                          <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                        ) : (
-                          <AlertCircle className="w-4 h-4 text-rose-400" />
-                        )}
-                        <span>
-                          {aiTestResult.success ? "Kết Nối Thành Công!" : "Kết Nối Thất Bại"}
-                        </span>
-                      </span>
-                      {aiTestResult.elapsed_ms !== undefined && (
-                        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-black/40">
-                          {aiTestResult.elapsed_ms}ms
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-[11px] leading-relaxed opacity-90">{aiTestResult.message}</p>
-                    {aiTestResult.reply && (
-                      <div className="mt-1.5 p-2 rounded-xl bg-black/40 font-mono text-[11px] text-slate-300">
-                        Phản hồi từ AI: &quot;{aiTestResult.reply}&quot;
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Action Buttons */}
-                <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-                  <button
-                    type="button"
-                    disabled={isTestingAi}
-                    onClick={handleTestAiConnection}
-                    className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-2.5 text-xs font-bold rounded-xl bg-slate-700 hover:bg-slate-600 text-white transition shadow-sm disabled:opacity-50 cursor-pointer"
-                  >
-                    <Sparkles
-                      className={`w-4 h-4 text-amber-400 ${isTestingAi ? "animate-spin" : ""}`}
-                    />
-                    <span>{isTestingAi ? "Đang Thử Nghiệm..." : "Kiểm Tra Kết Nối AI"}</span>
-                  </button>
-
-                  <button
-                    type="submit"
-                    disabled={isSavingAi}
-                    className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 text-xs font-bold rounded-xl bg-purple-600 hover:bg-purple-500 text-white transition shadow-md shadow-purple-600/30 disabled:opacity-50 cursor-pointer"
-                  >
-                    <Check className="w-4 h-4" />
-                    <span>{isSavingAi ? "Đang Lưu..." : "Lưu Cấu Hình AI"}</span>
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
+          <AiConfigTab
+            aiBaseUrl={aiBaseUrl}
+            aiApiKey={aiApiKey}
+            aiModel={aiModel}
+            aiIsActive={aiIsActive}
+            showApiKey={showApiKey}
+            isSavingAi={isSavingAi}
+            isTestingAi={isTestingAi}
+            aiTestResult={aiTestResult}
+            onBaseUrlChange={setAiBaseUrl}
+            onApiKeyChange={setAiApiKey}
+            onModelChange={setAiModel}
+            onActiveChange={setAiIsActive}
+            onToggleShowApiKey={setShowApiKey}
+            onSave={handleSaveAiConfig}
+            onTest={handleTestAiConnection}
+          />
         )}
 
         {/* TAB 5: ĐỔI TÀI KHOẢN & MẬT KHẨU HỆ THỐNG */}
         {activeSystemTab === "account" && (
-          <div className="space-y-6 animate-in fade-in duration-150">
-            <div className="p-6 rounded-3xl bg-slate-800/80 border border-slate-700/80 shadow-xl space-y-6 max-w-2xl mx-auto">
-              <div className="flex items-center gap-3 pb-4 border-b border-slate-700/60">
-                <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
-                  <KeyRound className="w-6 h-6" />
-                </div>
-                <div>
-                  <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                    <span>Đổi Tài Khoản & Mật Khẩu Chủ Hệ Thống</span>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                      Super Admin
-                    </span>
-                  </h2>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    Thay đổi thông tin đăng nhập quản trị cao nhất của trang /he-thong. Mật khẩu
-                    được mã hóa và lưu trữ an toàn.
-                  </p>
-                </div>
-              </div>
-
-              <form onSubmit={handleChangeSystemCredentials} className="space-y-4">
-                {/* Thông tin tài khoản hiện tại */}
-                <div className="p-3.5 rounded-2xl bg-slate-900/60 border border-slate-700/50 flex items-center justify-between text-xs">
-                  <span className="text-slate-400">Tài khoản hệ thống đang đăng nhập:</span>
-                  <span className="font-mono font-bold text-purple-300 px-2.5 py-1 rounded-lg bg-purple-950/60 border border-purple-800/50">
-                    {authUsername || "hethong"}
-                  </span>
-                </div>
-
-                {/* Tên đăng nhập mới */}
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Tên đăng nhập hệ thống mới
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={changeSystemNewUsername}
-                    onChange={(e) => setChangeSystemNewUsername(e.target.value)}
-                    placeholder={`Giữ nguyên (${authUsername || "hethong"}) hoặc nhập tên mới`}
-                    className="w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-700 bg-slate-900 text-white placeholder:text-slate-500 focus:ring-2 focus:ring-emerald-500 outline-none"
-                  />
-                  <p className="text-[10px] text-slate-400 mt-1">
-                    Bạn có thể giữ nguyên tên đăng nhập hiện tại hoặc đổi sang tên mới (tối thiểu 3
-                    ký tự).
-                  </p>
-                </div>
-
-                {/* Mật khẩu hiện tại */}
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Mật khẩu hệ thống hiện tại <span className="text-rose-400">*</span>
-                  </label>
-                  <input
-                    type="password"
-                    required
-                    value={changeSystemCurrentPass}
-                    onChange={(e) => setChangeSystemCurrentPass(e.target.value)}
-                    placeholder="Nhập mật khẩu hiện tại để xác thực..."
-                    className="w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-700 bg-slate-900 text-white placeholder:text-slate-500 focus:ring-2 focus:ring-emerald-500 outline-none"
-                  />
-                </div>
-
-                {/* Mật khẩu mới & Xác nhận */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1">
-                      Mật khẩu mới <span className="text-rose-400">*</span>
-                    </label>
-                    <input
-                      type="password"
-                      required
-                      value={changeSystemNewPass}
-                      onChange={(e) => setChangeSystemNewPass(e.target.value)}
-                      placeholder="Tối thiểu 6 ký tự..."
-                      className="w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-700 bg-slate-900 text-white placeholder:text-slate-500 focus:ring-2 focus:ring-emerald-500 outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1">
-                      Xác nhận mật khẩu mới <span className="text-rose-400">*</span>
-                    </label>
-                    <input
-                      type="password"
-                      required
-                      value={changeSystemConfirmPass}
-                      onChange={(e) => setChangeSystemConfirmPass(e.target.value)}
-                      placeholder="Nhập lại mật khẩu mới..."
-                      className="w-full px-3.5 py-2.5 text-xs sm:text-sm rounded-xl border border-slate-700 bg-slate-900 text-white placeholder:text-slate-500 focus:ring-2 focus:ring-emerald-500 outline-none"
-                    />
-                  </div>
-                </div>
-
-                <div className="pt-3 flex items-center justify-end gap-3 border-t border-slate-700/60">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setChangeSystemCurrentPass("");
-                      setChangeSystemNewPass("");
-                      setChangeSystemConfirmPass("");
-                      setChangeSystemNewUsername(authUsername || "hethong");
-                      setActiveSystemTab("schools");
-                    }}
-                    className="px-4 py-2.5 text-xs font-bold rounded-xl border border-slate-700 text-slate-400 hover:text-white hover:bg-slate-700/50 transition cursor-pointer"
-                  >
-                    Hủy bỏ
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isChangingSystemCreds}
-                    className="flex items-center gap-2 px-6 py-2.5 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white transition shadow-md shadow-emerald-600/30 disabled:opacity-50 cursor-pointer"
-                  >
-                    <Check className="w-4 h-4" />
-                    <span>
-                      {isChangingSystemCreds ? "Đang Cập Nhật..." : "Lưu Thông Tin Đăng Nhập Mới"}
-                    </span>
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
+          <SystemAccountTab
+            authUsername={authUsername}
+            currentPass={changeSystemCurrentPass}
+            newUsername={changeSystemNewUsername}
+            newPass={changeSystemNewPass}
+            confirmPass={changeSystemConfirmPass}
+            isChanging={isChangingSystemCreds}
+            onCurrentPassChange={setChangeSystemCurrentPass}
+            onNewUsernameChange={setChangeSystemNewUsername}
+            onNewPassChange={setChangeSystemNewPass}
+            onConfirmPassChange={setChangeSystemConfirmPass}
+            onSubmit={handleChangeSystemCredentials}
+            onCancel={() => {
+              setChangeSystemCurrentPass("");
+              setChangeSystemNewPass("");
+              setChangeSystemConfirmPass("");
+              setChangeSystemNewUsername(authUsername || "hethong");
+              setActiveSystemTab("schools");
+            }}
+          />
         )}
       </main>
 

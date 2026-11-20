@@ -500,8 +500,18 @@ export async function POST(req: Request) {
       const inputPassword =
         password !== undefined && password !== null ? String(password).trim() : "";
 
-      // Nếu người dùng cung cấp mật khẩu, kiểm tra trùng khớp
-      if (inputPassword && inputPassword !== expectedPassword) {
+      // Bắt buộc nhập mật khẩu (không cho phép đăng nhập khi bỏ trống).
+      if (!inputPassword) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: "Vui lòng nhập mật khẩu để đăng nhập Cổng Giáo Viên.",
+          },
+          { status: 401 }
+        );
+      }
+
+      if (inputPassword !== expectedPassword) {
         return NextResponse.json(
           {
             success: false,

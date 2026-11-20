@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
-import { getSchoolIdFromRequest } from "@/lib/authHelper";
+import { getSchoolIdFromRequest, requireAdminPermission } from "@/lib/authHelper";
 import { appendLedger } from "@/lib/wallet";
 import { formatMinutes } from "@/lib/tuition";
 import { createLogger } from "@/lib/logger";
@@ -12,6 +12,8 @@ const log = createLogger("api/admin/attendance");
 export async function GET(req: Request) {
   try {
     await initDb();
+    const auth = await requireAdminPermission(req, "attendance.manage");
+    if (!auth.authorized) return auth.errorResponse!;
     const db = getDb();
     const { searchParams } = new URL(req.url);
     const date = searchParams.get("date") || new Date().toISOString().slice(0, 10);
@@ -75,6 +77,8 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     await initDb();
+    const auth = await requireAdminPermission(req, "attendance.manage");
+    if (!auth.authorized) return auth.errorResponse!;
     const db = getDb();
     const body = await req.json();
     const { date, records } = body;

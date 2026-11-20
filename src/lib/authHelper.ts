@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "./db";
 import crypto from "crypto";
+import { decodeSchoolAdminToken } from "@/lib/sessionToken";
 
 export function getPwdHash(pwd: string): string {
   return crypto.createHash("sha256").update(pwd).digest("hex").slice(0, 16);
@@ -92,10 +93,9 @@ export function getSchoolIdFromRequest(req: Request): string {
     }
 
     if (token) {
-      const decoded = Buffer.from(token, "base64").toString("utf-8");
-      const parts = decoded.split(":");
-      if (parts.length >= 3 && parts[0] === "school_admin" && parts[2]) {
-        return parts[2];
+      const decoded = decodeSchoolAdminToken(token);
+      if (decoded && decoded.segments[2]) {
+        return decoded.segments[2];
       }
     }
 
@@ -131,11 +131,9 @@ export async function getAdminFromRequest(req: Request): Promise<RequestAdminCon
 
     if (!token) return null;
 
-    const decoded = Buffer.from(token, "base64").toString("utf-8");
-    const parts = decoded.split(":");
-    if (parts.length < 4 || parts[0] !== "school_admin") {
-      return null;
-    }
+    const decoded = decodeSchoolAdminToken(token);
+    if (!decoded) return null;
+    const parts = decoded.segments;
 
     const adminId = parts[1];
     const adminRes = await db.execute({
@@ -210,6 +208,65 @@ export async function getAdminFromRequest(req: Request): Promise<RequestAdminCon
 }
 
 /**
+ * Phân giải `school_id` đáng tin cậy cho một request đã xác thực.
+ *
+ * Chống cross-tenant: header `x-school-id` / query `?school_id` chỉ được chấp nhận
+ * khi nằm trong phạm vi tổ chức của tài khoản (cơ sở gốc hoặc chi nhánh cùng
+ * `parent_school_id`). Mọi giá trị lạ đều bị bỏ qua và rơi về `admin.school_id`.
+ */
+export async function resolveSchoolScopeForAdmin(
+  req: Request,
+  admin: RequestAdminContext
+): Promise<string> {
+  const requested = (() => {
+    const header = req.headers.get("x-school-id");
+    if (header && header.trim()) return header.trim();
+    try {
+      const url = new URL(req.url);
+      const query = url.searchParams.get("school_id");
+      if (query && query.trim()) return query.trim();
+    } catch {
+      /* Bỏ qua có chủ đích: URL không hợp lệ thì dùng school mặc định của admin. */
+    }
+    return "";
+  })();
+
+  if (!requested || requested === admin.school_id) return admin.school_id;
+
+  try {
+    const db = getDb();
+    const targetRes = await db.execute({
+      sql: "SELECT id, parent_school_id FROM schools WHERE id = ? LIMIT 1",
+      args: [requested],
+    });
+    if (targetRes.rows.length === 0) return admin.school_id;
+
+    const adminRes = await db.execute({
+      sql: "SELECT parent_school_id FROM schools WHERE id = ? LIMIT 1",
+      args: [admin.school_id],
+    });
+
+    const targetParent = targetRes.rows[0].parent_school_id
+      ? String(targetRes.rows[0].parent_school_id)
+      : null;
+    const adminParent =
+      adminRes.rows.length > 0 && adminRes.rows[0].parent_school_id
+        ? String(adminRes.rows[0].parent_school_id)
+        : null;
+
+    // Cùng một tổ chức: cùng parent_school_id, hoặc một bên là gốc của bên kia.
+    const rootOfAdmin = adminParent || admin.school_id;
+    const rootOfTarget = targetParent || requested;
+
+    if (rootOfAdmin === rootOfTarget) return requested;
+  } catch {
+    /* Bỏ qua có chủ đích: lỗi truy vấn thì giữ phạm vi an toàn của admin. */
+  }
+
+  return admin.school_id;
+}
+
+/**
  * Kiểm tra quyền hạn của Admin trước khi thực hiện các API nhạy cảm.
  * Chủ cơ sở (is_owner === 1 hoặc permissions bao gồm "*") luôn được phép.
  */
@@ -265,6 +322,49 @@ export async function getSystemAdminFromRequest(
   } catch {
     return null;
   }
+}
+
+/**
+ * Biến thể của `requireAdminPermission`: cho phép khi tài khoản có **ít nhất một**
+ * trong các quyền được liệt kê. Dùng cho endpoint đọc dữ liệu phục vụ nhiều màn hình.
+ */
+export async function requireAnyAdminPermission(
+  req: Request,
+  permKeys: string[]
+): Promise<{ authorized: boolean; admin?: RequestAdminContext; errorResponse?: NextResponse }> {
+  const admin = await getAdminFromRequest(req);
+  if (!admin) {
+    return {
+      authorized: false,
+      errorResponse: NextResponse.json(
+        {
+          success: false,
+          message: "Phiên đăng nhập không hợp lệ hoặc đã hết hạn! Vui lòng đăng nhập lại.",
+        },
+        { status: 401 }
+      ),
+    };
+  }
+
+  if (admin.is_owner === 1 || admin.permissions.includes("*")) {
+    return { authorized: true, admin };
+  }
+
+  if (permKeys.some((key) => admin.permissions.includes(key))) {
+    return { authorized: true, admin };
+  }
+
+  return {
+    authorized: false,
+    admin,
+    errorResponse: NextResponse.json(
+      {
+        success: false,
+        message: `Tài khoản "${admin.full_name}" không có quyền thực hiện thao tác này (cần một trong: ${permKeys.join(", ")})!`,
+      },
+      { status: 403 }
+    ),
+  };
 }
 
 export async function requireAdminPermission(

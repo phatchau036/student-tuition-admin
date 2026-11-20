@@ -1,12 +1,15 @@
 import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
 import { createLogger } from "@/lib/logger";
+import { requireAdminPermission } from "@/lib/authHelper";
 
 const log = createLogger("api/teachers/id");
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     await initDb();
+    const auth = await requireAdminPermission(req, "teachers.manage");
+    if (!auth.authorized) return auth.errorResponse!;
     const db = getDb();
     const { id } = await params;
     const body = await req.json();
@@ -79,6 +82,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     await initDb();
+    const auth = await requireAdminPermission(req, "teachers.manage");
+    if (!auth.authorized) return auth.errorResponse!;
     const db = getDb();
     const { id } = await params;
 

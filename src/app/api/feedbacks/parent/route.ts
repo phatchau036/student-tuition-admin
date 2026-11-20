@@ -2,12 +2,15 @@ import { NextResponse } from "next/server";
 import { getDb, initDb } from "@/lib/db";
 import { notifyAdminViaZaloBot } from "@/lib/zaloBot";
 import { createLogger } from "@/lib/logger";
+import { requireAdminPermission } from "@/lib/authHelper";
 
 const log = createLogger("api/feedbacks/parent");
 
 export async function GET(req: Request) {
   try {
     await initDb();
+    const auth = await requireAdminPermission(req, "settings.manage");
+    if (!auth.authorized) return auth.errorResponse!;
     const db = getDb();
     const { searchParams } = new URL(req.url);
     const schoolId = searchParams.get("school_id") || "";
@@ -116,6 +119,8 @@ export async function POST(req: Request) {
 export async function PATCH(req: Request) {
   try {
     await initDb();
+    const auth = await requireAdminPermission(req, "settings.manage");
+    if (!auth.authorized) return auth.errorResponse!;
     const db = getDb();
     const body = await req.json();
     const { id, status, response_note } = body;
