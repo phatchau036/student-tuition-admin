@@ -1,0 +1,840 @@
+/**
+ * makeups.service.ts - Tang nghiep vu & truy cap du lieu cho endpoint tuong ung.
+ *
+ * Toan bo truy van SQL cua endpoint nam tai day. Cac file route handler
+ * chi con lop chuyen tiep mong (nhan Request -> goi handler -> tra Response).
+ *
+ * Tu dong tach tu route handler trong Giai doan 2.
+ */
+import { NextResponse } from "next/server";
+import { getDb, initDb } from "@/lib/db";
+import { getSchoolIdFromRequest, requireAdminPermission } from "@/lib/authHelper";
+import { appendLedger, getWalletBalance, getStudentSessionMinutes } from "@/lib/wallet";
+import { formatMinutes, getDayNameVi } from "@/lib/tuition";
+import { isTimeOverlap } from "@/lib/shiftDetection";
+import { notifyAdminViaZaloBot } from "@/lib/zaloBot";
+import { createLogger } from "@/lib/logger";
+import type { DbRow } from "@/lib/types";
+
+const log = createLogger("api/makeups");
+
+export async function handleMakeupsGet(req: Request) {
+  try {
+    await initDb();
+    const db = getDb();
+    const { searchParams } = new URL(req.url);
+    const querySchoolId = searchParams.get("school_id");
+    const headerSchoolId = getSchoolIdFromRequest(req);
+    const schoolId = querySchoolId || headerSchoolId || "";
+    const studentId = searchParams.get("student_id");
+    const action = searchParams.get("action");
+
+    // Action phụ: Lấy lịch sử biến động sổ cái quỹ giờ bù của 1 học sinh
+    if (action === "history" && studentId) {
+      const ledgerRes = await db.execute({
+        sql: `SELECT * FROM hour_ledger 
+              WHERE student_id = ? 
+              ORDER BY created_at DESC, id DESC LIMIT 50`,
+        args: [studentId],
+      });
+      const balance = await getWalletBalance(studentId);
+      return NextResponse.json({
+        success: true,
+        data: {
+          balance,
+          history: ledgerRes.rows.map((r) => ({
+            id: String(r.id),
+            type: String(r.type),
+            minutes: Number(r.minutes),
+            ref_type: String(r.ref_type || ""),
+            note: String(r.note || ""),
+            created_at: String(r.created_at || ""),
+          })),
+        },
+      });
+    }
+
+    let query = `
+      SELECT m.id, 
+             m.student_id, 
+             m.absence_date, 
+             m.absence_reason, 
+             m.status, 
+             m.makeup_date, 
+             m.makeup_time, 
+	             m.makeup_slot_id, 
+	             m.makeup_teacher_id, 
+	             m.class_id,
+	             cls.name as class_name,
+	             m.note, 
+	             m.created_at, 
+	             m.absence_start_time, 
+	             m.absence_end_time, 
+	             m.absence_minutes, 
+	             m.makeup_start_time, 
+	             m.makeup_end_time, 
+	             m.makeup_minutes, 
+	             m.lesson_id,
+	             COALESCE(NULLIF(s.name, ''), NULLIF(m.student_name, ''), 'Học viên') as student_name, 
+	             COALESCE(NULLIF(s.phone, ''), NULLIF(m.student_phone, ''), '') as student_phone, 
+	             s.school_id as student_school_id,
+	             s.registered_days, 
+	             s.study_time_detail,
+	             s.schedule_details_json,
+	             COALESCE(tc.name, 'Chưa phân công') as teacher_name
+	      FROM makeup_classes m
+	      LEFT JOIN students s ON m.student_id = s.id
+	      LEFT JOIN teachers tc ON s.teacher_id = tc.id
+	      LEFT JOIN classes cls ON m.class_id = cls.id
+	      WHERE 1=1
+    `;
+    const args: (string | number | null)[] = [];
+
+    if (schoolId && schoolId !== "all") {
+      query += ` AND (s.school_id = ? OR (? = 'school-default' AND (s.school_id IS NULL OR s.school_id = '' OR s.school_id = 'school-default')))`;
+      args.push(schoolId, schoolId);
+    }
+
+    if (studentId) {
+      query += " AND m.student_id = ?";
+      args.push(studentId);
+    }
+
+    query += " ORDER BY m.absence_date DESC, m.created_at DESC";
+
+    const res = await db.execute({ sql: query, args });
+
+    // Lấy thông tin số dư quỹ giờ của từng học sinh liên quan
+    const studentIds = Array.from(new Set(res.rows.map((r) => String(r.student_id))));
+    const walletMap: Record<string, { balance_minutes: number; available_minutes: number }> = {};
+    for (const sid of studentIds) {
+      try {
+        const bal = await getWalletBalance(sid);
+        walletMap[sid] = {
+          balance_minutes: bal.balance_minutes,
+          available_minutes: bal.available_minutes,
+        };
+      } catch {
+        walletMap[sid] = { balance_minutes: 0, available_minutes: 0 };
+      }
+    }
+
+    const makeups = res.rows.map((row) => {
+      const sid = String(row.student_id);
+      return {
+        id: String(row.id),
+        student_id: sid,
+        student_name: String(row.student_name || "Học viên"),
+        student_phone: String(row.student_phone || ""),
+        teacher_name: row.teacher_name ? String(row.teacher_name) : "Chưa phân công",
+        absence_date: String(row.absence_date || ""),
+        absence_reason: String(row.absence_reason || ""),
+        absence_start_time: row.absence_start_time ? String(row.absence_start_time) : "18:00",
+        absence_end_time: row.absence_end_time ? String(row.absence_end_time) : "19:30",
+        absence_minutes: Number(row.absence_minutes || 90),
+        status: String(row.status || "pending"),
+        makeup_date: row.makeup_date ? String(row.makeup_date) : undefined,
+        makeup_time: row.makeup_time ? String(row.makeup_time) : undefined,
+        makeup_start_time: row.makeup_start_time ? String(row.makeup_start_time) : undefined,
+        makeup_end_time: row.makeup_end_time ? String(row.makeup_end_time) : undefined,
+        makeup_minutes: row.makeup_minutes ? Number(row.makeup_minutes) : undefined,
+        makeup_slot_id: row.makeup_slot_id ? String(row.makeup_slot_id) : undefined,
+        makeup_teacher_id: row.makeup_teacher_id ? String(row.makeup_teacher_id) : undefined,
+        lesson_id: row.lesson_id ? String(row.lesson_id) : undefined,
+        note: row.note ? String(row.note) : undefined,
+        created_at: String(row.created_at || ""),
+        student_wallet: walletMap[sid] || { balance_minutes: 0, available_minutes: 0 },
+      };
+    });
+
+    return NextResponse.json({ success: true, data: makeups });
+  } catch (error: unknown) {
+    log.error("Makeups GET Error:", { error: error });
+    return NextResponse.json(
+      { success: false, message: (error as Error).message || "Internal Server Error" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function handleMakeupsPost(req: Request) {
+  try {
+    await initDb();
+    const db = getDb();
+    const body = await req.json();
+
+    // Các thao tác quản trị nội bộ bắt buộc quyền makeups.manage.
+    // `report_absence` và `schedule_makeup` vẫn mở cho Cổng Phụ huynh tự phục vụ.
+    const adminActions = ["complete", "reset_pending", "delete"];
+    if (adminActions.includes(String(body?.action || ""))) {
+      const auth = await requireAdminPermission(req, "makeups.manage");
+      if (!auth.authorized) return auth.errorResponse!;
+    }
+
+    const {
+      action,
+      student_id,
+      absence_date,
+      absence_reason,
+      absence_start_time,
+      absence_end_time,
+      absence_minutes,
+      makeup_id,
+      makeup_date,
+      makeup_time,
+      makeup_start_time,
+      makeup_end_time,
+      makeup_minutes,
+      makeup_slot_id,
+      makeup_teacher_id,
+      class_id,
+      makeup_class_id,
+      time_slot_id,
+      note,
+    } = body;
+
+    const targetSlotId = makeup_slot_id || time_slot_id;
+    const targetClassId = class_id || makeup_class_id || null;
+
+    // =========================================================================
+    // 1. Action: Báo nghỉ (Tích lũy giờ bù vào quỹ & đồng bộ lessons)
+    // =========================================================================
+    if (action === "report_absence") {
+      if (!student_id || !absence_date) {
+        return NextResponse.json(
+          { success: false, message: "Vui lòng chọn học sinh và ngày nghỉ!" },
+          { status: 400 }
+        );
+      }
+
+      // Chặn báo nghỉ trùng cùng một ngày nếu đã có lịch pending/scheduled
+      const existingCheck = await db.execute({
+        sql: "SELECT id FROM makeup_classes WHERE student_id = ? AND absence_date = ? AND status IN ('pending', 'scheduled') LIMIT 1",
+        args: [student_id, absence_date],
+      });
+      if (existingCheck.rows.length > 0) {
+        return NextResponse.json(
+          { success: false, message: "Buổi học ngày này đã được báo nghỉ trước đó rồi!" },
+          { status: 400 }
+        );
+      }
+
+      // Xác định thời lượng ca nghỉ (mặc định tính từ start - end hoặc getStudentSessionMinutes)
+      const sTime = (absence_start_time || body.start_time || "18:00").trim();
+      const eTime = (absence_end_time || "19:30").trim();
+      let absMin = Number(absence_minutes || body.minutes);
+
+      if (!absMin || isNaN(absMin) || absMin <= 0) {
+        const [sh, sm] = sTime.split(":").map(Number);
+        const [eh, em] = eTime.split(":").map(Number);
+        if (!isNaN(sh) && !isNaN(eh) && eh * 60 + (em || 0) > sh * 60 + (sm || 0)) {
+          absMin = eh * 60 + (em || 0) - (sh * 60 + (sm || 0));
+        } else {
+          let dayName: string | undefined;
+          try {
+            dayName = getDayNameVi(absence_date);
+          } catch (err) {
+            log.debug("Bỏ qua lỗi không ảnh hưởng luồng chính (route)", { error: err });
+          }
+          absMin = await getStudentSessionMinutes(student_id, dayName);
+        }
+      }
+
+      const id = `mk-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+
+      // Đọc thông tin học sinh để lưu trực tiếp tên và SĐT
+      const stRes = await db.execute({
+        sql: "SELECT name, phone FROM students WHERE id = ?",
+        args: [student_id],
+      });
+      const stName = stRes.rows.length > 0 && stRes.rows[0].name ? String(stRes.rows[0].name) : "";
+      const stPhone =
+        stRes.rows.length > 0 && stRes.rows[0].phone ? String(stRes.rows[0].phone) : "";
+
+      // Lưu bản ghi báo nghỉ
+      await db.execute({
+        sql: `INSERT INTO makeup_classes (
+                id, student_id, student_name, student_phone, absence_date, absence_reason, 
+                absence_start_time, absence_end_time, absence_minutes, status
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
+        args: [
+          id,
+          student_id,
+          stName,
+          stPhone,
+          absence_date,
+          absence_reason || "Báo nghỉ có phép",
+          sTime,
+          eTime,
+          absMin,
+        ],
+      });
+
+      // ⭐ ĐỒNG BỘ QUỸ GIỜ: Cộng dồn chính xác số giờ này vào Quỹ giờ học bù (hour_ledger)
+      // Dùng refType = "absence" và refId = id để đồng bộ nhất quán và chống ghi trùng lặp (idempotency)
+      await appendLedger({
+        studentId: student_id,
+        type: "REFUND",
+        minutes: absMin,
+        refType: "absence",
+        refId: id,
+        note: `Tích lũy giờ nghỉ ngày ${absence_date} (${sTime} - ${eTime}: +${formatMinutes(absMin)})`,
+        createdBy: "admin_report_absence",
+      });
+
+      // Đồng bộ vào bảng lessons (status = absent_excused)
+      const lessonId = `les-${student_id.slice(0, 8)}-${absence_date}-${Date.now().toString(36)}`;
+      try {
+        await db.execute({
+          sql: `INSERT INTO lessons (id, student_id, date, start_time, planned_minutes, kind, status, reason, created_by)
+                VALUES (?, ?, ?, ?, ?, 'regular', 'absent_excused', ?, ?)
+                ON CONFLICT(student_id, date, start_time) DO UPDATE SET status = 'absent_excused'`,
+          args: [
+            lessonId,
+            student_id,
+            absence_date,
+            sTime,
+            absMin,
+            absence_reason || "Báo nghỉ có phép",
+            "parent",
+          ],
+        });
+      } catch (err) {
+        log.debug("Bỏ qua lỗi không ảnh hưởng luồng chính (route)", { error: err });
+      }
+
+      const hoursDisplay = (absMin / 60).toFixed(1).replace(".0", "");
+      const newWallet = await getWalletBalance(student_id);
+
+      // 🔔 Bắn thông báo Zalo cho Admin khi có học sinh báo nghỉ
+      const msgForAdmin = `🏥 [HỌC SINH BÁO NGHỈ]
+• Học sinh: ${stName} (SĐT: ${stPhone || "—"})
+• Ngày nghỉ: ${absence_date} (${sTime} - ${eTime})
+• Lý do: ${absence_reason || "Báo nghỉ có phép"}
+• Quỹ giờ bù: Đã tự động cấp +${hoursDisplay}h (${absMin} phút) vào ví giờ.`;
+
+      notifyAdminViaZaloBot(msgForAdmin, "student_absence").catch(() => {});
+
+      return NextResponse.json({
+        success: true,
+        message: `Đã ghi nhận báo nghỉ thành công! +${hoursDisplay} giờ (${absMin} phút) đã được cộng vào Quỹ giờ học bù.`,
+        id,
+        absence_minutes: absMin,
+        wallet: newWallet,
+      });
+    }
+
+    // =========================================================================
+    // 2. Action: Đặt lịch học bù (Trừ quỹ giờ học bù & kiểm tra sĩ số)
+    // =========================================================================
+    if (action === "schedule_makeup") {
+      if (!makeup_id || !makeup_date) {
+        return NextResponse.json(
+          { success: false, message: "Vui lòng chọn ngày học bù!" },
+          { status: 400 }
+        );
+      }
+
+      // Đọc thông tin buổi bù đang xếp
+      const mkRes = await db.execute({
+        sql: "SELECT * FROM makeup_classes WHERE id = ?",
+        args: [makeup_id],
+      });
+      if (mkRes.rows.length === 0) {
+        return NextResponse.json(
+          { success: false, message: "Không tìm thấy buổi bù này!" },
+          { status: 404 }
+        );
+      }
+      const mkRecord = mkRes.rows[0];
+      const targetStudentId = String(mkRecord.student_id);
+
+      // Xác định thời lượng bù
+      let plannedMin = Number(makeup_minutes || body.minutes);
+      if (!plannedMin || isNaN(plannedMin) || plannedMin <= 0) {
+        plannedMin =
+          Number(mkRecord.absence_minutes) ||
+          (await getStudentSessionMinutes(targetStudentId)) ||
+          60;
+      }
+
+      // Chuẩn bị thông tin giờ bắt đầu - kết thúc ca bù
+      const sStart = (
+        makeup_start_time ||
+        (makeup_time ? makeup_time.split("-")[0]?.trim() : "18:00") ||
+        "18:00"
+      ).trim();
+      let sEnd = makeup_end_time ? makeup_end_time.trim() : "";
+      if (!sEnd && makeup_time && makeup_time.includes("-")) {
+        sEnd = makeup_time.split("-")[1]?.trim() || "";
+      }
+      if (!sEnd) {
+        const [sh, sm] = sStart.split(":").map(Number);
+        const totalEndM = sh * 60 + (sm || 0) + plannedMin;
+        const eh = Math.floor(totalEndM / 60);
+        const em = totalEndM % 60;
+        sEnd = `${String(eh).padStart(2, "0")}:${String(em).padStart(2, "0")}`;
+      }
+      const makeupTimeLabel = `${sStart} - ${sEnd}`;
+
+      // RÀNG BUỘC (VALIDATION): Kiểm tra quỹ giờ học bù khả dụng
+      const wallet = await getWalletBalance(targetStudentId);
+      if (wallet.available_minutes < plannedMin) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: `Quỹ giờ học bù không đủ! Hiện còn ${formatMinutes(wallet.available_minutes)}, cần ${formatMinutes(plannedMin)}.`,
+          },
+          { status: 400 }
+        );
+      }
+
+      // Kiểm tra sĩ số phòng học: ưu tiên theo Lớp học nếu có targetClassId
+      if (targetClassId) {
+        const clsRes = await db.execute({
+          sql: "SELECT * FROM classes WHERE id = ?",
+          args: [targetClassId],
+        });
+        if (clsRes.rows.length > 0) {
+          const cRow = clsRes.rows[0];
+          let classMax = Number(cRow.max_students || 15);
+          const dayName = getDayNameVi(makeup_date);
+
+          // Nếu lớp có phân công ca giáo viên, kiểm tra xem ca nào bao trùm khung giờ bù này
+          try {
+            if (cRow.teacher_assignments_json) {
+              const assignments = JSON.parse(String(cRow.teacher_assignments_json));
+              const activeShift = assignments.find((a: DbRow) => {
+                if (a.day && a.day !== "Tất cả các ngày" && !a.day.includes(dayName)) return false;
+                const aStart = a.start_time || "17:00";
+                const aEnd = a.end_time || "20:00";
+                return isTimeOverlap(sStart, sEnd, aStart, aEnd);
+              });
+              if (activeShift && activeShift.teacher_id) {
+                const tcRes = await db.execute({
+                  sql: "SELECT max_students FROM teachers WHERE id = ?",
+                  args: [String(activeShift.teacher_id)],
+                });
+                if (tcRes.rows.length > 0 && tcRes.rows[0].max_students) {
+                  classMax = Number(tcRes.rows[0].max_students);
+                }
+              }
+            }
+          } catch (err) {
+            log.debug("Bỏ qua lỗi không ảnh hưởng luồng chính (route)", { error: err });
+          }
+
+          // Đếm học sinh chính khóa của lớp học vào ngày này có học giao thoa khung giờ bù
+          const studentsInClassRes = await db.execute({
+            sql: "SELECT id, registered_days, study_time_detail, schedule_details_json FROM students WHERE class_id = ? AND status != 'dropped'",
+            args: [targetClassId],
+          });
+          let classRegularCount = 0;
+          for (const st of studentsInClassRes.rows) {
+            const regDays = String(st.registered_days || "");
+            if (regDays.includes(dayName)) {
+              let stStart = "";
+              let stEnd = "";
+              if (st.schedule_details_json) {
+                try {
+                  const items = JSON.parse(String(st.schedule_details_json));
+                  if (Array.isArray(items)) {
+                    const item = items.find((it: DbRow) => it.day === dayName);
+                    if (item && item.start_time) {
+                      stStart = String(item.start_time).trim();
+                      stEnd = String(item.end_time || "").trim();
+                    }
+                  }
+                } catch (err) {
+                  log.debug("Bỏ qua lỗi không ảnh hưởng luồng chính (route)", { error: err });
+                }
+              }
+              if (!stStart && st.study_time_detail) {
+                const m = String(st.study_time_detail).match(
+                  /(\d{1,2})(?::(\d{2})|h(\d{2})?)\s*[-–to~]\s*(\d{1,2})(?::(\d{2})|h(\d{2})?)/i
+                );
+                if (m) {
+                  stStart = `${m[1].padStart(2, "0")}:${(m[2] || m[3] || "00").padStart(2, "0")}`;
+                  stEnd = `${m[4].padStart(2, "0")}:${(m[5] || m[6] || "00").padStart(2, "0")}`;
+                }
+              }
+              if (!stStart || !stEnd || isTimeOverlap(sStart, sEnd, stStart, stEnd)) {
+                classRegularCount++;
+              }
+            }
+          }
+
+          // Đếm các buổi bù đã xếp vào lớp này trong ngày có giao thoa giờ bù
+          const makeupsInClassRes = await db.execute({
+            sql: "SELECT id, makeup_time, makeup_start_time, makeup_end_time FROM makeup_classes WHERE makeup_date = ? AND class_id = ? AND id != ? AND status IN ('scheduled', 'completed')",
+            args: [makeup_date, targetClassId, makeup_id],
+          });
+          let classMakeupCount = 0;
+          for (const mk of makeupsInClassRes.rows) {
+            const mkStart = String(
+              mk.makeup_start_time ||
+                (mk.makeup_time ? String(mk.makeup_time).split("-")[0]?.trim() : "") ||
+                ""
+            );
+            const mkEnd = String(
+              mk.makeup_end_time ||
+                (mk.makeup_time ? String(mk.makeup_time).split("-")[1]?.trim() : "") ||
+                ""
+            );
+            if (!mkStart || !mkEnd || isTimeOverlap(sStart, sEnd, mkStart, mkEnd)) {
+              classMakeupCount++;
+            }
+          }
+
+          if (classRegularCount + classMakeupCount >= classMax) {
+            return NextResponse.json(
+              {
+                success: false,
+                message: `Lớp ${cRow.name} trong khung giờ ${makeupTimeLabel} (${dayName}) đã đủ sĩ số (${classRegularCount + classMakeupCount}/${classMax} học sinh - HẾT CHỖ). Vui lòng chọn ca hoặc ngày khác!`,
+              },
+              { status: 400 }
+            );
+          }
+        }
+      } else if (targetSlotId) {
+        const settingsRes = await db.execute("SELECT key, value FROM settings");
+        const settingsMap: Record<string, string> = {};
+        for (const row of settingsRes.rows) {
+          settingsMap[String(row.key)] = String(row.value);
+        }
+        const defaultMaxCapacity = Number(settingsMap["max_students_per_slot"] || 10);
+        const capacityMode = settingsMap["capacity_mode"] || "by_slot";
+        const dayName = getDayNameVi(makeup_date);
+
+        let maxCapacity = defaultMaxCapacity;
+
+        // Đọc thông tin slot để biết start_time và end_time
+        const slotCheck = await db.execute({
+          sql: "SELECT * FROM time_slots WHERE id = ?",
+          args: [targetSlotId],
+        });
+        const slotStartTime =
+          slotCheck.rows.length > 0 ? String(slotCheck.rows[0].start_time || "17:00") : "17:00";
+        const slotEndTime =
+          slotCheck.rows.length > 0 ? String(slotCheck.rows[0].end_time || "20:00") : "20:00";
+
+        // Tính tổng sức chứa các Lớp học mở cửa trong ca này
+        const classesAllRes = await db.execute(
+          "SELECT * FROM classes WHERE status = 'active' OR status IS NULL OR status = ''"
+        );
+        const classesInSlot = classesAllRes.rows.filter((cRow) => {
+          let schedList: DbRow[] = [];
+          try {
+            if (cRow.schedule_json) schedList = JSON.parse(String(cRow.schedule_json));
+          } catch (err) {
+            log.debug("Bỏ qua lỗi không ảnh hưởng luồng chính (route)", { error: err });
+          }
+          const dayMatch = schedList.some(
+            (sc) => !sc.day || sc.day === "Tất cả các ngày" || sc.day === dayName
+          );
+          if (!dayMatch && schedList.length > 0) return false;
+          if (schedList.length === 0) return true;
+          return schedList.some((sc) => {
+            if (sc.day && sc.day !== "Tất cả các ngày" && sc.day !== dayName) return false;
+            const cStart = sc.start_time || "17:00";
+            const cEnd = sc.end_time || "20:00";
+            return cStart < slotEndTime && cEnd > slotStartTime;
+          });
+        });
+        const totalClassCap = classesInSlot.reduce(
+          (sum, cRow) => sum + Number(cRow.max_students || defaultMaxCapacity),
+          0
+        );
+
+        if (capacityMode === "by_teacher") {
+          const teachersRes = await db.execute("SELECT * FROM teachers WHERE is_active = 1");
+          let teacherCapTotal = 0;
+          const countedTids = new Set<string>();
+
+          for (const cRow of classesInSlot) {
+            let assignList: DbRow[] = [];
+            try {
+              if (cRow.teacher_assignments_json)
+                assignList = JSON.parse(String(cRow.teacher_assignments_json));
+            } catch (err) {
+              log.debug("Bỏ qua lỗi không ảnh hưởng luồng chính (route)", { error: err });
+            }
+            for (const a of assignList) {
+              if (!a.day || a.day === "Tất cả các ngày" || a.day.includes(dayName)) {
+                if (a.teacher_id && !countedTids.has(String(a.teacher_id))) {
+                  countedTids.add(String(a.teacher_id));
+                  const tc = teachersRes.rows.find((t) => String(t.id) === String(a.teacher_id));
+                  teacherCapTotal += Number(tc?.max_students || defaultMaxCapacity);
+                }
+              }
+            }
+          }
+
+          for (const tc of teachersRes.rows) {
+            const tid = String(tc.id);
+            if (countedTids.has(tid)) continue;
+            let assignedSlots: string[] = [];
+            try {
+              if (tc.assigned_slot_ids) {
+                const parsed = JSON.parse(String(tc.assigned_slot_ids));
+                if (Array.isArray(parsed)) assignedSlots = parsed;
+              }
+            } catch (err) {
+              log.debug("Bỏ qua lỗi không ảnh hưởng luồng chính (route)", { error: err });
+            }
+            let shifts: DbRow[] = [];
+            try {
+              if (tc.working_shifts_json) {
+                const parsed = JSON.parse(String(tc.working_shifts_json));
+                if (Array.isArray(parsed)) shifts = parsed;
+              }
+            } catch (err) {
+              log.debug("Bỏ qua lỗi không ảnh hưởng luồng chính (route)", { error: err });
+            }
+            const worksOnSlot =
+              assignedSlots.includes(targetSlotId) || shifts.some((s: DbRow) => s.day === dayName);
+            if (worksOnSlot) {
+              countedTids.add(tid);
+              teacherCapTotal += Number(tc.max_students || defaultMaxCapacity);
+            }
+          }
+
+          if (teacherCapTotal > 0) {
+            maxCapacity = teacherCapTotal;
+          }
+        } else {
+          if (slotCheck.rows.length > 0) {
+            maxCapacity = Number(slotCheck.rows[0].max_students || defaultMaxCapacity);
+          }
+        }
+
+        if (totalClassCap > 0) {
+          maxCapacity = Math.max(maxCapacity, totalClassCap);
+        }
+
+        const regularStudentsRes = await db.execute({
+          sql: "SELECT id, registered_days FROM students WHERE time_slot_id = ?",
+          args: [targetSlotId],
+        });
+        let regularCount = 0;
+        for (const st of regularStudentsRes.rows) {
+          if (String(st.registered_days || "").includes(dayName)) {
+            regularCount++;
+          }
+        }
+
+        const currentMakeups = await db.execute({
+          sql: "SELECT COUNT(*) as count FROM makeup_classes WHERE makeup_date = ? AND (makeup_slot_id = ? OR makeup_slot_id IS NULL) AND id != ? AND status IN ('scheduled', 'completed')",
+          args: [makeup_date, targetSlotId, makeup_id],
+        });
+        const makeupBooked = Number(currentMakeups.rows[0].count || 0);
+
+        const totalOccupied = regularCount + makeupBooked;
+        if (totalOccupied >= maxCapacity) {
+          return NextResponse.json(
+            {
+              success: false,
+              message: `Khung giờ này trong ngày đã đủ sĩ số (${totalOccupied}/${maxCapacity} học sinh - HẾT SUẤT). Vui lòng chọn ca hoặc ngày khác!`,
+            },
+            { status: 400 }
+          );
+        }
+      }
+
+      // Tạo/Cập nhật bản ghi trong bảng lessons (để đồng bộ hệ thống lịch học & sĩ số)
+      const lessonId = `ls-mk-${targetStudentId.slice(0, 8)}-${makeup_date}-${sStart.replace(":", "")}`;
+      await db.execute({
+        sql: `INSERT INTO lessons (id, student_id, date, start_time, planned_minutes, slot_id, kind, status, reason, created_by)
+              VALUES (?, ?, ?, ?, ?, ?, 'makeup', 'scheduled', ?, 'admin_schedule_makeup')
+              ON CONFLICT(student_id, date, start_time) DO UPDATE SET
+                planned_minutes = excluded.planned_minutes,
+                slot_id = excluded.slot_id,
+                kind = 'makeup',
+                status = 'scheduled',
+                reason = excluded.reason`,
+        args: [
+          lessonId,
+          targetStudentId,
+          makeup_date,
+          sStart,
+          plannedMin,
+          targetSlotId || null,
+          note || `Bù cho buổi nghỉ ${mkRecord.absence_date}`,
+        ],
+      });
+
+      // Cập nhật bản ghi makeup_classes
+      await db.execute({
+        sql: `UPDATE makeup_classes 
+              SET makeup_date = ?, makeup_time = ?, makeup_start_time = ?, makeup_end_time = ?,
+                  makeup_minutes = ?, makeup_slot_id = ?, makeup_teacher_id = ?, class_id = COALESCE(?, class_id), lesson_id = ?,
+                  note = ?, status = 'scheduled'
+              WHERE id = ?`,
+        args: [
+          makeup_date,
+          makeupTimeLabel,
+          sStart,
+          sEnd,
+          plannedMin,
+          targetSlotId || null,
+          makeup_teacher_id || null,
+          targetClassId || null,
+          lessonId,
+          note || "",
+          makeup_id,
+        ],
+      });
+
+      const hoursDisplay = (plannedMin / 60).toFixed(1).replace(".0", "");
+      const remainingAvail = wallet.available_minutes - plannedMin;
+      const remHours = (remainingAvail / 60).toFixed(1).replace(".0", "");
+
+      return NextResponse.json({
+        success: true,
+        message: `Đã xếp lịch bù thành công ${hoursDisplay} giờ (${plannedMin} phút). Quỹ giờ còn lại: ${remHours} giờ (${remainingAvail} phút).`,
+        remaining_minutes: remainingAvail,
+      });
+    }
+
+    // =========================================================================
+    // 3. Action: Xác nhận đã học bù xong (Chính thức trừ vào Sổ cái hour_ledger)
+    // =========================================================================
+    if (action === "complete") {
+      if (!makeup_id) {
+        return NextResponse.json({ success: false, message: "Thiếu ID buổi bù!" }, { status: 400 });
+      }
+
+      const mkRes = await db.execute({
+        sql: "SELECT * FROM makeup_classes WHERE id = ?",
+        args: [makeup_id],
+      });
+      if (mkRes.rows.length === 0) {
+        return NextResponse.json(
+          { success: false, message: "Không tìm thấy buổi bù!" },
+          { status: 404 }
+        );
+      }
+      const mk = mkRes.rows[0];
+      const sid = String(mk.student_id);
+      const usedMin =
+        Number(mk.makeup_minutes) ||
+        Number(mk.absence_minutes) ||
+        (await getStudentSessionMinutes(sid)) ||
+        60;
+
+      // Cập nhật trạng thái completed
+      await db.execute({
+        sql: "UPDATE makeup_classes SET status = 'completed' WHERE id = ?",
+        args: [makeup_id],
+      });
+
+      // Cập nhật lesson tương ứng nếu có
+      if (mk.lesson_id) {
+        await db.execute({
+          sql: "UPDATE lessons SET status = 'attended', actual_minutes = ? WHERE id = ?",
+          args: [usedMin, String(mk.lesson_id)],
+        });
+      }
+
+      // ⭐ GHI SỔ CÁI: Khấu trừ chính thức số giờ đã hoàn thành
+      await appendLedger({
+        studentId: sid,
+        type: "CONSUME",
+        minutes: -usedMin,
+        refType: "makeup_completed",
+        refId: makeup_id,
+        note: `Hoàn thành học bù ngày ${mk.makeup_date} (${mk.makeup_time}: -${formatMinutes(usedMin)})`,
+        createdBy: "admin_complete_makeup",
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: `Đã xác nhận hoàn thành buổi bù và khấu trừ -${formatMinutes(usedMin)} khỏi quỹ giờ!`,
+      });
+    }
+
+    // =========================================================================
+    // 4. Action: Hủy lịch xếp bù quay về chờ xếp lại (reset to pending)
+    // =========================================================================
+    if (action === "reset_pending") {
+      if (!makeup_id) {
+        return NextResponse.json({ success: false, message: "Thiếu ID buổi bù!" }, { status: 400 });
+      }
+
+      const mkRes = await db.execute({
+        sql: "SELECT * FROM makeup_classes WHERE id = ?",
+        args: [makeup_id],
+      });
+      if (mkRes.rows.length > 0) {
+        const mk = mkRes.rows[0];
+        if (mk.lesson_id) {
+          await db.execute({
+            sql: "DELETE FROM lessons WHERE id = ?",
+            args: [String(mk.lesson_id)],
+          });
+        }
+      }
+
+      await db.execute({
+        sql: `UPDATE makeup_classes 
+              SET makeup_date = NULL, makeup_time = NULL, makeup_start_time = NULL, 
+                  makeup_end_time = NULL, makeup_slot_id = NULL, lesson_id = NULL, status = 'pending' 
+              WHERE id = ?`,
+        args: [makeup_id],
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: "Đã hủy lịch xếp bù và hoàn trả số giờ về quỹ chờ xếp lại!",
+      });
+    }
+
+    // =========================================================================
+    // 5. Action: Xóa bản ghi báo nghỉ / học bù
+    // =========================================================================
+    if (action === "delete") {
+      if (!makeup_id) {
+        return NextResponse.json({ success: false, message: "Thiếu ID buổi bù!" }, { status: 400 });
+      }
+
+      const mkRes = await db.execute({
+        sql: "SELECT * FROM makeup_classes WHERE id = ?",
+        args: [makeup_id],
+      });
+      if (mkRes.rows.length > 0) {
+        const mk = mkRes.rows[0];
+        if (mk.lesson_id) {
+          await db.execute({
+            sql: "DELETE FROM lessons WHERE id = ?",
+            args: [String(mk.lesson_id)],
+          });
+        }
+        await db.execute({
+          sql: "DELETE FROM hour_ledger WHERE (ref_type IN ('makeup_absence', 'absence') AND ref_id = ?) OR (ref_type IN ('makeup_completed', 'makeup') AND ref_id = ?)",
+          args: [makeup_id, makeup_id],
+        });
+      }
+
+      await db.execute({
+        sql: "DELETE FROM makeup_classes WHERE id = ?",
+        args: [makeup_id],
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: "Đã xóa bản ghi báo nghỉ / học bù!",
+      });
+    }
+
+    return NextResponse.json(
+      { success: false, message: "Hành động không hợp lệ!" },
+      { status: 400 }
+    );
+  } catch (error: unknown) {
+    log.error("Makeups POST Error:", { error: error });
+    return NextResponse.json(
+      { success: false, message: (error as Error).message || "Internal Server Error" },
+      { status: 500 }
+    );
+  }
+}

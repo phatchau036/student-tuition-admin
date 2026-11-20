@@ -6,6 +6,14 @@
 
 ## 1. LỊCH SỬ PHIÊN BẢN (CHANGELOG)
 
+### [v2.13.0] - 2026-11-20
+- **⭐ HOÀN TẤT GIAI ĐOẠN 2 (MỤC 7–9) & XỬ LÝ BẢO MẬT `.env`:**
+  - **Mục 7 — SQL vào tầng service:** Toàn bộ 40 route handler trong `src/app/api/` được chuyển sang `src/server/services/*.service.ts`. Mỗi `route.ts` nay chỉ còn **~13 dòng** wrapper (import handler + chuyển tiếp `Request`/`params`), toàn bộ truy vấn SQL và nghiệp vụ nằm trong service tương ứng.
+  - **Mục 8 — Modal `key` remount:** 12 modal lớn (Settings, StudentForm, MonthlyTuition, QuickAudit, StatusLog, MonthlySummary, TuitionReminderQueue, MakeUpClasses, ClassManagement, StaffManagement, DailyAttendance, AdminAiAssistant) nhận prop `key` theo trạng thái mở/đóng + đối tượng + cơ sở. State khởi tạo trực tiếp từ props; effect chỉ còn nhiệm vụ tải dữ liệu bất đồng bộ, không còn đồng bộ prop → state.
+  - **Mục 9 — Thống nhất nguồn cấu hình:** Thêm `src/server/settings/schoolSettings.ts` với `getSchoolSettings()`, `updateSchoolSettings()`, `syncLegacyDefaultSchoolSettings()`. Bảng `schools` là nguồn sự thật cho cấu hình theo cơ sở (SePay, Zalo Bot, học phí chuẩn, kiểu lịch); bảng `settings` chỉ giữ cấu hình toàn hệ thống và bản sao tương thích ngược cho `school-default`. Đã áp dụng cho `/api/settings`, `/api/sepay/webhook`, `/api/parent`, `/api/teacher`, `/api/admin/tuition-reminders`, `/api/zalo-bot`, `lib/zaloBot.ts`, `lib/aiTools.ts` — loại bỏ hoàn toàn việc cơ sở này dùng bot/API key của cơ sở khác.
+  - **Bảo mật `.env`:** Bỏ track `.env` khỏi Git (`.gitignore` chặn), thêm `.env.example` đầy đủ placeholder; `scripts/run-upgrade.js` và `scripts/remote_deploy.py` tự động sao lưu/phục hồi `.env` quanh `git pull` để không làm mất cấu hình production khi nâng cấp.
+  - **Kiểm tra:** Prettier PASS · ESLint 0/0 · `tsc --noEmit` PASS · `npm test` 10/10 · `npm run build` 47/47 route.
+
 ### [v2.12.0] - 2026-11-20
 - **⭐ VÁ LỖ HỔNG BẢO MẬT & SIẾT CHẶT ĐA CƠ SỞ (SECURITY HARDENING):**
   - **Localhost Guard thật cho `/he-thong`:** Hiện thực `src/proxy.ts` (Next.js 16 Proxy) — request ngoài loopback nhận **404 ngụy trang**; có `HETHONG_GUARD=off` và `HETHONG_ALLOWED_IPS` cho vận hành qua SSH tunnel.

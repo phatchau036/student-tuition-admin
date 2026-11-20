@@ -174,7 +174,9 @@ src/
 │   └── system/components/      # Super Admin: login, AI config, account, maintenance
 ├── server/
 │   ├── db/                 # client, schema-core, schema-domain, schema-migrations, seed, index
-│   └── http/response.ts    # Helper phản hồi API chuẩn `ok()` / `fail()`
+│   ├── http/response.ts    # Helper phản hồi API chuẩn `ok()` / `fail()`
+│   ├── services/           # 40 service: toàn bộ nghiệp vụ + SQL của API
+│   └── settings/           # schoolSettings: nguồn sự thật cấu hình theo cơ sở
 ├── components/ui/          # Primitives dùng chung: Toast, MonthPicker, MaintenanceGuard
 ├── lib/
 │   ├── tuition/            # 8 module: constants, format, dates, cycle, calculation, slots, schedule, upcoming
@@ -204,9 +206,9 @@ src/
 | 4 | Tổ chức components theo feature domain | ✅ 10 domain + `components/ui` |
 | 5 | Tách màn hình/modal lớn | ✅ Dashboard (-400 dòng), he-thong (-446 dòng), SettingsModal (-517 dòng) |
 | 6 | Helper phản hồi API chuẩn | ✅ `src/server/http/response.ts` |
-| 7 | Đưa truy vấn SQL vào `server/services` | ⏳ Còn lại (route vẫn truy vấn trực tiếp) |
-| 8 | Chuyển modal prop-sync sang `key` remount | ⏳ Còn lại (đã có eslint-disable kèm lý do) |
-| 9 | Thống nhất nguồn cấu hình `settings` vs `schools` | ⏳ Còn lại |
+| 7 | Đưa truy vấn SQL vào `server/services` | ✅ 40 route handler chỉ còn wrapper ~13 dòng; toàn bộ SQL nằm trong `src/server/services/*.service.ts` |
+| 8 | Chuyển modal prop-sync sang `key` remount | ✅ 12 modal nhận `key` theo (mở/đóng + đối tượng + cơ sở); state khởi tạo trực tiếp từ props, effect chỉ còn tải dữ liệu |
+| 9 | Thống nhất nguồn cấu hình `settings` vs `schools` | ✅ `src/server/settings/schoolSettings.ts` là nguồn sự thật; bảng `settings` chỉ giữ khóa toàn hệ thống + bản sao tương thích ngược cho `school-default` |
 
 ---
 
@@ -216,3 +218,4 @@ src/
 |---|---|---|
 | 2026-11-20 | Ban hành chuẩn chất lượng v1.0: Zero-Residue Rule, Logging Policy, Error Handling, File Size Budget, Type Safety, Workflow bắt buộc, lộ trình Giai đoạn 2 | Main Agent |
 | 2026-11-20 | Cập nhật cấu trúc thư mục chuẩn sau Giai đoạn 2: `src/types/`, `src/lib/tuition/`, `src/server/db/`, `src/features/**`, `src/components/ui/`, `src/server/http/` | Main Agent |
+| 2026-11-20 | Hoàn tất Giai đoạn 2 mục 7-9 + xử lý `.env` | Main Agent | ✅ SQL vào `server/services` (40 route → wrapper 13 dòng); ✅ modal key-remount (12 modal); ✅ `schoolSettings` thống nhất nguồn cấu hình; ✅ `.env` bỏ track + `.env.example` + backup/restore tự động trong `run-upgrade.js` và `remote_deploy.py` |

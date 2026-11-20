@@ -1,0 +1,274 @@
+/**
+ * sepay-webhook.service.ts - Tang nghiep vu & truy cap du lieu cho endpoint tuong ung.
+ *
+ * Toan bo truy van SQL cua endpoint nam tai day. Cac file route handler
+ * chi con lop chuyen tiep mong (nhan Request -> goi handler -> tra Response).
+ *
+ * Tu dong tach tu route handler trong Giai doan 2.
+ */
+import { NextResponse } from "next/server";
+import { getDb, initDb } from "@/lib/db";
+import { grantHoursForPeriodUtil } from "@/lib/wallet";
+import { computeEndMonth } from "@/lib/tuition";
+import { notifyAdminViaZaloBot } from "@/lib/zaloBot";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("api/sepay/webhook");
+
+// Xử lý POST Webhook từ SePay Platform
+export async function handleSepayWebhookPost(req: Request) {
+  try {
+    await initDb();
+    const db = getDb();
+
+    // 1. Kiểm tra xác thực API Key từ SePay header (Authorization: Apikey API_KEY_CUA_BAN)
+    const authHeader = req.headers.get("authorization") || req.headers.get("Authorization") || "";
+
+    // Lấy danh sách API Key SePay hợp lệ từ mọi cơ sở (mỗi cơ sở cấu hình riêng).
+    // Nếu không cơ sở nào cấu hình key thì bỏ qua kiểm tra (webhook công khai theo thiết kế cũ).
+    const apiKeyRows = await db.execute(
+      "SELECT id, sepay_api_key FROM schools WHERE sepay_api_key IS NOT NULL AND sepay_api_key <> ''"
+    );
+    const validApiKeys = apiKeyRows.rows
+      .map((row) => String(row.sepay_api_key || "").trim())
+      .filter(Boolean);
+
+    if (validApiKeys.length > 0) {
+      const currentAuth = authHeader.trim().toLowerCase();
+      const matched = validApiKeys.some((key) => currentAuth.includes(key.toLowerCase()));
+      if (!matched) {
+        return NextResponse.json(
+          { success: false, message: "Xác thực API Key SePay không hợp lệ!" },
+          { status: 401 }
+        );
+      }
+    }
+
+    const body = await req.json();
+    /*
+      Cấu trúc payload từ SePay:
+      {
+        "id": 92704,
+        "gateway": "Vietcombank",
+        "transactionDate": "2024-07-02 11:08:33",
+        "accountNumber": "1017588888",
+        "subAccount": "",
+        "code": "SEVN63DC8E5C",
+        "content": "SEVN63DC8E5C HP HS1234 T10 chuyen tien",
+        "transferType": "in",
+        "description": "...",
+        "transferAmount": 1500000,
+        "accumulated": 105000000,
+        "referenceCode": "FT24012345678"
+      }
+    */
+    const {
+      id: sepayTxId,
+      gateway,
+      transactionDate,
+      accountNumber,
+      subAccount,
+      code,
+      content = "",
+      transferType = "in",
+      transferAmount = 0,
+      referenceCode,
+    } = body;
+
+    // Chỉ xử lý giao dịch tiền vào (transferType: 'in')
+    if (transferType !== "in" || Number(transferAmount) <= 0) {
+      return NextResponse.json({
+        success: true,
+        message: "Bỏ qua giao dịch không phải tiền vào (transferType != in)",
+      });
+    }
+
+    const txIdStr = String(
+      sepayTxId || `sepay-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+    );
+    const cleanContent = String(content || "").trim();
+
+    // 2. Tìm học sinh phù hợp dựa trên nội dung chuyển khoản
+    // Chiến lược đối soát thông minh:
+    // a. Khớp qua Student Code (VD: HS1234, HS01, ...)
+    // b. Khớp qua Số Điện Thoại của học sinh (VD: 0901234567)
+    // c. Khớp qua Tên học sinh không dấu
+    const studentsRes = await db.execute(`
+      SELECT s.*, p.name as package_name, p.amount as package_amount, p.cycle_unit, p.cycle_value
+      FROM students s
+      LEFT JOIN tuition_packages p ON s.tuition_package_id = p.id
+    `);
+
+    let matchedStudent: Record<string, unknown> | null = null;
+    let matchedPeriod: string = new Date().toISOString().slice(0, 7); // Mặc định tháng hiện tại YYYY-MM
+
+    // Trích xuất tháng từ nội dung nếu có (VD: T10, T10/2026, 10/2026, THANG10)
+    const monthRegex = /(?:T|THANG|THÁNG)\s*(\d{1,2})(?:\/(\d{4}))?/i;
+    const monthMatch = cleanContent.match(monthRegex);
+    if (monthMatch) {
+      const m = parseInt(monthMatch[1], 10);
+      const y = monthMatch[2] ? parseInt(monthMatch[2], 10) : new Date().getFullYear();
+      if (m >= 1 && m <= 12) {
+        matchedPeriod = `${y}-${String(m).padStart(2, "0")}`;
+      }
+    }
+
+    const upperContent = cleanContent.toUpperCase();
+
+    // Tìm kiếm học sinh
+    for (const st of studentsRes.rows) {
+      const code = String(st.student_code || "").toUpperCase();
+      const phone = String(st.phone || "").replace(/\D/g, "");
+      const cleanPhone = phone.startsWith("0") ? phone.slice(1) : phone;
+
+      // 1. Khớp mã học sinh (nếu mã học sinh có trong nội dung)
+      if (code && upperContent.includes(code)) {
+        matchedStudent = st;
+        break;
+      }
+
+      // 2. Khớp số điện thoại
+      if (
+        phone.length >= 9 &&
+        (cleanContent.includes(phone) || cleanContent.includes(cleanPhone))
+      ) {
+        matchedStudent = st;
+        break;
+      }
+    }
+
+    // Nếu chưa tìm thấy bằng code hoặc phone, thử tìm theo ID học sinh (4 ký tự cuối)
+    if (!matchedStudent) {
+      for (const st of studentsRes.rows) {
+        const idTail = String(st.id).slice(-4).toUpperCase();
+        if (upperContent.includes(`HS${idTail}`) || upperContent.includes(idTail)) {
+          matchedStudent = st;
+          break;
+        }
+      }
+    }
+
+    // 3. Ghi nhận giao dịch SePay vào bảng sepay_transactions
+    const txStatus = matchedStudent ? "matched" : "unmatched";
+    const matchedSchoolId = matchedStudent?.school_id ? String(matchedStudent.school_id) : null;
+    await db.execute({
+      sql: `INSERT INTO sepay_transactions (
+              id, school_id, gateway, transaction_date, account_number, sub_account, code,
+              content, transfer_type, transfer_amount, reference_code,
+              student_id, student_name, matched_period, status, raw_payload
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+              school_id = COALESCE(excluded.school_id, sepay_transactions.school_id),
+              status = excluded.status,
+              student_id = excluded.student_id,
+              student_name = excluded.student_name,
+              matched_period = excluded.matched_period`,
+      args: [
+        txIdStr,
+        matchedSchoolId,
+        gateway || "Ngân hàng",
+        transactionDate || new Date().toISOString().slice(0, 19).replace("T", " "),
+        accountNumber || "",
+        subAccount || "",
+        code || "",
+        cleanContent,
+        transferType,
+        Number(transferAmount),
+        referenceCode || "",
+        matchedStudent ? matchedStudent.id : null,
+        matchedStudent ? matchedStudent.name : null,
+        matchedPeriod,
+        txStatus,
+        JSON.stringify(body),
+      ],
+    });
+
+    // 4. Nếu tìm thấy học sinh, tự động tạo thanh toán và đánh dấu ĐÃ ĐÓNG (Paid)
+    if (matchedStudent) {
+      let cycleMonths = 1;
+      const packageName = matchedStudent.package_name
+        ? String(matchedStudent.package_name)
+        : "Gói chuẩn cơ sở";
+      const targetPackageId = matchedStudent.tuition_package_id
+        ? String(matchedStudent.tuition_package_id)
+        : null;
+      const matchedStudentId = String(matchedStudent.id);
+
+      if (matchedStudent.cycle_unit === "week") {
+        cycleMonths = Math.max(1, Math.round(Number(matchedStudent.cycle_value || 4) / 4));
+      } else if (matchedStudent.cycle_value) {
+        cycleMonths = Math.max(1, Number(matchedStudent.cycle_value));
+      }
+
+      const startPeriod = matchedPeriod;
+      const endPeriod = computeEndMonth(startPeriod, cycleMonths);
+      const todayStr = new Date().toISOString().slice(0, 10);
+      const paymentId = `pay-sepay-${Date.now()}`;
+
+      // Xóa thanh toán cũ cùng kỳ nếu có để cập nhật
+      await db.execute({
+        sql: "DELETE FROM student_payments WHERE student_id = ? AND start_period = ?",
+        args: [matchedStudentId, startPeriod],
+      });
+
+      // Tạo bản ghi thanh toán hoàn tất
+      await db.execute({
+        sql: `INSERT INTO student_payments (
+                id, student_id, package_id, package_name, amount, paid_date, start_period, end_period, status, note
+              )
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'paid', ?)`,
+        args: [
+          paymentId,
+          matchedStudentId,
+          targetPackageId,
+          packageName,
+          Number(transferAmount),
+          todayStr,
+          startPeriod,
+          endPeriod,
+          `Tự động đối soát qua SePay (${gateway} - Mã GD: ${referenceCode || code || txIdStr})`,
+        ],
+      });
+
+      // ⭐ VÍ GIỜ HỌC: Cấp giờ vào ví cho toàn bộ chu kỳ đã thanh toán (idempotent, không chặn webhook)
+      await grantHoursForPeriodUtil(matchedStudentId, startPeriod, endPeriod);
+
+      // 🔔 Bắn thông báo tức thì về Zalo của Admin qua Zalo Bot
+      const formattedAmount = Number(transferAmount).toLocaleString("vi-VN");
+      const msgForAdmin = `💰 [HỌC PHÍ VỀ] Nhận thanh toán SePay thành công!
+• Học sinh: ${matchedStudent.name} (SĐT: ${matchedStudent.phone || "—"})
+• Số tiền: ${formattedAmount} đ
+• Kỳ đóng: ${startPeriod} ➔ ${endPeriod}
+• Ngân hàng: ${gateway} (Mã GD: ${referenceCode || code || txIdStr})
+• Trạng thái: Hệ thống đã tự động gạch nợ học phí & cấp giờ học vào ví.`;
+
+      notifyAdminViaZaloBot(msgForAdmin, "payment", matchedSchoolId || undefined).catch(() => {});
+
+      return NextResponse.json({
+        success: true,
+        message: `Đã đối soát thành công cho học sinh ${matchedStudent.name} (${startPeriod} đến ${endPeriod})!`,
+        matched_student: {
+          id: matchedStudent.id,
+          name: matchedStudent.name,
+          phone: matchedStudent.phone,
+          period: `${startPeriod} - ${endPeriod}`,
+          amount: transferAmount,
+        },
+      });
+    }
+
+    // Trường hợp không tự động khớp được học sinh (lưu lại giao dịch để admin gán thủ công)
+    return NextResponse.json({
+      success: true,
+      message: "Giao dịch SePay đã được ghi nhận nhưng chưa khớp tự động với học sinh nào.",
+      tx_id: txIdStr,
+    });
+  } catch (error: unknown) {
+    log.error("SePay Webhook Error:", { error: error });
+    return NextResponse.json(
+      { success: false, message: (error as Error).message || "Internal Server Error" },
+      { status: 500 }
+    );
+  }
+}

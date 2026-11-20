@@ -1,0 +1,565 @@
+/**
+ * system.service.ts - Tang nghiep vu & truy cap du lieu cho endpoint tuong ung.
+ *
+ * Toan bo truy van SQL cua endpoint nam tai day. Cac file route handler
+ * chi con lop chuyen tiep mong (nhan Request -> goi handler -> tra Response).
+ *
+ * Tu dong tach tu route handler trong Giai doan 2.
+ */
+import { NextResponse } from "next/server";
+import { getDb, initDb } from "@/lib/db";
+import { clearDomainCache, getSystemAdminFromRequest } from "@/lib/authHelper";
+import { createLogger } from "@/lib/logger";
+import { getErrorMessage } from "@/lib/errors";
+
+const log = createLogger("api/system");
+
+// API quản trị hệ thống: Quản lý các trường & Tài khoản Admin của từng trường
+export async function handleSystemGet(req: Request) {
+  try {
+    await initDb();
+    const systemAdmin = await getSystemAdminFromRequest(req);
+    if (!systemAdmin) {
+      return NextResponse.json(
+        { success: false, message: "Phiên đăng nhập hệ thống không hợp lệ hoặc đã hết hạn!" },
+        { status: 401 }
+      );
+    }
+    const db = getDb();
+
+    const schoolsRes = await db.execute(`
+      SELECT s.*, 
+             (SELECT COUNT(*) FROM school_admins a WHERE a.school_id = s.id) as admin_count,
+             (SELECT COUNT(*) FROM students st WHERE st.school_id = s.id OR (s.id = 'school-default' AND (st.school_id IS NULL OR st.school_id = '' OR st.school_id = 'school-default'))) as student_count,
+             (SELECT COUNT(*) FROM students st WHERE (st.school_id = s.id OR (s.id = 'school-default' AND (st.school_id IS NULL OR st.school_id = '' OR st.school_id = 'school-default'))) AND (st.status = 'studying' OR st.status IS NULL OR st.status = '')) as active_student_count,
+             (SELECT COUNT(*) FROM students st WHERE (st.school_id = s.id OR (s.id = 'school-default' AND (st.school_id IS NULL OR st.school_id = '' OR st.school_id = 'school-default'))) AND st.status = 'reserved') as reserved_student_count,
+             (SELECT COUNT(*) FROM students st WHERE (st.school_id = s.id OR (s.id = 'school-default' AND (st.school_id IS NULL OR st.school_id = '' OR st.school_id = 'school-default'))) AND st.status = 'dropped') as dropped_student_count,
+             (SELECT COUNT(*) FROM teachers tc WHERE tc.school_id = s.id OR (s.id = 'school-default' AND (tc.school_id IS NULL OR tc.school_id = '' OR tc.school_id = 'school-default'))) as teacher_count
+      FROM schools s
+      ORDER BY s.created_at DESC
+    `);
+
+    const adminsRes = await db.execute(`
+      SELECT a.*, s.name as school_name, s.code as school_code
+      FROM school_admins a
+      JOIN schools s ON a.school_id = s.id
+      ORDER BY a.created_at DESC
+    `);
+
+    // Lấy cấu hình AI Trợ Lý hệ thống
+    const aiRes = await db.execute(`
+      SELECT key, value FROM settings 
+      WHERE key IN ('ai_base_url', 'ai_api_key', 'ai_model', 'ai_is_active')
+    `);
+    const aiConfig: Record<string, string> = {};
+    for (const r of aiRes.rows) {
+      aiConfig[String(r.key)] = String(r.value || "");
+    }
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        schools: schoolsRes.rows,
+        admins: adminsRes.rows,
+        ai_config: {
+          ai_base_url: aiConfig["ai_base_url"] || "",
+          ai_api_key: aiConfig["ai_api_key"] || "",
+          ai_model: aiConfig["ai_model"] || "gemini-3.8-flash",
+          ai_is_active: aiConfig["ai_is_active"] !== "0",
+        },
+      },
+    });
+  } catch (error: unknown) {
+    log.error("System GET Error:", { error: error });
+    return NextResponse.json(
+      { success: false, message: (error as Error).message || "Internal Server Error" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function handleSystemPost(req: Request) {
+  try {
+    await initDb();
+    const systemAdmin = await getSystemAdminFromRequest(req);
+    if (!systemAdmin) {
+      return NextResponse.json(
+        { success: false, message: "Phiên đăng nhập hệ thống không hợp lệ hoặc đã hết hạn!" },
+        { status: 401 }
+      );
+    }
+    const db = getDb();
+    const body = await req.json();
+    const { action } = body;
+
+    // 1. Tạo trường học mới
+    if (action === "create_school") {
+      const {
+        name,
+        code,
+        school_type,
+        street,
+        city,
+        branch_num,
+        address,
+        phone,
+        domain,
+        subdomain,
+      } = body;
+      if (!name || !code) {
+        return NextResponse.json(
+          { success: false, message: "Vui lòng nhập tên và mã trường!" },
+          { status: 400 }
+        );
+      }
+
+      // Check unique code
+      const checkCode = await db.execute({
+        sql: "SELECT id FROM schools WHERE code = ?",
+        args: [code.trim().toUpperCase()],
+      });
+      if (checkCode.rows.length > 0) {
+        return NextResponse.json(
+          { success: false, message: `Mã trường "${code}" đã tồn tại!` },
+          { status: 400 }
+        );
+      }
+
+      const id = `school-${Date.now()}`;
+      await db.execute({
+        sql: `INSERT INTO schools (id, name, code, school_type, street, city, branch_num, address, phone, domain, subdomain) 
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        args: [
+          id,
+          name.trim(),
+          code.trim().toUpperCase(),
+          school_type?.trim() || "TT",
+          street?.trim() || "",
+          city?.trim() || "TPHCM",
+          String(branch_num || "1"),
+          address?.trim() || "",
+          phone?.trim() || "",
+          domain
+            ? domain
+                .trim()
+                .toLowerCase()
+                .replace(/^https?:\/\//, "")
+                .replace(/\/.*$/, "")
+            : "",
+          subdomain
+            ? subdomain
+                .trim()
+                .toLowerCase()
+                .replace(/[^a-z0-9-]/g, "")
+            : "",
+        ],
+      });
+
+      // Tự động khởi tạo dữ liệu mẫu (Seed Data) riêng biệt cho trường mới
+      // 1. Ca học mở cửa
+      await db.execute({
+        sql: `INSERT INTO time_slots (id, school_id, name, from_day, to_day, days, start_time, end_time, max_students, is_active)
+              VALUES 
+              (?, ?, 'Ca Tối (T2 - T7)', 'Thứ 2', 'Thứ 7', 'Thứ 2 – Thứ 7', '17:00', '20:00', 10, 1),
+              (?, ?, 'Ca Sáng T7', 'Thứ 7', 'Thứ 7', 'Thứ 7', '09:00', '11:00', 10, 1),
+              (?, ?, 'Ca Sáng CN', 'Chủ Nhật', 'Chủ Nhật', 'Chủ Nhật', '08:00', '11:30', 10, 1)`,
+        args: [`slot-${Date.now()}-1`, id, `slot-${Date.now()}-2`, id, `slot-${Date.now()}-3`, id],
+      });
+
+      // 2. Mức phụ thu Level
+      await db.execute({
+        sql: `INSERT INTO level_surcharges (id, school_id, level_name, surcharge_amount, sort_order)
+              VALUES 
+              (?, ?, 'Grade 1', 0, 1),
+              (?, ?, 'Grade 2', 100000, 2)`,
+        args: [`lvl-${Date.now()}-1`, id, `lvl-${Date.now()}-2`, id],
+      });
+
+      // 3. Mức chiết khấu
+      await db.execute({
+        sql: `INSERT INTO discount_presets (id, school_id, percentage, label)
+              VALUES 
+              (?, ?, 10, 'Anh em ruột cùng học'),
+              (?, ?, 20, 'Đăng ký sớm'),
+              (?, ?, 50, 'Học sinh nghèo vượt khó')`,
+        args: [`disc-${Date.now()}-1`, id, `disc-${Date.now()}-2`, id, `disc-${Date.now()}-3`, id],
+      });
+
+      // 4. Gói học phí mặc định
+      await db.execute({
+        sql: `INSERT INTO tuition_packages (id, school_id, name, amount, original_amount, cycle_unit, cycle_value, discount_type, discount_value, benefits, is_active)
+              VALUES 
+              (?, ?, 'Học phí 1 tháng', 1000000, 1000000, 'month', 1, 'none', 0, '', 1),
+              (?, ?, 'Gói Khóa 3 tháng (-5%)', 2850000, 3000000, 'month', 3, 'percent', 5, 'Tặng 1 buổi học bù', 1)`,
+        args: [`pkg-${Date.now()}-1`, id, `pkg-${Date.now()}-2`, id],
+      });
+
+      // 5. Danh mục bộ môn học mặc định
+      await db.execute({
+        sql: `INSERT INTO subjects (id, school_id, name, description, color, is_active)
+              VALUES 
+              (?, ?, 'Piano', 'Bộ môn Piano cơ bản & nâng cao', 'indigo', 1),
+              (?, ?, 'Guitar', 'Bộ môn Guitar đệm hát & cổ điển', 'amber', 1)`,
+        args: [`sub-${Date.now()}-1`, id, `sub-${Date.now()}-2`, id],
+      });
+
+      // 6. Nhóm quyền / Vai trò mẫu (RBAC) cho trường mới
+      const defaultRoles = [
+        {
+          id: `role-office-${id}`,
+          name: "Nhân Viên Văn Phòng / Lễ Tân",
+          description:
+            "Tiếp đón phụ huynh, thêm/sửa học sinh, xem ma trận lịch, tư vấn ca trống, điểm danh và xếp ca học bù.",
+          permissions_json: JSON.stringify([
+            "students.view",
+            "students.create",
+            "students.edit",
+            "schedule.matrix",
+            "attendance.manage",
+            "makeups.manage",
+            "schedule.consult",
+          ]),
+        },
+        {
+          id: `role-accountant-${id}`,
+          name: "Kế Toán / Thu Ngân",
+          description:
+            "Xem học phí, công nợ, đối soát thu tiền, xuất biên lai điện tử, gửi nhắc nợ Zalo và xem tổng kết doanh thu tháng.",
+          permissions_json: JSON.stringify([
+            "students.view",
+            "tuition.view",
+            "tuition.audit",
+            "tuition.receipt",
+            "tuition.remind",
+            "revenue.reports",
+          ]),
+        },
+        {
+          id: `role-academic-${id}`,
+          name: "Quản Lý Đào Tạo / Giáo Vụ",
+          description:
+            "Quản lý danh sách học sinh, quản lý lớp học, phân công giáo viên đứng lớp, quản lý bảo lưu/nghỉ học và lịch học bù.",
+          permissions_json: JSON.stringify([
+            "students.view",
+            "students.create",
+            "students.edit",
+            "students.status",
+            "schedule.matrix",
+            "attendance.manage",
+            "makeups.manage",
+            "schedule.consult",
+            "classes.manage",
+            "teachers.manage",
+          ]),
+        },
+      ];
+
+      for (const r of defaultRoles) {
+        try {
+          await db.execute({
+            sql: "INSERT OR IGNORE INTO admin_roles (id, school_id, name, description, permissions_json) VALUES (?, ?, ?, ?, ?)",
+            args: [r.id, id, r.name, r.description, r.permissions_json],
+          });
+        } catch (err) {
+          log.debug("Bỏ qua lỗi không ảnh hưởng luồng chính (route)", { error: err });
+        }
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: "Tạo trường mới thành công!",
+        school_id: id,
+      });
+    }
+
+    // 2. Tạo tài khoản Admin cho trường
+    if (action === "create_admin") {
+      const { school_id, username, password, full_name } = body;
+      if (!school_id || !username || !password || !full_name) {
+        return NextResponse.json(
+          { success: false, message: "Vui lòng nhập đầy đủ thông tin tài khoản admin!" },
+          { status: 400 }
+        );
+      }
+
+      const checkUser = await db.execute({
+        sql: "SELECT id FROM school_admins WHERE username = ?",
+        args: [username.trim().toLowerCase()],
+      });
+      if (checkUser.rows.length > 0) {
+        return NextResponse.json(
+          { success: false, message: `Tên đăng nhập "${username}" đã có người sử dụng!` },
+          { status: 400 }
+        );
+      }
+
+      const id = `admin-${Date.now()}`;
+      await db.execute({
+        sql: "INSERT INTO school_admins (id, school_id, username, password, full_name, is_owner, is_active) VALUES (?, ?, ?, ?, ?, 1, 1)",
+        args: [id, school_id, username.trim().toLowerCase(), password.trim(), full_name.trim()],
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: "Tạo tài khoản quản trị viên cho trường thành công!",
+      });
+    }
+
+    // 3. Đổi tên & cập nhật thông tin trường
+    if (action === "edit_school") {
+      const {
+        school_id,
+        name,
+        code,
+        school_type,
+        street,
+        city,
+        branch_num,
+        address,
+        phone,
+        domain,
+        subdomain,
+      } = body;
+      if (!school_id || !name || !code) {
+        return NextResponse.json(
+          { success: false, message: "Vui lòng nhập đầy đủ tên và mã trường!" },
+          { status: 400 }
+        );
+      }
+
+      // Check unique code excluding this school
+      const checkCode = await db.execute({
+        sql: "SELECT id FROM schools WHERE code = ? AND id != ?",
+        args: [code.trim().toUpperCase(), school_id],
+      });
+      if (checkCode.rows.length > 0) {
+        return NextResponse.json(
+          { success: false, message: `Mã trường "${code}" đã được sử dụng bởi trường khác!` },
+          { status: 400 }
+        );
+      }
+
+      const cleanDomain = domain
+        ? domain
+            .trim()
+            .toLowerCase()
+            .replace(/^https?:\/\//, "")
+            .replace(/\/.*$/, "")
+        : "";
+      const cleanSubdomain = subdomain
+        ? subdomain
+            .trim()
+            .toLowerCase()
+            .replace(/[^a-z0-9-]/g, "")
+        : "";
+
+      await db.execute({
+        sql: `UPDATE schools 
+              SET name = ?, code = ?, school_type = ?, street = ?, city = ?, branch_num = ?, address = ?, phone = ?, domain = ?, subdomain = ? 
+              WHERE id = ?`,
+        args: [
+          name.trim(),
+          code.trim().toUpperCase(),
+          school_type?.trim() || "TT",
+          street?.trim() || "",
+          city?.trim() || "TPHCM",
+          String(branch_num || "1"),
+          address?.trim() || "",
+          phone?.trim() || "",
+          cleanDomain,
+          cleanSubdomain,
+          school_id,
+        ],
+      });
+
+      clearDomainCache();
+      return NextResponse.json({
+        success: true,
+        message: "Cập nhật thông tin và đổi tên trường thành công!",
+      });
+    }
+
+    // 4. Xóa trường (xóa toàn bộ dữ liệu thuộc trường này)
+    if (action === "delete_school") {
+      const { school_id } = body;
+      if (!school_id) {
+        return NextResponse.json(
+          { success: false, message: "Thiếu mã trường cần xóa!" },
+          { status: 400 }
+        );
+      }
+
+      await db.execute({ sql: "DELETE FROM school_admins WHERE school_id = ?", args: [school_id] });
+      await db.execute({ sql: "DELETE FROM students WHERE school_id = ?", args: [school_id] });
+      await db.execute({ sql: "DELETE FROM teachers WHERE school_id = ?", args: [school_id] });
+      await db.execute({ sql: "DELETE FROM time_slots WHERE school_id = ?", args: [school_id] });
+      await db.execute({
+        sql: "DELETE FROM level_surcharges WHERE school_id = ?",
+        args: [school_id],
+      });
+      await db.execute({
+        sql: "DELETE FROM discount_presets WHERE school_id = ?",
+        args: [school_id],
+      });
+      await db.execute({ sql: "DELETE FROM schools WHERE id = ?", args: [school_id] });
+
+      clearDomainCache();
+      return NextResponse.json({
+        success: true,
+        message: "Đã xóa trường học và toàn bộ dữ liệu liên quan thành công!",
+      });
+    }
+
+    // 4. Xóa admin
+    if (action === "delete_admin") {
+      const { admin_id } = body;
+      await db.execute({ sql: "DELETE FROM school_admins WHERE id = ?", args: [admin_id] });
+      return NextResponse.json({ success: true, message: "Đã xóa tài khoản admin!" });
+    }
+
+    // 4.1 Đổi mật khẩu tài khoản Admin cơ sở từ /he-thong
+    if (action === "update_admin_password") {
+      const { admin_id, new_password } = body;
+      if (!admin_id || !new_password || String(new_password).trim().length < 6) {
+        return NextResponse.json(
+          { success: false, message: "Mật khẩu mới phải có ít nhất 6 ký tự!" },
+          { status: 400 }
+        );
+      }
+      await db.execute({
+        sql: "UPDATE school_admins SET password = ? WHERE id = ?",
+        args: [String(new_password).trim(), admin_id],
+      });
+      return NextResponse.json({
+        success: true,
+        message:
+          "Đã cập nhật mật khẩu cho Admin cơ sở thành công! Các phiên cũ của tài khoản này đã bị hủy.",
+      });
+    }
+
+    // 5. Cấu hình IP Whitelist cho trường (Bật/tắt IP restriction & danh sách IP cho phép)
+    if (action === "update_school_ip") {
+      const { school_id, ip_restriction_enabled, allowed_ips } = body;
+      if (!school_id) {
+        return NextResponse.json({ success: false, message: "Thiếu mã trường!" }, { status: 400 });
+      }
+
+      await db.execute({
+        sql: "UPDATE schools SET ip_restriction_enabled = ?, allowed_ips = ? WHERE id = ?",
+        args: [Number(ip_restriction_enabled ? 1 : 0), String(allowed_ips || "").trim(), school_id],
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: "Cập nhật cấu hình IP bảo vệ cho trường thành công!",
+      });
+    }
+
+    // 6. Lưu cấu hình AI Trợ Lý toàn hệ thống (/he-thong)
+    if (action === "save_ai_config") {
+      const { ai_base_url, ai_api_key, ai_model, ai_is_active } = body;
+      const cleanUrl = String(ai_base_url || "")
+        .trim()
+        .replace(/\/+$/, "");
+      const cleanKey = String(ai_api_key || "").trim();
+      const cleanModel = String(ai_model || "gemini-3.8-flash").trim();
+      const activeVal = ai_is_active ? "1" : "0";
+
+      const pairs: [string, string][] = [
+        ["ai_base_url", cleanUrl],
+        ["ai_api_key", cleanKey],
+        ["ai_model", cleanModel],
+        ["ai_is_active", activeVal],
+      ];
+
+      for (const [k, v] of pairs) {
+        await db.execute({
+          sql: "INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+          args: [k, v],
+        });
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: "Đã lưu cấu hình AI Trợ Lý thành công!",
+      });
+    }
+
+    // 7. Thử nghiệm kết nối AI (Test AI Connection)
+    if (action === "test_ai_connection") {
+      const { ai_base_url, ai_api_key, ai_model } = body;
+      const testUrl = String(ai_base_url || "")
+        .trim()
+        .replace(/\/+$/, "");
+      const testKey = String(ai_api_key || "").trim();
+      const testModel = String(ai_model || "gemini-3.8-flash").trim();
+
+      if (!testUrl || !testKey) {
+        return NextResponse.json(
+          { success: false, message: "Vui lòng nhập cả AI Endpoint Base URL và API Key!" },
+          { status: 400 }
+        );
+      }
+
+      const startTime = Date.now();
+      try {
+        const fullEndpoint = `${testUrl}/chat/completions`;
+        const res = await fetch(fullEndpoint, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${testKey}`,
+          },
+          body: JSON.stringify({
+            model: testModel,
+            messages: [
+              {
+                role: "user",
+                content:
+                  "Xin chào! Bạn là mô hình gì? Trả lời ngắn gọn dưới 20 từ bằng tiếng Việt.",
+              },
+            ],
+            max_tokens: 50,
+          }),
+        });
+
+        const elapsedMs = Date.now() - startTime;
+        if (!res.ok) {
+          const errText = await res.text();
+          return NextResponse.json({
+            success: false,
+            message: `Kết nối thất bại (Mã HTTP: ${res.status}): ${errText.slice(0, 300)}`,
+            elapsed_ms: elapsedMs,
+          });
+        }
+
+        const data = await res.json();
+        const replyText = data.choices?.[0]?.message?.content || "Không có phản hồi nội dung";
+
+        return NextResponse.json({
+          success: true,
+          message: `Kết nối thành công! Phản hồi trong ${elapsedMs}ms: "${replyText.trim()}"`,
+          model: data.model || testModel,
+          elapsed_ms: elapsedMs,
+          reply: replyText.trim(),
+        });
+      } catch (err: unknown) {
+        return NextResponse.json({
+          success: false,
+          message: `Lỗi kết nối tới endpoint: ${getErrorMessage(err)}`,
+        });
+      }
+    }
+
+    return NextResponse.json(
+      { success: false, message: "Hành động không hợp lệ!" },
+      { status: 400 }
+    );
+  } catch (error: unknown) {
+    log.error("System POST Error:", { error: error });
+    return NextResponse.json(
+      { success: false, message: (error as Error).message || "Internal Server Error" },
+      { status: 500 }
+    );
+  }
+}

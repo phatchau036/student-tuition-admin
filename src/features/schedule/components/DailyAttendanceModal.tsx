@@ -73,7 +73,7 @@ export const DailyAttendanceModal: React.FC<DailyAttendanceModalProps> = ({
   useEffect(() => {
     if (typeof window !== "undefined") {
       const today = new Date().toISOString().slice(0, 10);
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- Đồng bộ state khi mở modal hoặc nạp dữ liệu; sẽ chuyển sang pattern key-remount ở Giai đoạn 2.
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Khởi tạo/tải dữ liệu một lần khi mount; modal remount bằng `key` mỗi lần mở nên không đồng bộ theo prop.
       setTodayDateStr(today);
       if (!selectedDate) {
         setSelectedDate(today);
@@ -114,7 +114,7 @@ export const DailyAttendanceModal: React.FC<DailyAttendanceModalProps> = ({
 
   useEffect(() => {
     if (isOpen && selectedDate) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- Đồng bộ state khi mở modal hoặc nạp dữ liệu; sẽ chuyển sang pattern key-remount ở Giai đoạn 2.
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Khởi tạo/tải dữ liệu một lần khi mount; modal remount bằng `key` mỗi lần mở nên không đồng bộ theo prop.
       loadAttendance(selectedDate);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- Loader là hàm khai báo trong component, chỉ gọi khi mở modal/mount; thêm vào deps sẽ gây gọi lại vô hạn. Sẽ chuyển sang useCallback ở Giai đoạn 2.

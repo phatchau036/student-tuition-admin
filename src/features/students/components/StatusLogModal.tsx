@@ -26,7 +26,9 @@ export const StatusLogModal: React.FC<StatusLogModalProps> = ({
 }) => {
   const { showToast } = useToast();
   const [logs, setLogs] = useState<StudentStatusLog[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  // Modal remount bằng `key` mỗi lần mở nên có thể khởi tạo trạng thái tải ngay,
+  // tránh gọi setIsLoading(true) đồng bộ trong effect.
+  const [isLoading, setIsLoading] = useState(true);
   const [filterAction, setFilterAction] = useState<string>("all");
   const [filterMonth, setFilterMonth] = useState<string>(selectedMonth);
 
@@ -62,7 +64,6 @@ export const StatusLogModal: React.FC<StatusLogModalProps> = ({
 
   const loadLogs = async (m: string) => {
     try {
-      setIsLoading(true);
       const token = typeof window !== "undefined" ? localStorage.getItem("admin_token") : null;
       const headers: Record<string, string> = {};
       if (token) headers["Authorization"] = `Bearer ${token}`;
@@ -89,12 +90,10 @@ export const StatusLogModal: React.FC<StatusLogModalProps> = ({
   };
 
   useEffect(() => {
-    if (isOpen) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- Đồng bộ state khi mở modal hoặc nạp dữ liệu; sẽ chuyển sang pattern key-remount ở Giai đoạn 2.
-      setFilterMonth(selectedMonth);
-      loadLogs(selectedMonth);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- Loader là hàm khai báo trong component, chỉ gọi khi mở modal/mount; thêm vào deps sẽ gây gọi lại vô hạn. Sẽ chuyển sang useCallback ở Giai đoạn 2.
+    // `filterMonth` đã khởi tạo từ prop khi mount (modal remount bằng `key`), effect chỉ tải dữ liệu.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Đây là tải dữ liệu bất đồng bộ khi mở modal, không đồng bộ state từ props.
+    if (isOpen) loadLogs(selectedMonth);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Chỉ chạy khi mở modal/đổi tháng; loader là hàm trong component.
   }, [isOpen, selectedMonth, schoolId]);
 
   // Cho học sinh học lại ngay từ modal

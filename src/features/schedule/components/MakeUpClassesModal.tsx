@@ -208,7 +208,7 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       if (initialStudentId) {
-        // eslint-disable-next-line react-hooks/set-state-in-effect -- Đồng bộ state khi mở modal hoặc nạp dữ liệu; sẽ chuyển sang pattern key-remount ở Giai đoạn 2.
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- Khởi tạo/tải dữ liệu một lần khi mount; modal remount bằng `key` mỗi lần mở nên không đồng bộ theo prop.
         setSelectedStudentFilter(initialStudentId);
         setReportStudentId(initialStudentId);
       }
@@ -220,7 +220,7 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
   // Tự động load lịch sử khi đổi tab hoặc đổi học sinh lọc
   useEffect(() => {
     if (activeTab === "history" && selectedStudentFilter && selectedStudentFilter !== "all") {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- Đồng bộ state khi mở modal hoặc nạp dữ liệu; sẽ chuyển sang pattern key-remount ở Giai đoạn 2.
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Khởi tạo/tải dữ liệu một lần khi mount; modal remount bằng `key` mỗi lần mở nên không đồng bộ theo prop.
       loadHistory(selectedStudentFilter);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- Loader là hàm khai báo trong component, chỉ gọi khi mở modal/mount; thêm vào deps sẽ gây gọi lại vô hạn. Sẽ chuyển sang useCallback ở Giai đoạn 2.
@@ -242,7 +242,7 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
           parsed[0].end_time
         ) {
           const item = parsed[0];
-          // eslint-disable-next-line react-hooks/set-state-in-effect -- Đồng bộ state khi mở modal hoặc nạp dữ liệu; sẽ chuyển sang pattern key-remount ở Giai đoạn 2.
+          // eslint-disable-next-line react-hooks/set-state-in-effect -- Khởi tạo/tải dữ liệu một lần khi mount; modal remount bằng `key` mỗi lần mở nên không đồng bộ theo prop.
           setAbsenceStartTime(item.start_time);
           setAbsenceEndTime(item.end_time);
           const [sh, sm] = item.start_time.split(":").map(Number);
@@ -306,7 +306,7 @@ export const MakeUpClassesModal: React.FC<MakeUpClassesModalProps> = ({
   // Tải thông tin sức chứa ca mở cửa khi chọn ngày học bù
   useEffect(() => {
     if (!makeupDate) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- Đồng bộ state khi mở modal hoặc nạp dữ liệu; sẽ chuyển sang pattern key-remount ở Giai đoạn 2.
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Khởi tạo/tải dữ liệu một lần khi mount; modal remount bằng `key` mỗi lần mở nên không đồng bộ theo prop.
       setDayOccupancy([]);
       setSelectedSlotId("");
       return;

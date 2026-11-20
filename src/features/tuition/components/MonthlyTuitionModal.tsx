@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Student, MonthFormat, TuitionAdjustmentItem } from "@/lib/types";
 import { formatVND, formatMonthDisplay } from "@/lib/tuition";
 import { useToast } from "@/components/ui/Toast";
@@ -41,37 +41,35 @@ export const MonthlyTuitionModal: React.FC<MonthlyTuitionModalProps> = ({
     return token ? { Authorization: `Bearer ${token}` } : {};
   };
 
+  // Khởi tạo trực tiếp từ props — component được remount bằng `key` mỗi lần mở
+  // hoặc đổi học sinh/tháng, nên không cần effect đồng bộ.
+  const isOverrideThisMonth = Boolean(
+    student?.monthly_override && student.monthly_override.month === selectedMonth
+  );
   const [month, setMonth] = useState(selectedMonth);
-  const [amount, setAmount] = useState<number>(0);
-  const [note, setNote] = useState<string>("");
-  const [adjustmentItems, setAdjustmentItems] = useState<TuitionAdjustmentItem[]>([]);
+  const [amount, setAmount] = useState<number>(
+    isOverrideThisMonth
+      ? (student?.monthly_override?.amount ?? 0)
+      : (student?.standard_tuition ?? 0)
+  );
+  const [note, setNote] = useState<string>(
+    isOverrideThisMonth ? (student?.monthly_override?.note ?? "") : ""
+  );
+  const [adjustmentItems, setAdjustmentItems] = useState<TuitionAdjustmentItem[]>(() => {
+    if (!isOverrideThisMonth) return [];
+    try {
+      const parsed = JSON.parse(student?.monthly_override?.items_json || "[]");
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  });
   const [isSaving, setIsSaving] = useState(false);
 
   // New item inputs
   const [newItemName, setNewItemName] = useState("");
   const [newItemType, setNewItemType] = useState<"add" | "deduct">("add");
   const [newItemAmount, setNewItemAmount] = useState<number | "">("");
-
-  useEffect(() => {
-    if (student) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- Đồng bộ state khi mở modal hoặc nạp dữ liệu; sẽ chuyển sang pattern key-remount ở Giai đoạn 2.
-      setMonth(selectedMonth);
-      if (student.monthly_override && student.monthly_override.month === selectedMonth) {
-        setAmount(student.monthly_override.amount);
-        setNote(student.monthly_override.note || "");
-        try {
-          const parsed = JSON.parse(student.monthly_override.items_json || "[]");
-          setAdjustmentItems(Array.isArray(parsed) ? parsed : []);
-        } catch {
-          setAdjustmentItems([]);
-        }
-      } else {
-        setAmount(student.standard_tuition || 0);
-        setNote("");
-        setAdjustmentItems([]);
-      }
-    }
-  }, [student, selectedMonth, isOpen]);
 
   // Compute total with items
   const baseStandard = student?.standard_tuition || 0;

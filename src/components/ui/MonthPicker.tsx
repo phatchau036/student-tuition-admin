@@ -29,14 +29,18 @@ export const MonthPicker: React.FC<MonthPickerProps> = ({
   const currentMonth =
     value && value.includes("-") ? parseInt(value.split("-")[1], 10) : new Date().getMonth() + 1;
 
-  const [displayYear, setDisplayYear] = useState<number>(currentYear);
-
-  useEffect(() => {
-    if (value && value.includes("-")) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- Đồng bộ state khi mở modal hoặc nạp dữ liệu; sẽ chuyển sang pattern key-remount ở Giai đoạn 2.
-      setDisplayYear(parseInt(value.split("-")[0], 10));
-    }
-  }, [value]);
+  // Năm hiển thị: ưu tiên năm người dùng đang duyệt trong dropdown, mặc định theo `value`.
+  // Dùng pattern "điều chỉnh state khi prop đổi" của React 19 thay vì setState trong effect.
+  const [yearOverride, setYearOverride] = useState<number | null>(null);
+  const [syncedValue, setSyncedValue] = useState(value);
+  if (syncedValue !== value) {
+    setSyncedValue(value);
+    setYearOverride(null);
+  }
+  const displayYear = yearOverride ?? currentYear;
+  const setDisplayYear = (next: number | ((prev: number) => number)) => {
+    setYearOverride(typeof next === "function" ? next(displayYear) : next);
+  };
 
   // Click outside to close
   useEffect(() => {

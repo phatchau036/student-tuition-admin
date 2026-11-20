@@ -154,7 +154,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({
 
   useEffect(() => {
     if (studentToEdit) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- Đồng bộ state khi mở modal hoặc nạp dữ liệu; sẽ chuyển sang pattern key-remount ở Giai đoạn 2.
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Khởi tạo form một lần khi mount (modal remount bằng `key` mỗi lần mở/đổi học sinh), không đồng bộ theo prop.
       setName(studentToEdit.name || "");
       setPhone(studentToEdit.phone || "");
       setZaloLink(studentToEdit.zalo_link || "");

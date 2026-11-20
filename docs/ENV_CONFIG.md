@@ -9,21 +9,30 @@
 Hệ thống yêu cầu các biến môi trường sau trong tệp `.env`:
 
 ```env
-# 1. Cổng lắng nghe của máy chủ Web (Mặc định: 3000)
-PORT=3000
-
-# 2. Tài khoản Super Admin (Cổng /he-thong - Chỉ truy cập từ localhost)
-SYSTEM_ADMIN_USER=systemadmin
-
-# 3. Mật khẩu Super Admin (Khuyên dùng chuỗi ngẫu nhiên mạnh > 12 ký tự)
+# 1. Tài khoản Super Admin (Cổng /he-thong - Chỉ truy cập từ localhost)
+SYSTEM_ADMIN_USERNAME=systemadmin
 SYSTEM_ADMIN_PASSWORD=your_super_secret_system_password_here
 
-# 4. Khóa bí mật dùng ký và xác thực mã hóa JWT / Token
-JWT_SECRET=your_jwt_secret_encryption_key_here
+# 2. Khóa bí mật ký/xác thực token Super Admin
+SYSTEM_ADMIN_SECRET=your_super_secret_key_at_least_32_chars
 
-# 5. Môi trường thực thi (development | production)
+# 3. Khóa ký token phiên School Admin (mặc định fallback về SYSTEM_ADMIN_SECRET)
+SESSION_SECRET=
+
+# 4. "on" = chỉ chấp nhận token đã ký (buộc đăng nhập lại toàn bộ)
+SESSION_STRICT=
+
+# 5. Localhost Guard cho /he-thong (mặc định bật; "off" để tắt khi SSH tunnel)
+HETHONG_GUARD=
+HETHONG_ALLOWED_IPS=
+
+# 6. Môi trường thực thi (development | production)
 NODE_ENV=production
 ```
+
+> **Lưu ý bảo mật:** Tệp `.env` **không còn được track trên Git**. Mẫu đầy đủ nằm tại [`.env.example`](../.env.example).
+> Các script `scripts/run-upgrade.js` và `scripts/remote_deploy.py` tự động sao lưu/phục hồi `.env` quanh thao tác `git pull`
+> để bảo toàn cấu hình production khi nâng cấp từ phiên bản cũ (nơi `.env` vẫn còn được track).
 
 ---
 

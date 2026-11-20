@@ -98,7 +98,7 @@ export const MonthlySummaryModal: React.FC<MonthlySummaryModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- Đồng bộ state khi mở modal hoặc nạp dữ liệu; sẽ chuyển sang pattern key-remount ở Giai đoạn 2.
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Khởi tạo/tải dữ liệu một lần khi mount; modal remount bằng `key` mỗi lần mở nên không đồng bộ theo prop.
       loadSummary(selectedMonth);
     }
   }, [isOpen, selectedMonth, loadSummary]);

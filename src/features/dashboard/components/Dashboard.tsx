@@ -3187,8 +3187,9 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Settings Modal */}
+      {/* Settings Modal — key remount: nạp lại toàn bộ state từ props mỗi lần mở / đổi cơ sở */}
       <SettingsModal
+        key={`settings-${currentSchool?.id || "none"}-${isSettingsOpen ? "open" : "closed"}`}
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
         onSaved={handleRefresh}
@@ -3230,6 +3231,7 @@ export default function Dashboard() {
 
       {/* Class Management Modal */}
       <ClassManagementModal
+        key={`class-mgmt-${isClassModalOpen ? "open" : "closed"}-${currentSchool?.id || "none"}`}
         isOpen={isClassModalOpen}
         onClose={() => setIsClassModalOpen(false)}
         classes={classes}
@@ -3242,6 +3244,7 @@ export default function Dashboard() {
 
       {/* Make Up Classes & Absence Modal */}
       <MakeUpClassesModal
+        key={`makeup-${isMakeupModalOpen ? "open" : "closed"}-${selectedStudentForMakeup || "all"}-${currentSchool?.id || "none"}`}
         isOpen={isMakeupModalOpen}
         onClose={() => setIsMakeupModalOpen(false)}
         students={students}
@@ -3253,6 +3256,7 @@ export default function Dashboard() {
 
       {/* Student Form Modal (Create / Edit) */}
       <StudentFormModal
+        key={`student-form-${isStudentModalOpen ? "open" : "closed"}-${studentToEdit?.id || "new"}-${slotPrefill.day || ""}-${slotPrefill.time || ""}`}
         isOpen={isStudentModalOpen}
         onClose={() => {
           setIsStudentModalOpen(false);
@@ -3285,6 +3289,7 @@ export default function Dashboard() {
 
       {/* Monthly Tuition Override Modal */}
       <MonthlyTuitionModal
+        key={`monthly-tuition-${isMonthlyModalOpen ? "open" : "closed"}-${studentForMonthly?.id || "none"}-${selectedMonth}`}
         isOpen={isMonthlyModalOpen}
         onClose={() => setIsMonthlyModalOpen(false)}
         onSaved={handleRefresh}
@@ -3335,6 +3340,7 @@ export default function Dashboard() {
 
       {/* Quick Audit Modal (Đối soát nhanh: Chọn Đã đóng/Chưa đóng hoặc tick từng tháng) */}
       <QuickAuditModal
+        key={`quick-audit-${isQuickAuditModalOpen ? "open" : "closed"}-${studentForQuickAudit?.id || "none"}-${selectedMonth}`}
         isOpen={isQuickAuditModalOpen}
         onClose={() => setIsQuickAuditModalOpen(false)}
         student={studentForQuickAudit}
@@ -3346,6 +3352,7 @@ export default function Dashboard() {
 
       {/* Status Log Modal (Nhật ký tổng biến động học sinh) */}
       <StatusLogModal
+        key={`status-log-${isStatusLogModalOpen ? "open" : "closed"}-${selectedMonth}`}
         isOpen={isStatusLogModalOpen}
         onClose={() => setIsStatusLogModalOpen(false)}
         selectedMonth={selectedMonth}
@@ -3356,6 +3363,7 @@ export default function Dashboard() {
 
       {/* Monthly Summary Modal (Tổng Kết Báo Cáo Học Phí & SePay) */}
       <MonthlySummaryModal
+        key={`monthly-summary-${isMonthlySummaryModalOpen ? "open" : "closed"}-${selectedMonth}`}
         isOpen={isMonthlySummaryModalOpen}
         onClose={() => setIsMonthlySummaryModalOpen(false)}
         initialMonth={selectedMonth}
@@ -3366,6 +3374,7 @@ export default function Dashboard() {
 
       {/* Tuition Reminder Queue Modal (Hàng Đợi Nhắc Học Phí Nhanh Qua Zalo Cho Danh Sách Nợ) */}
       <TuitionReminderQueueModal
+        key={`reminder-queue-${isTuitionQueueModalOpen ? "open" : "closed"}-${selectedMonth}`}
         isOpen={isTuitionQueueModalOpen}
         onClose={() => setIsTuitionQueueModalOpen(false)}
         students={students}
@@ -3418,6 +3427,7 @@ export default function Dashboard() {
 
       {/* Staff & Role-Based Permissions Management Modal (Trung Tâm Quản Lý Nhân Sự & Phân Quyền) */}
       <StaffManagementModal
+        key={`staff-${isStaffModalOpen ? "open" : "closed"}-${currentSchool?.id || "none"}`}
         isOpen={isStaffModalOpen}
         onClose={() => setIsStaffModalOpen(false)}
         schoolId={currentSchool?.id}
@@ -3432,6 +3442,7 @@ export default function Dashboard() {
 
       {/* Daily Attendance & Lesson Log Modal for Admin */}
       <DailyAttendanceModal
+        key={`attendance-${isDailyAttendanceModalOpen ? "open" : "closed"}-${currentSchool?.id || "none"}`}
         isOpen={isDailyAttendanceModalOpen}
         onClose={() => setIsDailyAttendanceModalOpen(false)}
         classes={classes}
@@ -3444,6 +3455,7 @@ export default function Dashboard() {
 
       {/* Admin AI Assistant Modal (Cửa Sổ Trợ Lý AI Đa Năng Cho Quản Lý) */}
       <AdminAiAssistantModal
+        key={`ai-assistant-${isAiModalOpen ? "open" : "closed"}-${currentSchool?.id || "none"}`}
         isOpen={isAiModalOpen}
         onClose={() => setIsAiModalOpen(false)}
         schoolName={currentSchool?.name}

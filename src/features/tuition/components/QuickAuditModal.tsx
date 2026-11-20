@@ -46,8 +46,11 @@ export const QuickAuditModal: React.FC<QuickAuditModalProps> = ({
 
   // Mode: "current_month" (Chọn nhanh Đã đóng/Chưa đóng cho tháng này hoặc khóa) | "multi_months" (Tick chọn từng tháng)
   const [auditMode, setAuditMode] = useState<"quick_choice" | "matrix">("quick_choice");
-  const [selectedPackageId, setSelectedPackageId] = useState<string>("");
-  const [customAmount, setCustomAmount] = useState<number>(0);
+  // Khởi tạo từ props — modal được remount bằng `key` mỗi lần mở / đổi học sinh.
+  const [selectedPackageId, setSelectedPackageId] = useState<string>(
+    student?.tuition_package_id || ""
+  );
+  const [customAmount, setCustomAmount] = useState<number>(student?.current_tuition || 0);
   const [auditNote, setAuditNote] = useState<string>("");
   const [receiptNumber, setReceiptNumber] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -56,38 +59,29 @@ export const QuickAuditModal: React.FC<QuickAuditModalProps> = ({
   const [isReceiptOpen, setIsReceiptOpen] = useState(false);
   const [currentPaymentRecord, setCurrentPaymentRecord] = useState<StudentPayment | null>(null);
 
-  // Danh sách các tháng hiển thị (từ 5 tháng trước đến 3 tháng tới)
-  const [monthsList, setMonthsList] = useState<string[]>([]);
+  // Danh sách 9 tháng (4 trước → 4 sau quanh tháng đang chọn), khởi tạo một lần khi mount.
+  const [monthsList] = useState<string[]>(() => {
+    const list: string[] = [];
+    let cur = selectedMonth;
+    for (let i = 0; i < 4; i++) cur = getPreviousMonthStr(cur);
+    for (let i = 0; i < 9; i++) {
+      list.push(cur);
+      cur = getNextMonthStr(cur);
+    }
+    return list;
+  });
   // Trạng thái tick đóng tiền của từng tháng: Record<YYYY-MM, boolean>
   const [monthStatusMap, setMonthStatusMap] = useState<Record<string, boolean>>({});
   const [originalMonthStatusMap, setOriginalMonthStatusMap] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
+    // Chỉ tải dữ liệu bất đồng bộ (không đồng bộ state từ props — đã khởi tạo ở useState).
     if (isOpen && student) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- Đồng bộ state khi mở modal hoặc nạp dữ liệu; sẽ chuyển sang pattern key-remount ở Giai đoạn 2.
-      setCustomAmount(student.current_tuition || 0);
-      setSelectedPackageId(student.tuition_package_id || "");
-      setAuditNote("");
-
-      // Sinh danh sách 9 tháng (4 tháng trước, tháng hiện tại, 4 tháng tới)
-      const list: string[] = [];
-      let cur = selectedMonth;
-      // lùi 4 tháng
-      for (let i = 0; i < 4; i++) {
-        cur = getPreviousMonthStr(cur);
-      }
-      for (let i = 0; i < 9; i++) {
-        list.push(cur);
-        cur = getNextMonthStr(cur);
-      }
-      setMonthsList(list);
-
-      // Tải lịch sử thanh toán từ API
       // eslint-disable-next-line react-hooks/immutability -- Hàm khai báo bằng function (được hoisting) gọi trong effect mount là an toàn; rule báo nhầm thứ tự khai báo.
-      loadPaymentsHistory(student.id, list);
+      loadPaymentsHistory(student.id, monthsList);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- Loader là hàm khai báo trong component, chỉ gọi khi mở modal/mount; thêm vào deps sẽ gây gọi lại vô hạn. Sẽ chuyển sang useCallback ở Giai đoạn 2.
-  }, [isOpen, student, selectedMonth]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Chỉ chạy khi mở modal; monthsList ổn định theo mount.
+  }, [isOpen, student]);
 
   async function loadPaymentsHistory(studentId: string, months: string[]) {
     try {

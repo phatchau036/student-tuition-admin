@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   TimeSlot,
   LevelSurcharge,
@@ -185,13 +185,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [isAddingSubject, setIsAddingSubject] = useState(false);
 
   // State
-  const [baseTuition, setBaseTuition] = useState<number>(initialBaseTuition);
-  const [durationMode, setDurationMode] = useState<"by_hours" | "by_sessions">("by_sessions");
-  const [appLanguage, setAppLanguage] = useState<AppLanguage>(initialAppLanguage);
-  const [monthFormat, setMonthFormat] = useState<MonthFormat>(initialMonthFormat);
+  const [baseTuition] = useState<number>(initialBaseTuition);
+  const [durationMode] = useState<"by_hours" | "by_sessions">(initialDurationMode);
+  const [appLanguage] = useState<AppLanguage>(initialAppLanguage);
+  const [monthFormat] = useState<MonthFormat>(initialMonthFormat);
   const [defaultHours, setDefaultHours] = useState<number>(initialDefaultHours);
   const [defaultSessions, setDefaultSessions] = useState<number>(initialDefaultSessions);
-  const [defaultStudyTime, setDefaultStudyTime] = useState<string>(initialDefaultStudyTime);
+  const [defaultStudyTime] = useState<string>(initialDefaultStudyTime);
   const [maxStudents, setMaxStudents] = useState<number>(initialMaxStudents);
   const [crowdedThreshold, setCrowdedThreshold] = useState<number>(initialCrowdedThreshold);
   const [capacityMode, setCapacityMode] = useState<CapacityMode>(initialCapacityMode);
@@ -238,9 +238,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     Array<{ chat_id: string; from_name: string; text: string; date: number }>
   >([]);
   const [showRecentChatsModal, setShowRecentChatsModal] = useState(false);
-  const [zaloOaSecretKey, setZaloOaSecretKey] = useState<string>(initialZaloOaSecretKey);
-  const [zaloAccessToken, setZaloAccessToken] = useState<string>(initialZaloAccessToken);
-  const [zaloTemplateId, setZaloTemplateId] = useState<string>(initialZaloTemplateId);
+  const [zaloOaSecretKey] = useState<string>(initialZaloOaSecretKey);
+  const [zaloAccessToken] = useState<string>(initialZaloAccessToken);
+  const [zaloTemplateId] = useState<string>(initialZaloTemplateId);
 
   // Tuition Packages state
   const [packages, setPackages] = useState<TuitionPackage[]>(initialTuitionPackages);
@@ -445,68 +445,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       setIsChangingPassword(false);
     }
   };
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- Đồng bộ state khi mở modal hoặc nạp dữ liệu; sẽ chuyển sang pattern key-remount ở Giai đoạn 2.
-    setBaseTuition(initialBaseTuition);
-    setDurationMode(initialDurationMode);
-    setAppLanguage(initialAppLanguage);
-    setMonthFormat(initialMonthFormat);
-    setDefaultHours(initialDefaultHours);
-    setDefaultSessions(initialDefaultSessions);
-    setDefaultStudyTime(initialDefaultStudyTime);
-    setMaxStudents(initialMaxStudents);
-    setCrowdedThreshold(initialCrowdedThreshold);
-    setCapacityMode(initialCapacityMode || "by_slot");
-    setReconciliationMode(initialReconciliationMode || "manual");
-    setSepayApiKey(initialSepayApiKey || "");
-    setSepayAccountNumber(initialSepayAccountNumber || "");
-    setSepayBankName(initialSepayBankName || "");
-    setSepayPrefix(initialSepayPrefix || "HP");
-    setDefaultMinutesPerSession(initialDefaultMinutesPerSession || 90);
-    setZaloReminderMode(initialZaloReminderMode || "manual");
-    setZaloBotToken(initialZaloBotToken || "");
-    setZaloBotName(initialZaloBotName || "");
-    setZaloAdminChatId(initialZaloAdminChatId || "");
-    setZaloNotifyPayment(initialZaloNotifyPayment !== 0);
-    setZaloNotifyStudentAbsence(initialZaloNotifyStudentAbsence !== 0);
-    setZaloNotifyTeacherLeave(initialZaloNotifyTeacherLeave !== 0);
-    setZaloNotifyParentFeedback(initialZaloNotifyParentFeedback !== 0);
-    setZaloOaSecretKey(initialZaloOaSecretKey || "");
-    setZaloAccessToken(initialZaloAccessToken || "");
-    setZaloTemplateId(initialZaloTemplateId || "");
-    setTimeSlots(initialTimeSlots);
-    setLevels(initialLevelSurcharges);
-    setDiscounts(initialDiscountPresets);
-    setPackages(initialTuitionPackages);
-    if (initialSchedulePresets && initialSchedulePresets.length > 0) {
-      setSchedulePresets(initialSchedulePresets);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- Loader là hàm khai báo trong component, chỉ gọi khi mở modal/mount; thêm vào deps sẽ gây gọi lại vô hạn. Sẽ chuyển sang useCallback ở Giai đoạn 2.
-  }, [
-    initialBaseTuition,
-    initialDurationMode,
-    initialMonthFormat,
-    initialDefaultHours,
-    initialDefaultSessions,
-    initialDefaultStudyTime,
-    initialMaxStudents,
-    initialCrowdedThreshold,
-    initialCapacityMode,
-    initialReconciliationMode,
-    initialZaloReminderMode,
-    initialZaloBotToken,
-    initialZaloBotName,
-    initialZaloOaSecretKey,
-    initialZaloAccessToken,
-    initialZaloTemplateId,
-    initialTimeSlots,
-    initialLevelSurcharges,
-    initialDiscountPresets,
-    initialTuitionPackages,
-    initialSchedulePresets,
-    isOpen,
-  ]);
 
   // Test Zalo Bot Connection
   const handleTestBotConnection = async () => {
