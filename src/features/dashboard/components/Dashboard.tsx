@@ -2228,7 +2228,7 @@ export default function Dashboard() {
                     <th className="py-3 px-3 text-center hidden md:table-cell min-w-[145px] whitespace-nowrap">
                       {t.col_reconciliation}
                     </th>
-                    <th className="py-3 px-3 text-center w-16 whitespace-nowrap">
+                    <th className="py-3 px-3 text-center w-16 whitespace-nowrap sticky right-0 z-20 bg-slate-50/95 dark:bg-slate-800/95 backdrop-blur-xs shadow-[-6px_0_10px_-4px_rgba(0,0,0,0.06)]">
                       {t.col_actions}
                     </th>
                   </tr>
@@ -2734,8 +2734,14 @@ export default function Dashboard() {
                             )}
                           </td>
 
-                          {/* Consolidated Modern Action Column */}
-                          <td className="py-2 px-3 text-center whitespace-nowrap">
+                          {/* Consolidated Modern Action Column (Cố định cạnh phải để không bị che khuất khi bảng cuộn ngang) */}
+                          <td
+                            className={`py-2 px-3 text-center whitespace-nowrap sticky right-0 z-10 transition shadow-[-6px_0_10px_-4px_rgba(0,0,0,0.06)] ${
+                              isSelected
+                                ? "bg-indigo-50/95 dark:bg-indigo-950/90"
+                                : "bg-white/95 group-hover:bg-slate-50/95 dark:bg-slate-900/95 dark:group-hover:bg-slate-800/95"
+                            }`}
+                          >
                             <div className="inline-flex items-center justify-center relative">
                               {/* Dropdown Action Menu Trigger */}
                               <button
