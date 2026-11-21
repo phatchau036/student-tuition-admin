@@ -2195,8 +2195,10 @@ export default function Dashboard() {
                       </button>
                     </th>
 
-                    <th className="py-3 px-3 min-w-[210px]">{t.col_package_schedule}</th>
-                    <th className="py-3 px-3 text-center hidden xl:table-cell min-w-[130px] whitespace-nowrap">
+                    <th className="py-3 px-3 min-w-[190px] max-w-[260px]">
+                      {t.col_package_schedule}
+                    </th>
+                    <th className="py-3 px-3 text-center hidden xl:table-cell min-w-[100px] whitespace-nowrap">
                       {t.col_discount}
                     </th>
 
@@ -2228,7 +2230,7 @@ export default function Dashboard() {
                     <th className="py-3 px-3 text-center hidden md:table-cell min-w-[145px] whitespace-nowrap">
                       {t.col_reconciliation}
                     </th>
-                    <th className="py-3 px-3 text-center w-16 whitespace-nowrap sticky right-0 z-20 bg-slate-50/95 dark:bg-slate-800/95 backdrop-blur-xs shadow-[-6px_0_10px_-4px_rgba(0,0,0,0.06)]">
+                    <th className="py-3 px-3 text-center w-16 whitespace-nowrap">
                       {t.col_actions}
                     </th>
                   </tr>
@@ -2497,7 +2499,7 @@ export default function Dashboard() {
                           </td>
 
                           {/* Package & Weekly Schedule */}
-                          <td className="py-2.5 px-3">
+                          <td className="py-2.5 px-3 max-w-[260px]">
                             <div className="flex items-center gap-1.5 flex-wrap">
                               {/* Package badge */}
                               {student.tuition_package_name ? (
@@ -2527,9 +2529,12 @@ export default function Dashboard() {
                               </span>
                             </div>
 
-                            <div className="text-[10px] text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-0.5 font-medium whitespace-nowrap">
+                            <div className="text-[10px] text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-0.5 font-medium min-w-0">
                               <Clock className="w-3 h-3 text-indigo-500 shrink-0" />
-                              <span className="font-mono" title={student.study_time_detail}>
+                              <span
+                                className="font-mono truncate"
+                                title={student.study_time_detail}
+                              >
                                 {student.study_time_detail || t.flexible_hours_slot}
                               </span>
                             </div>
@@ -2734,14 +2739,8 @@ export default function Dashboard() {
                             )}
                           </td>
 
-                          {/* Consolidated Modern Action Column (Cố định cạnh phải để không bị che khuất khi bảng cuộn ngang) */}
-                          <td
-                            className={`py-2 px-3 text-center whitespace-nowrap sticky right-0 z-10 transition shadow-[-6px_0_10px_-4px_rgba(0,0,0,0.06)] ${
-                              isSelected
-                                ? "bg-indigo-50/95 dark:bg-indigo-950/90"
-                                : "bg-white/95 group-hover:bg-slate-50/95 dark:bg-slate-900/95 dark:group-hover:bg-slate-800/95"
-                            }`}
-                          >
+                          {/* Consolidated Modern Action Column */}
+                          <td className="py-2 px-3 text-center whitespace-nowrap">
                             <div className="inline-flex items-center justify-center relative">
                               {/* Dropdown Action Menu Trigger */}
                               <button
